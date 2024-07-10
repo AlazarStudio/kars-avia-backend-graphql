@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  name     String
+  email    String @unique
+  login    String @unique
+  password String
+  role     String
+}
+
+// Отели
+
+model Hotel {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  country    String
+  city       String
+  address    String
+  index      String
+  quote      String
+  email      String
+  number     String
+  inn        String
+  ogrn       String
+  rs         String
+  bank       String
+  bik        String
+  staff      HotelPersonal[]
+  categories HotelCategory[]
+  rooms      HotelRoom[]
+  tariffs    HotelTariff[]
+}
+
+model HotelPersonal {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  role         String
+  login        String           @unique
+  password     String
+  hotel        Hotel?           @relation(fields: [hotelId], references: [id])
+  hotelId      String?          @db.ObjectId
+  department   HotelDepartment? @relation(fields: [departmentId], references: [id])
+  departmentId String?          @db.ObjectId
+}
+
+model HotelDepartment {
+  id    String          @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  staff HotelPersonal[]
+}
+
+model HotelCategory {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  name      String
+  hotel     Hotel?        @relation(fields: [hotelId], references: [id])
+  hotelId   String?       @db.ObjectId
+  rooms     HotelRoom[]
+  tariffs   HotelTariff[]
+}
+
+model HotelRoom {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  name            String
+  hotelCategory   HotelCategory @relation(fields: [hotelCategoryId], references: [id])
+  hotelCategoryId String        @db.ObjectId
+  hotel           Hotel?        @relation(fields: [hotelId], references: [id])
+  hotelId         String?       @db.ObjectId
+}
+
+model HotelTariff {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  name            String
+  price           Float
+  hotelCategory   HotelCategory @relation(fields: [hotelCategoryId], references: [id])
+  hotelCategoryId String        @db.ObjectId
+  hotel           Hotel?        @relation(fields: [hotelId], references: [id])
+  hotelId         String?       @db.ObjectId
+
+  @@unique([hotelCategoryId])
+}
+
+// Отели
+
+// Авиакомпании
+
+model Avia {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  airport String
+  country String
+  city    String
+  address String
+  index   String
+  quote   String
+  email   String
+  number  String
+  inn     String
+  ogrn    String
+  rs      String
+  bank    String
+  bik     String
+
+  staff AviaPersonal[]
+}
+
+model AviaPersonal {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  role         String
+  login        String          @unique
+  password     String
+  avia         Avia?           @relation(fields: [aviaId], references: [id])
+  aviaId       String?         @db.ObjectId
+  department   AviaDepartment? @relation(fields: [departmentId], references: [id])
+  departmentId String?         @db.ObjectId
+}
+
+model AviaDepartment {
+  id    String         @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  staff AviaPersonal[]
+}
+
+// Авиакомпании

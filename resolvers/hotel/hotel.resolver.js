@@ -1,0 +1,139 @@
+import { prisma } from '../../prisma.js'
+
+const hotelResolver = {
+  Query: {
+    hotels: async () => {
+      return await prisma.hotel.findMany({
+        include: {
+          staff: true,
+          categories: true,
+          rooms: true,
+          tariffs: true
+        }
+      })
+    },
+    hotel: async (_, { id }) => {
+      return await prisma.hotel.findUnique({
+        where: { id },
+        include: {
+          staff: true,
+          categories: true,
+          rooms: true,
+          tariffs: true
+        }
+      })
+    }
+  },
+  Mutation: {
+    createHotel: async (_, { input }) => {
+      const { name, country, city, address, quote, index, email, number, inn, ogrn, rs, bank, bik } = input;
+
+      // Формируем объект данных для создания отеля
+      const data = {
+        name,
+        country,
+        city,
+        address,
+        quote,
+        index: index || "", // Пустая строка, если index не определён
+        email: email || "", // Пустая строка, если email не определён
+        number: number || "", // Пустая строка, если number не определён
+        inn: inn || "", // Пустая строка, если inn не определён
+        ogrn: ogrn || "", // Пустая строка, если ogrn не определён
+        rs: rs || "", // Пустая строка, если rs не определён
+        bank: bank || "", // Пустая строка, если bank не определён
+        bik: bik || "", // Пустая строка, если bik не определён
+      };
+
+      return await prisma.hotel.create({
+        data,
+        include: {
+          staff: true,
+          categories: true,
+          rooms: true,
+          tariffs: true
+        }
+      });
+    },
+    updateHotel: async (_, { id, input }) => {
+      const {
+        name,
+        country,
+        city,
+        address,
+        quote,
+        index,
+        email,
+        number,
+        inn,
+        ogrn,
+        rs,
+        bank,
+        bik
+      } = input;
+
+      // Формируем объект данных для обновления отеля
+      const data = {
+        name,
+        country,
+        city,
+        address,
+        quote,
+        index: index || "", // Пустая строка, если index не определён
+        email: email || "", // Пустая строка, если email не определён
+        number: number || "", // Пустая строка, если number не определён
+        inn: inn || "", // Пустая строка, если inn не определён
+        ogrn: ogrn || "", // Пустая строка, если ogrn не определён
+        rs: rs || "", // Пустая строка, если rs не определён
+        bank: bank || "", // Пустая строка, если bank не определён
+        bik: bik || "", // Пустая строка, если bik не определён
+      };
+
+      return await prisma.hotel.update({
+        where: { id },
+        data,
+        include: {
+          staff: true,
+          categories: true,
+          rooms: true,
+          tariffs: true
+        }
+      });
+    },
+    deleteHotel: async (_, { id }) => {
+      return await prisma.hotel.delete({
+        where: { id },
+        include: {
+          staff: true,
+          categories: true,
+          rooms: true,
+          tariffs: true
+        }
+      });
+    }
+  },
+  Hotel: {
+    staff: async (parent) => {
+      return await prisma.hotelPersonal.findMany({
+        where: { hotelId: parent.id }
+      });
+    },
+    categories: async (parent) => {
+      return await prisma.hotelCategory.findMany({
+        where: { hotelId: parent.id }
+      });
+    },
+    rooms: async (parent) => {
+      return await prisma.hotelRoom.findMany({
+        where: { hotelId: parent.id }
+      });
+    },
+    tariffs: async (parent) => {
+      return await prisma.hotelTariff.findMany({
+        where: { hotelId: parent.id }
+      });
+    }
+  }
+};
+
+export default hotelResolver;
