@@ -1,4 +1,4 @@
-import { prisma } from '../../prisma.js'
+import { prisma } from "../../prisma.js"
 
 const hotelResolver = {
   Query: {
@@ -26,7 +26,21 @@ const hotelResolver = {
   },
   Mutation: {
     createHotel: async (_, { input }) => {
-      const { name, country, city, address, quote, index, email, number, inn, ogrn, rs, bank, bik } = input;
+      const {
+        name,
+        country,
+        city,
+        address,
+        quote,
+        index,
+        email,
+        number,
+        inn,
+        ogrn,
+        rs,
+        bank,
+        bik
+      } = input
 
       // Формируем объект данных для создания отеля
       const data = {
@@ -35,15 +49,15 @@ const hotelResolver = {
         city,
         address,
         quote,
-        index: index || "", // Пустая строка, если index не определён
-        email: email || "", // Пустая строка, если email не определён
-        number: number || "", // Пустая строка, если number не определён
-        inn: inn || "", // Пустая строка, если inn не определён
-        ogrn: ogrn || "", // Пустая строка, если ogrn не определён
-        rs: rs || "", // Пустая строка, если rs не определён
-        bank: bank || "", // Пустая строка, если bank не определён
-        bik: bik || "", // Пустая строка, если bik не определён
-      };
+        index: index || "", // Пустая строка, если Индекс не определён
+        email: email || "", // Пустая строка, если Email не определён
+        number: number || "", // Пустая строка, если Номер не определён
+        inn: inn || "", // Пустая строка, если ИНН не определён
+        ogrn: ogrn || "", // Пустая строка, если ОГРН не определён
+        rs: rs || "", // Пустая строка, если Р/С не определён
+        bank: bank || "", // Пустая строка, если Банк не определён
+        bik: bik || "" // Пустая строка, если БИК не определён
+      }
 
       return await prisma.hotel.create({
         data,
@@ -53,7 +67,7 @@ const hotelResolver = {
           rooms: true,
           tariffs: true
         }
-      });
+      })
     },
     updateHotel: async (_, { id, input }) => {
       const {
@@ -70,7 +84,7 @@ const hotelResolver = {
         rs,
         bank,
         bik
-      } = input;
+      } = input
 
       // Формируем объект данных для обновления отеля
       const data = {
@@ -79,15 +93,15 @@ const hotelResolver = {
         city,
         address,
         quote,
-        index: index || "", // Пустая строка, если index не определён
-        email: email || "", // Пустая строка, если email не определён
-        number: number || "", // Пустая строка, если number не определён
-        inn: inn || "", // Пустая строка, если inn не определён
-        ogrn: ogrn || "", // Пустая строка, если ogrn не определён
-        rs: rs || "", // Пустая строка, если rs не определён
-        bank: bank || "", // Пустая строка, если bank не определён
-        bik: bik || "", // Пустая строка, если bik не определён
-      };
+        index,
+        email,
+        number,
+        inn,
+        ogrn,
+        rs,
+        bank,
+        bik
+      }
 
       return await prisma.hotel.update({
         where: { id },
@@ -98,7 +112,7 @@ const hotelResolver = {
           rooms: true,
           tariffs: true
         }
-      });
+      })
     },
     deleteHotel: async (_, { id }) => {
       return await prisma.hotel.delete({
@@ -109,31 +123,31 @@ const hotelResolver = {
           rooms: true,
           tariffs: true
         }
-      });
+      })
     }
   },
   Hotel: {
     staff: async (parent) => {
       return await prisma.hotelPersonal.findMany({
         where: { hotelId: parent.id }
-      });
+      })
     },
     categories: async (parent) => {
       return await prisma.hotelCategory.findMany({
         where: { hotelId: parent.id }
-      });
+      })
     },
     rooms: async (parent) => {
       return await prisma.hotelRoom.findMany({
         where: { hotelId: parent.id }
-      });
+      })
     },
     tariffs: async (parent) => {
       return await prisma.hotelTariff.findMany({
         where: { hotelId: parent.id }
-      });
+      })
     }
   }
-};
+}
 
-export default hotelResolver;
+export default hotelResolver
