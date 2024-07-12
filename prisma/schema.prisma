@@ -93,7 +93,7 @@ model HotelTariff {
   hotel           Hotel?        @relation(fields: [hotelId], references: [id])
   hotelId         String?       @db.ObjectId
 
-  @@unique([hotelCategoryId])
+  // @@unique([hotelCategoryId])
 }
 
 // Отели
@@ -138,3 +138,42 @@ model AirlineDepartment {
 }
 
 // Авиакомпании
+
+// Заявка
+
+model Request {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  fullName      String
+  position      String?
+  gender        String?
+  phoneNumber   String?
+  airport       String
+  arrival       Arrival
+  departure     Departure
+  requestNumber String?
+  hotel         String?
+  roomCategory  String
+  roomNumber    String?
+  mealPlan      MealPlan
+}
+
+type Arrival {
+  flight String
+  date   String
+  time   String
+}
+
+type Departure {
+  flight String
+  date   String
+  time   String
+}
+
+type MealPlan {
+  included  Boolean
+  breakfast Boolean?
+  lunch     Boolean?
+  dinner    Boolean?
+}
+
+// Заявка
