@@ -66,6 +66,10 @@ type MealPlan {
   dinner: Boolean
 }
 
+type Subscription {
+  requestCreated: Request!
+}
+
 `;
 
 export default requestTypeDef;

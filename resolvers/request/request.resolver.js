@@ -1,4 +1,8 @@
-import { prisma } from '../../prisma.js'
+import { prisma } from '../../prisma.js';
+import { PubSub } from 'graphql-subscriptions';
+
+const pubsub = new PubSub();
+const REQUEST_CREATED = 'REQUEST_CREATED';
 
 const requestResolver = {
   Mutation: {
@@ -13,7 +17,7 @@ const requestResolver = {
         departure,
         roomCategory,
         mealPlan
-      } = input
+      } = input;
 
       // Создание заявки
       const newRequest = await prisma.request.create({
@@ -28,11 +32,19 @@ const requestResolver = {
           roomCategory,
           mealPlan
         }
-      })
+      });
 
-      return newRequest
+      // Публикация события после создания заявки
+      pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest });
+
+      return newRequest;
+    }
+  },
+  Subscription: {
+    requestCreated: {
+      subscribe: () => pubsub.asyncIterator([REQUEST_CREATED]),
     }
   }
-}
+};
 
-export default requestResolver
+export default requestResolver;

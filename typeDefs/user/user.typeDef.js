@@ -1,4 +1,12 @@
 const userTypeDef = `#graphql
+
+enum Role {
+  ADMIN
+  SUPADMIN
+  SUBADMIN
+  MODERATOR
+}
+
   type User {
     _id: ID!
     name: String!
@@ -54,6 +62,6 @@ const userTypeDef = `#graphql
   type LogoutResponse {
     message: String!
   }
-`;
+`
 
-export default userTypeDef;
+export default userTypeDef

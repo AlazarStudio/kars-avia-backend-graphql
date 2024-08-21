@@ -177,3 +177,10 @@ type MealPlan {
 }
 
 // Заявка
+
+enum Role {
+  MEGADMIN
+  SUPADMIN
+  SUBADMIN
+  MODERATOR
+}
