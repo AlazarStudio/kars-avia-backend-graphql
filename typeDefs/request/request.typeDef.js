@@ -1,38 +1,6 @@
 const requestTypeDef = `#graphql
-type Mutation {
-  createRequest(input: CreateRequestInput!): Request!
-}
 
-input CreateRequestInput {
-  fullName: String!
-  position: String
-  gender: String
-  phoneNumber: String
-  airport: String!
-  arrival: ArrivalInput!
-  departure: DepartureInput!
-  roomCategory: String!
-  mealPlan: MealPlanInput!
-}
-
-input ArrivalInput {
-  flight: String!
-  date: String!
-  time: String!
-}
-
-input DepartureInput {
-  flight: String!
-  date: String!
-  time: String!
-}
-
-input MealPlanInput {
-  included: Boolean!
-  breakfast: Boolean
-  lunch: Boolean
-  dinner: Boolean
-}
+scalar Date
 
 type Request {
   id: ID!
@@ -45,6 +13,10 @@ type Request {
   departure: Departure!
   roomCategory: String!
   mealPlan: MealPlan!
+  senderId: String!
+  receiverId: String!
+  createdAt: Date!
+  updatedAt: Date!
 }
 
 type Arrival {
@@ -66,10 +38,65 @@ type MealPlan {
   dinner: Boolean
 }
 
-type Subscription {
-  requestCreated: Request!
+input CreateRequestInput {
+  fullName: String!
+  position: String
+  gender: String
+  phoneNumber: String
+  airport: String!
+  arrival: ArrivalInput!
+  departure: DepartureInput!
+  roomCategory: String!
+  mealPlan: MealPlanInput!
 }
 
-`;
+input UpdateRequestInput {
+  fullName: String
+  position: String
+  gender: String
+  phoneNumber: String
+  airport: String
+  arrival: ArrivalInput
+  departure: DepartureInput
+  roomCategory: String
+  mealPlan: MealPlanInput
+  hotel: String
+}
 
-export default requestTypeDef;
+input ArrivalInput {
+  flight: String!
+  date: String!
+  time: String!
+}
+
+input DepartureInput {
+  flight: String!
+  date: String!
+  time: String!
+}
+
+input MealPlanInput {
+  included: Boolean!
+  breakfast: Boolean
+  lunch: Boolean
+  dinner: Boolean
+}
+
+type Query {
+  requests: [Request!]!
+  request(id:ID): Request
+}
+
+type Mutation {
+  createRequest(input: CreateRequestInput!): Request!
+  updateRequest(id: ID!, input: UpdateRequestInput!): Request!
+}
+
+type Subscription {
+  requestCreated: Request!
+  requestUpdated: Request!
+}
+
+`
+
+export default requestTypeDef

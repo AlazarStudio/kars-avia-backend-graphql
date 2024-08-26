@@ -1,11 +1,11 @@
 const userTypeDef = `#graphql
 
-enum Role {
-  ADMIN
-  SUPADMIN
-  SUBADMIN
-  MODERATOR
-}
+  enum Role {
+    ADMIN
+    SUPADMIN
+    SUBADMIN
+    MODERATOR
+  }
 
   type User {
     _id: ID!
