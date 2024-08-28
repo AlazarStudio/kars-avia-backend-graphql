@@ -35,7 +35,7 @@ const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" })
 const serverCleanup = useServer({ schema }, wsServer)
 
 const server = new ApolloServer({
-  schema,
+  schema: schema,
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer }),
     {
@@ -48,51 +48,60 @@ const server = new ApolloServer({
       }
     }
   ],
-  context: async ({ req }) => {
-    const token = req.headers.authorization || ""
-    let user = null
+  // context: async ({ req }) => {
+  //   const token = req.headers.authorization || ""
+  //   let user = null
 
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-      } catch (e) {
-        console.error(e)
-      }
-    }
-    return { user }
-  }
+  //   if (token) {
+  //     try {
+  //       const decoded = jwt.verify(token, process.env.JWT_SECRET)
+  //       user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+  //     } catch (e) {
+  //       console.error(e)
+  //     }
+  //   }
+  //   return { user }
+  // }
 })
 
 await server.start()
+// await server.applyMiddleware({ app });
 
-app.use("/", cors(), express.json(), expressMiddleware(server))
-app.use(authMiddleware)
+// app.use("/graphql", cors(), express.json(), expressMiddleware(server))
+// app.use(authMiddleware)
 
-app.post("/register", adminMiddleware, async (req, res) => {
-  const { name, email, login, password, role } = req.body
+// app.post("/register", adminMiddleware, async (req, res) => {
+//   const { name, email, login, password, role } = req.body
 
-  try {
-    const hashedPassword = await argon2.hash(password)
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        login,
-        password: hashedPassword,
-        role: role || "user"
-      }
-    })
+//   try {
+//     const hashedPassword = await argon2.hash(password)
+//     const newUser = await prisma.user.create({
+//       data: {
+//         name,
+//         email,
+//         login,
+//         password: hashedPassword,
+//         role: role || "user"
+//       }
+//     })
 
-    res.json(newUser)
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-})
+//     res.json(newUser)
+//   } catch (error) {
+//     res.status(500).json({ error: error.message })
+//   }
+// })
 
-await new Promise((resolve) =>
-  httpServer.listen({ port: 4000, host: "0.0.0.0" }, resolve)
-)
+// await new Promise((resolve) =>
+//   httpServer.listen({ port: 4000, host: "0.0.0.0" }, resolve)
+// )
 // await new Promise((resolve) => httpsServer.listen({ port: 4000, host: '0.0.0.0' }, resolve));
 
-console.log(`🚀 Server ready at http://localhost:4000/graphql/`)
+// console.log(`🚀 Server ready at http://localhost:${PORT}/graphql/`)
+
+
+const PORT = 4000;
+const HOST = "0.0.0.0"
+// Now that our HTTP server is fully set up, we can listen to it.
+httpServer.listen({port: PORT}, () => {
+  console.log(`Server is now running on http://localhost:${PORT}/graphql`);
+});

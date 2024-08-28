@@ -14,8 +14,9 @@
   "dependencies": {
     "@apollo/server": "^4.10.4",
     "@graphql-tools/merge": "^9.0.4",
-    "@graphql-tools/schema": "^10.0.5",
+    "@graphql-tools/schema": "^10.0.6",
     "@prisma/client": "^5.16.2",
+    "apollo-server-express": "^3.13.0",
     "argon2": "^0.40.3",
     "bcryptjs": "^2.4.3",
     "connect-mongodb-session": "^2.2.0",

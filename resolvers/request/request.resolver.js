@@ -65,7 +65,7 @@ const requestResolver = {
       } = input
 
       // Создание заявки
-      const newRequest = await prisma.request.update({
+      const updatedRequest = await prisma.request.update({
         where: { id },
         data: {
           fullName,
@@ -82,9 +82,9 @@ const requestResolver = {
       })
 
       // Публикация события после создания заявки
-      pubsub.publish(REQUEST_UPDATED, { requestCreated: newRequest })
+      pubsub.publish(REQUEST_UPDATED, { requestCreated: updatedRequest })
 
-      return newRequest
+      return updatedRequest
     }
   },
   Subscription: {
