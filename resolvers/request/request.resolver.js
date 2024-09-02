@@ -27,7 +27,7 @@ const requestResolver = {
         arrival,
         departure,
         roomCategory,
-        mealPlan
+        mealPlan,
       } = input
 
       // Создание заявки
@@ -41,7 +41,7 @@ const requestResolver = {
           arrival,
           departure,
           roomCategory,
-          mealPlan
+          mealPlan,
         }
       })
 
@@ -61,7 +61,7 @@ const requestResolver = {
         departure,
         roomCategory,
         mealPlan,
-        hotel
+        hotel,
       } = input
 
       // Создание заявки
@@ -77,7 +77,8 @@ const requestResolver = {
           departure,
           roomCategory,
           mealPlan,
-          hotel
+          hotel,
+          updatedAt: new Date,
         }
       })
 

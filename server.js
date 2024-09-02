@@ -48,26 +48,26 @@ const server = new ApolloServer({
       }
     }
   ],
-  // context: async ({ req }) => {
-  //   const token = req.headers.authorization || ""
-  //   let user = null
+  context: async ({ req }) => {
+    const token = req.headers.authorization || ""
+    let user = null
 
-  //   if (token) {
-  //     try {
-  //       const decoded = jwt.verify(token, process.env.JWT_SECRET)
-  //       user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-  //     } catch (e) {
-  //       console.error(e)
-  //     }
-  //   }
-  //   return { user }
-  // }
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    return { user }
+  }
 })
 
 await server.start()
 // await server.applyMiddleware({ app });
 
-// app.use("/graphql", cors(), express.json(), expressMiddleware(server))
+app.use("/graphql", cors(), express.json(), expressMiddleware(server))
 // app.use(authMiddleware)
 
 // app.post("/register", adminMiddleware, async (req, res) => {

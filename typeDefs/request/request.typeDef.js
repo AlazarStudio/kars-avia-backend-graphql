@@ -15,8 +15,8 @@ type Request {
   mealPlan: MealPlan!
   senderId: String!
   receiverId: String!
-  createdAt: Date!
-  updatedAt: Date!
+  createdAt: String
+  updatedAt: String
 }
 
 type Arrival {

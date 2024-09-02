@@ -171,7 +171,7 @@ model Request {
   airport       String
   arrival       Arrival
   departure     Departure
-  requestNumber String?
+  // requestNumber String?
   roomCategory  String
   roomNumber    String?
   mealPlan      MealPlan
@@ -181,8 +181,8 @@ model Request {
   hotelId       String?   @db.ObjectId
   sender        User      @relation(name: "sender", fields: [senderId], references: [id])
   senderId      String    @db.ObjectId
-  receiver      User      @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId    String    @db.ObjectId
+  receiver      User?      @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId    String?    @db.ObjectId
   Chat          Chat[]
 }
 
