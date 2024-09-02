@@ -17,6 +17,8 @@ type Request {
   receiverId: String!
   createdAt: String
   updatedAt: String
+  hotel: String
+  roomNumber: String
 }
 
 type Arrival {
