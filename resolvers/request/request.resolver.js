@@ -80,12 +80,11 @@ const requestResolver = {
           mealPlan,
           hotelId,
           roomNumber,
-          updatedAt: new Date,
         }
       })
 
       // Публикация события после создания заявки
-      pubsub.publish(REQUEST_UPDATED, { requestCreated: updatedRequest })
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
 
       return updatedRequest
     }

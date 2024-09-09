@@ -67,7 +67,7 @@ const server = new ApolloServer({
 await server.start()
 // await server.applyMiddleware({ app });
 
-app.use("/graphql", cors(), express.json(), expressMiddleware(server))
+app.use("/", cors(), express.json(), expressMiddleware(server))
 // app.use(authMiddleware)
 
 // app.post("/register", adminMiddleware, async (req, res) => {
