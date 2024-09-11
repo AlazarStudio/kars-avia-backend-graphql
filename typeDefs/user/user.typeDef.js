@@ -8,7 +8,7 @@ const userTypeDef = `#graphql
   }
 
   type User {
-    _id: ID!
+    id: ID!
     name: String!
     email: String!
     login: String!
@@ -51,7 +51,7 @@ const userTypeDef = `#graphql
   }
 
   type AuthPayload {
-    _id: ID!
+    id: ID!
     name: String!
     email: String!
     login: String!

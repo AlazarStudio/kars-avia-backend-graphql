@@ -28,6 +28,8 @@ const requestResolver = {
         departure,
         roomCategory,
         mealPlan,
+        airlineId,
+        senderId
       } = input
 
       // Создание заявки
@@ -42,6 +44,12 @@ const requestResolver = {
           departure,
           roomCategory,
           mealPlan,
+          airline: {
+            connect: { id: airlineId } // Использование `connect` для существующей авиакомпании
+          },
+          sender: {
+            connect: { id: senderId } // Привязка к пользователю, отправившему заявку
+          }
         }
       })
 
@@ -62,10 +70,10 @@ const requestResolver = {
         roomCategory,
         mealPlan,
         hotelId,
-        roomNumber,
+        roomNumber
       } = input
 
-      // Создание заявки
+      // Обновление заявки
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: {
@@ -78,8 +86,8 @@ const requestResolver = {
           departure,
           roomCategory,
           mealPlan,
-          hotelId,
           roomNumber,
+          hotel: hotelId ? { connect: { id: hotelId } } : undefined // Установление связи с отелем, если передан hotelId
         }
       })
 

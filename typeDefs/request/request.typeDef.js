@@ -17,8 +17,9 @@ type Request {
   receiverId: String!
   createdAt: String
   updatedAt: String
-  hotel: String
+  hotelId: String
   roomNumber: String
+  airlineId: String
 }
 
 type Arrival {
@@ -50,6 +51,8 @@ input CreateRequestInput {
   departure: DepartureInput!
   roomCategory: String!
   mealPlan: MealPlanInput!
+  airlineId: String
+  senderId: String
 }
 
 input UpdateRequestInput {
@@ -62,7 +65,7 @@ input UpdateRequestInput {
   departure: DepartureInput
   roomCategory: String
   mealPlan: MealPlanInput
-  hotel: String
+  hotelId: String 
 }
 
 input ArrivalInput {
