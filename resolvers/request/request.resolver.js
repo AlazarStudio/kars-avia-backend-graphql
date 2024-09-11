@@ -8,11 +8,28 @@ const REQUEST_UPDATED = "REQUEST_UPDATED"
 const requestResolver = {
   Query: {
     requests: async () => {
-      return prisma.request.findMany()
+      return prisma.request.findMany({
+        include: {
+          airline: {
+            select: {
+              name: true,   
+              // images: true  
+            }
+          }
+        }
+      })
     },
     request: async (_, { requestId }) => {
       return prisma.request.findUnique({
-        where: { id: requestId }
+        where: { id: requestId },
+        include: {
+          airline: {
+            select: {
+              name: true,    
+              // images: true 
+            }
+          }
+        }
       })
     }
   },
@@ -29,7 +46,8 @@ const requestResolver = {
         roomCategory,
         mealPlan,
         airlineId,
-        senderId
+        senderId,
+        status
       } = input
 
       // Создание заявки
@@ -49,7 +67,8 @@ const requestResolver = {
           },
           sender: {
             connect: { id: senderId } // Привязка к пользователю, отправившему заявку
-          }
+          },
+          status
         }
       })
 
@@ -70,7 +89,8 @@ const requestResolver = {
         roomCategory,
         mealPlan,
         hotelId,
-        roomNumber
+        roomNumber,
+        status
       } = input
 
       // Обновление заявки
@@ -87,7 +107,8 @@ const requestResolver = {
           roomCategory,
           mealPlan,
           roomNumber,
-          hotel: hotelId ? { connect: { id: hotelId } } : undefined // Установление связи с отелем, если передан hotelId
+          hotel: hotelId ? { connect: { id: hotelId } } : undefined,
+          status
         }
       })
 
