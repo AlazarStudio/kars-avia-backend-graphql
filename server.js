@@ -20,6 +20,14 @@ import authMiddleware, {
   adminMiddleware
 } from "./middlewares/authMiddleware.js"
 
+import GraphQLUpload  from "graphql-upload/GraphQLUpload.mjs"
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
+import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
+
+// ------------------------------------------------------------------------------------------------
+// import { PrismaClient } from '@prisma/client';
+
+// export const prisma = new PrismaClient();
 // ------------------------------------------------------------------------------------------------
 
 dotenv.config()
@@ -36,6 +44,8 @@ const serverCleanup = useServer({ schema }, wsServer)
 
 const server = new ApolloServer({
   schema: schema,
+  csrfPrevention: true,
+  cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer }),
     {
@@ -46,7 +56,8 @@ const server = new ApolloServer({
           }
         }
       }
-    }
+    },
+    ApolloServerPluginLandingPageLocalDefault({ embed: true })
   ],
   context: async ({ req }) => {
     const token = req.headers.authorization || ""
@@ -67,6 +78,7 @@ const server = new ApolloServer({
 await server.start()
 // await server.applyMiddleware({ app });
 
+app.use(graphqlUploadExpress())
 app.use("/", cors(), express.json(), expressMiddleware(server))
 // app.use(authMiddleware)
 
@@ -98,10 +110,9 @@ app.use("/", cors(), express.json(), expressMiddleware(server))
 
 // console.log(`🚀 Server ready at http://localhost:${PORT}/graphql/`)
 
-
-const PORT = 4000;
+const PORT = 4000
 const HOST = "0.0.0.0"
 // Now that our HTTP server is fully set up, we can listen to it.
-httpServer.listen({port: PORT}, () => {
-  console.log(`Server is now running on http://localhost:${PORT}/graphql`);
-});
+httpServer.listen({ port: PORT }, () => {
+  console.log(`Server is now running on http://localhost:${PORT}/graphql`)
+})

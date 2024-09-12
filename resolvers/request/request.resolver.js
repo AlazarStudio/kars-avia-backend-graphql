@@ -12,8 +12,15 @@ const requestResolver = {
         include: {
           airline: {
             select: {
-              name: true,   
-              // images: true  
+              name: true
+              // images: true
+            }
+          },
+          airport: {
+            select: {
+              name: true,
+              code: true,
+              city: true
             }
           }
         }
@@ -25,8 +32,15 @@ const requestResolver = {
         include: {
           airline: {
             select: {
-              name: true,    
-              // images: true 
+              name: true
+              // images: true
+            }
+          },
+          airport: {
+            select: {
+              name: true,
+              code: true,
+              city: true
             }
           }
         }
@@ -40,7 +54,7 @@ const requestResolver = {
         position,
         gender,
         phoneNumber,
-        airport,
+        airportId,
         arrival,
         departure,
         roomCategory,
@@ -57,7 +71,9 @@ const requestResolver = {
           position,
           gender,
           phoneNumber,
-          airport,
+          airport: {
+            connect: { id: airportId }
+          },
           arrival,
           departure,
           roomCategory,
@@ -83,7 +99,6 @@ const requestResolver = {
         position,
         gender,
         phoneNumber,
-        airport,
         arrival,
         departure,
         roomCategory,
@@ -101,7 +116,6 @@ const requestResolver = {
           position,
           gender,
           phoneNumber,
-          airport,
           arrival,
           departure,
           roomCategory,

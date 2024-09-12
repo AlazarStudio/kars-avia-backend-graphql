@@ -15,6 +15,7 @@ const airlineTypeDef = `#graphql
         bank: String
         bik: String
         staff: [AirlinePersonal!]!
+        images: String
     }
 
     type AirlinePersonal {
@@ -58,6 +59,7 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
+    images: String
   }
 
   input UpdateAirlineInput {
@@ -74,6 +76,7 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
+    images: String
   }
 
 `

@@ -43,14 +43,14 @@ const airlineResolver = {
         city,
         address,
         quote,
-        index: index || "", // Пустая строка, если Индекс не определён
-        email: email || "", // Пустая строка, если Email не определён
-        number: number || "", // Пустая строка, если Номер не определён
-        inn: inn || "", // Пустая строка, если ИНН не определён
-        ogrn: ogrn || "", // Пустая строка, если ОГРН не определён
-        rs: rs || "", // Пустая строка, если Р/С не определён
-        bank: bank || "", // Пустая строка, если Банк не определён
-        bik: bik || "" // Пустая строка, если БИК не определён
+        index: index || "", 
+        email: email || "", 
+        number: number || "", 
+        inn: inn || "", 
+        ogrn: ogrn || "", 
+        rs: rs || "", 
+        bank: bank || "", 
+        bik: bik || "" 
       }
 
       return await prisma.airline.create({

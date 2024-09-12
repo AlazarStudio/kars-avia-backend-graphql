@@ -8,13 +8,13 @@ type Request {
   position: String
   gender: String
   phoneNumber: String
-  airport: String!
+  airportId: String!
   arrival: Arrival!
   departure: Departure!
   roomCategory: String!
   mealPlan: MealPlan!
   senderId: String!
-  receiverId: String!
+  receiverId: String
   createdAt: String
   updatedAt: String
   hotelId: String
@@ -47,7 +47,7 @@ input CreateRequestInput {
   position: String
   gender: String
   phoneNumber: String
-  airport: String!
+  airportId: String!
   arrival: ArrivalInput!
   departure: DepartureInput!
   roomCategory: String!
@@ -62,7 +62,6 @@ input UpdateRequestInput {
   position: String
   gender: String
   phoneNumber: String
-  airport: String
   arrival: ArrivalInput
   departure: DepartureInput
   roomCategory: String

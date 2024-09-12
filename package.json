@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "dev2": "nodemon server2.js"
+    "dev2": "nodemon server2.js",
+    "prisma": "prisma"
   },
   "type": "module",
   "keywords": [],
@@ -28,15 +29,17 @@
     "graphql": "^16.9.0",
     "graphql-passport": "^0.6.8",
     "graphql-subscriptions": "^2.0.0",
+    "graphql-upload": "^16.0.2",
     "graphql-ws": "^5.16.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.5",
     "passport": "^0.7.0",
-    "prisma": "^5.19.1",
+    "stream-promise": "^3.2.0",
     "subscriptions-transport-ws": "^0.11.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "prisma": "^5.19.1"
   }
 }

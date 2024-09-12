@@ -121,7 +121,7 @@ model HotelTariff {
 model Airline {
   id      String   @id @default(auto()) @map("_id") @db.ObjectId
   name    String
-  // images  String[]
+  images  String[]
   country String
   city    String
   address String
@@ -159,6 +159,14 @@ model AirlineDepartment {
 
 // Авиакомпании
 
+model Airport {
+  id      String    @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  code    String
+  city    String
+  Request Request[]
+}
+
 // Заявка
 
 model Request {
@@ -169,7 +177,8 @@ model Request {
   position     String?
   gender       String?
   phoneNumber  String?
-  airport      String
+  airport      Airport   @relation(fields: [airportId], references: [id])
+  airportId    String    @db.ObjectId
   arrival      Arrival
   departure    Departure
   // requestNumber String?
@@ -185,7 +194,7 @@ model Request {
   receiver     User?     @relation(name: "receiver", fields: [receiverId], references: [id])
   receiverId   String?   @db.ObjectId
   Chat         Chat[]
-  status       String    @default("processing")
+  status       String    @default("created")
 }
 
 type Arrival {
