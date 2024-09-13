@@ -83,7 +83,10 @@ const hotelResolver = {
         ogrn,
         rs,
         bank,
-        bik
+        bik,
+        category,
+        tariffs,
+
       } = input
 
       // Формируем объект данных для обновления отеля
@@ -100,7 +103,10 @@ const hotelResolver = {
         ogrn,
         rs,
         bank,
-        bik
+        bik,
+        category,
+        tariffs,
+
       }
 
       return await prisma.hotel.update({

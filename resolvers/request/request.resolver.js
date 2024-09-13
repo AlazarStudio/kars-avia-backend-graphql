@@ -12,8 +12,8 @@ const requestResolver = {
         include: {
           airline: {
             select: {
-              name: true
-              // images: true
+              name: true,
+              images: true
             }
           },
           airport: {
@@ -32,8 +32,8 @@ const requestResolver = {
         include: {
           airline: {
             select: {
-              name: true
-              // images: true
+              name: true,
+              images: true
             }
           },
           airport: {

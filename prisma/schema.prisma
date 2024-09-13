@@ -106,6 +106,7 @@ model HotelTariff {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   name            String
   price           Float
+  aviaPrice       Float?
   hotelCategory   HotelCategory @relation(fields: [hotelCategoryId], references: [id])
   hotelCategoryId String        @db.ObjectId
   hotel           Hotel?        @relation(fields: [hotelId], references: [id])

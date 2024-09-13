@@ -33,7 +33,8 @@ const airlineResolver = {
         ogrn,
         rs,
         bank,
-        bik
+        bik,
+        images
       } = input
 
       // Формируем объект данных для создания авиакомпании
@@ -50,7 +51,8 @@ const airlineResolver = {
         ogrn: ogrn || "", 
         rs: rs || "", 
         bank: bank || "", 
-        bik: bik || "" 
+        bik: bik || "" ,
+        images
       }
 
       return await prisma.airline.create({
@@ -61,11 +63,9 @@ const airlineResolver = {
       })
     },
     updateAirline: async (_, { id, input }) => {
-      // Формируем объект данных для обновления авиакомпании
       const data = {
-        ...input // spread оператор для удобства
+        ...input 
       }
-
       return await prisma.airline.update({
         where: { id },
         data,
