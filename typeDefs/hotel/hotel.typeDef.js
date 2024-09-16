@@ -1,4 +1,7 @@
 const hotelTypeDef = `#graphql
+
+  scalar Upload
+
   type Hotel {
     id: ID!
     name: String!
@@ -14,49 +17,36 @@ const hotelTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
-    staff: [HotelPersonal!]!
-    categories: [HotelCategory!]!
-    rooms: [HotelRoom!]!
-    tariffs: [HotelTariff!]!
+    images: [String!]!
+    categories: [Category!]!
+    rates: [Rate!]!
+    rooms: [Room!]!
   }
 
-  type HotelPersonal {
+  type Category {
     id: ID!
     name: String!
-    role: String!
-    login: String!
-    password: String!
-    hotel: Hotel!
-    department: HotelDepartment
+    rooms: [Room!]!
   }
 
-  type HotelDepartment {
+  type Rate {
     id: ID!
     name: String!
-    staff: [HotelPersonal!]!
+    prices: [Price!]!
   }
 
-  type HotelCategory {
+  type Room {
     id: ID!
     name: String!
-    rooms: [HotelRoom!]!
-    tariffs: [HotelTariff!]!
-    hotel: Hotel!
+    category: Category
+    rate: Rate
   }
 
-  type HotelRoom {
+  type Price {
     id: ID!
-    name: String!
-    hotelCategory: HotelCategory!
-    hotel: Hotel!
-  }
-
-  type HotelTariff {
-    id: ID!
-    name: String!
-    price: Float!
-    hotelCategory: HotelCategory!
-    hotel: Hotel!
+    amount: Float!
+    category: Category!
+    rate: Rate!
   }
 
   type Query {
@@ -65,8 +55,8 @@ const hotelTypeDef = `#graphql
   }
 
   type Mutation {
-    createHotel(input: CreateHotelInput!): Hotel!
-    updateHotel(id: ID!, input: UpdateHotelInput!): Hotel!
+    createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
+    updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
     deleteHotel(id: ID!): Hotel!
   }
 
@@ -74,8 +64,8 @@ const hotelTypeDef = `#graphql
     name: String!
     country: String!
     city: String!
-    address: String!
-    quote: String!
+    address: String
+    quote: String
     index: String
     email: String
     number: String
@@ -84,6 +74,9 @@ const hotelTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
+    categories: [CategoryInput!]
+    rates: [RateInput!]
+    rooms: [RoomInput!]
   }
 
   input UpdateHotelInput {
@@ -100,6 +93,27 @@ const hotelTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
+    categories: [CategoryInput!]
+    rates: [RateInput!]
+    rooms: [RoomInput!]
+  }
+
+  input CategoryInput {
+    name: String!
+  }
+
+  input RateInput {
+    name: String!
+    prices: [PriceInput!]!
+  }
+
+  input PriceInput {
+    amount: Float!
+    categoryId: ID!
+  }
+
+  input RoomInput {
+    name: String!
   }
 `
 

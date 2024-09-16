@@ -1,6 +1,10 @@
 import { prisma } from "../../prisma.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import uploadImage from "../../exports/uploadImage.js"
 
 const airlineResolver = {
+  Upload: GraphQLUpload,
+
   Query: {
     airlines: async () => {
       return await prisma.airline.findMany({
@@ -19,40 +23,17 @@ const airlineResolver = {
     }
   },
   Mutation: {
-    createAirline: async (_, { input }) => {
-      const {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index,
-        email,
-        number,
-        inn,
-        ogrn,
-        rs,
-        bank,
-        bik,
-        images
-      } = input
+    createAirline: async (_, { input, images }) => {
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
+      }
 
-      // Формируем объект данных для создания авиакомпании
       const data = {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index: index || "", 
-        email: email || "", 
-        number: number || "", 
-        inn: inn || "", 
-        ogrn: ogrn || "", 
-        rs: rs || "", 
-        bank: bank || "", 
-        bik: bik || "" ,
-        images
+        ...input,
+        images: imagePaths
       }
 
       return await prisma.airline.create({
@@ -62,9 +43,16 @@ const airlineResolver = {
         }
       })
     },
-    updateAirline: async (_, { id, input }) => {
+    updateAirline: async (_, { id, input, images }) => {
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
+      }
       const data = {
-        ...input 
+        ...input,
+        ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
       }
       return await prisma.airline.update({
         where: { id },

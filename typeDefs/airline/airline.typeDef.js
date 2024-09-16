@@ -1,4 +1,7 @@
 const airlineTypeDef = `#graphql
+
+    scalar Upload
+
     type Airline {
         id: ID!
         name: String!
@@ -15,7 +18,7 @@ const airlineTypeDef = `#graphql
         bank: String
         bik: String
         staff: [AirlinePersonal!]!
-        images: String
+        images: [String!]!
     }
 
     type AirlinePersonal {
@@ -40,8 +43,8 @@ const airlineTypeDef = `#graphql
     }
 
     type Mutation {
-        createAirline(input: CreateAirlineInput!): Airline!
-        updateAirline(id: ID!, input: UpdateAirlineInput!): Airline!
+        createAirline(input: CreateAirlineInput!, images: [Upload!]): Airline!
+        updateAirline(id: ID!, input: UpdateAirlineInput!, images: [Upload!]): Airline!
         deleteAirline(id: ID!): Airline!
     }
 
@@ -59,7 +62,6 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
-    images: String
   }
 
   input UpdateAirlineInput {
@@ -76,7 +78,6 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
-    images: String
   }
 
 `

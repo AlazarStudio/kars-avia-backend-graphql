@@ -1,14 +1,17 @@
 import { prisma } from "../../prisma.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import uploadImage from "../../exports/uploadImage.js"
 
 const hotelResolver = {
+  Upload: GraphQLUpload,
+
   Query: {
     hotels: async () => {
       return await prisma.hotel.findMany({
         include: {
-          staff: true,
           categories: true,
           rooms: true,
-          tariffs: true
+          rates: true
         }
       })
     },
@@ -16,141 +19,124 @@ const hotelResolver = {
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
-          staff: true,
           categories: true,
           rooms: true,
-          tariffs: true
+          rates: true
         }
       })
     }
   },
-  Mutation: {
-    createHotel: async (_, { input }) => {
-      const {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index,
-        email,
-        number,
-        inn,
-        ogrn,
-        rs,
-        bank,
-        bik
-      } = input
 
-      // Формируем объект данных для создания отеля
+  Mutation: {
+    createHotel: async (_, { input, images }) => {
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
+      }
+
       const data = {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index: index || "", // Пустая строка, если Индекс не определён
-        email: email || "", // Пустая строка, если Email не определён
-        number: number || "", // Пустая строка, если Номер не определён
-        inn: inn || "", // Пустая строка, если ИНН не определён
-        ogrn: ogrn || "", // Пустая строка, если ОГРН не определён
-        rs: rs || "", // Пустая строка, если Р/С не определён
-        bank: bank || "", // Пустая строка, если Банк не определён
-        bik: bik || "" // Пустая строка, если БИК не определён
+        ...input,
+        images: imagePaths
       }
 
       return await prisma.hotel.create({
         data,
         include: {
-          staff: true,
           categories: true,
           rooms: true,
-          tariffs: true
+          rates: true
         }
       })
     },
-    updateHotel: async (_, { id, input }) => {
-      const {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index,
-        email,
-        number,
-        inn,
-        ogrn,
-        rs,
-        bank,
-        bik,
-        category,
-        tariffs,
 
-      } = input
+    updateHotel: async (_, { id, input, images }) => {
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
+      }
 
-      // Формируем объект данных для обновления отеля
+      const categoryUpserts = input.categories
+        ? {
+            create: input.categories.map((category) => ({
+              name: category.name
+            }))
+          }
+        : undefined
+
+      const roomUpdates = input.rooms
+        ? {
+            create: input.rooms.map((room) => ({
+              name: room.name,
+              categoryId: room.categoryId || null
+            }))
+          }
+        : undefined
+
       const data = {
-        name,
-        country,
-        city,
-        address,
-        quote,
-        index,
-        email,
-        number,
-        inn,
-        ogrn,
-        rs,
-        bank,
-        bik,
-        category,
-        tariffs,
-
+        ...input,
+        ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
+        categories: categoryUpserts,
+        rooms: roomUpdates
       }
 
       return await prisma.hotel.update({
         where: { id },
         data,
         include: {
-          staff: true,
           categories: true,
           rooms: true,
-          tariffs: true
+          rates: true
         }
       })
     },
+
     deleteHotel: async (_, { id }) => {
       return await prisma.hotel.delete({
         where: { id },
         include: {
-          staff: true,
           categories: true,
           rooms: true,
-          tariffs: true
+          rates: true
         }
       })
     }
   },
+
   Hotel: {
-    staff: async (parent) => {
-      return await prisma.hotelPersonal.findMany({
-        where: { hotelId: parent.id }
-      })
-    },
     categories: async (parent) => {
-      return await prisma.hotelCategory.findMany({
-        where: { hotelId: parent.id }
+      return await prisma.category.findMany({
+        where: { hotelId: parent.id },
+        include: {
+          rooms: {
+            include: {
+              rate: true
+            }
+          }
+        }
       })
-    },
+    }
+  },
+
+  Category: {
     rooms: async (parent) => {
-      return await prisma.hotelRoom.findMany({
-        where: { hotelId: parent.id }
+      const rooms = await prisma.room.findMany({
+        where: { categoryId: parent.id },
+        include: {
+          rate: true
+        }
       })
-    },
-    tariffs: async (parent) => {
-      return await prisma.hotelTariff.findMany({
-        where: { hotelId: parent.id }
+      return rooms || []
+    }
+  },
+
+  Room: {
+    rate: async (parent) => {
+      return await prisma.rate.findMany({
+        where: { roomId: parent.id }
       })
     }
   }

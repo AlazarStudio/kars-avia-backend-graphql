@@ -39,80 +39,65 @@ model User {
 // Отели
 
 model Hotel {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   country    String
-  city       String
-  address    String
-  index      String
-  quote      String
-  email      String
-  number     String
-  inn        String
-  ogrn       String
-  rs         String
-  bank       String
-  bik        String
-  staff      HotelPersonal[]
-  categories HotelCategory[]
-  rooms      HotelRoom[]
-  tariffs    HotelTariff[]
-  Request    Request[]
+  city       String?
+  address    String?
+  index      String?
+  quote      String?
+  email      String?
+  number     String?
+  inn        String?
+  ogrn       String?
+  rs         String?
+  bank       String?
+  bik        String?
+  images     String[] 
+  categories Category[] 
+  rates      Rate[] 
+  rooms      Room[] 
+
+  Request Request[] 
 }
 
-model HotelPersonal {
-  id           String           @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  role         String
-  login        String           @unique
-  password     String
-  hotel        Hotel?           @relation(fields: [hotelId], references: [id])
-  hotelId      String?          @db.ObjectId
-  department   HotelDepartment? @relation(fields: [departmentId], references: [id])
-  departmentId String?          @db.ObjectId
+model Category {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String 
+  rooms Room[] 
+
+  hotel   Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId String  @db.ObjectId
+  price   Price[]
 }
 
-model HotelDepartment {
-  id    String          @id @default(auto()) @map("_id") @db.ObjectId
-  name  String
-  staff HotelPersonal[]
+model Room {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String?   @db.ObjectId
+  rate       Rate?     @relation(fields: [rateId], references: [id], onDelete: Cascade)
+  rateId     String?   @db.ObjectId
+  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String    @db.ObjectId
 }
 
-model HotelCategory {
-  id        String        @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  name      String
-  hotel     Hotel?        @relation(fields: [hotelId], references: [id])
-  hotelId   String?       @db.ObjectId
-  rooms     HotelRoom[]
-  tariffs   HotelTariff[]
+model Rate {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  hotel   Hotel   @relation(fields: [hotelId], references: [id])
+  hotelId String  @db.ObjectId
+  price   Price[]
+  room    Room[]
 }
 
-model HotelRoom {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  name            String
-  hotelCategory   HotelCategory @relation(fields: [hotelCategoryId], references: [id])
-  hotelCategoryId String        @db.ObjectId
-  hotel           Hotel?        @relation(fields: [hotelId], references: [id])
-  hotelId         String?       @db.ObjectId
-}
-
-model HotelTariff {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  name            String
-  price           Float
-  aviaPrice       Float?
-  hotelCategory   HotelCategory @relation(fields: [hotelCategoryId], references: [id])
-  hotelCategoryId String        @db.ObjectId
-  hotel           Hotel?        @relation(fields: [hotelId], references: [id])
-  hotelId         String?       @db.ObjectId
-
-  // @@unique([hotelCategoryId])
+model Price {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount     Float // Цена для категории в этом тарифе
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String   @db.ObjectId
+  rate       Rate     @relation(fields: [rateId], references: [id])
+  rateId     String   @db.ObjectId
 }
 
 // Отели
@@ -123,18 +108,18 @@ model Airline {
   id      String   @id @default(auto()) @map("_id") @db.ObjectId
   name    String
   images  String[]
-  country String
-  city    String
-  address String
-  index   String
-  quote   String
-  email   String
-  number  String
-  inn     String
-  ogrn    String
-  rs      String
-  bank    String
-  bik     String
+  country String?
+  city    String?
+  address String?
+  index   String?
+  quote   String?
+  email   String?
+  number  String?
+  inn     String?
+  ogrn    String?
+  rs      String?
+  bank    String?
+  bik     String?
 
   staff   AirlinePersonal[]
   Request Request[]
