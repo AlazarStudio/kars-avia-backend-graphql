@@ -1,120 +1,126 @@
 const hotelTypeDef = `#graphql
 
-  scalar Upload
+scalar Upload
 
-  type Hotel {
-    id: ID!
-    name: String!
-    country: String!
-    city: String!
-    address: String!
-    quote: String!
-    index: String
-    email: String
-    number: String
-    inn: String
-    ogrn: String
-    rs: String
-    bank: String
-    bik: String
-    images: [String!]!
-    categories: [Category!]!
-    rates: [Rate!]!
-    rooms: [Room!]!
-  }
+type Hotel {
+  id: ID!
+  name: String!
+  country: String
+  city: String
+  address: String
+  quote: String
+  index: String
+  email: String
+  number: String
+  inn: String
+  ogrn: String
+  rs: String
+  bank: String
+  bik: String
+  images: [String!]!
+  categories: [Category!]!
+  rooms: [Room!]!
+  tariffs: [Tariff!]!
+}
 
-  type Category {
-    id: ID!
-    name: String!
-    rooms: [Room!]!
-  }
+type Category {
+  id: ID!
+  name: String!
+  rooms: [Room!]!
+  prices: [Price!]!
+}
 
-  type Rate {
-    id: ID!
-    name: String!
-    prices: [Price!]!
-  }
+type Room {
+  id: ID!
+  name: String!
+  category: Category!
+}
 
-  type Room {
-    id: ID!
-    name: String!
-    category: Category
-    rate: Rate
-  }
+type Tariff {
+  id: ID!
+  name: String!
+  prices: [Price!]!
+}
 
-  type Price {
-    id: ID!
-    amount: Float!
-    category: Category!
-    rate: Rate!
-  }
+type Price {
+  id: ID!
+  amount: Float!
+  category: Category!
+  tariff: Tariff!
+}
 
-  type Query {
-    hotels: [Hotel!]!
-    hotel(id: ID!): Hotel
-  }
+type Query {
+  hotels: [Hotel!]!
+  hotel(id: ID!): Hotel
+}
 
-  type Mutation {
-    createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
-    updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
-    deleteHotel(id: ID!): Hotel!
-  }
+type Mutation {
+  createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
+  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
+  deleteHotel(id: ID!): Hotel!
+}
 
-  input CreateHotelInput {
-    name: String!
-    country: String!
-    city: String!
-    address: String
-    quote: String
-    index: String
-    email: String
-    number: String
-    inn: String
-    ogrn: String
-    rs: String
-    bank: String
-    bik: String
-    categories: [CategoryInput!]
-    rates: [RateInput!]
-    rooms: [RoomInput!]
-  }
+input CreateHotelInput {
+  name: String!
+  country: String
+  city: String
+  address: String
+  quote: String
+  index: String
+  email: String
+  number: String
+  inn: String
+  ogrn: String
+  rs: String
+  bank: String
+  bik: String
+  categories: [CategoryInput!]
+  rooms: [RoomInput!]
+  tariffs: [TariffInput!]
+}
 
-  input UpdateHotelInput {
-    name: String
-    country: String
-    city: String
-    address: String
-    quote: String
-    index: String
-    email: String
-    number: String
-    inn: String
-    ogrn: String
-    rs: String
-    bank: String
-    bik: String
-    categories: [CategoryInput!]
-    rates: [RateInput!]
-    rooms: [RoomInput!]
-  }
+input UpdateHotelInput {
+  name: String
+  country: String
+  city: String
+  address: String
+  quote: String
+  index: String
+  email: String
+  number: String
+  inn: String
+  ogrn: String
+  rs: String
+  bank: String
+  bik: String
+  categories: [CategoryInput!]
+  rooms: [RoomInput!]
+  tariffs: [TariffInput!]
+}
 
-  input CategoryInput {
-    name: String!
-  }
+input CategoryInput {
+  id: ID
+  name: String!
+}
 
-  input RateInput {
-    name: String!
-    prices: [PriceInput!]!
-  }
+input RoomInput {
+  id: ID
+  name: String!
+  categoryId: ID!
+}
 
-  input PriceInput {
-    amount: Float!
-    categoryId: ID!
-  }
+input TariffInput {
+  id: ID
+  name: String!
+}
 
-  input RoomInput {
-    name: String!
-  }
+input PriceInput {
+  id: ID
+  amount: Float!
+  categoryId: ID!
+  tariffId: ID!
+}
+
 `
 
 export default hotelTypeDef

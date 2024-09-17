@@ -1,3 +1,5 @@
+// hotel.resolver.js
+
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
@@ -11,7 +13,7 @@ const hotelResolver = {
         include: {
           categories: true,
           rooms: true,
-          rates: true
+          tariffs: true
         }
       })
     },
@@ -21,7 +23,7 @@ const hotelResolver = {
         include: {
           categories: true,
           rooms: true,
-          rates: true
+          tariffs: true
         }
       })
     }
@@ -46,7 +48,7 @@ const hotelResolver = {
         include: {
           categories: true,
           rooms: true,
-          rates: true
+          tariffs: true
         }
       })
     },
@@ -59,49 +61,103 @@ const hotelResolver = {
         }
       }
 
-      const categoryUpserts = input.categories
-        ? {
-            create: input.categories.map((category) => ({
-              name: category.name
-            }))
+      const { categories, rooms, tariffs, ...restInput } = input
+
+      try {
+        // Обновляем поля отеля
+        const updatedHotel = await prisma.hotel.update({
+          where: { id },
+          data: {
+            ...restInput,
+            ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
-        : undefined
+        })
 
-      const roomUpdates = input.rooms
-        ? {
-            create: input.rooms.map((room) => ({
-              name: room.name,
-              categoryId: room.categoryId || null
-            }))
+        // Обработка категорий
+        if (categories) {
+          for (const category of categories) {
+            if (category.id) {
+              await prisma.category.update({
+                where: { id: category.id },
+                data: {
+                  name: category.name
+                }
+              })
+            } else {
+              await prisma.category.create({
+                data: {
+                  name: category.name,
+                  hotelId: id
+                }
+              })
+            }
           }
-        : undefined
-
-      const data = {
-        ...input,
-        ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
-        categories: categoryUpserts,
-        rooms: roomUpdates
-      }
-
-      return await prisma.hotel.update({
-        where: { id },
-        data,
-        include: {
-          categories: true,
-          rooms: true,
-          rates: true
         }
-      })
+
+        // Обработка комнат
+        if (rooms) {
+          for (const room of rooms) {
+            if (room.id) {
+              await prisma.room.update({
+                where: { id: room.id },
+                data: {
+                  name: room.name,
+                  categoryId: room.categoryId
+                }
+              })
+            } else {
+              await prisma.room.create({
+                data: {
+                  name: room.name,
+                  categoryId: room.categoryId,
+                  hotelId: id
+                }
+              })
+            }
+          }
+        }
+
+        // Обработка тарифов
+        if (tariffs) {
+          for (const tariff of tariffs) {
+            if (tariff.id) {
+              await prisma.tariff.update({
+                where: { id: tariff.id },
+                data: {
+                  name: tariff.name
+                }
+              })
+            } else {
+              await prisma.tariff.create({
+                data: {
+                  name: tariff.name,
+                  hotelId: id
+                }
+              })
+            }
+          }
+        }
+
+        // Получаем обновленный отель с вложенными данными
+        const hotelWithRelations = await prisma.hotel.findUnique({
+          where: { id },
+          include: {
+            categories: true,
+            rooms: true,
+            tariffs: true
+          }
+        })
+
+        return hotelWithRelations
+      } catch (error) {
+        console.error("Ошибка при обновлении отеля:", error)
+        throw new Error("Не удалось обновить отель")
+      }
     },
 
     deleteHotel: async (_, { id }) => {
       return await prisma.hotel.delete({
-        where: { id },
-        include: {
-          categories: true,
-          rooms: true,
-          rates: true
-        }
+        where: { id }
       })
     }
   },
@@ -109,34 +165,65 @@ const hotelResolver = {
   Hotel: {
     categories: async (parent) => {
       return await prisma.category.findMany({
-        where: { hotelId: parent.id },
-        include: {
-          rooms: {
-            include: {
-              rate: true
-            }
-          }
-        }
+        where: { hotelId: parent.id }
+      })
+    },
+    rooms: async (parent) => {
+      return await prisma.room.findMany({
+        where: { hotelId: parent.id }
+      })
+    },
+    tariffs: async (parent) => {
+      return await prisma.tariff.findMany({
+        where: { hotelId: parent.id }
       })
     }
   },
 
   Category: {
     rooms: async (parent) => {
-      const rooms = await prisma.room.findMany({
+      return await prisma.room.findMany({
+        where: { categoryId: parent.id }
+      })
+    },
+    prices: async (parent) => {
+      return await prisma.price.findMany({
         where: { categoryId: parent.id },
         include: {
-          rate: true
+          tariff: true
         }
       })
-      return rooms || []
+    }
+  },
+
+  Tariff: {
+    prices: async (parent) => {
+      return await prisma.price.findMany({
+        where: { tariffId: parent.id },
+        include: {
+          category: true
+        }
+      })
     }
   },
 
   Room: {
-    rate: async (parent) => {
-      return await prisma.rate.findMany({
-        where: { roomId: parent.id }
+    category: async (parent) => {
+      return await prisma.category.findUnique({
+        where: { id: parent.categoryId }
+      })
+    }
+  },
+
+  Price: {
+    category: async (parent) => {
+      return await prisma.category.findUnique({
+        where: { id: parent.categoryId }
+      })
+    },
+    tariff: async (parent) => {
+      return await prisma.tariff.findUnique({
+        where: { id: parent.tariffId }
       })
     }
   }
