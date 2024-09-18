@@ -61,7 +61,8 @@ const hotelResolver = {
         }
       }
 
-      const { categories, rooms, tariffs, ...restInput } = input
+      const { categories, rooms, tariffs, prices, ...restInput } = input
+      console.log(restInput, " inputs ", categories, rooms, tariffs)
 
       try {
         // Обновляем поля отеля
@@ -109,7 +110,6 @@ const hotelResolver = {
               await prisma.room.create({
                 data: {
                   name: room.name,
-                  categoryId: room.categoryId,
                   hotelId: id
                 }
               })
@@ -132,6 +132,43 @@ const hotelResolver = {
                 data: {
                   name: tariff.name,
                   hotelId: id
+                }
+              })
+            }
+          }
+        }
+
+        // Обработка цен
+        if (prices) {
+          for (const price of prices) {
+            if (price.id) {
+              await prisma.price.update({
+                where: { id: price.id },
+                data: {
+                  amount: price.amount,
+                  amountair: price.amountair,
+                  category: {
+                    connect: { id: price.categoryId }
+                  },
+                  tariff: {
+                    connect: { id: price.tariffId }
+                  }
+                }
+              })
+            } else {
+              await prisma.price.create({
+                data: {
+                  amount: price.amount,
+                  amountair: price.amountair,
+                  category: {
+                    connect: { id: price.categoryId }
+                  },
+                  tariff: {
+                    connect: { id: price.tariffId }
+                  },
+                  hotel: {
+                    connect: { id: id }
+                  }
                 }
               })
             }
@@ -175,6 +212,11 @@ const hotelResolver = {
     },
     tariffs: async (parent) => {
       return await prisma.tariff.findMany({
+        where: { hotelId: parent.id }
+      })
+    },
+    prices: async (parent) => {
+      return await prisma.price.findMany({
         where: { hotelId: parent.id }
       })
     }

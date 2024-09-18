@@ -79,6 +79,7 @@ await server.start()
 // await server.applyMiddleware({ app });
 
 app.use(graphqlUploadExpress())
+app.use("/uploads", express.static("uploads"));
 app.use("/", cors(), express.json(), expressMiddleware(server))
 // app.use(authMiddleware)
 

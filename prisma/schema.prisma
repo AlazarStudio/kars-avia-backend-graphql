@@ -57,6 +57,7 @@ model Hotel {
   categories Category[]
   rooms      Room[]
   tariffs    Tariff[]
+  prices     Price[]
   Request    Request[]
 }
 
@@ -70,12 +71,12 @@ model Category {
 }
 
 model Room {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
   name       String
-  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String   @db.ObjectId
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String   @db.ObjectId
+  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String    @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String?   @db.ObjectId
 }
 
 model Tariff {
@@ -88,7 +89,10 @@ model Tariff {
 
 model Price {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String   @db.ObjectId
   amount     Float
+  amountair  Float?
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId String   @db.ObjectId
   tariff     Tariff   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
@@ -208,6 +212,7 @@ model Message {
   receiverId String? @db.ObjectId
   chat       Chat?   @relation(fields: [chatId], references: [id])
   chatId     String? @db.ObjectId
+  createdAt  DateTime @default(now())
 }
 
 model Chat {
@@ -217,4 +222,5 @@ model Chat {
   Message   Message[]
   User      User?     @relation(fields: [userId], references: [id])
   userId    String?   @db.ObjectId
+  createdAt DateTime  @default(now())
 }

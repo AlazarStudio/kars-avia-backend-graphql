@@ -21,6 +21,7 @@ type Hotel {
   categories: [Category!]!
   rooms: [Room!]!
   tariffs: [Tariff!]!
+  prices: [Price!]!
 }
 
 type Category {
@@ -33,7 +34,7 @@ type Category {
 type Room {
   id: ID!
   name: String!
-  category: Category!
+  category: Category
 }
 
 type Tariff {
@@ -45,6 +46,7 @@ type Tariff {
 type Price {
   id: ID!
   amount: Float!
+  amountair: Float
   category: Category!
   tariff: Tariff!
 }
@@ -77,6 +79,7 @@ input CreateHotelInput {
   categories: [CategoryInput!]
   rooms: [RoomInput!]
   tariffs: [TariffInput!]
+  prices: [PriceInput!]
 }
 
 input UpdateHotelInput {
@@ -96,6 +99,7 @@ input UpdateHotelInput {
   categories: [CategoryInput!]
   rooms: [RoomInput!]
   tariffs: [TariffInput!]
+  prices: [PriceInput!]
 }
 
 input CategoryInput {
@@ -106,7 +110,7 @@ input CategoryInput {
 input RoomInput {
   id: ID
   name: String!
-  categoryId: ID!
+  categoryId: ID
 }
 
 input TariffInput {
@@ -116,9 +120,10 @@ input TariffInput {
 
 input PriceInput {
   id: ID
-  amount: Float!
-  categoryId: ID!
   tariffId: ID!
+  categoryId: ID!
+  amount: Float!
+  amountair: Float!
 }
 
 `
