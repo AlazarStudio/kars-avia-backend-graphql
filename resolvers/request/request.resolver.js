@@ -48,7 +48,7 @@ const requestResolver = {
     }
   },
   Mutation: {
-    createRequest: async (_, { input }) => {
+    createRequest: async (_, { input }, context) => {
       const {
         fullName,
         position,
@@ -93,7 +93,7 @@ const requestResolver = {
 
       return newRequest
     },
-    updateRequest: async (_, { id, input }) => {
+    updateRequest: async (_, { id, input }, context) => {
       const {
         fullName,
         position,

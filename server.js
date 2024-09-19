@@ -61,16 +61,18 @@ const server = new ApolloServer({
   ],
   context: async ({ req }) => {
     const token = req.headers.authorization || ""
-    let user = null
+    let user = null;
 
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
         user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+        console.log(user)
       } catch (e) {
         console.error(e)
       }
     }
+    console.log(user)
     return { user }
   }
 })
@@ -80,7 +82,8 @@ await server.start()
 
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"));
-app.use("/", cors(), express.json(), expressMiddleware(server))
+app.use("/", cors(), express.json(),  expressMiddleware(server))
+
 // app.use(authMiddleware)
 
 // app.post("/register", adminMiddleware, async (req, res) => {

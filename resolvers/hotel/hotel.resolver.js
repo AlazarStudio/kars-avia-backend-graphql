@@ -8,7 +8,7 @@ const hotelResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    hotels: async () => {
+    hotels: async (_, {}, context) => {
       return await prisma.hotel.findMany({
         include: {
           categories: true,
@@ -17,7 +17,7 @@ const hotelResolver = {
         }
       })
     },
-    hotel: async (_, { id }) => {
+    hotel: async (_, { id }, context) => {
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -30,7 +30,11 @@ const hotelResolver = {
   },
 
   Mutation: {
-    createHotel: async (_, { input, images }) => {
+    createHotel: async (_, { input, images }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN' ) {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -53,7 +57,11 @@ const hotelResolver = {
       })
     },
 
-    updateHotel: async (_, { id, input, images }) => {
+    updateHotel: async (_, { id, input, images }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN' ) {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -87,8 +95,8 @@ const hotelResolver = {
             } else {
               await prisma.category.create({
                 data: {
-                  name: category.name,
-                  hotelId: id
+                  hotelId: id,
+                  name: category.name
                 }
               })
             }
@@ -103,14 +111,17 @@ const hotelResolver = {
                 where: { id: room.id },
                 data: {
                   name: room.name,
+                  tariffId: room.tariffId,
                   categoryId: room.categoryId
                 }
               })
             } else {
               await prisma.room.create({
                 data: {
+                  hotelId: id,
                   name: room.name,
-                  hotelId: id
+                  tariffId: room.tariffId,
+                  categoryId: room.categoryId
                 }
               })
             }
@@ -130,8 +141,8 @@ const hotelResolver = {
             } else {
               await prisma.tariff.create({
                 data: {
-                  name: tariff.name,
-                  hotelId: id
+                  hotelId: id,
+                  name: tariff.name
                 }
               })
             }
@@ -192,8 +203,43 @@ const hotelResolver = {
       }
     },
 
-    deleteHotel: async (_, { id }) => {
+    deleteHotel: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
       return await prisma.hotel.delete({
+        where: { id }
+      })
+    },
+    deleteRoom: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+      return await prisma.room.delete({
+        where: { id }
+      })
+    },
+    deletePrice: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+      return await prisma.price.delete({
+        where: { id }
+      })
+    },
+    deleteTariff: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+      return await prisma.tariff.delete({
+        where: { id }
+      })
+    },
+    deleteCategory: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+      return await prisma.category.delete({
         where: { id }
       })
     }
@@ -253,6 +299,11 @@ const hotelResolver = {
     category: async (parent) => {
       return await prisma.category.findUnique({
         where: { id: parent.categoryId }
+      })
+    },
+    tariff: async (parent) => {
+      return await prisma.tariff.findUnique({
+        where: { id: parent.tariffId }
       })
     }
   },

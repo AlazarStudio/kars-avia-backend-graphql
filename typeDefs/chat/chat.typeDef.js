@@ -19,6 +19,8 @@ const chatTypeDef = `#graphql
   type Query {
     chats(requestId: ID!): [Chat!]!
     messages(chatId: ID!): [Message!]!
+    messagesFrom(senderId: ID!): [Message!]!
+    messagesTo(receiverId: ID!): [Message!]!
   }
 
   type Mutation {

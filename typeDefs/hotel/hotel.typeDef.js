@@ -35,6 +35,8 @@ type Room {
   id: ID!
   name: String!
   category: Category
+  tariff: Tariff
+  places: Float
 }
 
 type Tariff {
@@ -60,6 +62,10 @@ type Mutation {
   createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
+  deleteRoom(id: ID!): Room!
+  deletePrice(id: ID!):Price!
+  deleteTariff(id: ID!): Tariff!
+  deleteCategory(id: ID!): Category!
 }
 
 input CreateHotelInput {
@@ -104,26 +110,28 @@ input UpdateHotelInput {
 
 input CategoryInput {
   id: ID
-  name: String!
+  name: String
 }
 
 input RoomInput {
   id: ID
-  name: String!
+  name: String
+  places: Float
+  tariffId: ID
   categoryId: ID
 }
 
 input TariffInput {
   id: ID
-  name: String!
+  name: String
 }
 
 input PriceInput {
   id: ID
   tariffId: ID!
   categoryId: ID!
-  amount: Float!
-  amountair: Float!
+  amount: Float
+  amountair: Float
 }
 
 `

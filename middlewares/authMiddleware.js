@@ -17,6 +17,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = user
+    console.log(req.user)
     next()
   } catch (error) {
     return res.status(401).json({ message: "Invalid token" })
@@ -24,7 +25,7 @@ const authMiddleware = async (req, res, next) => {
 }
 
 export const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "ADMIN") {
     return res.status(403).json({ message: "Access forbidden: Admins only" })
   }
 

@@ -23,7 +23,11 @@ const airlineResolver = {
     }
   },
   Mutation: {
-    createAirline: async (_, { input, images }) => {
+    createAirline: async (_, { input, images }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'AIRLINEADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -43,7 +47,11 @@ const airlineResolver = {
         }
       })
     },
-    updateAirline: async (_, { id, input, images }) => {
+    updateAirline: async (_, { id, input, images }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'AIRLINEADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -62,7 +70,11 @@ const airlineResolver = {
         }
       })
     },
-    deleteAirline: async (_, { id }) => {
+    deleteAirline: async (_, { id }, context) => {
+      // if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'AIRLINEADMIN') {
+      //   throw new Error('Access forbidden: Admins only')
+      // }
+
       return await prisma.airline.delete({
         where: { id },
         include: {

@@ -24,11 +24,11 @@ const userResolver = {
           email,
           login,
           password: hashedPassword,
-          role: 'user' // Дефолтная роль для новых пользователей
+          role: 'USER' // Дефолтная роль для новых пользователей
         }
       })
 
-      const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET)
+      const token = jwt.sign({ userId: newUser.id, role: newUser.role }, process.env.JWT_SECRET)
 
       return {
         ...newUser,
@@ -43,7 +43,7 @@ const userResolver = {
         throw new Error('Invalid credentials')
       }
 
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET)
+      const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET)
 
       return {
         ...user,
@@ -51,11 +51,11 @@ const userResolver = {
       }
     },
     registerUser: async (_, { input }, context) => {
-      if (context.user.role !== 'admin') {
+      if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'HOTELADMIN' || context.user.role !== 'AIRLINEADMIN') {
         throw new Error('Access forbidden: Admins only')
       }
 
-      const { name, email, login, password, role } = input
+      const { name, email, login, password, role, hotelId, airlineId } = input
       const hashedPassword = await argon2.hash(password)
 
       const newUser = await prisma.user.create({
@@ -64,6 +64,8 @@ const userResolver = {
           email,
           login,
           password: hashedPassword,
+          hotelId: hotelId ? hotelId : undefined,
+          airlineId: airlineId ? airlineId : undefined,
           role: role || 'user' // Дефолтная роль для новых пользователей
         }
       })
