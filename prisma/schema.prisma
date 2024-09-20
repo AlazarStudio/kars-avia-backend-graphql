@@ -108,12 +108,12 @@ model Price {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId    String   @db.ObjectId
-  amount     Float
+  amount     Float?
   amountair  Float?
-  tariff     Tariff   @relation(fields: [tariffId], references: [id])
-  tariffId   String   @db.ObjectId
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId String   @db.ObjectId
+  tariff     Tariff?   @relation(fields: [tariffId], references: [id])
+  tariffId   String?   @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?   @db.ObjectId
 }
 
 // Отели

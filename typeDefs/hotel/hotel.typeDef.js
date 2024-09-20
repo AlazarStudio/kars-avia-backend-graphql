@@ -35,7 +35,7 @@ type Category {
   id: ID!
   name: String!
   rooms: [Room!]
-  prices: Price!
+  prices: [Price!]
   tariffs: Tariff!
 }
 
