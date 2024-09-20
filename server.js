@@ -1,4 +1,5 @@
 import fs from "fs"
+import jwt from "jsonwebtoken"
 import cors from "cors"
 import http from "http"
 import https from "https"
@@ -20,9 +21,10 @@ import authMiddleware, {
   adminMiddleware
 } from "./middlewares/authMiddleware.js"
 
-import GraphQLUpload  from "graphql-upload/GraphQLUpload.mjs"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
+import { error } from "console"
 
 // ------------------------------------------------------------------------------------------------
 // import { PrismaClient } from '@prisma/client';
@@ -59,20 +61,27 @@ const server = new ApolloServer({
     },
     ApolloServerPluginLandingPageLocalDefault({ embed: true })
   ],
-  context: async ({ req }) => {
-    const token = req.headers.authorization || ""
-    let user = null;
+  context: async ({ req, res }) => {
+    // const token = req.headers.authorization || ""
+    // let user = null;
+
+    const authHeader = req.headers.authorization
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7, authHeader.length)
+      : authHeader
+    let user = null
 
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        console.log("Decoded token:", decoded)
         user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-        console.log(user)
+        console.log("User found:", user)
       } catch (e) {
-        console.error(e)
+        console.error("Error verifying token:", e)
       }
     }
-    console.log(user)
+    console.log("Final user:", user)
     return { user }
   }
 })
@@ -81,8 +90,9 @@ await server.start()
 // await server.applyMiddleware({ app });
 
 app.use(graphqlUploadExpress())
-app.use("/uploads", express.static("uploads"));
-app.use("/", cors(), express.json(),  expressMiddleware(server))
+app.use("/uploads", express.static("uploads"))
+app.use("/", cors(), express.json(), expressMiddleware(server))
+// app.use("/graphql", cors(), express.json(),  expressMiddleware(server))
 
 // app.use(authMiddleware)
 

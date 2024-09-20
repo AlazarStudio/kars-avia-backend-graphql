@@ -9,6 +9,7 @@ const hotelResolver = {
 
   Query: {
     hotels: async (_, {}, context) => {
+      console.log(context, "|", context.user);
       return await prisma.hotel.findMany({
         include: {
           categories: true,
@@ -89,14 +90,16 @@ const hotelResolver = {
               await prisma.category.update({
                 where: { id: category.id },
                 data: {
-                  name: category.name
+                  name: category.name,
+                  tariffId: category.tariffId,
                 }
               })
             } else {
               await prisma.category.create({
                 data: {
                   hotelId: id,
-                  name: category.name
+                  name: category.name,
+                  tariffId: category.tariffId,
                 }
               })
             }
@@ -135,14 +138,16 @@ const hotelResolver = {
               await prisma.tariff.update({
                 where: { id: tariff.id },
                 data: {
-                  name: tariff.name
+                  name: tariff.name,
+                  categoryId: tariff.categoryId
                 }
               })
             } else {
               await prisma.tariff.create({
                 data: {
                   hotelId: id,
-                  name: tariff.name
+                  name: tariff.name,
+                  categoryId: tariff.categoryId
                 }
               })
             }
@@ -268,6 +273,22 @@ const hotelResolver = {
     }
   },
 
+  Tariff: {
+    prices: async (parent) => {
+      return await prisma.price.findMany({
+        where: { tariffId: parent.id },
+        include: {
+          category: true
+        }
+      })
+    },
+    category: async (parent) => {
+      return await prisma.category.findMany({
+        where: { tariffId: parent.id },
+      })
+    },
+  },
+
   Category: {
     rooms: async (parent) => {
       return await prisma.room.findMany({
@@ -281,16 +302,10 @@ const hotelResolver = {
           tariff: true
         }
       })
-    }
-  },
-
-  Tariff: {
-    prices: async (parent) => {
-      return await prisma.price.findMany({
-        where: { tariffId: parent.id },
-        include: {
-          category: true
-        }
+    },
+    tariffs: async (parent) => {
+      return await prisma.tariff.findUnique({
+        where: { id: parent.tariffId }
       })
     }
   },

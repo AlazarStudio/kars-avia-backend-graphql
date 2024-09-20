@@ -72,14 +72,14 @@ model Hotel {
 }
 
 model Category {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  name    String
-  hotel   Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId String  @db.ObjectId
-  rooms   Room[]
-  // Tariff   Tariff? @relation(fields: [tariffId], references: [id])
-  // tariffId String? @db.ObjectId
-  Price   Price[]
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId  String  @db.ObjectId
+  rooms    Room[]
+  Tariff   Tariff? @relation(fields: [tariffId], references: [id])
+  tariffId String? @db.ObjectId
+  Price    Price[]
 }
 
 model Room {
@@ -95,13 +95,13 @@ model Room {
 }
 
 model Tariff {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  name    String
-  hotel   Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId String  @db.ObjectId
-  room    Room[]
-  price   Price[]
-  // Category Category[]
+  id       String     @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  hotel    Hotel      @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId  String     @db.ObjectId
+  room     Room[]
+  price    Price[]
+  Category Category[]
 }
 
 model Price {

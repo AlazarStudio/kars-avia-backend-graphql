@@ -17,18 +17,26 @@ type Hotel {
   rs: String
   bank: String
   bik: String
-  images: [String!]!
-  categories: [Category!]!
-  rooms: [Room!]!
-  tariffs: [Tariff!]!
-  prices: [Price!]!
+  images: [String!]
+  categories: [Category!]
+  rooms: [Room!]
+  tariffs: [Tariff!]
+  prices: [Price!]
+}
+
+type Tariff {
+  id: ID!
+  name: String!
+  prices: [Price!]
+  category: [Category!]
 }
 
 type Category {
   id: ID!
   name: String!
-  rooms: [Room!]!
-  prices: [Price!]!
+  rooms: [Room!]
+  prices: Price!
+  tariffs: Tariff!
 }
 
 type Room {
@@ -39,15 +47,9 @@ type Room {
   places: Float
 }
 
-type Tariff {
-  id: ID!
-  name: String!
-  prices: [Price!]!
-}
-
 type Price {
   id: ID!
-  amount: Float!
+  amount: Float
   amountair: Float
   category: Category!
   tariff: Tariff!
@@ -111,6 +113,7 @@ input UpdateHotelInput {
 input CategoryInput {
   id: ID
   name: String
+  tariffId: ID
 }
 
 input RoomInput {
