@@ -1,10 +1,16 @@
 const userTypeDef = `#graphql
 
   enum Role {
+    SUPERADMIN
     ADMIN
-    SUPADMIN
-    SUBADMIN
+    HOTELADMIN
+    AIRLINEADMIN
     MODERATOR
+    HOTELMODERATOR
+    AIRLINEMODERATOR
+    USER
+    HOTELUSER
+    AIRLINEUSER
   }
 
   type User {
@@ -15,18 +21,23 @@ const userTypeDef = `#graphql
     password: String!
     role: String!
     token: String
+    hotelId: String
+    airlineId: String
   }
 
   type Query {
     users: [User!]
     authUser: User
     user(userId: ID!): User
+    hotelUsers(hotelId: ID!): [User!]
+    airlineUsers(airlineId: ID!): [User!]
   }
 
   type Mutation {
     signUp(input: SignUpInput!): AuthPayload
     signIn(input: SignInInput!): AuthPayload
     registerUser(input: RegisterUserInput!): User
+    updateUser(input: UpdateUserInput!): AuthPayload
     logout: LogoutResponse
   }
 
@@ -48,6 +59,19 @@ const userTypeDef = `#graphql
     login: String!
     password: String!
     role: String
+    hotelId: String
+    airlineId: String
+  }
+
+  input UpdateUserInput {
+    id: ID
+    name: String
+    email: String
+    login: String
+    password: String
+    role: String
+    hotelId: String
+    airlineId: String
   }
 
   type AuthPayload {

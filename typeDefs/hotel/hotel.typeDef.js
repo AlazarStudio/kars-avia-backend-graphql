@@ -60,7 +60,7 @@ type Query {
   hotel(id: ID!): Hotel
 }
 
-type Mutation {
+type Mutation { 
   createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
