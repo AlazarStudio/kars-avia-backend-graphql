@@ -25,6 +25,7 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
 import { error } from "console"
+import { startStandaloneServer } from "@apollo/server/standalone"
 
 // ------------------------------------------------------------------------------------------------
 // import { PrismaClient } from '@prisma/client';
@@ -60,31 +61,34 @@ const server = new ApolloServer({
       }
     },
     ApolloServerPluginLandingPageLocalDefault({ embed: true })
-  ],
-  context: async ({ req, res }) => {
-    // const token = req.headers.authorization || ""
-    // let user = null;
-
-    const authHeader = req.headers.authorization
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7, authHeader.length)
-      : authHeader
-    let user = null
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        console.log("Decoded token:", decoded)
-        user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-        console.log("User found:", user)
-      } catch (e) {
-        console.error("Error verifying token:", e)
-      }
-    }
-    console.log("Final user:", user)
-    return { user }
-  }
+  ]
 })
+
+// await startStandaloneServer(server, {
+//   context: async ({ req, res }) => {
+//     // const token = req.headers.authorization || ""
+//     // let user = null;
+
+//     const authHeader = req.headers.authorization
+//     const token = authHeader.startsWith("Bearer ")
+//       ? authHeader.slice(7, authHeader.length)
+//       : authHeader
+//     let user = null
+
+//     if (token) {
+//       try {
+//         const decoded = jwt.verify(token, process.env.JWT_SECRET)
+//         // console.log("Decoded token:", decoded)
+//         user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+//         // console.log("User found:", user)
+//       } catch (e) {
+//         console.error("Error verifying token:", e)
+//       }
+//     }
+//     // console.log("Final user:", user)
+//     return { user }
+//   }
+// })
 
 await server.start()
 // await server.applyMiddleware({ app });

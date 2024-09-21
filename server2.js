@@ -1,54 +1,132 @@
-import { ApolloServer } from 'apollo-server-express';
-import { createServer } from 'http';
-import express from 'express';
-import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
-import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/lib/use/ws';
+import fs from "fs"
+import jwt from "jsonwebtoken"
+import cors from "cors"
+import http from "http"
+import https from "https"
+import dotenv from "dotenv"
+import express from "express"
+
+import { ApolloServer } from "@apollo/server"
+import { expressMiddleware } from "@apollo/server/express4"
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
+
+import { WebSocketServer } from "ws"
+import { useServer } from "graphql-ws/lib/use/ws"
 import { makeExecutableSchema } from "@graphql-tools/schema"
+
+import { prisma } from "./prisma.js"
 import mergedTypeDefs from "./typeDefs/typedefs.js"
 import mergedResolvers from "./resolvers/resolvers.js"
- 
+import authMiddleware, {
+  adminMiddleware
+} from "./middlewares/authMiddleware.js"
+
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
+import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
+import { error } from "console"
+import { startStandaloneServer } from "@apollo/server/standalone"
+
+// ------------------------------------------------------------------------------------------------
+// import { PrismaClient } from '@prisma/client';
+
+// export const prisma = new PrismaClient();
+// ------------------------------------------------------------------------------------------------
+
+dotenv.config()
+const app = express()
+const httpServer = http.createServer(app)
 
 const schema = makeExecutableSchema({
   typeDefs: mergedTypeDefs,
   resolvers: mergedResolvers
 })
-// create express and HTTP server
-const app = express();
-const httpServer = createServer(app);
- 
-// create websocket server
-const wsServer = new WebSocketServer({
-  server: httpServer,
-  path: '/graphql',
-});
- 
-// Save the returned server's info so we can shut down this server later
-const serverCleanup = useServer({ schema }, wsServer);
- 
-// create apollo server
-const apolloServer = new ApolloServer({
-  schema,
-  plugins: [
-    // Proper shutdown for the HTTP server.
-    ApolloServerPluginDrainHttpServer({ httpServer }),
- 
-    // Proper shutdown for the WebSocket server.
-    {
-      async serverWillStart() {
-        return {
-          async drainServer() {
-            await serverCleanup.dispose();
-          },
-        };
-      },
-    },
-  ],
-});
- 
-await apolloServer.start();
-apolloServer.applyMiddleware({ app });
- 
-httpServer.listen(4000);
 
-console.log('Starting server on port: 4000');
+// const wsServer = new WebSocketServer({ server: httpServer, path: "/ws" })
+// const serverCleanup = useServer({ schema })
+
+const server = new ApolloServer({
+  schema: schema,
+  csrfPrevention: true,
+  cache: "bounded",
+  // plugins: [
+    // ApolloServerPluginDrainHttpServer({ httpServer }),
+    // {
+    //   async serverWillStart() {
+    //     return {
+    //       async drainServer() {
+    //         await serverCleanup.dispose()
+    //       }
+    //     }
+    //   }
+    // },
+    // ApolloServerPluginLandingPageLocalDefault({ embed: true })
+  // ]
+})
+
+await startStandaloneServer(server, {
+  context: async ({ req, res }) => {
+    // const token = req.headers.authorization || ""
+    // let user = null;
+
+    const authHeader = req.headers.authorization
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7, authHeader.length)
+      : authHeader
+    let user = null
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+      } catch (e) {
+        console.error("Error verifying token:", e)
+      }
+    }
+    return { user }
+  }
+})
+
+// await server.start()
+// await server.applyMiddleware({ app });
+
+app.use(graphqlUploadExpress())
+app.use("/uploads", express.static("uploads"))
+app.use("/", cors(), express.json(), expressMiddleware(server))
+// app.use("/graphql", cors(), express.json(),  expressMiddleware(server))
+
+// app.use(authMiddleware)
+
+// app.post("/register", adminMiddleware, async (req, res) => {
+//   const { name, email, login, password, role } = req.body
+
+//   try {
+//     const hashedPassword = await argon2.hash(password)
+//     const newUser = await prisma.user.create({
+//       data: {
+//         name,
+//         email,
+//         login,
+//         password: hashedPassword,
+//         role: role || "user"
+//       }
+//     })
+
+//     res.json(newUser)
+//   } catch (error) {
+//     res.status(500).json({ error: error.message })
+//   }
+// })
+
+// await new Promise((resolve) =>
+//   httpServer.listen({ port: 4000, host: "0.0.0.0" }, resolve)
+// )
+// await new Promise((resolve) => httpsServer.listen({ port: 4000, host: '0.0.0.0' }, resolve));
+
+// console.log(`🚀 Server ready at http://localhost:${PORT}/graphql/`)
+
+const PORT = 8080
+const HOST = "0.0.0.0"
+httpServer.listen({ port: 8080 }, () => {
+  console.log(`Server is now running on http://localhost:${PORT}/`)
+})

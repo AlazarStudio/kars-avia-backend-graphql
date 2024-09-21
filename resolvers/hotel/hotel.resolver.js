@@ -167,6 +167,7 @@ const hotelResolver = {
             }
           }
         }
+    
 
         // Обработка комнат
         if (rooms) {
@@ -177,7 +178,8 @@ const hotelResolver = {
                 data: {
                   name: room.name,
                   tariffId: room.tariffId,
-                  categoryId: room.categoryId
+                  categoryId: room.categoryId,
+                  places: room.places
                 }
               })
             } else {
@@ -186,7 +188,8 @@ const hotelResolver = {
                   hotelId: id,
                   name: room.name,
                   tariffId: room.tariffId,
-                  categoryId: room.categoryId
+                  categoryId: room.categoryId,
+                  places: room.places
                 }
               })
             }
@@ -300,7 +303,7 @@ const hotelResolver = {
     },
     prices: async (parent) => {
       return await prisma.price.findMany({
-        where: { categoryId: parent.id },
+        where: { categoryId: parent.id }
         // include: {
         //   tariff: true
         // }

@@ -51,7 +51,7 @@ const userResolver = {
       }
     },
     registerUser: async (_, { input }, context) => {
-      if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'HOTELADMIN' || context.user.role !== 'AIRLINEADMIN') {
+      if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN' && context.user.role !== 'AIRLINEADMIN') {
         throw new Error('Access forbidden: Admins only')
       }
 
@@ -66,7 +66,7 @@ const userResolver = {
           password: hashedPassword,
           hotelId: hotelId ? hotelId : undefined,
           airlineId: airlineId ? airlineId : undefined,
-          role: role || 'user' // Дефолтная роль для новых пользователей
+          role: role || 'USER' 
         }
       })
 

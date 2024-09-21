@@ -71,29 +71,6 @@ model Hotel {
   User       User[]
 }
 
-model Category {
-  id       String  @id @default(auto()) @map("_id") @db.ObjectId
-  name     String
-  hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String  @db.ObjectId
-  rooms    Room[]
-  Tariff   Tariff? @relation(fields: [tariffId], references: [id])
-  tariffId String? @db.ObjectId
-  Price    Price[]
-}
-
-model Room {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String    @db.ObjectId
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String?   @db.ObjectId
-  Tariff     Tariff?   @relation(fields: [tariffId], references: [id])
-  tariffId   String?   @db.ObjectId
-  places     Float?    @default(1)
-}
-
 model Tariff {
   id       String     @id @default(auto()) @map("_id") @db.ObjectId
   name     String
@@ -104,16 +81,39 @@ model Tariff {
   Category Category[]
 }
 
+model Category {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId  String  @db.ObjectId
+  rooms    Room[]
+  Tariff   Tariff? @relation(fields: [tariffId], references: [id], onDelete: Cascade)
+  tariffId String? @db.ObjectId
+  Price    Price[]
+}
+
 model Price {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String   @db.ObjectId
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String    @db.ObjectId
   amount     Float?
   amountair  Float?
-  tariff     Tariff?   @relation(fields: [tariffId], references: [id])
+  tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
   tariffId   String?   @db.ObjectId
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId String?   @db.ObjectId
+}
+
+model Room {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String    @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String?   @db.ObjectId
+  Tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
+  tariffId   String?   @db.ObjectId
+  places     Float?    
 }
 
 // Отели
@@ -121,25 +121,33 @@ model Price {
 // Авиакомпании
 
 model Airline {
-  id      String   @id @default(auto()) @map("_id") @db.ObjectId
-  name    String
-  images  String[]
-  country String?
-  city    String?
-  address String?
-  index   String?
-  quote   String?
-  email   String?
-  number  String?
-  inn     String?
-  ogrn    String?
-  rs      String?
-  bank    String?
-  bik     String?
+  id         String              @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  images     String[]
+  country    String?
+  city       String?
+  address    String?
+  index      String?
+  quote      String?
+  email      String?
+  number     String?
+  inn        String?
+  ogrn       String?
+  rs         String?
+  bank       String?
+  bik        String?
+  department AirlineDepartment[]
+  staff      AirlinePersonal[]
+  Request    Request[]
+  User       User[]
+}
 
-  staff   AirlinePersonal[]
-  Request Request[]
-  User    User[]
+model AirlineDepartment {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  staff     AirlinePersonal[]
+  airline   Airline           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId String            @db.ObjectId
 }
 
 model AirlinePersonal {
@@ -148,16 +156,10 @@ model AirlinePersonal {
   role         String
   login        String             @unique
   password     String
-  Airline      Airline?           @relation(fields: [AirlineId], references: [id])
-  AirlineId    String?            @db.ObjectId
+  airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId    String?            @db.ObjectId
   department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
   departmentId String?            @db.ObjectId
-}
-
-model AirlineDepartment {
-  id    String            @id @default(auto()) @map("_id") @db.ObjectId
-  name  String
-  staff AirlinePersonal[]
 }
 
 // Авиакомпании

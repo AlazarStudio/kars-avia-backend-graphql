@@ -25,7 +25,7 @@ const airlineTypeDef = `#graphql
     type AirlineDepartment {
         id: ID!
         name: String!
-        staff: [AirlinePersonal!]
+        staff: [AirlinePersonal!]!
     }
 
     type AirlinePersonal {
@@ -81,13 +81,14 @@ const airlineTypeDef = `#graphql
         rs: String
         bank: String
         bik: String
-        staff: [AirlinePersonalInput!]
-        department: [AirlineDepartmentInput!]
+        staff: AirlinePersonalInput
+        department: AirlineDepartmentInput
     }
 
     input AirlineDepartmentInput {
         id: ID
         name: String
+        staff: ID
     }
 
     input AirlinePersonalInput {
@@ -96,9 +97,51 @@ const airlineTypeDef = `#graphql
         role: String
         login: String
         password: String
+        airlineId: ID
         departmentId: ID
     }
 
 `
 
 export default airlineTypeDef
+
+if (prices) {
+  for (const price of prices) {
+let category = await prisma.hotel.findUnique({
+    where: {
+        
+    }
+})
+    if (price.categoryId) {
+      await prisma.price.update({
+        where: { id: price.id },
+        data: {
+          amount: price.amount,
+          amountair: price.amountair,
+          category: {
+            connect: { id: price.categoryId }
+          },
+          tariff: {
+            connect: { id: price.tariffId }
+          }
+        }
+      })
+    } else {
+      await prisma.price.create({
+        data: {
+          amount: price.amount,
+          amountair: price.amountair,
+          category: {
+            connect: { id: price.categoryId }
+          },
+          tariff: {
+            connect: { id: price.tariffId }
+          },
+          hotel: {
+            connect: { id: id }
+          }
+        }
+      })
+    }
+  }
+}
