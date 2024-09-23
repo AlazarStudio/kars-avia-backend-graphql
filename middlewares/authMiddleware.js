@@ -15,21 +15,55 @@ const authMiddleware = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "User not found" })
     }
-
     req.user = user
-    console.log(req.user)
+
     next()
   } catch (error) {
     return res.status(401).json({ message: "Invalid token" })
   }
 }
 
-export const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== "ADMIN") {
+// ------------------------------------------------------------------------------------------------
+
+export const moderatorMiddleware = (req, res, next) => {
+  if (
+    req.user.role !== "ADMIN" &&
+    context.user.role !== "SUPERADMIN" &&
+    context.user.role !== "ADMIN" &&
+    context.user.role !== "HOTELADMIN" &&
+    context.user.role !== "AIRLINEADMIN" &&
+    context.user.role !== "MODERATOR" &&
+    context.user.role !== "HOTELMODERATOR" &&
+    context.user.role !== "AIRLINEMODERATOR" 
+  ) {
     return res.status(403).json({ message: "Access forbidden: Admins only" })
   }
 
   next()
 }
+
+export const adminMiddleware = (req, res, next) => {
+  if (
+    req.user.role !== "ADMIN" &&
+    context.user.role !== "SUPERADMIN" &&
+    context.user.role !== "ADMIN" &&
+    context.user.role !== "HOTELADMIN" &&
+    context.user.role !== "AIRLINEADMIN" 
+  ) {
+    return res.status(403).json({ message: "Access forbidden: Admins only" })
+  }
+
+  next()
+}
+
+export const superAdminMiddleware = (req, res, next) => {
+  if (req.user.role !== "SUPERADMIN") {
+    return res.status(403).json({ message: "Access forbidden: Admins only" })
+  }
+
+  next()
+}
+
+// ------------------------------------------------------------------------------------------------
 
 export default authMiddleware
