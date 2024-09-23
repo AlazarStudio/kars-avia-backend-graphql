@@ -23,6 +23,7 @@ const userTypeDef = `#graphql
     token: String
     hotelId: String
     airlineId: String
+    images: [String!]!
   }
 
   type Query {
@@ -34,11 +35,12 @@ const userTypeDef = `#graphql
   }
 
   type Mutation {
-    signUp(input: SignUpInput!): AuthPayload
+    signUp(input: SignUpInput!,  images: [Upload!]): AuthPayload
     signIn(input: SignInInput!): AuthPayload
-    registerUser(input: RegisterUserInput!): User
-    updateUser(input: UpdateUserInput!): AuthPayload
+    registerUser(input: RegisterUserInput!,  images: [Upload!]): User
+    updateUser(input: UpdateUserInput!,  images: [Upload!]): AuthPayload
     logout: LogoutResponse
+    deleteUser(id: ID!): User!
   }
 
   input SignUpInput {
@@ -75,12 +77,13 @@ const userTypeDef = `#graphql
   }
 
   type AuthPayload {
-    id: ID!
-    name: String!
-    email: String!
-    login: String!
-    role: String!
-    token: String!
+    id: ID
+    name: String
+    email: String
+    login: String
+    role: String
+    token: String
+    images: [String!]
   }
 
   type LogoutResponse {

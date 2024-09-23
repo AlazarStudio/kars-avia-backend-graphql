@@ -3,13 +3,13 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
+import { logAction } from "../../exports/logaction.js"
 
 const hotelResolver = {
   Upload: GraphQLUpload,
 
   Query: {
     hotels: async (_, {}, context) => {
-      console.log(context, "|", context.user)
       return await prisma.hotel.findMany({
         include: {
           categories: true,
@@ -34,9 +34,13 @@ const hotelResolver = {
 
   Mutation: {
     createHotel: async (_, { input, images }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN' ) {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -50,6 +54,8 @@ const hotelResolver = {
         images: imagePaths
       }
 
+      logAction(context.user.id, `Create Hotel: ${data.name}`, data)
+
       return await prisma.hotel.create({
         data,
         include: {
@@ -61,9 +67,13 @@ const hotelResolver = {
     },
 
     updateHotel: async (_, { id, input, images }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN' ) {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -74,6 +84,10 @@ const hotelResolver = {
 
       const { categories, rooms, tariffs, prices, ...restInput } = input
       console.log(restInput, " inputs ", categories, rooms, tariffs)
+
+      const updatedData = { categories, rooms, tariffs, prices, ...restInput }
+
+      logAction(context.user.id, `Upadate Hotel: `, updatedData)
 
       try {
         // Обновляем поля отеля
@@ -167,7 +181,6 @@ const hotelResolver = {
             }
           }
         }
-    
 
         // Обработка комнат
         if (rooms) {
@@ -215,41 +228,80 @@ const hotelResolver = {
     },
 
     deleteHotel: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
+
+      // logAction(context.user.id, `delete Hotel: ${data.name}`, data)
+
       return await prisma.hotel.delete({
         where: { id }
       })
     },
+
     deleteRoom: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
+
+      // logAction(context.user.id, `delete Room: ${data.name}`, data)
+
       return await prisma.room.delete({
         where: { id }
       })
     },
+
     deletePrice: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
+
+      // logAction(context.user.id, `delete Price: ${data.name}`, data)
+
       return await prisma.price.delete({
         where: { id }
       })
     },
+
     deleteTariff: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
+
+      // logAction(context.user.id, `delete Tariff: ${data.name}`, data)
+
       return await prisma.tariff.delete({
         where: { id }
       })
     },
+
     deleteCategory: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'HOTELADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "HOTELADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
+
+      // logAction(context.user.id, `delete Category: ${data.name}`, data)
+
       return await prisma.category.delete({
         where: { id }
       })

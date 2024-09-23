@@ -1,6 +1,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
+import { logAction } from "../../exports/logaction.js"
 
 const airlineResolver = {
   Upload: GraphQLUpload,
@@ -24,9 +25,13 @@ const airlineResolver = {
   },
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'AIRLINEADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" ||
+        context.user.role !== "ADMIN" ||
+        context.user.role !== "AIRLINEADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -49,9 +54,13 @@ const airlineResolver = {
       })
     },
     updateAirline: async (_, { id, input, images }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' && context.user.role !== 'ADMIN' && context.user.role !== 'AIRLINEADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" &&
+        context.user.role !== "ADMIN" &&
+        context.user.role !== "AIRLINEADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -74,7 +83,7 @@ const airlineResolver = {
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
-
+        
         if (department) {
           for (const depart of department) {
             if (depart.id) {
@@ -147,9 +156,13 @@ const airlineResolver = {
       // })
     },
     deleteAirline: async (_, { id }, context) => {
-      // if (context.user.role !== 'SUPERADMIN' || context.user.role !== 'ADMIN' || context.user.role !== 'AIRLINEADMIN') {
-      //   throw new Error('Access forbidden: Admins only')
-      // }
+      if (
+        context.user.role !== "SUPERADMIN" ||
+        context.user.role !== "ADMIN" ||
+        context.user.role !== "AIRLINEADMIN"
+      ) {
+        throw new Error("Access forbidden: Admins only")
+      }
 
       return await prisma.airline.delete({
         where: { id },

@@ -48,6 +48,7 @@ const serverCleanup = useServer({ schema }, wsServer)
 const server = new ApolloServer({
   schema: schema,
   csrfPrevention: true,
+
   cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer }),
@@ -64,38 +65,41 @@ const server = new ApolloServer({
   ]
 })
 
-// await startStandaloneServer(server, {
-//   context: async ({ req, res }) => {
-//     // const token = req.headers.authorization || ""
-//     // let user = null;
-
-//     const authHeader = req.headers.authorization
-//     const token = authHeader.startsWith("Bearer ")
-//       ? authHeader.slice(7, authHeader.length)
-//       : authHeader
-//     let user = null
-
-//     if (token) {
-//       try {
-//         const decoded = jwt.verify(token, process.env.JWT_SECRET)
-//         // console.log("Decoded token:", decoded)
-//         user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-//         // console.log("User found:", user)
-//       } catch (e) {
-//         console.error("Error verifying token:", e)
-//       }
-//     }
-//     // console.log("Final user:", user)
-//     return { user }
-//   }
-// })
-
 await server.start()
-// await server.applyMiddleware({ app });
 
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
-app.use("/", cors(), express.json(), expressMiddleware(server))
+app.use(
+  "/",
+  cors(),
+  express.json(),
+  expressMiddleware(server, {
+    context: async ({ req, res }) => {
+      const authHeader = req.headers.authorization
+
+      if (!authHeader) {
+        return { user: null }
+      }
+
+      const token = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7, authHeader.length)
+        : authHeader
+
+      let user = null
+
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET)
+          user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+        } catch (e) {
+          console.error("Error verifying token:", e)
+        }
+      }
+
+      return { user }
+    }
+  })
+)
 // app.use("/graphql", cors(), express.json(),  expressMiddleware(server))
 
 // app.use(authMiddleware)

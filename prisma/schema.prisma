@@ -7,7 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Пользователи
+//  ---------------- ↓↓↓↓
+//  ---------------- ↑↑↑↑
+
+// Пользователи  ---------------- ↓↓↓↓
 
 enum Role {
   SUPERADMIN
@@ -41,11 +44,12 @@ model User {
   messageSender   Message[] @relation(name: "messageSender")
   messageReceiver Message[] @relation(name: "messageReceiver")
   Chat            Chat[]
+  images          String[]
 }
 
-// Пользователи
+// Пользователи  ---------------- ↑↑↑↑
 
-// Отели
+// Отели  ---------------- ↓↓↓↓
 
 model Hotel {
   id         String     @id @default(auto()) @map("_id") @db.ObjectId
@@ -113,12 +117,12 @@ model Room {
   categoryId String?   @db.ObjectId
   Tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
   tariffId   String?   @db.ObjectId
-  places     Float?    
+  places     Float?
 }
 
-// Отели
+// Отели  ---------------- ↑↑↑↑
 
-// Авиакомпании
+// Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
   id         String              @id @default(auto()) @map("_id") @db.ObjectId
@@ -162,7 +166,7 @@ model AirlinePersonal {
   departmentId String?            @db.ObjectId
 }
 
-// Авиакомпании
+// Авиакомпании  ---------------- ↑↑↑↑
 
 model Airport {
   id      String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -172,7 +176,7 @@ model Airport {
   Request Request[]
 }
 
-// Заявка
+// Заявка  ---------------- ↓↓↓↓
 
 model Request {
   id           String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -221,7 +225,7 @@ type MealPlan {
   dinner    Boolean?
 }
 
-// Заявка
+// Заявка  ---------------- ↑↑↑↑
 
 model Message {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -244,3 +248,15 @@ model Chat {
   userId    String?   @db.ObjectId
   createdAt DateTime  @default(now())
 }
+
+// Логи  ---------------- ↓↓↓↓
+
+model Log {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId // ID пользователя, если доступен
+  action      String // Тип действия, например "login", "update_profile"
+  description String // Описание действия
+  createdAt   DateTime @default(now()) // Время действия
+}
+
+// Логи  ---------------- ↑↑↑↑
