@@ -56,7 +56,7 @@ const userResolver = {
       })
 
       const token = jwt.sign(
-        { userId: newUser.id, role: newUser.role },
+        { userId: newUser.id, role: newUser.role, hotelId: newUser.hotelId && newUser.hotelId, airlineId: newUser.airlineId && newUser.airlineId},
         process.env.JWT_SECRET
       )
 
@@ -74,7 +74,7 @@ const userResolver = {
       }
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role },
+        { userId: user.id, role: user.role, hotelId: user.hotelId && user.hotelId, airlineId: user.airlineId && user.airlineId },
         process.env.JWT_SECRET
       )
 
@@ -86,7 +86,7 @@ const userResolver = {
     registerUser: async (_, { input, images }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN" &&
         context.user.role !== "AIRLINEADMIN"
       ) {
@@ -129,7 +129,7 @@ const userResolver = {
     updateUser: async (_, { input, images }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN" &&
         context.user.role !== "AIRLINEADMIN" &&
         context.user.id !== input.id
@@ -185,7 +185,7 @@ const userResolver = {
     deleteUser: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "AIRLINEADMIN" &&
         context.user.id !== input.id
       ) {

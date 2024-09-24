@@ -36,7 +36,7 @@ const hotelResolver = {
     createHotel: async (_, { input, images }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -69,7 +69,7 @@ const hotelResolver = {
     updateHotel: async (_, { id, input, images }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -230,7 +230,7 @@ const hotelResolver = {
     deleteHotel: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -246,7 +246,7 @@ const hotelResolver = {
     deleteRoom: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -262,7 +262,7 @@ const hotelResolver = {
     deletePrice: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -278,7 +278,7 @@ const hotelResolver = {
     deleteTariff: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")
@@ -294,7 +294,7 @@ const hotelResolver = {
     deleteCategory: async (_, { id }, context) => {
       if (
         context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "ADMIN" &&
+        context.user.role !== "DISPATCHERADMIN" &&
         context.user.role !== "HOTELADMIN"
       ) {
         throw new Error("Access forbidden: Admins only")

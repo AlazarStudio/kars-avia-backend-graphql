@@ -27,9 +27,9 @@ const authMiddleware = async (req, res, next) => {
 
 export const moderatorMiddleware = (req, res, next) => {
   if (
-    req.user.role !== "ADMIN" &&
+    req.user.role !== "DISPATCHERADMIN" &&
     context.user.role !== "SUPERADMIN" &&
-    context.user.role !== "ADMIN" &&
+    context.user.role !== "DISPATCHERADMIN" &&
     context.user.role !== "HOTELADMIN" &&
     context.user.role !== "AIRLINEADMIN" &&
     context.user.role !== "MODERATOR" &&
@@ -44,9 +44,9 @@ export const moderatorMiddleware = (req, res, next) => {
 
 export const adminMiddleware = (req, res, next) => {
   if (
-    req.user.role !== "ADMIN" &&
+    req.user.role !== "DISPATCHERADMIN" &&
     context.user.role !== "SUPERADMIN" &&
-    context.user.role !== "ADMIN" &&
+    context.user.role !== "DISPATCHERADMIN" &&
     context.user.role !== "HOTELADMIN" &&
     context.user.role !== "AIRLINEADMIN" 
   ) {
