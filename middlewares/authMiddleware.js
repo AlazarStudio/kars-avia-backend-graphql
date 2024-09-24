@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
 
+// Общий мидлвар для авторизации
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization
 
@@ -15,8 +16,8 @@ const authMiddleware = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "User not found" })
     }
-    req.user = user
 
+    req.user = user // Добавляем пользователя в запрос
     next()
   } catch (error) {
     return res.status(401).json({ message: "Invalid token" })
@@ -25,44 +26,80 @@ const authMiddleware = async (req, res, next) => {
 
 // ------------------------------------------------------------------------------------------------
 
-export const moderatorMiddleware = (req, res, next) => {
-  if (
-    req.user.role !== "DISPATCHERADMIN" &&
-    context.user.role !== "SUPERADMIN" &&
-    context.user.role !== "DISPATCHERADMIN" &&
-    context.user.role !== "HOTELADMIN" &&
-    context.user.role !== "AIRLINEADMIN" &&
-    context.user.role !== "MODERATOR" &&
-    context.user.role !== "HOTELMODERATOR" &&
-    context.user.role !== "AIRLINEMODERATOR" 
-  ) {
-    return res.status(403).json({ message: "Access forbidden: Admins only" })
-  }
+// Универсальный мидлвар для проверки ролей
+export const roleMiddleware = (context, allowedRoles) => {
+  const { user } = context
 
-  next()
+  if (!user || !allowedRoles.includes(user.role)) {
+    throw new Error("Access forbidden: Insufficient rights.")
+  }
 }
 
-export const adminMiddleware = (req, res, next) => {
-  if (
-    req.user.role !== "DISPATCHERADMIN" &&
-    context.user.role !== "SUPERADMIN" &&
-    context.user.role !== "DISPATCHERADMIN" &&
-    context.user.role !== "HOTELADMIN" &&
-    context.user.role !== "AIRLINEADMIN" 
-  ) {
-    return res.status(403).json({ message: "Access forbidden: Admins only" })
-  }
+// Специфичные мидлвары для ролей на основе универсального
+export const superAdminMiddleware = (context) =>
+  roleMiddleware(context, ["SUPERADMIN"])
 
-  next()
-}
+export const adminMiddleware = (context) =>
+  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN"])
 
-export const superAdminMiddleware = (req, res, next) => {
-  if (req.user.role !== "SUPERADMIN") {
-    return res.status(403).json({ message: "Access forbidden: Admins only" })
-  }
+export const adminHotelAirMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "AIRLINEADMIN"
+  ])
 
-  next()
-}
+export const moderatorMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "AIRLINEADMIN",
+    "MODERATOR",
+    "HOTELMODERATOR",
+    "AIRLINEMODERATOR"
+  ])
+
+export const hotelAdminMiddleware = (context) =>
+  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "HOTELADMIN"])
+
+export const hotelModerMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "HOTELMODERATOR"
+  ])
+
+export const hotelMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "HOTELMODERATOR",
+    "HOTELUSER"
+  ])
+
+export const airlineAdminMiddleware = (context) =>
+  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "AIRLINEADMIN"])
+
+export const airlineModerMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "AIRLINEADMIN",
+    "AIRLINEMODERATOR"
+  ])
+
+export const airlineMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "AIRLINEADMIN",
+    "AIRLINEMODERATOR",
+    "AIRLINEUSER"
+  ])
 
 // ------------------------------------------------------------------------------------------------
 

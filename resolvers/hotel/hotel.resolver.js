@@ -4,6 +4,13 @@ import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import { logAction } from "../../exports/logaction.js"
+import {
+  superAdminMiddleware,
+  adminMiddleware,
+  hotelAdminMiddleware,
+  hotelModerMiddleware,
+  hotelMiddleware
+} from "../../middlewares/authMiddleware.js"
 
 const hotelResolver = {
   Upload: GraphQLUpload,
@@ -34,13 +41,7 @@ const hotelResolver = {
 
   Mutation: {
     createHotel: async (_, { input, images }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      adminMiddleware(context)
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -67,13 +68,7 @@ const hotelResolver = {
     },
 
     updateHotel: async (_, { id, input, images }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -228,13 +223,7 @@ const hotelResolver = {
     },
 
     deleteHotel: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       // logAction(context.user.id, `delete Hotel: ${data.name}`, data)
 
@@ -244,13 +233,7 @@ const hotelResolver = {
     },
 
     deleteRoom: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       // logAction(context.user.id, `delete Room: ${data.name}`, data)
 
@@ -260,13 +243,7 @@ const hotelResolver = {
     },
 
     deletePrice: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       // logAction(context.user.id, `delete Price: ${data.name}`, data)
 
@@ -276,13 +253,7 @@ const hotelResolver = {
     },
 
     deleteTariff: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       // logAction(context.user.id, `delete Tariff: ${data.name}`, data)
 
@@ -292,13 +263,7 @@ const hotelResolver = {
     },
 
     deleteCategory: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "HOTELADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      hotelAdminMiddleware(context)
 
       // logAction(context.user.id, `delete Category: ${data.name}`, data)
 

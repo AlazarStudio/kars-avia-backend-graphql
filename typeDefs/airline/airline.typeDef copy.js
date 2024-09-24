@@ -107,11 +107,9 @@ export default airlineTypeDef
 
 if (prices) {
   for (const price of prices) {
-let category = await prisma.hotel.findUnique({
-    where: {
-        
-    }
-})
+    let category = await prisma.hotel.findUnique({
+      where: {}
+    })
     if (price.categoryId) {
       await prisma.price.update({
         where: { id: price.id },

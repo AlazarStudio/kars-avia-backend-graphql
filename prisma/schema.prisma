@@ -23,6 +23,7 @@ enum Role {
   DISPATCHERUSER
   HOTELUSER
   AIRLINEUSER
+  USER
 }
 
 model User {
@@ -30,21 +31,26 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  name            String
-  email           String    @unique
-  login           String    @unique
-  password        String
-  role            Role
-  sender          Request[] @relation(name: "sender")
-  receiver        Request[] @relation(name: "receiver")
-  hotel           Hotel?    @relation(fields: [hotelId], references: [id])
-  hotelId         String?   @db.ObjectId
-  airline         Airline?  @relation(fields: [airlineId], references: [id])
-  airlineId       String?   @db.ObjectId
-  messageSender   Message[] @relation(name: "messageSender")
-  messageReceiver Message[] @relation(name: "messageReceiver")
-  Chat            Chat[]
-  images          String[]
+  name                String
+  email               String             @unique
+  number              String?
+  login               String             @unique
+  password            String
+  role                Role
+  sender              Request[]          @relation(name: "sender")
+  receiver            Request[]          @relation(name: "receiver")
+  hotel               Hotel?             @relation(fields: [hotelId], references: [id])
+  hotelId             String?            @db.ObjectId
+  airline             Airline?           @relation(fields: [airlineId], references: [id])
+  airlineId           String?            @db.ObjectId
+  messageSender       Message[]          @relation(name: "messageSender")
+  messageReceiver     Message[]          @relation(name: "messageReceiver")
+  Chat                Chat[]
+  images              String[]
+  AirlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
+  airlineDepartmentId String?            @db.ObjectId
+  dispatcher          Boolean?           @default(false)
+  
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -150,6 +156,7 @@ model AirlineDepartment {
   id        String            @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   staff     AirlinePersonal[]
+  users     User[]
   airline   Airline           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId String            @db.ObjectId
 }
@@ -157,9 +164,9 @@ model AirlineDepartment {
 model AirlinePersonal {
   id           String             @id @default(auto()) @map("_id") @db.ObjectId
   name         String
-  role         String
-  login        String             @unique
-  password     String
+  number       String?
+  position     String?
+  gender       String?
   airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId    String?            @db.ObjectId
   department   AirlineDepartment? @relation(fields: [departmentId], references: [id])

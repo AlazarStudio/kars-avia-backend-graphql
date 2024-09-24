@@ -27,21 +27,15 @@ const userResolver = {
         }
       })
     },
-    dispatcherUsers: async () => {
-      return prisma.user.findMany({
-       where: {
-        dispatcher: true
-       }
-      })
-    },
     user: async (_, { userId }) => {
       return prisma.user.findUnique({
         where: { id: userId }
       })
     }
   },
+
   Mutation: {
-    signUp: async (_, { input, images }) => {
+    signUp: async (_, { input, images }, { res }) => {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -64,18 +58,25 @@ const userResolver = {
       })
 
       const token = jwt.sign(
-        { userId: newUser.id, role: newUser.role, hotelId: newUser.hotelId && newUser.hotelId, airlineId: newUser.airlineId && newUser.airlineId},
-        process.env.JWT_SECRET
+        { userId: newUser.id, role: newUser.role, hotelId: newUser.hotelId, airlineId: newUser.airlineId },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
       )
 
-      
+      res.cookie('token', token, {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'Strict',
+        maxAge: 1000 * 60 * 60 // 1 час
+      })
 
       return {
         ...newUser,
         token
       }
     },
-    signIn: async (_, { input }) => {
+
+    signIn: async (_, { input }, { res }) => {
       const { login, password } = input
       const user = await prisma.user.findUnique({ where: { login } })
 
@@ -84,28 +85,35 @@ const userResolver = {
       }
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role, hotelId: user.hotelId && user.hotelId, airlineId: user.airlineId && user.airlineId },
-        process.env.JWT_SECRET
+        { userId: user.id, role: user.role, hotelId: user.hotelId, airlineId: user.airlineId },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
       )
+
+      res.cookie('token', token, {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict',
+        maxAge: 1000 * 60 * 60 // 1 час
+      })
 
       return {
         ...user,
         token
       }
     },
+
     registerUser: async (_, { input, images }, context) => {
       adminHotelAirMiddleware(context)
 
       let imagePaths = []
-      if (images && images.length > 0 && images !== null) {
-        console.log("Images", images)
+      if (images && images.length > 0) {
         for (const image of images) {
-          console.log("image", image)
           imagePaths.push(await uploadImage(image))
         }
       }
 
-      const { name, email, login, password, role, hotelId, airlineId, dispatcher } = input
+      const { name, email, login, password, role, hotelId, airlineId } = input
       const hashedPassword = await argon2.hash(password)
 
       const createdData = {
@@ -113,37 +121,34 @@ const userResolver = {
         email,
         login,
         password: hashedPassword,
-        hotelId: hotelId ? hotelId : undefined,
-        airlineId: airlineId ? airlineId : undefined,
+        hotelId: hotelId || undefined,
+        airlineId: airlineId || undefined,
         role: role || "USER",
-        dispatcher: dispatcher || false
-      }
-
-      if (images != null) {
-        createdData.images = imagePaths
+        images: imagePaths
       }
 
       const newUser = await prisma.user.create({
         data: createdData
       })
 
+      logAction(context.user.id, "registerUser", newUser)
+
       return newUser
     },
+
     updateUser: async (_, { input, images }, context) => {
+      const { id, name, email, login, password } = input
+
       if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-update allowed")
       }
 
       let imagePaths = []
-      if (images && images.length > 0 && images !== null) {
-        console.log("Images", images)
+      if (images && images.length > 0) {
         for (const image of images) {
-          console.log("image", image)
           imagePaths.push(await uploadImage(image))
         }
       }
-
-      const { id, name, email, login, password } = input
 
       let hashedPassword
       if (password) {
@@ -153,38 +158,38 @@ const userResolver = {
       const updatedData = {
         name,
         email,
-        login
-      }
-
-      if (images != null) {
-        updatedData.images = imagePaths
-      }
-
-      if (hashedPassword) {
-        updatedData.password = hashedPassword
+        login,
+        ...(hashedPassword && { password: hashedPassword }),
+        ...(images && { images: imagePaths })
       }
 
       const user = await prisma.user.update({
-        where: { id: id },
+        where: { id },
         data: updatedData
       })
 
-      logAction(id, "update", user)
+      logAction(context.user.id, "updateUser", user)
 
       return user
     },
-    logout: async (_, __, context) => {
-      //
+
+    logout: async (_, __, { res }) => {
+      res.clearCookie("token")
       return { message: "Logged out successfully" }
     },
+
     deleteUser: async (_, { id }, context) => {
       if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-delete allowed")
       }
 
-      return await prisma.user.delete({
+      const deletedUser = await prisma.user.delete({
         where: { id }
       })
+
+      logAction(context.user.id, "deleteUser", deletedUser)
+
+      return deletedUser
     }
   }
 }

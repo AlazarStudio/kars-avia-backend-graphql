@@ -11,6 +11,7 @@ const userTypeDef = `#graphql
     DISPATCHERUSER
     HOTELUSER
     AIRLINEUSER
+    USER
   }
 
   type User {
@@ -24,6 +25,7 @@ const userTypeDef = `#graphql
     hotelId: String
     airlineId: String
     images: [String!]!
+    dispatcher: Boolean
   }
 
   type Query {
@@ -32,6 +34,7 @@ const userTypeDef = `#graphql
     user(userId: ID!): User
     hotelUsers(hotelId: ID!): [User!]
     airlineUsers(airlineId: ID!): [User!]
+    dispatcherUsers: [User!]
   }
 
   type Mutation {
@@ -63,6 +66,7 @@ const userTypeDef = `#graphql
     role: String
     hotelId: String
     airlineId: String
+    dispatcher: Boolean
   }
 
   input UpdateUserInput {

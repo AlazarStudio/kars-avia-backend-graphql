@@ -5,10 +5,10 @@ const airlineTypeDef = `#graphql
     type Airline {
         id: ID!
         name: String!
-        country: String!
-        city: String!
-        address: String!
-        quote: String!
+        country: String
+        city: String
+        address: String
+        quote: String
         index: String
         email: String
         number: String
@@ -26,15 +26,16 @@ const airlineTypeDef = `#graphql
         id: ID!
         name: String!
         staff: [AirlinePersonal!]
+        users: [User!]
     }
 
     type AirlinePersonal {
         id: ID!
         name: String!
-        role: String!
-        login: String!
-        password: String!
-        airline: Airline!
+        number: String
+        position: String
+        gender: String
+        airline: Airline
         department: AirlineDepartment
     }
 
@@ -51,8 +52,8 @@ const airlineTypeDef = `#graphql
 
     input CreateAirlineInput {
         name: String!
-        country: String!
-        city: String!
+        country: String
+        city: String
         address: String
         quote: String
         index: String
@@ -88,14 +89,15 @@ const airlineTypeDef = `#graphql
     input AirlineDepartmentInput {
         id: ID
         name: String
+        userIds: [ID!]
     }
 
     input AirlinePersonalInput {
         id: ID
         name: String
-        role: String
-        login: String
-        password: String
+        number: String
+        position: String
+        gender: String
         departmentId: ID
     }
 

@@ -2,6 +2,7 @@ import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import { logAction } from "../../exports/logaction.js"
+import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
 const airlineResolver = {
   Upload: GraphQLUpload,
@@ -25,13 +26,7 @@ const airlineResolver = {
   },
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "AIRLINEADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      airlineAdminMiddleware(context)
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -54,13 +49,7 @@ const airlineResolver = {
       })
     },
     updateAirline: async (_, { id, input, images }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "AIRLINEADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      airlineAdminMiddleware(context)
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -83,21 +72,27 @@ const airlineResolver = {
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
-        
+
         if (department) {
           for (const depart of department) {
             if (depart.id) {
               await prisma.airlineDepartment.update({
                 where: { id: depart.id },
                 data: {
-                  name: depart.name
+                  name: depart.name,
+                  users: {
+                    connect: depart.userIds ? depart.userIds.map(userId => ({ id: userId })) : []
+                  }
                 }
               })
             } else {
               await prisma.airlineDepartment.create({
                 data: {
                   airlineId: id,
-                  name: depart.name
+                  name: depart.name,
+                  users: {
+                    connect: depart.userIds ? depart.userIds.map(userId => ({ id: userId })) : []
+                  }
                 }
               })
             }
@@ -111,21 +106,21 @@ const airlineResolver = {
                 where: { id: person.id },
                 data: {
                   name: person.name,
-                  role: person.role,
-                  login: person.login,
-                  password: person.password,
-                  departmentId: person.departmentId
+                  departmentId: person.departmentId,
+                  number: person.number,
+                  position: person.position,
+                  gender: person.gender
                 }
               })
             } else {
               await prisma.airlinePersonal.create({
                 data: {
-                  name: person.name,
-                  role: person.role,
-                  login: person.login,
-                  password: person.password,
                   airlineId: id,
-                  departmentId: person.departmentId
+                  name: person.name,
+                  departmentId: person.departmentId,
+                  number: person.number,
+                  position: person.position,
+                  gender: person.gender
                 }
               })
             }
@@ -156,13 +151,7 @@ const airlineResolver = {
       // })
     },
     deleteAirline: async (_, { id }, context) => {
-      if (
-        context.user.role !== "SUPERADMIN" &&
-        context.user.role !== "DISPATCHERADMIN" &&
-        context.user.role !== "AIRLINEADMIN"
-      ) {
-        throw new Error("Access forbidden: Admins only")
-      }
+      airlineAdminMiddleware(context)
 
       return await prisma.airline.delete({
         where: { id },
@@ -172,6 +161,7 @@ const airlineResolver = {
       })
     }
   },
+
   Airline: {
     department: async (parent) => {
       return await prisma.airlineDepartment.findMany({
@@ -184,7 +174,13 @@ const airlineResolver = {
       })
     }
   },
+
   AirlineDepartment: {
+    users: async (parent) => {
+      return await prisma.user.findMany({
+        where: { airlineDepartmentId: parent.id }
+      })
+    },
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id }
