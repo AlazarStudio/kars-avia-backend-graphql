@@ -5,6 +5,8 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import { logAction } from "../../exports/logaction.js"
 import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
+import speakeasy from '@levminer/speakeasy';
+import qrcode from 'qrcode';
 
 const userResolver = {
   Upload: GraphQLUpload,
@@ -84,38 +86,50 @@ const userResolver = {
     },
 
     // -------------------------------- 2FA -------------------------------- ↓↓↓↓
-    enable2FA: async (_, __, { user }) => {
-      if (!user) throw new Error("Unauthorized")
+    enable2FA: async (_, { input }, context) => {
+      if (!context.user) throw new Error("Unauthorized")
 
       const twoFASecret = speakeasy.generateSecret().base32
 
       await prisma.user.update({
-        where: { id: user.id },
+        where: { id: context.user.id },
         data: { twoFASecret, is2FAEnabled: true }
       })
 
+      // const token2fa = speakeasy.totp({
+      //   secret: twoFASecret,
+      //   encoding: 'base32'
+      // })
+
       const otpauthUrl = speakeasy.otpauthURL({
         secret: twoFASecret,
-        label: `YourAppName (${user.email})`,
-        algorithm: "sha512"
+        label: `KarsAvia (${context.user.email})`,
+        algorithm: "sha256",
       })
+
+      console.log("otpauthUrl: ", otpauthUrl, "\n twoFASecret: ", twoFASecret)
 
       const qrCodeUrl = await qrcode.toDataURL(otpauthUrl)
 
       return { qrCodeUrl }
     },
 
-    verify2FA: async (_, { token }, { user }) => {
-      if (!user) throw new Error("Unauthorized")
+    verify2FA: async (_, { token }, context ) => {
+      if (!context.user) throw new Error("Unauthorized")
 
-      const userRecord = await prisma.user.findUnique({
-        where: { id: user.id }
+      const user = await prisma.user.findUnique({
+        where: { id: context.user.id }
       })
+      
+      // const token2fa = speakeasy.totp({
+      //   secret: user.twoFASecret,
+      //   encoding: 'base32'
+      // })
 
       const verified = speakeasy.totp.verify({
-        secret: userRecord.twoFASecret,
+        secret: user.twoFASecret,
         encoding: "base32",
-        token
+        token: token
       })
 
       if (!verified) throw new Error("Invalid 2FA token")
@@ -125,7 +139,7 @@ const userResolver = {
     // -------------------------------- 2FA -------------------------------- ↑↑↑↑
 
     signIn: async (_, { input }) => {
-      const { login, password } = input
+      const { login, password, token2FA } = input
       const user = await prisma.user.findUnique({ where: { login } })
 
       if (!user || !(await argon2.verify(user.password, password))) {

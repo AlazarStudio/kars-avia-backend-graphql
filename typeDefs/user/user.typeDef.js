@@ -26,6 +26,7 @@ const userTypeDef = `#graphql
     airlineId: String
     images: [String!]!
     dispatcher: Boolean
+    twoFASecret: String
   }
 
   type Query {
@@ -54,12 +55,12 @@ const userTypeDef = `#graphql
     email: String!
     login: String!
     password: String!
-    token2FA: String
   }
 
   input SignInInput {
     login: String!
     password: String!
+    token2FA: String
   }
 
   input RegisterUserInput {
