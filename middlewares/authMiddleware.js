@@ -17,6 +17,11 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" })
     }
 
+    // -------- 2FA -------- ↓↓↓↓
+    if (user.is2FAEnabled && !req.headers["x-2fa-token"]) {
+      return res.status(403).json({ message: "2FA token missing" })
+    }
+
     req.user = user // Добавляем пользователя в запрос
     next()
   } catch (error) {
@@ -24,7 +29,7 @@ const authMiddleware = async (req, res, next) => {
   }
 }
 
-// ------------------------------------------------------------------------------------------------
+// ----------------------------------------------------------------
 
 // Универсальный мидлвар для проверки ролей
 export const roleMiddleware = (context, allowedRoles) => {
@@ -101,6 +106,6 @@ export const airlineMiddleware = (context) =>
     "AIRLINEUSER"
   ])
 
-// ------------------------------------------------------------------------------------------------
+// ----------------------------------------------------------------
 
 export default authMiddleware

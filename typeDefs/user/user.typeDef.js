@@ -44,6 +44,9 @@ const userTypeDef = `#graphql
     updateUser(input: UpdateUserInput!,  images: [Upload!]): AuthPayload
     logout: LogoutResponse
     deleteUser(id: ID!): User!
+    # ---- 2FA ---- ↓↓↓↓
+    enable2FA: QRCodeResponse
+    verify2FA(token: String!): SuccessResponse
   }
 
   input SignUpInput {
@@ -51,6 +54,7 @@ const userTypeDef = `#graphql
     email: String!
     login: String!
     password: String!
+    token2FA: String
   }
 
   input SignInInput {
@@ -88,6 +92,14 @@ const userTypeDef = `#graphql
     role: String
     token: String
     images: [String!]
+  }
+
+  type QRCodeResponse {
+    qrCodeUrl: String!
+  }
+
+  type SuccessResponse {
+    success: Boolean!
   }
 
   type LogoutResponse {

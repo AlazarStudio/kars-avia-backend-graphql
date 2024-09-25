@@ -29,9 +29,9 @@ const userResolver = {
     },
     dispatcherUsers: async () => {
       return prisma.user.findMany({
-       where: {
-        dispatcher: true
-       }
+        where: {
+          dispatcher: true
+        }
       })
     },
     user: async (_, { userId }) => {
@@ -49,6 +49,9 @@ const userResolver = {
         }
       }
 
+      // -------- 2FA key generation -------- ↓↓↓↓
+      const twoFASecret = speakeasy.generateSecret().base32
+
       const { name, email, login, password, role } = input
       const hashedPassword = await argon2.hash(password)
 
@@ -59,22 +62,68 @@ const userResolver = {
           login,
           password: hashedPassword,
           role: role ? role : "USER",
-          images: imagePaths
+          images: imagePaths,
+          twoFASecret // ---- 2FA key ----
         }
       })
 
       const token = jwt.sign(
-        { userId: newUser.id, role: newUser.role, hotelId: newUser.hotelId && newUser.hotelId, airlineId: newUser.airlineId && newUser.airlineId},
+        {
+          userId: newUser.id,
+          role: newUser.role,
+          hotelId: newUser.hotelId && newUser.hotelId,
+          airlineId: newUser.airlineId && newUser.airlineId
+        },
         process.env.JWT_SECRET
       )
-
-      
 
       return {
         ...newUser,
         token
       }
     },
+
+    // -------------------------------- 2FA -------------------------------- ↓↓↓↓
+    enable2FA: async (_, __, { user }) => {
+      if (!user) throw new Error("Unauthorized")
+
+      const twoFASecret = speakeasy.generateSecret().base32
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { twoFASecret, is2FAEnabled: true }
+      })
+
+      const otpauthUrl = speakeasy.otpauthURL({
+        secret: twoFASecret,
+        label: `YourAppName (${user.email})`,
+        algorithm: "sha512"
+      })
+
+      const qrCodeUrl = await qrcode.toDataURL(otpauthUrl)
+
+      return { qrCodeUrl }
+    },
+
+    verify2FA: async (_, { token }, { user }) => {
+      if (!user) throw new Error("Unauthorized")
+
+      const userRecord = await prisma.user.findUnique({
+        where: { id: user.id }
+      })
+
+      const verified = speakeasy.totp.verify({
+        secret: userRecord.twoFASecret,
+        encoding: "base32",
+        token
+      })
+
+      if (!verified) throw new Error("Invalid 2FA token")
+
+      return { success: true }
+    },
+    // -------------------------------- 2FA -------------------------------- ↑↑↑↑
+
     signIn: async (_, { input }) => {
       const { login, password } = input
       const user = await prisma.user.findUnique({ where: { login } })
@@ -83,8 +132,27 @@ const userResolver = {
         throw new Error("Invalid credentials")
       }
 
+      // ---------------- 2FA ---------------- ↓↓↓↓
+      if (user.is2FAEnabled) {
+        const verified = speakeasy.totp.verify({
+          secret: user.twoFASecret,
+          encoding: "base32",
+          token: token2FA
+        })
+
+        if (!verified) {
+          throw new Error("Invalid 2FA token")
+        }
+      }
+      // ---------------- 2FA ---------------- ↑↑↑↑
+
       const token = jwt.sign(
-        { userId: user.id, role: user.role, hotelId: user.hotelId && user.hotelId, airlineId: user.airlineId && user.airlineId },
+        {
+          userId: user.id,
+          role: user.role,
+          hotelId: user.hotelId && user.hotelId,
+          airlineId: user.airlineId && user.airlineId
+        },
         process.env.JWT_SECRET
       )
 
@@ -105,7 +173,16 @@ const userResolver = {
         }
       }
 
-      const { name, email, login, password, role, hotelId, airlineId, dispatcher } = input
+      const {
+        name,
+        email,
+        login,
+        password,
+        role,
+        hotelId,
+        airlineId,
+        dispatcher
+      } = input
       const hashedPassword = await argon2.hash(password)
 
       const createdData = {

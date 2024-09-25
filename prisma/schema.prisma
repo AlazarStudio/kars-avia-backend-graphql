@@ -50,7 +50,9 @@ model User {
   AirlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
   airlineDepartmentId String?            @db.ObjectId
   dispatcher          Boolean?           @default(false)
-  
+  // ----------------------------------------------------------------
+  is2FAEnabled        Boolean            @default(false)  // Новый флаг 2FA
+  twoFASecret         String?            // Секретный ключ для 2FA
 }
 
 // Пользователи  ---------------- ↑↑↑↑

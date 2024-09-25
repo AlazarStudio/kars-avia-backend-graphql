@@ -35,6 +35,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.5",
     "passport": "^0.7.0",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0",
     "stream-promise": "^3.2.0",
     "subscriptions-transport-ws": "^0.11.0",
     "winston": "^3.14.2",
