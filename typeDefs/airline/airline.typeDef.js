@@ -48,6 +48,7 @@ const airlineTypeDef = `#graphql
         createAirline(input: CreateAirlineInput!, images: [Upload!]): Airline!
         updateAirline(id: ID!, input: UpdateAirlineInput!, images: [Upload!]): Airline!
         deleteAirline(id: ID!): Airline!
+        deleteAirlineDepartment(id: ID!): AirlineDepartment!
     }
 
     input CreateAirlineInput {

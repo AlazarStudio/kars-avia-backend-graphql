@@ -81,7 +81,9 @@ const airlineResolver = {
                 data: {
                   name: depart.name,
                   users: {
-                    connect: depart.userIds ? depart.userIds.map(userId => ({ id: userId })) : []
+                    connect: depart.userIds
+                      ? depart.userIds.map((userId) => ({ id: userId }))
+                      : []
                   }
                 }
               })
@@ -91,7 +93,9 @@ const airlineResolver = {
                   airlineId: id,
                   name: depart.name,
                   users: {
-                    connect: depart.userIds ? depart.userIds.map(userId => ({ id: userId })) : []
+                    connect: depart.userIds
+                      ? depart.userIds.map((userId) => ({ id: userId }))
+                      : []
                   }
                 }
               })
@@ -152,8 +156,17 @@ const airlineResolver = {
     },
     deleteAirline: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
-
+      console.log("deleteAirline:", id, "cont:", context)
       return await prisma.airline.delete({
+        where: { id },
+        include: {
+          staff: true
+        }
+      })
+    },
+    deleteAirlineDepartment: async (_, { id }, context) => {
+      airlineAdminMiddleware(context)
+      return await prisma.airlineDepartment.delete({
         where: { id },
         include: {
           staff: true

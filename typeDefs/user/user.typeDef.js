@@ -14,6 +14,11 @@ const userTypeDef = `#graphql
     USER
   }
 
+  enum TwoFAMethod {
+    HOTP
+    TOTP
+  }
+
   type User {
     id: ID!
     name: String!
@@ -27,6 +32,8 @@ const userTypeDef = `#graphql
     images: [String!]!
     dispatcher: Boolean
     twoFASecret: String
+    twoFAMethod: TwoFAMethod
+    airlineDepartmentId: String
   }
 
   type Query {
@@ -46,7 +53,7 @@ const userTypeDef = `#graphql
     logout: LogoutResponse
     deleteUser(id: ID!): User!
     # ---- 2FA ---- ↓↓↓↓
-    enable2FA: QRCodeResponse
+    enable2FA(input: TwoFAMethodInput): QRCodeResponse
     verify2FA(token: String!): SuccessResponse
   }
 
@@ -72,6 +79,7 @@ const userTypeDef = `#graphql
     hotelId: String
     airlineId: String
     dispatcher: Boolean
+    airlineDepartmentId: ID
   }
 
   input UpdateUserInput {
@@ -83,6 +91,11 @@ const userTypeDef = `#graphql
     role: String
     hotelId: String
     airlineId: String
+    airlineDepartmentId: ID
+  }
+
+  input TwoFAMethodInput {
+    method: TwoFAMethod
   }
 
   type AuthPayload {
@@ -96,7 +109,7 @@ const userTypeDef = `#graphql
   }
 
   type QRCodeResponse {
-    qrCodeUrl: String!
+    qrCodeUrl: String
   }
 
   type SuccessResponse {

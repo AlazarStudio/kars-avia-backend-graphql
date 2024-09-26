@@ -5,8 +5,21 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import { logAction } from "../../exports/logaction.js"
 import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
-import speakeasy from '@levminer/speakeasy';
-import qrcode from 'qrcode';
+import speakeasy from "@levminer/speakeasy"
+import qrcode from "qrcode"
+import nodemailer from "nodemailer"
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.mail.ru",
+  port: 465,
+  secure: true,
+  auth: {
+    // user: process.env.EMAIL_USER,
+    user: "alimdzhatdoev@mail.ru",
+    // pass: process.env.EMAIL_PASSWORD
+    pass: "VJx3YDcCiVFLFiR8XjYR"
+  }
+})
 
 const userResolver = {
   Upload: GraphQLUpload,
@@ -88,49 +101,77 @@ const userResolver = {
     // -------------------------------- 2FA -------------------------------- ↓↓↓↓
     enable2FA: async (_, { input }, context) => {
       if (!context.user) throw new Error("Unauthorized")
+      let method = input.method
+      console.log(method + "123")
 
       const twoFASecret = speakeasy.generateSecret().base32
 
+      if (method === "HOTP") {
+        const token = speakeasy.hotp({
+          secret: twoFASecret,
+          encoding: "base32",
+          counter: 0
+        })
+
+        console.log(token)
+
+        try {
+          const info = await transporter.sendMail({
+            from: "alimdzhatdoev@mail.ru",
+            to: "8rusik8@mail.ru",
+            subject: "Your HOTP Code",
+            text: `Your HOTP code is ${token}`
+          })
+          console.log("Письмо отправлено: " + info.response)
+        } catch (error) {
+          console.error("Ошибка при отправке письма:", error)
+        }
+      }
+
       await prisma.user.update({
         where: { id: context.user.id },
-        data: { twoFASecret, is2FAEnabled: true }
+        data: { twoFASecret, twoFAMethod: method, is2FAEnabled: true }
       })
 
-      // const token2fa = speakeasy.totp({
-      //   secret: twoFASecret,
-      //   encoding: 'base32'
-      // })
+      if (method === "TOTP") {
+        const otpauthUrl = speakeasy.otpauthURL({
+          secret: twoFASecret,
+          label: `KarsAvia (${context.user.email})`,
+          algorithm: "sha256"
+        })
 
-      const otpauthUrl = speakeasy.otpauthURL({
-        secret: twoFASecret,
-        label: `KarsAvia (${context.user.email})`,
-        algorithm: "sha256",
-      })
+        const qrCodeUrl = await qrcode.toDataURL(otpauthUrl)
 
-      console.log("otpauthUrl: ", otpauthUrl, "\n twoFASecret: ", twoFASecret)
-
-      const qrCodeUrl = await qrcode.toDataURL(otpauthUrl)
-
-      return { qrCodeUrl }
+        return { qrCodeUrl }
+      }
+      return { qrCodeUrlL: null }
     },
 
-    verify2FA: async (_, { token }, context ) => {
+    verify2FA: async (_, { token }, context) => {
       if (!context.user) throw new Error("Unauthorized")
+
+        console.log(token, "1324")
 
       const user = await prisma.user.findUnique({
         where: { id: context.user.id }
       })
-      
-      // const token2fa = speakeasy.totp({
-      //   secret: user.twoFASecret,
-      //   encoding: 'base32'
-      // })
 
-      const verified = speakeasy.totp.verify({
-        secret: user.twoFASecret,
-        encoding: "base32",
-        token: token
-      })
+      let verified
+
+      if (user.twoFAMethod === "TOTP") {
+        verified = speakeasy.totp.verify({
+          secret: user.twoFASecret,
+          encoding: "base32",
+          token: token
+        })
+      } else if (user.twoFAMethod === "HOTP") {
+        verified = speakeasy.hotp.verify({
+          secret: user.twoFASecret,
+          encoding: "base32",
+          token: token,
+          counter: 0
+        })
+      }
 
       if (!verified) throw new Error("Invalid 2FA token")
 
@@ -148,11 +189,21 @@ const userResolver = {
 
       // ---------------- 2FA ---------------- ↓↓↓↓
       if (user.is2FAEnabled) {
-        const verified = speakeasy.totp.verify({
-          secret: user.twoFASecret,
-          encoding: "base32",
-          token: token2FA
-        })
+        let verified
+        if (user.twoFAMethod === "TOTP") {
+          verified = speakeasy.totp.verify({
+            secret: user.twoFASecret,
+            encoding: "base32",
+            token: token2FA
+          })
+        } else if (user.twoFAMethod === "HOTP") {
+          verified = speakeasy.hotp.verify({
+            secret: user.twoFASecret,
+            encoding: "base32",
+            token: token2FA,
+            counter: 0
+          })
+        }
 
         if (!verified) {
           throw new Error("Invalid 2FA token")
@@ -195,7 +246,8 @@ const userResolver = {
         role,
         hotelId,
         airlineId,
-        dispatcher
+        dispatcher,
+        airlineDepartmentId
       } = input
       const hashedPassword = await argon2.hash(password)
 
@@ -207,7 +259,8 @@ const userResolver = {
         hotelId: hotelId ? hotelId : undefined,
         airlineId: airlineId ? airlineId : undefined,
         role: role || "USER",
-        dispatcher: dispatcher || false
+        dispatcher: dispatcher || false,
+        airlineDepartmentId: airlineDepartmentId || null
       }
 
       if (images != null) {
