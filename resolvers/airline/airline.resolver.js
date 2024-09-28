@@ -8,19 +8,24 @@ const airlineResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    airlines: async () => {
+    airlines: async (_, __, context) => {
       return await prisma.airline.findMany({
         include: {
           staff: true
         }
       })
     },
-    airline: async (_, { id }) => {
+    airline: async (_, { id }, context) => {
       return await prisma.airline.findUnique({
         where: { id },
         include: {
           staff: true
         }
+      })
+    },
+    airlineStaff: async (_, { id }, context) => {
+      return await prisma.airlinePersonal.findUnique({
+        where: { id }
       })
     }
   },
@@ -171,6 +176,11 @@ const airlineResolver = {
         include: {
           staff: true
         }
+      })
+    },
+    deleteAirlineStaff: async (_, { id }, context) => {
+      return await prisma.airlinePersonal.delete({
+        where: { id }
       })
     }
   },

@@ -9,6 +9,11 @@ const airportResolver = {
       return prisma.airport.findUnique({
         where: { id: airportId }
       })
+    },
+    airportCity: async (_, { city }) => {
+      return prisma.airport.findMany({
+        where: { city: { contains: city } }
+      })
     }
   }
 }

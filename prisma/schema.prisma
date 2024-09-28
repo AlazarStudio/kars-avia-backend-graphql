@@ -2,13 +2,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// datasource db {
-//   provider = "mongodb"
-//   url      = env("DATABASE_URL")
-// }
-
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -37,7 +32,7 @@ enum TwoFAMethod {
 }
 
 model User {
-  id        String   @id @default(uuid()) @map("_id")
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -50,15 +45,15 @@ model User {
   sender              Request[]          @relation(name: "sender")
   receiver            Request[]          @relation(name: "receiver")
   hotel               Hotel?             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId             String?
+  hotelId             String?            @db.ObjectId
   airline             Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId           String?
+  airlineId           String?            @db.ObjectId
   messageSender       Message[]          @relation(name: "messageSender")
   messageReceiver     Message[]          @relation(name: "messageReceiver")
   Chat                Chat[]
   images              String[]
   AirlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
-  airlineDepartmentId String?
+  airlineDepartmentId String?            @db.ObjectId
   dispatcher          Boolean?           @default(false)
   // ----------------------------------------------------------------
   is2FAEnabled        Boolean            @default(false)
@@ -71,7 +66,7 @@ model User {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id         String     @id @default(uuid()) @map("_id")
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   country    String?
   city       String?
@@ -95,47 +90,47 @@ model Hotel {
 }
 
 model Tariff {
-  id       String     @id @default(uuid()) @map("_id")
+  id       String     @id @default(auto()) @map("_id") @db.ObjectId
   name     String
   hotel    Hotel      @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String
+  hotelId  String     @db.ObjectId
   room     Room[]
   price    Price[]
   Category Category[]
 }
 
 model Category {
-  id       String  @id @default(uuid()) @map("_id")
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
   name     String
   hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String
+  hotelId  String  @db.ObjectId
   rooms    Room[]
   Tariff   Tariff? @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId String?
+  tariffId String? @db.ObjectId
   Price    Price[]
 }
 
 model Price {
-  id         String    @id @default(uuid()) @map("_id")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
   hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String
+  hotelId    String    @db.ObjectId
   amount     Float?
   amountair  Float?
   tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId   String?
+  tariffId   String?   @db.ObjectId
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String?
+  categoryId String?   @db.ObjectId
 }
 
 model Room {
-  id         String    @id @default(uuid()) @map("_id")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String
+  hotelId    String    @db.ObjectId
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String?
+  categoryId String?   @db.ObjectId
   Tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId   String?
+  tariffId   String?   @db.ObjectId
   places     Float?
 }
 
@@ -144,7 +139,7 @@ model Room {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id         String              @id @default(uuid()) @map("_id")
+  id         String              @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   images     String[]
   country    String?
@@ -166,85 +161,85 @@ model Airline {
 }
 
 model AirlineDepartment {
-  id        String            @id @default(uuid()) @map("_id")
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   staff     AirlinePersonal[]
   users     User[]
   airline   Airline           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId String
+  airlineId String            @db.ObjectId
 }
 
 model AirlinePersonal {
-  id           String             @id @default(uuid()) @map("_id")
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   number       String?
   position     String?
   gender       String?
   airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId    String?
+  airlineId    String?            @db.ObjectId
   department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
-  departmentId String?
+  departmentId String?            @db.ObjectId
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
 
 model Airport {
-  id      String    @id @default(uuid()) @map("_id")
-  name    String
-  code    String
-  city    String
+  id      String    @id @default(auto()) @map("_id") @db.ObjectId
+  name    String?
+  code    String?
+  city    String?
   Request Request[]
+}
+
+model City {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  city   String
+  region String
 }
 
 // Заявка  ---------------- ↓↓↓↓
 
 model Request {
-  id           String     @id @default(uuid()) @map("_id")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
   fullName     String
   position     String?
   gender       String?
   phoneNumber  String?
-  airport      Airport    @relation(fields: [airportId], references: [id])
-  airportId    String
-  arrival      Arrival?
-  departure    Departure?
+  airport      Airport?  @relation(fields: [airportId], references: [id])
+  airportId    String?   @db.ObjectId
+  arrival      Arrival
+  departure    Departure
   // requestNumber String?
   roomCategory String
   roomNumber   String?
-  mealPlan     MealPlan?
-  airline      Airline    @relation(fields: [airlineId], references: [id])
-  airlineId    String
-  hotel        Hotel?     @relation(fields: [hotelId], references: [id])
-  hotelId      String?
-  sender       User       @relation(name: "sender", fields: [senderId], references: [id])
-  senderId     String
-  receiver     User?      @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId   String?
+  mealPlan     MealPlan
+  airline      Airline   @relation(fields: [airlineId], references: [id])
+  airlineId    String    @db.ObjectId
+  hotel        Hotel?    @relation(fields: [hotelId], references: [id])
+  hotelId      String?   @db.ObjectId
+  sender       User      @relation(name: "sender", fields: [senderId], references: [id])
+  senderId     String    @db.ObjectId
+  receiver     User?     @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId   String?   @db.ObjectId
   Chat         Chat[]
-  status       String     @default("created")
+  status       String    @default("created")
 }
 
-model Arrival {
-  request   Request @relation(fields: [requestId], references: [id])
-  requestId String  @unique
-  flight    String
-  date      String
-  time      String
+type Arrival {
+  flight String
+  date   String
+  time   String
 }
 
-model Departure {
-  request   Request @relation(fields: [requestId], references: [id])
-  requestId String  @unique
-  flight    String
-  date      String
-  time      String
+type Departure {
+  flight String
+  date   String
+  time   String
 }
 
-model MealPlan {
-  request   Request  @relation(fields: [requestId], references: [id])
-  requestId String   @unique
+type MealPlan {
   included  Boolean
   breakfast Boolean?
   lunch     Boolean?
@@ -254,32 +249,32 @@ model MealPlan {
 // Заявка  ---------------- ↑↑↑↑
 
 model Message {
-  id         String   @id @default(uuid()) @map("_id")
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   text       String
   sender     User     @relation(name: "messageSender", fields: [senderId], references: [id])
-  senderId   String
+  senderId   String   @db.ObjectId
   receiver   User?    @relation(name: "messageReceiver", fields: [receiverId], references: [id])
-  receiverId String?
+  receiverId String?  @db.ObjectId
   chat       Chat?    @relation(fields: [chatId], references: [id])
-  chatId     String?
+  chatId     String?  @db.ObjectId
   createdAt  DateTime @default(now())
 }
 
 model Chat {
-  id        String    @id @default(uuid()) @map("_id")
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
   request   Request   @relation(fields: [requestId], references: [id])
-  requestId String
+  requestId String    @db.ObjectId
   Message   Message[]
   User      User?     @relation(fields: [userId], references: [id])
-  userId    String?
+  userId    String?   @db.ObjectId
   createdAt DateTime  @default(now())
 }
 
 // Логи  ---------------- ↓↓↓↓
 
 model Log {
-  id          String   @id @default(uuid()) @map("_id")
-  userId      String? // ID пользователя, если доступен
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId // ID пользователя, если доступен
   action      String // Тип действия, например "login", "update_profile"
   description String // Описание действия
   createdAt   DateTime @default(now()) // Время действия

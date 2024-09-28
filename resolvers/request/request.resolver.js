@@ -10,19 +10,8 @@ const requestResolver = {
     requests: async () => {
       return prisma.request.findMany({
         include: {
-          airline: {
-            select: {
-              name: true,
-              images: true
-            }
-          },
-          airport: {
-            select: {
-              name: true,
-              code: true,
-              city: true
-            }
-          }
+          airline: true,
+          airport: true
         }
       })
     },
@@ -30,19 +19,8 @@ const requestResolver = {
       return prisma.request.findUnique({
         where: { id: requestId },
         include: {
-          airline: {
-            select: {
-              name: true,
-              images: true
-            }
-          },
-          airport: {
-            select: {
-              name: true,
-              code: true,
-              city: true
-            }
-          }
+          airline: true,
+          airport: true
         }
       })
     }
@@ -71,9 +49,9 @@ const requestResolver = {
           position,
           gender,
           phoneNumber,
-          airport: {
+          airport: airportId ? {
             connect: { id: airportId }
-          },
+          } : null,
           arrival,
           departure,
           roomCategory,
@@ -99,6 +77,7 @@ const requestResolver = {
         position,
         gender,
         phoneNumber,
+        airport,
         arrival,
         departure,
         roomCategory,
@@ -116,6 +95,7 @@ const requestResolver = {
           position,
           gender,
           phoneNumber,
+          airport,
           arrival,
           departure,
           roomCategory,
@@ -139,6 +119,20 @@ const requestResolver = {
     requestUpdated: {
       subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
     }
+  },
+
+  Request: {
+    airport: async (parent) => {
+      console.log('Request', parent);
+      return await prisma.airport.findUnique({
+        where: { id: parent.airportId }
+      })
+    },
+    airline: async (parent) => {
+      return await prisma.airline.findUnique({
+        where: { id: parent.airlineId }
+      })
+    },
   }
 }
 

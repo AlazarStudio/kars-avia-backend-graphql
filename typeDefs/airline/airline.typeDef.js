@@ -42,6 +42,7 @@ const airlineTypeDef = `#graphql
     type Query {
         airlines: [Airline!]!
         airline(id: ID!): Airline
+        airlineStaff(id: ID!): AirlinePersonal
     }
 
     type Mutation {
@@ -49,6 +50,7 @@ const airlineTypeDef = `#graphql
         updateAirline(id: ID!, input: UpdateAirlineInput!, images: [Upload!]): Airline!
         deleteAirline(id: ID!): Airline!
         deleteAirlineDepartment(id: ID!): AirlineDepartment!
+        deleteAirlineStaff(id: ID!): AirlinePersonal!
     }
 
     input CreateAirlineInput {
