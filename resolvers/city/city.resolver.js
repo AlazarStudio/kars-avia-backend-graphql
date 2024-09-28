@@ -7,7 +7,7 @@ const cityResolver = {
     },
     city: async (_, { city }) => {
       return prisma.city.findMany({
-        where: { city: { contains: city } }
+        where: { city: { contains: city, mode: "insensitive" } }
       })
     }
   },

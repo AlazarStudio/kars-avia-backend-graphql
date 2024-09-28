@@ -12,7 +12,7 @@ const airportResolver = {
     },
     airportCity: async (_, { city }) => {
       return prisma.airport.findMany({
-        where: { city: { contains: city } }
+        where: { city: { contains: city, mode: "insensitive" } }
       })
     }
   }
