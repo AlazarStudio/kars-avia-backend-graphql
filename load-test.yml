@@ -2,7 +2,7 @@ config:
   target: 'http://localhost:4000'
   phases:
     - duration: 60
-      arrivalRate: 20
+      arrivalRate: 100
   payload:
     path: 'data.csv'
     fields:
@@ -50,8 +50,9 @@ scenarios:
                 roomCategory: "Ooo, DNO!"
                 airportId: "{{airportId}}"
           capture:
-            - json: "$"       # здесь мы указываем путь к данным, которые нужно захватить
-              as: "response"  # здесь указываем имя, под которым сохраняем данные
+            - json: "$"
+              as: "response"
           log: true
           expect:
             - statusCode: 200
+      - think: 2  # Задержка в секундах перед следующим запросом
