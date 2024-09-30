@@ -22,7 +22,8 @@ const hotelResolver = {
           categories: true,
           rooms: true,
           tariffs: true,
-          prices: true
+          prices: true,
+          hotelChesses: true
         }
       })
     },
@@ -33,7 +34,8 @@ const hotelResolver = {
           categories: true,
           rooms: true,
           tariffs: true,
-          prices: true
+          prices: true,
+          hotelChesses: true
         }
       })
     }
@@ -77,10 +79,17 @@ const hotelResolver = {
         }
       }
 
-      const { categories, rooms, tariffs, prices, ...restInput } = input
-      console.log(restInput, " inputs ", categories, rooms, tariffs)
+      const { categories, rooms, tariffs, prices, hotelChesses, ...restInput } =
+        input
 
-      const updatedData = { categories, rooms, tariffs, prices, ...restInput }
+      const updatedData = {
+        categories,
+        rooms,
+        tariffs,
+        prices,
+        hotelChesses,
+        ...restInput
+      }
 
       logAction(context.user.id, `Upadate Hotel: `, updatedData)
 
@@ -93,6 +102,43 @@ const hotelResolver = {
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
+
+        //
+        if (hotelChesses) {
+          for (const hotelChess of hotelChesses) {
+            if (hotelChess.id) {
+              await prisma.hotelChess.update({
+                where: { id: hotelChess.id },
+                data: {
+                  public: hotelChess.public,
+                  room: hotelChess.room,
+                  place: hotelChess.place,
+                  start: hotelChess.start,
+                  startTime: hotelChess.startTime,
+                  end: hotelChess.end,
+                  endTime: hotelChess.endTime,
+                  clientId: hotelChess.clientId,
+                  requestId: hotelChess.requestId
+                }
+              })
+            } else {
+              await prisma.hotelChess.create({
+                data: {
+                  hotelId: id,
+                  public: hotelChess.public,
+                  room: hotelChess.room,
+                  place: hotelChess.place,
+                  start: hotelChess.start,
+                  startTime: hotelChess.startTime,
+                  end: hotelChess.end,
+                  endTime: hotelChess.endTime,
+                  clientId: hotelChess.clientId,
+                  requestId: hotelChess.requestId
+                }
+              })
+            }
+          }
+        }
 
         // Обработка тарифов
         if (tariffs) {
@@ -293,8 +339,22 @@ const hotelResolver = {
       return await prisma.price.findMany({
         where: { hotelId: parent.id }
       })
+    },
+    hotelChesses: async (parent) => {
+      return await prisma.hotelChess.findMany({
+        where: { hotelId: parent.id },
+        include: { client: true }
+      })
     }
   },
+
+  // HotelChess: {
+  //   client: async (parent) => {
+  //     return await prisma.airlinePersonal.findUnique({
+  //       where: {id: parent.id}
+  //     })
+  //   }
+  // },
 
   Tariff: {
     prices: async (parent) => {

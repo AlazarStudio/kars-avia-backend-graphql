@@ -161,7 +161,6 @@ const airlineResolver = {
     },
     deleteAirline: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
-      console.log("deleteAirline:", id, "cont:", context)
       return await prisma.airline.delete({
         where: { id },
         include: {

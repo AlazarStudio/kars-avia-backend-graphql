@@ -15,9 +15,9 @@ const requestResolver = {
         }
       })
     },
-    request: async (_, { requestId }) => {
+    request: async (_, { id }) => {
       return prisma.request.findUnique({
-        where: { id: requestId },
+        where: { id: id },
         include: {
           airline: true,
           airport: true
@@ -28,10 +28,7 @@ const requestResolver = {
   Mutation: {
     createRequest: async (_, { input }, context) => {
       const {
-        fullName,
-        position,
-        gender,
-        phoneNumber,
+        personId,
         airportId,
         arrival,
         departure,
@@ -45,13 +42,14 @@ const requestResolver = {
       // Создание заявки
       const newRequest = await prisma.request.create({
         data: {
-          fullName,
-          position,
-          gender,
-          phoneNumber,
-          airport: airportId ? {
-            connect: { id: airportId }
-          } : null,
+          person: {
+            connect: { id: personId }
+          },
+          airport: airportId
+            ? {
+                connect: { id: airportId }
+              }
+            : null,
           arrival,
           departure,
           roomCategory,
@@ -73,10 +71,6 @@ const requestResolver = {
     },
     updateRequest: async (_, { id, input }, context) => {
       const {
-        fullName,
-        position,
-        gender,
-        phoneNumber,
         airport,
         arrival,
         departure,
@@ -91,10 +85,6 @@ const requestResolver = {
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: {
-          fullName,
-          position,
-          gender,
-          phoneNumber,
           airport,
           arrival,
           departure,
@@ -123,7 +113,6 @@ const requestResolver = {
 
   Request: {
     airport: async (parent) => {
-      console.log('Request', parent);
       return await prisma.airport.findUnique({
         where: { id: parent.airportId }
       })
@@ -133,6 +122,11 @@ const requestResolver = {
         where: { id: parent.airlineId }
       })
     },
+    person: async (parent) => {
+      return await prisma.airlinePersonal.findUnique({
+        where: { id: parent.personId }
+      })
+    }
   }
 }
 

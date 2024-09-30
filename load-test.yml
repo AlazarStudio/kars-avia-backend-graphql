@@ -1,0 +1,57 @@
+config:
+  target: 'http://localhost:4000'
+  phases:
+    - duration: 60
+      arrivalRate: 20
+  payload:
+    path: 'data.csv'
+    fields:
+      - "personId"
+      - "airlineId"
+      - "senderId"
+      - "airportId"
+    skipHeader: true
+  defaults:
+    headers:
+      content-type: 'application/json'
+
+scenarios:
+  - name: 'Create Request Mutation'
+    flow:
+      - post:
+          url: '/graphql'
+          json:
+            query: |
+              mutation CreateRequest($input: CreateRequestInput!) {
+                createRequest(input: $input) {
+                  id
+                  personId
+                  person {
+                    id
+                    name
+                  }
+                }
+              }
+            variables:
+              input:
+                airlineId: "{{airlineId}}"
+                arrival:
+                  date: "30.09.2024"
+                  flight: "Test_Arrival"
+                  time: "12:00"
+                departure:
+                  date: "01.10.2024"
+                  flight: "Test_Departure"
+                  time: "12:00"
+                personId: "{{personId}}"
+                senderId: "{{senderId}}"
+                mealPlan:
+                  included: false
+                roomCategory: "Ooo, DNO!"
+                airportId: "{{airportId}}"
+          capture:
+            - json: "$"       # здесь мы указываем путь к данным, которые нужно захватить
+              as: "response"  # здесь указываем имя, под которым сохраняем данные
+          log: true
+          expect:
+            - statusCode: 200

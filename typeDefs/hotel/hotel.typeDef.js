@@ -17,11 +17,29 @@ type Hotel {
   rs: String
   bank: String
   bik: String
-  images: [String!]
+  hotelChesses: [HotelChess!]
   categories: [Category!]
-  rooms: [Room!]
   tariffs: [Tariff!]
+  images: [String!]
   prices: [Price!]
+  rooms: [Room!]
+}
+
+type HotelChess {
+  id: ID
+  hotel: Hotel
+  hotelId: String
+  public: Boolean
+  room: String
+  place: String
+  start: String
+  startTime: String
+  end: String
+  endTime: String
+  client: AirlinePersonal
+  clientId: String
+  request: Request
+  requestId: String
 }
 
 type Tariff {
@@ -84,10 +102,11 @@ input CreateHotelInput {
   rs: String
   bank: String
   bik: String
+  hotelChesses: [HotelChessInput!]
   categories: [CategoryInput!]
-  rooms: [RoomInput!]
   tariffs: [TariffInput!]
   prices: [PriceInput!]
+  rooms: [RoomInput!]
 }
 
 input UpdateHotelInput {
@@ -104,10 +123,25 @@ input UpdateHotelInput {
   rs: String
   bank: String
   bik: String
+  hotelChesses: [HotelChessInput!]
   categories: [CategoryInput!]
-  rooms: [RoomInput!]
   tariffs: [TariffInput!]
   prices: [PriceInput!]
+  rooms: [RoomInput!]
+}
+
+input HotelChessInput {
+  id:ID
+  hotelId: ID
+  public: Boolean
+  room: String
+  place: String
+  start: String
+  startTime: String
+  end: String
+  endTime: String
+  clientId: ID
+  requestId: ID
 }
 
 input CategoryInput {

@@ -102,7 +102,6 @@ const userResolver = {
     enable2FA: async (_, { input }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       let method = input.method
-      console.log(method + "123")
 
       const twoFASecret = speakeasy.generateSecret().base32
 
@@ -113,8 +112,6 @@ const userResolver = {
           counter: 0
         })
 
-        console.log(token)
-
         try {
           const info = await transporter.sendMail({
             from: "alimdzhatdoev@mail.ru",
@@ -122,7 +119,7 @@ const userResolver = {
             subject: "Your HOTP Code",
             text: `Your HOTP code is ${token}`
           })
-          console.log("Письмо отправлено: " + info.response)
+          // console.log("Письмо отправлено: " + info.response)
         } catch (error) {
           console.error("Ошибка при отправке письма:", error)
         }
@@ -149,8 +146,6 @@ const userResolver = {
 
     verify2FA: async (_, { token }, context) => {
       if (!context.user) throw new Error("Unauthorized")
-
-        console.log(token, "1324")
 
       const user = await prisma.user.findUnique({
         where: { id: context.user.id }
@@ -231,9 +226,7 @@ const userResolver = {
 
       let imagePaths = []
       if (images && images.length > 0 && images !== null) {
-        console.log("Images", images)
         for (const image of images) {
-          console.log("image", image)
           imagePaths.push(await uploadImage(image))
         }
       }
@@ -280,9 +273,7 @@ const userResolver = {
 
       let imagePaths = []
       if (images && images.length > 0 && images !== null) {
-        console.log("Images", images)
         for (const image of images) {
-          console.log("image", image)
           imagePaths.push(await uploadImage(image))
         }
       }

@@ -66,27 +66,46 @@ model User {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id         String     @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  country    String?
-  city       String?
-  address    String?
-  index      String?
-  quote      String?
-  email      String?
-  number     String?
-  inn        String?
-  ogrn       String?
-  rs         String?
-  bank       String?
-  bik        String?
-  images     String[]
-  categories Category[]
-  Request    Request[]
-  tariffs    Tariff[]
-  prices     Price[]
-  rooms      Room[]
-  User       User[]
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  country      String?
+  city         String?
+  address      String?
+  index        String?
+  quote        String?
+  email        String?
+  number       String?
+  inn          String?
+  ogrn         String?
+  rs           String?
+  bank         String?
+  bik          String?
+  images       String[]
+  hotelChesses HotelChess[]
+  categories   Category[]
+  Request      Request[]
+  tariffs      Tariff[]
+  prices       Price[]
+  rooms        Room[]
+  User         User[]
+}
+
+model HotelChess {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+  hotelId String @unique @db.ObjectId
+
+  public    Boolean?
+  room      String?
+  place     String?
+  start     String?
+  startTime String?
+  end       String?
+  endTime   String?
+  client    AirlinePersonal? @relation(fields: [clientId], references: [id])
+  clientId  String?          @db.ObjectId
+  request   Request          @relation(fields: [requestId], references: [id])
+  requestId String           @unique @db.ObjectId
 }
 
 model Tariff {
@@ -175,10 +194,16 @@ model AirlinePersonal {
   number       String?
   position     String?
   gender       String?
+  married      Boolean?           @default(false)
+  husband      AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId    String?            @db.ObjectId
+  marriedTo    AirlinePersonal[]  @relation(name: "Marriage")
   airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId    String?            @db.ObjectId
   department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
   departmentId String?            @db.ObjectId
+  Request      Request[]
+  HotelChess   HotelChess[]
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -200,31 +225,30 @@ model City {
 // Заявка  ---------------- ↓↓↓↓
 
 model Request {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  fullName     String
-  position     String?
-  gender       String?
-  phoneNumber  String?
-  airport      Airport?  @relation(fields: [airportId], references: [id])
-  airportId    String?   @db.ObjectId
-  arrival      Arrival
-  departure    Departure
-  // requestNumber String?
-  roomCategory String
-  roomNumber   String?
-  mealPlan     MealPlan
-  airline      Airline   @relation(fields: [airlineId], references: [id])
-  airlineId    String    @db.ObjectId
-  hotel        Hotel?    @relation(fields: [hotelId], references: [id])
-  hotelId      String?   @db.ObjectId
-  sender       User      @relation(name: "sender", fields: [senderId], references: [id])
-  senderId     String    @db.ObjectId
-  receiver     User?     @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId   String?   @db.ObjectId
-  Chat         Chat[]
-  status       String    @default("created")
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  person        AirlinePersonal @relation(fields: [personId], references: [id])
+  personId      String          @db.ObjectId
+  airport       Airport?        @relation(fields: [airportId], references: [id])
+  airportId     String?         @db.ObjectId
+  arrival       Arrival
+  departure     Departure
+  requestNumber String?
+  roomCategory  String?
+  roomNumber    String?
+  mealPlan      MealPlan
+  airline       Airline         @relation(fields: [airlineId], references: [id])
+  airlineId     String          @db.ObjectId
+  hotel         Hotel?          @relation(fields: [hotelId], references: [id])
+  hotelId       String?         @db.ObjectId
+  sender        User            @relation(name: "sender", fields: [senderId], references: [id])
+  senderId      String          @db.ObjectId
+  receiver      User?           @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId    String?         @db.ObjectId
+  Chat          Chat[]
+  status        String          @default("created")
+  HotelChess    HotelChess?
 }
 
 type Arrival {

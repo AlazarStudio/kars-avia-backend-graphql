@@ -4,15 +4,13 @@ scalar Date
 
 type Request {
   id: ID!
-  fullName: String!
-  position: String
-  gender: String
-  phoneNumber: String
+  person: AirlinePersonal!
+  personId: String!
   airportId: String!
   airport: Airport!
   arrival: Arrival!
   departure: Departure!
-  roomCategory: String!
+  roomCategory: String
   mealPlan: MealPlan!
   senderId: String!
   receiverId: String
@@ -45,10 +43,7 @@ type MealPlan {
 }
 
 input CreateRequestInput {
-  fullName: String!
-  position: String
-  gender: String
-  phoneNumber: String
+  personId: String!
   airportId: String
   arrival: ArrivalInput!
   departure: DepartureInput!
@@ -60,10 +55,6 @@ input CreateRequestInput {
 }
 
 input UpdateRequestInput {
-  fullName: String
-  position: String
-  gender: String
-  phoneNumber: String
   arrival: ArrivalInput
   departure: DepartureInput
   roomCategory: String
