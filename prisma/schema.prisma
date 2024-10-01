@@ -93,11 +93,11 @@ model Hotel {
 model HotelChess {
   id      String @id @default(auto()) @map("_id") @db.ObjectId
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
-  hotelId String @unique @db.ObjectId
+  hotelId String @db.ObjectId
 
   public    Boolean?
   room      String?
-  place     String?
+  place     Float?
   start     String?
   startTime String?
   end       String?

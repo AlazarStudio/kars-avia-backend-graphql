@@ -11,6 +11,7 @@ import {
   hotelModerMiddleware,
   hotelMiddleware
 } from "../../middlewares/authMiddleware.js"
+import { request } from "express"
 
 const hotelResolver = {
   Upload: GraphQLUpload,
@@ -121,6 +122,10 @@ const hotelResolver = {
                   requestId: hotelChess.requestId
                 }
               })
+              await prisma.request.update({
+                where: { id: hotelChess.requestId },
+                data: { status: "done" }
+              })
             } else {
               await prisma.hotelChess.create({
                 data: {
@@ -135,6 +140,10 @@ const hotelResolver = {
                   clientId: hotelChess.clientId,
                   requestId: hotelChess.requestId
                 }
+              })
+              await prisma.request.update({
+                where: { id: hotelChess.requestId },
+                data: { status: "done" }
               })
             }
           }
@@ -348,13 +357,18 @@ const hotelResolver = {
     }
   },
 
-  // HotelChess: {
-  //   client: async (parent) => {
-  //     return await prisma.airlinePersonal.findUnique({
-  //       where: {id: parent.id}
-  //     })
-  //   }
-  // },
+  HotelChess: {
+    client: async (parent) => {
+      return await prisma.airlinePersonal.findUnique({
+        where: { id: parent.clientId }
+      })
+    },
+    request: async (parent) => {
+      return await prisma.request.findUnique({
+        where: { id: parent.requestId }
+      })
+    }
+  },
 
   Tariff: {
     prices: async (parent) => {

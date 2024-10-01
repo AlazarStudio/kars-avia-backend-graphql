@@ -21,6 +21,7 @@ type Request {
   airlineId: String
   airline: Airline!
   status: String
+  requestNumber: String
 }
 
 type Arrival {

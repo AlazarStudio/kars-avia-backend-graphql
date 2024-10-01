@@ -39,6 +39,26 @@ const requestResolver = {
         status
       } = input
 
+      // Получаем количество существующих заявок для порядкового номера
+      const requestCount = await prisma.request.count()
+
+      // Получаем код аэропорта
+      const airport = await prisma.airport.findUnique({
+        where: { id: airportId }
+      })
+
+      if (!airport) {
+        throw new Error("Airport not found")
+      }
+
+      // Форматируем текущую дату
+      const currentDate = new Date()
+      const formattedDate = currentDate
+        .toLocaleDateString("ru-RU")
+        .replace(/\./g, ".")
+
+      const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${airport.code}-${formattedDate}`
+
       // Создание заявки
       const newRequest = await prisma.request.create({
         data: {
@@ -60,7 +80,8 @@ const requestResolver = {
           sender: {
             connect: { id: senderId } // Привязка к пользователю, отправившему заявку
           },
-          status
+          status,
+          requestNumber
         }
       })
 

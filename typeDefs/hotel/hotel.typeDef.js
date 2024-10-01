@@ -31,7 +31,7 @@ type HotelChess {
   hotelId: String
   public: Boolean
   room: String
-  place: String
+  place: Float
   start: String
   startTime: String
   end: String
@@ -135,7 +135,7 @@ input HotelChessInput {
   hotelId: ID
   public: Boolean
   room: String
-  place: String
+  place: Float
   start: String
   startTime: String
   end: String
