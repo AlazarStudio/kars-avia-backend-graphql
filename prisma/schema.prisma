@@ -203,7 +203,7 @@ model AirlinePersonal {
   department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
   departmentId String?            @db.ObjectId
   Request      Request[]
-  HotelChess   HotelChess[]
+  hotelChess   HotelChess[]
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -246,9 +246,9 @@ model Request {
   senderId      String          @db.ObjectId
   receiver      User?           @relation(name: "receiver", fields: [receiverId], references: [id])
   receiverId    String?         @db.ObjectId
-  Chat          Chat[]
+  chat          Chat[]
   status        String          @default("created")
-  HotelChess    HotelChess?
+  hotelChess    HotelChess?
 }
 
 type Arrival {

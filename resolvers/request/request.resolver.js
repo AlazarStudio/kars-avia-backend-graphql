@@ -1,9 +1,13 @@
 import { prisma } from "../../prisma.js"
-import { PubSub } from "graphql-subscriptions"
+// import { PubSub } from "graphql-subscriptions"
 
-const pubsub = new PubSub()
-const REQUEST_CREATED = "REQUEST_CREATED"
-const REQUEST_UPDATED = "REQUEST_UPDATED"
+import {
+  pubsub,
+  REQUEST_CREATED,
+  REQUEST_UPDATED
+} from "../../exports/pubsub.js"
+
+// const pubsub = new PubSub()
 
 const requestResolver = {
   Query: {
@@ -11,7 +15,9 @@ const requestResolver = {
       return prisma.request.findMany({
         include: {
           airline: true,
-          airport: true
+          airport: true,
+          hotel: true,
+          hotelChess: true
         }
       })
     },
@@ -20,7 +26,9 @@ const requestResolver = {
         where: { id: id },
         include: {
           airline: true,
-          airport: true
+          airport: true,
+          hotel: true,
+          hotelChess: true
         }
       })
     }
@@ -57,7 +65,9 @@ const requestResolver = {
         .toLocaleDateString("ru-RU")
         .replace(/\./g, ".")
 
-      const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${airport.code}-${formattedDate}`
+      const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
+        airport.code
+      }-${formattedDate}`
 
       // Создание заявки
       const newRequest = await prisma.request.create({
@@ -98,23 +108,33 @@ const requestResolver = {
         roomCategory,
         mealPlan,
         hotelId,
+        hotelChessId,
         roomNumber,
         status
       } = input
 
+      const dataToUpdate = {
+        airport,
+        arrival,
+        departure,
+        roomCategory,
+        mealPlan,
+        roomNumber,
+        status
+      }
+
+      if (hotelChessId) {
+        dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
+      }
+
+      if (hotelId) {
+        dataToUpdate.hotel = { connect: { id: hotelId } }
+      }
+
       // Обновление заявки
       const updatedRequest = await prisma.request.update({
         where: { id },
-        data: {
-          airport,
-          arrival,
-          departure,
-          roomCategory,
-          mealPlan,
-          roomNumber,
-          hotel: hotelId ? { connect: { id: hotelId } } : undefined,
-          status
-        }
+        data: dataToUpdate
       })
 
       // Публикация события после создания заявки
@@ -141,6 +161,18 @@ const requestResolver = {
     airline: async (parent) => {
       return await prisma.airline.findUnique({
         where: { id: parent.airlineId }
+      })
+    },
+    hotel: async (parent) => {
+      if (!parent.hotelId) return null
+      return await prisma.hotel.findUnique({
+        where: { id: parent.hotelId }
+      })
+    },
+    hotelChess: async (parent) => {
+      if (!parent.hotelChess) return null
+      return await prisma.hotelChess.findUnique({
+        where: { requestId: parent.id }
       })
     },
     person: async (parent) => {

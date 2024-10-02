@@ -1,6 +1,7 @@
 // hotel.resolver.js
 
 import { prisma } from "../../prisma.js"
+// import { PubSub } from "graphql-subscriptions"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import { logAction } from "../../exports/logaction.js"
@@ -11,7 +12,10 @@ import {
   hotelModerMiddleware,
   hotelMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { request } from "express"
+
+import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
+
+// const pubsub = new PubSub()
 
 const hotelResolver = {
   Upload: GraphQLUpload,
@@ -122,14 +126,28 @@ const hotelResolver = {
                   requestId: hotelChess.requestId
                 }
               })
-              await prisma.request.update({
+              const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
-                data: { status: "done" }
+                data: {
+                  status: "done",
+                  hotel: {
+                    connect: { id: id }
+                  },
+                  hotelChess: {
+                    connect: { id: hotelChess.id }
+                  }
+                }
+              })
+              pubsub.publish(REQUEST_UPDATED, {
+                requestUpdated: updatedRequest
               })
             } else {
               await prisma.hotelChess.create({
                 data: {
-                  hotelId: id,
+                  // hotelId: id,
+                  hotel: {
+                    connect: { id: id }
+                  },
                   public: hotelChess.public,
                   room: hotelChess.room,
                   place: hotelChess.place,
@@ -137,13 +155,25 @@ const hotelResolver = {
                   startTime: hotelChess.startTime,
                   end: hotelChess.end,
                   endTime: hotelChess.endTime,
-                  clientId: hotelChess.clientId,
-                  requestId: hotelChess.requestId
+                  // clientId: hotelChess.clientId,
+                  client: { connect: { id: hotelChess.clientId } },
+                  // requestId: hotelChess.requestId,
+                  request: {
+                    connect: { id: hotelChess.requestId }
+                  }
                 }
               })
-              await prisma.request.update({
+              const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
-                data: { status: "done" }
+                data: {
+                  status: "done",
+                  hotel: {
+                    connect: { id: id }
+                  }
+                }
+              })
+              pubsub.publish(REQUEST_UPDATED, {
+                requestUpdated: updatedRequest
               })
             }
           }
@@ -266,7 +296,8 @@ const hotelResolver = {
             categories: true,
             rooms: true,
             tariffs: true,
-            prices: true
+            prices: true,
+            hotelChesses: true
           }
         })
 

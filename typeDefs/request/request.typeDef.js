@@ -17,6 +17,8 @@ type Request {
   createdAt: String
   updatedAt: String
   hotelId: String
+  hotel: Hotel 
+  hotelChess: HotelChess
   roomNumber: String
   airlineId: String
   airline: Airline!
