@@ -1,75 +1,80 @@
-import { prisma } from "../../prisma.js";
-import { PubSub } from "graphql-subscriptions";
-
-const pubsub = new PubSub();
-const CHAT_CHANNEL = "CHAT_CHANNEL";
-const MESSAGE_SENT = "MESSAGE_SENT" 
-const MESSAGE_RECEIVED = "MESSAGE_RECEIVED"  
+import { prisma } from "../../prisma.js"
+import { pubsub, MESSAGE_SENT } from "../../exports/pubsub.js"
 
 const chatResolver = {
   Query: {
-    // Получить чаты по заявке
     chats: async (_, { requestId }) => {
-      return await prisma.chat.findMany({
-        where: { requestId },
-        include: { Message: true, User: true },
-      });
+      const chats = await prisma.chat.findMany({
+        where: { requestId }
+        // Можно не включать связанные данные, если есть резольверы на уровне типов
+      })
+      return chats
     },
-
-    // Получить сообщения в чате
     messages: async (_, { chatId }) => {
       return await prisma.message.findMany({
         where: { chatId },
-        include: { sender: true, receiver: true, chat: true },
-      });
-    },
+        include: { sender: true }
+      })
+    }
   },
-
   Mutation: {
-    // Отправить сообщение в чат
-    sendMessage: async (_, { chatId, senderId, receiverId, text }) => {
+    sendMessage: async (_, { chatId, senderId, text }) => {
       const message = await prisma.message.create({
         data: {
           text,
-          senderId,
-          receiverId,
-          // chatId,
+          sender: { connect: { id: senderId } },
+          chat: { connect: { id: chatId } }
         },
-        include: { sender: true, receiver: true },
-      });
+        include: { sender: true, chat: true }
+      })
 
-      // Отправляем сообщение в подписку
-      // pubsub.publish(`${CHAT_CHANNEL}_${chatId}`, { messageSent: message });
-      pubsub.publish(`${MESSAGE_RECEIVED}`, { messageReceived: message });
+      pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
 
-      return message;
+      return message
     },
-
-    // Создать новый чат (например, для заявки)
     createChat: async (_, { requestId, userIds }) => {
       const chat = await prisma.chat.create({
         data: {
-          requestId,
-          participants: {
-            connect: userIds.map((id) => ({ id })),
-          },
-        },
-        include: { Message: true, User: true },
-      });
+          request: { connect: { id: requestId } }
+        }
+      })
 
-      return chat;
-    },
-  },
+      const chatUserPromises = userIds.map((userId) =>
+        prisma.chatUser.create({
+          data: {
+            chat: { connect: { id: chat.id } },
+            user: { connect: { id: userId } }
+          }
+        })
+      )
 
-  Subscription: {
-    // Подписка на новые сообщения
-    messageSent: {
-      subscribe: (_, { chatId }) => pubsub.asyncIterator(`${CHAT_CHANNEL}_${chatId}`),
-    },
-    messageReceived: {
-      subscribe: () => pubsub.asyncIterator([MESSAGE_RECEIVED])
+      await Promise.all(chatUserPromises)
+
+      return chat
     }
   },
-};
+  Subscription: {
+    messageSent: {
+      subscribe: (_, { chatId }) =>
+        pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`)
+    }
+  },
+  Chat: {
+    participants: async (parent) => {
+      const chatUsers = await prisma.chatUser.findMany({
+        where: { chatId: parent.id },
+        include: { user: true }
+      })
 
-export default chatResolver;
+      return chatUsers.map((chatUser) => chatUser.user)
+    },
+    messages: async (parent) => {
+      return await prisma.message.findMany({
+        where: { chatId: parent.id },
+        include: { sender: true }
+      })
+    }
+  }
+}
+
+export default chatResolver

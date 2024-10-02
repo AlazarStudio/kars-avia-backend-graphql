@@ -50,7 +50,7 @@ model User {
   airlineId           String?            @db.ObjectId
   messageSender       Message[]          @relation(name: "messageSender")
   messageReceiver     Message[]          @relation(name: "messageReceiver")
-  Chat                Chat[]
+  chats               ChatUser[]
   images              String[]
   AirlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
   airlineDepartmentId String?            @db.ObjectId
@@ -284,14 +284,23 @@ model Message {
   createdAt  DateTime @default(now())
 }
 
+model ChatUser {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+
+  @@unique([chatId, userId])
+}
+
 model Chat {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  request   Request   @relation(fields: [requestId], references: [id])
-  requestId String    @db.ObjectId
-  Message   Message[]
-  User      User?     @relation(fields: [userId], references: [id])
-  userId    String?   @db.ObjectId
-  createdAt DateTime  @default(now())
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  request      Request    @relation(fields: [requestId], references: [id])
+  requestId    String     @db.ObjectId
+  messages     Message[]
+  participants ChatUser[]
+  createdAt    DateTime   @default(now())
 }
 
 // Логи  ---------------- ↓↓↓↓

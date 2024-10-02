@@ -95,6 +95,21 @@ const requestResolver = {
         }
       })
 
+      // Создание чата, связанного с заявкой
+      const newChat = await prisma.chat.create({
+        data: {
+          request: { connect: { id: newRequest.id } },
+        },
+      });
+
+      // Добавление участника в чат через ChatUser
+      await prisma.chatUser.create({
+        data: {
+          chat: { connect: { id: newChat.id } },
+          user: { connect: { id: senderId } },
+        },
+      });
+
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
 

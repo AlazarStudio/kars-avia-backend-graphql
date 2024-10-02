@@ -3,17 +3,22 @@ const chatTypeDef = `#graphql
     id: ID!
     text: String!
     sender: User!
-    receiver: User
-    chat: Chat
+    chat: Chat!
     createdAt: String!
   }
 
   type Chat {
     id: ID!
     requestId: ID!
-    messages: [Message!]!
-    participants: [User!]!
+    messages: [Message!]
+    participants: [User!]
     createdAt: String!
+  }
+
+  type ChatUser {
+    id: ID!
+    chat: Chat!
+    user: User!
   }
 
   type Query {
@@ -24,7 +29,7 @@ const chatTypeDef = `#graphql
   }
 
   type Mutation {
-    sendMessage(chatId: ID, senderId: ID!, receiverId: ID, text: String!): Message!
+    sendMessage(chatId: ID, senderId: ID!, text: String!): Message!
     createChat(requestId: ID!, userIds: [ID!]!): Chat!
   }
 
