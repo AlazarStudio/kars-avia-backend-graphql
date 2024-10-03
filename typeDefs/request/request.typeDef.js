@@ -24,6 +24,7 @@ type Request {
   airline: Airline!
   status: String
   requestNumber: String
+  chat: Chat
 }
 
 type Arrival {

@@ -1,5 +1,6 @@
 import { prisma } from "../../prisma.js"
 // import { PubSub } from "graphql-subscriptions"
+import { logAction } from "../../exports/logaction.js"
 
 import {
   pubsub,
@@ -113,6 +114,16 @@ const requestResolver = {
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
 
+      await logAction({
+        userId: context.user.id,
+        action: 'create_request',
+        description: {
+          requestId: newRequest.id,
+          requestNumber: newRequest.requestNumber,
+        },
+        airlineId: newRequest.airlineId, 
+      });
+
       return newRequest
     },
     updateRequest: async (_, { id, input }, context) => {
@@ -155,6 +166,18 @@ const requestResolver = {
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
 
+      await logAction({
+        userId: context.user.id,
+        action: 'update_request',
+        description: {
+          requestId: updatedRequest.id,
+          requestNumber: updatedRequest.requestNumber,
+          updatedRequest: { updatedRequest }
+        },
+        airlineId: updatedRequest.airlineId, 
+        hotelId: updatedRequest.hotelId, 
+      });
+
       return updatedRequest
     }
   },
@@ -193,6 +216,11 @@ const requestResolver = {
     person: async (parent) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id: parent.personId }
+      })
+    },
+    chat: async (parent) => {
+      return await prisma.chat.findUnique({
+        where: { id: parent.requestId }
       })
     }
   }

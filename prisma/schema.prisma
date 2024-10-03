@@ -59,6 +59,7 @@ model User {
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
   twoFAMethod         TwoFAMethod?
+  Log                 Log[]
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -88,6 +89,7 @@ model Hotel {
   prices       Price[]
   rooms        Room[]
   User         User[]
+  Log          Log[]
 }
 
 model HotelChess {
@@ -177,6 +179,7 @@ model Airline {
   staff      AirlinePersonal[]
   Request    Request[]
   User       User[]
+  Log        Log[]
 }
 
 model AirlineDepartment {
@@ -270,6 +273,16 @@ type MealPlan {
   dinner    Boolean?
 }
 
+type Familly {
+  passangers Passanger[]
+}
+
+type Passanger {
+  name   String
+  child  Boolean
+  number String
+}
+
 // Заявка  ---------------- ↑↑↑↑
 
 model Message {
@@ -307,10 +320,15 @@ model Chat {
 
 model Log {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String?  @db.ObjectId // ID пользователя, если доступен
-  action      String // Тип действия, например "login", "update_profile"
-  description String // Описание действия
-  createdAt   DateTime @default(now()) // Время действия
+  user        User?    @relation(fields: [userId], references: [id])
+  userId      String?  @db.ObjectId
+  hotel       Hotel?   @relation(fields: [hotelId], references: [id])
+  hotelId     String?  @db.ObjectId
+  airline     Airline? @relation(fields: [airlineId], references: [id])
+  airlineId   String?  @db.ObjectId
+  action      String 
+  description String 
+  createdAt   DateTime @default(now())
 }
 
 // Логи  ---------------- ↑↑↑↑

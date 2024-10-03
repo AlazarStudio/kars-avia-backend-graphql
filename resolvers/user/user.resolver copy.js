@@ -168,7 +168,13 @@ const userResolver = {
         data: updatedData
       })
 
-      logAction(context.user.id, "updateUser", user)
+      await logAction({
+        userId: context.user.id,
+        action: 'update_user',
+        description: {
+          
+        },
+      });
 
       return user
     },
