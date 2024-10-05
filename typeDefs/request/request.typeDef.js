@@ -17,7 +17,7 @@ type Request {
   createdAt: String
   updatedAt: String
   hotelId: String
-  hotel: Hotel 
+  hotel: Hotel
   hotelChess: HotelChess
   roomNumber: String
   airlineId: String
@@ -34,7 +34,7 @@ type Arrival {
 }
 
 type Departure {
-  flight: String!
+  flight: String
   date: String!
   time: String!
 }
@@ -74,7 +74,7 @@ input ArrivalInput {
 }
 
 input DepartureInput {
-  flight: String!
+  flight: String
   date: String!
   time: String!
 }

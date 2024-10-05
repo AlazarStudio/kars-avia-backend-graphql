@@ -81,6 +81,7 @@ type Query {
 type Mutation { 
   createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
+  assignPassengersToHotel(hotelId: ID!, passengerIds: [ID!]!): [Passenger!]!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
   deletePrice(id: ID!):Price!

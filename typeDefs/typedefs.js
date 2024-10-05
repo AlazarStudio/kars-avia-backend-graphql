@@ -8,6 +8,7 @@ import chatTypeDef from "./chat/chat.typeDef.js"
 import fileTypeDef from "./file/file.typeDef.js"
 import airportTypeDef from "./airport/airport.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
+import reserveTypeDef from "./reserve/reserve.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
   userTypeDef,
@@ -17,7 +18,8 @@ const mergedTypeDefs = mergeTypeDefs([
   chatTypeDef,
   fileTypeDef,
   airportTypeDef,
-  cityTypeDef
+  cityTypeDef,
+  reserveTypeDef
 ])
 
 export default mergedTypeDefs
