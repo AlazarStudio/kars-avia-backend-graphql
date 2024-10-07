@@ -362,12 +362,12 @@ model ChatUser {
 
 model Chat {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  request      Request    @relation(fields: [requestId], references: [id])
+  request      Request    @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId    String     @db.ObjectId
   messages     Message[]
   participants ChatUser[]
   createdAt    DateTime   @default(now())
-  Reserve      Reserve?   @relation(fields: [reserveId], references: [id])
+  Reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?    @db.ObjectId
 }
 
