@@ -12,12 +12,12 @@ import {
 
 const requestResolver = {
   Query: {
-    requests: async (_, { skip = 0, take = 10 }) => {
-      const safeTake = take
-      const safeSkip = skip
-      return prisma.request.findMany({
-        skip: safeSkip,
-        take: safeTake,
+    requests: async (_, input) => {
+      const totalCount = await prisma.request.count()
+      const { skip, take } = input.pagination
+      const requests = await prisma.request.findMany({
+        skip: skip,
+        take: take,
         include: {
           airline: true,
           airport: true,
@@ -25,6 +25,10 @@ const requestResolver = {
           hotelChess: true
         }
       })
+      return {
+        totalCount,
+        requests
+      }
     },
     request: async (_, { id }) => {
       return prisma.request.findUnique({
