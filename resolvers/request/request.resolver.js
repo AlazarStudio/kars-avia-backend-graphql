@@ -13,9 +13,8 @@ import {
 const requestResolver = {
   Query: {
     requests: async (_, { skip = 0, take = 10 }) => {
-      const MAX_TAKE = 100
-      const safeTake = Math.min(take, MAX_TAKE)
-      const safeSkip = Math.max(skip, 0)
+      const safeTake = take
+      const safeSkip = skip
       return prisma.request.findMany({
         skip: safeSkip,
         take: safeTake,
@@ -185,7 +184,7 @@ const requestResolver = {
 
       return updatedRequest
     },
-    deleteRequests: async (_, { }, context) => {
+    deleteRequests: async (_, {}, context) => {
       const deletedRequests = await prisma.request.deleteMany()
       return deletedRequests.count
     }

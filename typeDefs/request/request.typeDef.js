@@ -46,11 +46,6 @@ type MealPlan {
   dinner: Boolean
 }
 
-type RequestConnection {
-  totalCount: Int!
-  requests: [Request!]!
-}
-
 input CreateRequestInput {
   personId: String
   airportId: String
@@ -97,7 +92,7 @@ input PaginationInput {
 }
 
 type Query {
-  requests(pagination: PaginationInput): RequestConnection!
+  requests(pagination: PaginationInput): [Request!]!
   # requests: [Request!]!
   request(id:ID): Request
 }
