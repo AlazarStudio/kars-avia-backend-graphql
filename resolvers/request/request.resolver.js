@@ -15,19 +15,22 @@ const requestResolver = {
     requests: async (_, input) => {
       const totalCount = await prisma.request.count()
       const { skip, take } = input.pagination
+      const totalPages = Math.ceil(totalCount / take)
       const requests = await prisma.request.findMany({
-        skip: skip,
+        skip: skip * take,
         take: take,
         include: {
           airline: true,
           airport: true,
           hotel: true,
           hotelChess: true
-        }
+        },
+        orderBy: { createdAt: "desc" }
       })
       return {
         totalCount,
-        requests
+        requests,
+        totalPages
       }
     },
     request: async (_, { id }) => {

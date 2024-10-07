@@ -249,7 +249,7 @@ model Request {
   personId      String?          @db.ObjectId
   arrival       Arrival
   departure     Departure
-  requestNumber String?
+  requestNumber String           @unique
   roomCategory  String?
   roomNumber    String?
   mealPlan      MealPlan
@@ -274,7 +274,7 @@ model Reserve {
   airlineId      String            @db.ObjectId
   arrival        Arrival
   departure      Departure
-  reserveNumber  String?
+  reserveNumber  String            @unique
   passangerCount Int?
   mealPlan       MealPlan
   status         String            @default("created")

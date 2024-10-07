@@ -47,6 +47,7 @@ type MealPlan {
 }
 
 type RequestConnection {
+  totalPages: Int!
   totalCount: Int!
   requests: [Request!]!
 }
