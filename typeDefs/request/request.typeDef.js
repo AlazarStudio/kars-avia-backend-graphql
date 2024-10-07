@@ -4,8 +4,8 @@ scalar Date
 
 type Request {
   id: ID!
-  person: AirlinePersonal!
-  personId: String!
+  person: AirlinePersonal
+  personId: String
   airportId: String!
   airport: Airport!
   arrival: Arrival!
@@ -28,7 +28,7 @@ type Request {
 }
 
 type Arrival {
-  flight: String!
+  flight: String
   date: String!
   time: String!
 }
@@ -47,7 +47,7 @@ type MealPlan {
 }
 
 input CreateRequestInput {
-  personId: String!
+  personId: String
   airportId: String
   arrival: ArrivalInput!
   departure: DepartureInput!
@@ -68,7 +68,7 @@ input UpdateRequestInput {
 }
 
 input ArrivalInput {
-  flight: String!
+  flight: String
   date: String!
   time: String!
 }

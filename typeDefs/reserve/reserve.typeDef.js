@@ -18,6 +18,7 @@ type Reserve {
   families: [Family]
   hotels: [Hotel]
   person: [AirlinePersonal]
+  passangerCount: Int
 }
 
 type MealPlan {
@@ -35,7 +36,7 @@ type Family {
 
 type Passenger {
   id: ID!
-  name: String!
+  name: String
   number: String
   child: Boolean
   animal: Boolean
@@ -76,7 +77,7 @@ input FamilyInput {
 }
 
 input PassengerInput {
-  name: String!
+  name: String
   number: String
   child: Boolean
   animal: Boolean
