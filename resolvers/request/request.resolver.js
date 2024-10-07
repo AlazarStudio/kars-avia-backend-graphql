@@ -12,8 +12,13 @@ import {
 
 const requestResolver = {
   Query: {
-    requests: async () => {
+    requests: async (_, { skip = 0, take = 10 }) => {
+      const MAX_TAKE = 100
+      const safeTake = Math.min(take, MAX_TAKE)
+      const safeSkip = Math.max(skip, 0)
       return prisma.request.findMany({
+        skip: safeSkip,
+        take: safeTake,
         include: {
           airline: true,
           airport: true,
@@ -99,30 +104,30 @@ const requestResolver = {
       // Создание чата, связанного с заявкой
       const newChat = await prisma.chat.create({
         data: {
-          request: { connect: { id: newRequest.id } },
-        },
-      });
+          request: { connect: { id: newRequest.id } }
+        }
+      })
 
       // Добавление участника в чат через ChatUser
       await prisma.chatUser.create({
         data: {
           chat: { connect: { id: newChat.id } },
-          user: { connect: { id: senderId } },
-        },
-      });
+          user: { connect: { id: senderId } }
+        }
+      })
 
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
 
       await logAction({
         userId: context.user.id,
-        action: 'create_request',
+        action: "create_request",
         description: {
           requestId: newRequest.id,
-          requestNumber: newRequest.requestNumber,
+          requestNumber: newRequest.requestNumber
         },
-        airlineId: newRequest.airlineId, 
-      });
+        airlineId: newRequest.airlineId
+      })
 
       return newRequest
     },
@@ -168,17 +173,21 @@ const requestResolver = {
 
       await logAction({
         userId: context.user.id,
-        action: 'update_request',
+        action: "update_request",
         description: {
           requestId: updatedRequest.id,
           requestNumber: updatedRequest.requestNumber,
           updatedRequest: { updatedRequest }
         },
-        airlineId: updatedRequest.airlineId, 
-        hotelId: updatedRequest.hotelId, 
-      });
+        airlineId: updatedRequest.airlineId,
+        hotelId: updatedRequest.hotelId
+      })
 
       return updatedRequest
+    },
+    deleteRequests: async (_, { }, context) => {
+      const deletedRequests = await prisma.request.deleteMany()
+      return deletedRequests.count
     }
   },
   Subscription: {

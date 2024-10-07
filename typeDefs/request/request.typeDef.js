@@ -46,6 +46,11 @@ type MealPlan {
   dinner: Boolean
 }
 
+type RequestConnection {
+  totalCount: Int!
+  requests: [Request!]!
+}
+
 input CreateRequestInput {
   personId: String
   airportId: String
@@ -86,14 +91,21 @@ input MealPlanInput {
   dinner: Boolean
 }
 
+input PaginationInput {
+  skip: Int
+  take: Int
+}
+
 type Query {
-  requests: [Request!]!
+  requests(pagination: PaginationInput): RequestConnection!
+  # requests: [Request!]!
   request(id:ID): Request
 }
 
 type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
+  deleteRequests: Request!
 }
 
 type Subscription {
