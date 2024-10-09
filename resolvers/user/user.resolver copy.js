@@ -131,7 +131,7 @@ const userResolver = {
         data: createdData
       })
 
-      logAction(context.user.id, "registerUser", newUser)
+      // logAction(context.user.id, "registerUser", newUser)
 
       return newUser
     },
@@ -168,13 +168,13 @@ const userResolver = {
         data: updatedData
       })
 
-      await logAction({
-        userId: context.user.id,
-        action: 'update_user',
-        description: {
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: 'update_user',
+      //   description: {
           
-        },
-      });
+      //   },
+      // });
 
       return user
     },
@@ -193,7 +193,7 @@ const userResolver = {
         where: { id }
       })
 
-      logAction(context.user.id, "deleteUser", deletedUser)
+      // logAction(context.user.id, "deleteUser", deletedUser)
 
       return deletedUser
     }

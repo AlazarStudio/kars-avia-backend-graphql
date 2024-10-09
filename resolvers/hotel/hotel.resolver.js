@@ -62,7 +62,7 @@ const hotelResolver = {
         images: imagePaths
       }
 
-      logAction(context.user.id, `Create Hotel: ${data.name}`, data)
+      // logAction(context.user.id, `Create Hotel: ${data.name}`, data)
 
       return await prisma.hotel.create({
         data,
@@ -96,7 +96,7 @@ const hotelResolver = {
         ...restInput
       }
 
-      logAction(context.user.id, `Upadate Hotel: `, updatedData)
+      // logAction(context.user.id, `Upadate Hotel: `, updatedData)
 
       try {
         // Обновляем поля отеля
@@ -374,16 +374,16 @@ const hotelResolver = {
       }
     
       // Optional: Log the action
-      await logAction({
-        userId: context.user.id,
-        action: 'assign_passengers_to_hotel',
-        description: {
-          reservationId,
-          hotelId,
-          passengerIds: assignedPassengers.map((p) => p.id),
-        },
-        hotelId,
-      });
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: 'assign_passengers_to_hotel',
+      //   description: {
+      //     reservationId,
+      //     hotelId,
+      //     passengerIds: assignedPassengers.map((p) => p.id),
+      //   },
+      //   hotelId,
+      // });
     
       return assignedPassengers;
     },    

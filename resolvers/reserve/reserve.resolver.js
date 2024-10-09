@@ -138,15 +138,15 @@ const reserveResolver = {
       }
 
       // Логирование действия и публикация события
-      await logAction({
-        userId: context.user.id,
-        action: "create_reserve",
-        description: {
-          reserveId: newReserve.id,
-          reserveNumber: newReserve.reserveNumber
-        },
-        airlineId: newReserve.airlineId
-      })
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: "create_reserve",
+      //   description: {
+      //     reserveId: newReserve.id,
+      //     reserveNumber: newReserve.reserveNumber
+      //   },
+      //   airlineId: newReserve.airlineId
+      // })
 
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
 
@@ -174,15 +174,16 @@ const reserveResolver = {
         }
       })
       // логирование действия и публикация события
-      await logAction({
-        userId: context.user.id,
-        action: "update_reserve",
-        description: {
-          reserveId: updatedReserve.id,
-          reserveNumber: updatedReserve.reserveNumber
-        },
-        airlineId: updatedReserve.airlineId
-      })
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: "update_reserve",
+      //   description: {
+      //     reserveId: updatedReserve.id,
+      //     reserveNumber: updatedReserve.reserveNumber
+      //   },
+      //   airlineId: updatedReserve.airlineId
+      // })
+      
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     }

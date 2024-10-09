@@ -304,7 +304,7 @@ const userResolver = {
         data: updatedData
       })
 
-      logAction(id, "update", user)
+      // logAction(id, "update", user)
 
       return user
     },

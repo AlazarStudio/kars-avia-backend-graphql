@@ -125,15 +125,15 @@ const requestResolver = {
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
 
-      await logAction({
-        userId: context.user.id,
-        action: "create_request",
-        description: {
-          requestId: newRequest.id,
-          requestNumber: newRequest.requestNumber
-        },
-        airlineId: newRequest.airlineId
-      })
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: "create_request",
+      //   description: {
+      //     requestId: newRequest.id,
+      //     requestNumber: newRequest.requestNumber
+      //   },
+      //   airlineId: newRequest.airlineId
+      // })
 
       return newRequest
     },
@@ -177,17 +177,17 @@ const requestResolver = {
       // Публикация события после создания заявки
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
 
-      await logAction({
-        userId: context.user.id,
-        action: "update_request",
-        description: {
-          requestId: updatedRequest.id,
-          requestNumber: updatedRequest.requestNumber,
-          updatedRequest: { updatedRequest }
-        },
-        airlineId: updatedRequest.airlineId,
-        hotelId: updatedRequest.hotelId
-      })
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: "update_request",
+      //   description: {
+      //     requestId: updatedRequest.id,
+      //     requestNumber: updatedRequest.requestNumber,
+      //     updatedRequest: { updatedRequest }
+      //   },
+      //   airlineId: updatedRequest.airlineId,
+      //   hotelId: updatedRequest.hotelId
+      // })
 
       return updatedRequest
     },
