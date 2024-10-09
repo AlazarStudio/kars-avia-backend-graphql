@@ -25,7 +25,7 @@ const requestResolver = {
           hotel: true,
           hotelChess: true
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" }  
       })
       return {
         totalCount,

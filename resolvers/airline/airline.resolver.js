@@ -25,7 +25,14 @@ const airlineResolver = {
     },
     airlineStaff: async (_, { id }, context) => {
       return await prisma.airlinePersonal.findUnique({
-        where: { id }
+        where: { id },
+        include: { hotelChess: true }
+      })
+    },
+    airlineStaffs: async (_, { airlineId }, context) => {
+      return await prisma.airlinePersonal.findMany({
+        where: { airlineId: airlineId },
+        include: { hotelChess: true }
       })
     }
   },
@@ -207,6 +214,16 @@ const airlineResolver = {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id }
       })
+    }
+  },
+
+  AirlinePersonal: {
+    hotelChess: async (parent) => {
+      const hotelChessEntries = await prisma.hotelChess.findMany({
+        where: { clientId: parent.id },
+        include: { hotel: true }
+      })
+      return hotelChessEntries 
     }
   }
 }

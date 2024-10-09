@@ -31,18 +31,20 @@ const airlineTypeDef = `#graphql
 
     type AirlinePersonal {
         id: ID!
-        name: String!
+        name: String
         number: String
         position: String
         gender: String
         airline: Airline
         department: AirlineDepartment
+        hotelChess: [HotelChess!]
     }
 
     type Query {
         airlines: [Airline!]!
         airline(id: ID!): Airline
         airlineStaff(id: ID!): AirlinePersonal
+        airlineStaffs(id: ID!): [AirlinePersonal]
     }
 
     type Mutation {

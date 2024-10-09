@@ -92,6 +92,6 @@ app.use(
 const PORT = 4000
 const HOST = "0.0.0.0"
 // Now that our HTTP server is fully set up, we can listen to it.
-httpServer.listen({ port: PORT }, () => {
+httpServer.listen({ port: PORT, host: HOST }, () => {
   console.log(`Server is now running on http://localhost:${PORT}/graphql`)
 })
