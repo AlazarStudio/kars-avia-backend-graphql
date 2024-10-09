@@ -297,9 +297,10 @@ model Passenger {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   name      String? @default("no name")
   number    String?
+  gender    String?
   child     Boolean @default(false)
   animal    Boolean @default(false)
-  family    Family? @relation(fields: [familyId], references: [id])
+  family    Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
   familyId  String? @db.ObjectId
   reserve   Reserve @relation(fields: [reserveId], references: [id])
   reserveId String  @db.ObjectId

@@ -45,6 +45,17 @@ type Passenger {
   hotel: Hotel
 }
 
+type ReserveConnection {
+  totalPages: Int!
+  totalCount: Int!
+  reserves: [Reserve!]!
+}
+
+input PaginationInput {
+  skip: Int
+  take: Int
+}
+
 input CreateReserveInput {
   airportId: String!
   arrival: ArrivalInput!
@@ -79,6 +90,7 @@ input FamilyInput {
 input PassengerInput {
   name: String
   number: String
+  gender: String
   child: Boolean
   animal: Boolean
 }
@@ -96,12 +108,15 @@ type Mutation {
   updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
 }
 
-extend type Query {
-  reservationPassengers(reservationId: ID!): [Passenger!]!
+
+type Subscription {
+  reserveCreated: Reserve!
+  reserveUpdated: Reserve!
 }
 
 type Query {
-  reserves: [Reserve!]!
+  reservationPassengers(reservationId: ID!): [Passenger!]!
+  reserves(pagination: PaginationInput): ReserveConnection!
   reserve(id: ID!): Reserve
 }
 

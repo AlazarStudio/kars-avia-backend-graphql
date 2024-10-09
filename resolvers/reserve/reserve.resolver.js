@@ -8,8 +8,14 @@ import {
 
 const reserveResolver = {
   Query: {
-    reserves: async () => {
-      return prisma.reserve.findMany({
+    reserves: async (_, { pagination }) => {
+      const totalCount = await prisma.reserve.count()
+      const { skip, take } = pagination
+      const totalPages = Math.ceil(totalCount / take)
+
+      const reserves = await prisma.reserve.findMany({
+        skip: skip * take,
+        take: take,
         include: {
           airline: true,
           airport: true,
@@ -18,8 +24,15 @@ const reserveResolver = {
           families: true,
           hotels: true,
           chat: true
-        }
+        },
+        orderBy: { createdAt: "desc" }
       })
+
+      return {
+        totalCount,
+        reserves,
+        totalPages
+      }
     },
     reserve: async (_, { id }) => {
       return prisma.reserve.findUnique({
@@ -42,14 +55,14 @@ const reserveResolver = {
         include: {
           family: {
             include: {
-              passengers: true, // Include other family members
-            },
+              passengers: true // Include other family members
+            }
           },
           person: true,
-          hotel: true, // Include hotel info if needed
-        },
-      });
-    },
+          hotel: true // Include hotel info if needed
+        }
+      })
+    }
   },
   Mutation: {
     createReserve: async (_, { input }, context) => {
@@ -124,7 +137,7 @@ const reserveResolver = {
         await Promise.all(passengerPromises)
       }
 
-      // Логирование действия и публикация события (если требуется)
+      // Логирование действия и публикация события
       await logAction({
         userId: context.user.id,
         action: "create_reserve",
@@ -138,8 +151,49 @@ const reserveResolver = {
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
 
       return newReserve
+    },
+    updateReserve: async (_, { id, input }, context) => {
+
+      const {
+        arrival,
+        departure,
+        mealPlan,
+        status,
+        families,
+        persons
+      } = input
+      const updatedReserve = await prisma.reserve.update({
+        where: { id },
+        data: {
+          arrival,
+          departure,
+          mealPlan,
+          status,
+          families,
+          persons
+        }
+      })
+      // логирование действия и публикация события
+      await logAction({
+        userId: context.user.id,
+        action: "update_reserve",
+        description: {
+          reserveId: updatedReserve.id,
+          reserveNumber: updatedReserve.reserveNumber
+        },
+        airlineId: updatedReserve.airlineId
+      })
+      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+      return updatedReserve
     }
-    // ... другие мутации ...
+  },
+  Subscription: {
+    reserveCreated: {
+      subscribe: () => pubsub.asyncIterator([RESERVE_CREATED])
+    },
+    reserveUpdated: {
+      subscribe: () => pubsub.asyncIterator([RESERVE_UPDATED])
+    }
   },
   // ... остальные резольверы ...
   Reserve: {

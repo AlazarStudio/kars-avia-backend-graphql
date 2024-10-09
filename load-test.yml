@@ -2,7 +2,7 @@ config:
   target: 'http://localhost:4000'
   phases:
     - duration: 20
-      arrivalRate: 20
+      arrivalRate: 10
   payload:
     path: 'data.csv'
     fields:
@@ -36,11 +36,11 @@ scenarios:
               input:
                 airlineId: "{{airlineId}}"
                 arrival:
-                  date: "10.08.2024"
+                  date: "2024-10-12"
                   flight: "Test_Arrival"
                   time: "12:00"
                 departure:
-                  date: "10.12.2024"
+                  date: "2024-10-24"
                   flight: "Test_Departure"
                   time: "12:00"
                 personId: "{{personId}}"
