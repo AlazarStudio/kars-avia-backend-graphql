@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.0.0",
+  "version": "1.6.8",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
