@@ -81,6 +81,8 @@ model Hotel {
   rs           String?
   bank         String?
   bik          String?
+  link         String?
+  description  String?
   images       String[]
   hotelChesses HotelChess[]
   categories   Category[]
@@ -260,6 +262,7 @@ model Request {
   chat          Chat[]
   status        String           @default("created")
   hotelChess    HotelChess?
+  Log           Log[]
 }
 
 model Reserve {
@@ -284,6 +287,7 @@ model Reserve {
   hotels         ReserveHotel[]
   chat           Chat[]
   Hotel          Hotel[]
+  Log            Log[]
 }
 
 model Family {
@@ -363,8 +367,8 @@ model ChatUser {
 
 model Chat {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  request      Request    @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId    String     @db.ObjectId
+  request      Request?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId    String?    @db.ObjectId
   messages     Message[]
   participants ChatUser[]
   createdAt    DateTime   @default(now())
@@ -382,8 +386,15 @@ model Log {
   hotelId     String?  @db.ObjectId
   airline     Airline? @relation(fields: [airlineId], references: [id])
   airlineId   String?  @db.ObjectId
+  request     Request? @relation(fields: [requestId], references: [id])
+  requestId   String?  @db.ObjectId
+  reserve     Reserve? @relation(fields: [reserveId], references: [id])
+  reserveId   String?  @db.ObjectId
   action      String
+  reason      String?
   description String
+  oldData     String?
+  newData     String?
   createdAt   DateTime @default(now())
 }
 
