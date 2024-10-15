@@ -38,12 +38,7 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: {
-            // Добавляем логи
-            include: {
-              user: true
-            }
-          }
+          logs: true
         }
       })
 
@@ -280,6 +275,11 @@ const requestResolver = {
     chat: async (parent) => {
       return await prisma.chat.findUnique({
         where: { id: parent.requestId }
+      })
+    },
+    logs: async (parent) => {
+      return await prisma.log.findMany({
+        where: { requestId: parent.id }
       })
     }
   }

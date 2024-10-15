@@ -25,7 +25,7 @@ type Request {
   status: String
   requestNumber: String
   chat: Chat
-  logs: [Log!]!
+  logs: [Log]
 }
 
 type Log {
