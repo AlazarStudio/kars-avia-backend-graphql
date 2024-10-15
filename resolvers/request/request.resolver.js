@@ -143,7 +143,9 @@ const requestResolver = {
             airportId,
             personId,
             status
-          }
+          },
+          airlineId,
+          newRequest.id,
         )
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
@@ -220,7 +222,9 @@ const requestResolver = {
             },
             oldData,
             newData,
-            hotelId
+            hotelId,
+            null,
+            updatedRequest.id,
           )
         }
       } catch (error) {
