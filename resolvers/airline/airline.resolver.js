@@ -1,7 +1,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
-import { logAction } from "../../exports/logaction.js"
+import logAction from "../../exports/logaction.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
 const airlineResolver = {

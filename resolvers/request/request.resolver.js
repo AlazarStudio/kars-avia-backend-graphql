@@ -1,6 +1,6 @@
 import { prisma } from "../../prisma.js"
 import isEqual from "lodash.isequal"
-import { logAction } from "../../exports/logaction.js"
+import logAction from "../../exports/logaction.js"
 import {
   pubsub,
   REQUEST_CREATED,

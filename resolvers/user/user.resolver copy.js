@@ -3,7 +3,7 @@ import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
-import { logAction } from "../../exports/logaction.js"
+import logAction from "../../exports/logaction.js"
 import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
 
 const userResolver = {

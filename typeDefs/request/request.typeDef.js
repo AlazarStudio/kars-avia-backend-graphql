@@ -108,9 +108,9 @@ input DepartureInput {
 
 input MealPlanInput {
   included: Boolean!
-  breakfast: Boolean
-  lunch: Boolean
-  dinner: Boolean
+  breakfast: Int
+  lunch: Int
+  dinner: Int
 }
 
 input PaginationInput {

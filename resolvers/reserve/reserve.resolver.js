@@ -1,5 +1,5 @@
 import { prisma } from "../../prisma.js"
-import { logAction } from "../../exports/logaction.js"
+import logAction from "../../exports/logaction.js"
 import {
   pubsub,
   RESERVE_CREATED,
