@@ -20,7 +20,8 @@ const requestResolver = {
           airline: true,
           airport: true,
           hotel: true,
-          hotelChess: true
+          hotelChess: true,
+          logs: true,
         },
         orderBy: { createdAt: "desc" }
       })
@@ -38,7 +39,7 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true
+          logs: true,
         }
       })
 
@@ -126,6 +127,7 @@ const requestResolver = {
         await logAction(
           context,
           "create_request",
+          null,
           {
             requestId: newRequest.id,
             requestNumber: newRequest.requestNumber,
@@ -145,7 +147,7 @@ const requestResolver = {
             status
           },
           airlineId,
-          newRequest.id,
+          newRequest.id
         )
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
@@ -216,6 +218,7 @@ const requestResolver = {
           await logAction(
             context,
             "update_request",
+            null,
             {
               requestId: updatedRequest.id,
               changes: { old: oldData, new: newData }
@@ -224,7 +227,7 @@ const requestResolver = {
             newData,
             hotelId,
             null,
-            updatedRequest.id,
+            updatedRequest.id
           )
         }
       } catch (error) {
@@ -283,7 +286,8 @@ const requestResolver = {
     },
     logs: async (parent) => {
       return await prisma.log.findMany({
-        where: { requestId: parent.id }
+        where: { requestId: parent.id },
+        include: { user: true }
       })
     }
   }

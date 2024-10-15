@@ -52,6 +52,7 @@ const logAction = async (
   requestId = null,
   reserveId = null
 ) => {
+  console.log('con', context)
   await createLog({
     userId: context.user.id,
     action,

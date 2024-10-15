@@ -58,7 +58,7 @@ model User {
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
   twoFAMethod         TwoFAMethod?
-  Log                 Log[]
+  logs             Log[]
   Reserve             Reserve[]
 }
 
@@ -91,7 +91,7 @@ model Hotel {
   prices       Price[]
   rooms        Room[]
   User         User[]
-  Log          Log[]
+  logs      Log[]
   Reserve      Reserve?       @relation(fields: [reserveId], references: [id])
   reserveId    String?        @db.ObjectId
   Passenger    Passenger[]
@@ -187,7 +187,7 @@ model Airline {
   staff      AirlinePersonal[]
   Request    Request[]
   User       User[]
-  Log        Log[]
+  logs    Log[]
   Reserve    Reserve[]
 }
 
@@ -264,7 +264,7 @@ model Request {
   chat          Chat[]
   status        String           @default("created")
   hotelChess    HotelChess?
-  Log           Log[]
+  logs       Log[]
 }
 
 model Reserve {
@@ -289,7 +289,7 @@ model Reserve {
   hotels         ReserveHotel[]
   chat           Chat[]
   Hotel          Hotel[]
-  Log            Log[]
+  logs        Log[]
 }
 
 model Family {
