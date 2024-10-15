@@ -96,13 +96,15 @@ model Hotel {
   reserveId    String?        @db.ObjectId
   Passenger    Passenger[]
   ReserveHotel ReserveHotel[]
+  breakfast String? // Время завтрака
+  lunch     String? // Время обеда
+  dinner    String? // Время ужина
 }
 
 model HotelChess {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
-  hotel   Hotel  @relation(fields: [hotelId], references: [id])
-  hotelId String @db.ObjectId
-
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  hotel     Hotel            @relation(fields: [hotelId], references: [id])
+  hotelId   String           @db.ObjectId
   public    Boolean?
   room      String?
   place     Float?
@@ -335,10 +337,18 @@ type Departure {
 }
 
 type MealPlan {
-  included  Boolean
-  breakfast Boolean?
-  lunch     Boolean?
-  dinner    Boolean?
+  included   Boolean
+  breakfast  Int?
+  lunch      Int?
+  dinner     Int?
+  dailyMeals DailyMeal
+}
+
+type DailyMeal {
+  date      String
+  breakfast Int
+  lunch     Int
+  dinner    Int
 }
 
 // Заявка  ---------------- ↑↑↑↑

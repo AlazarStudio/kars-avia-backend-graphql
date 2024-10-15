@@ -34,6 +34,7 @@
     "graphql-upload": "^16.0.2",
     "graphql-ws": "^5.16.0",
     "jsonwebtoken": "^9.0.2",
+    "lodash.isequal": "^4.5.0",
     "mongoose": "^8.4.5",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",

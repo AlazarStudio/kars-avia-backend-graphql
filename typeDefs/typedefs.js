@@ -15,11 +15,11 @@ const mergedTypeDefs = mergeTypeDefs([
   hotelTypeDef,
   airlineTypeDef,
   requestTypeDef,
+  reserveTypeDef,
   chatTypeDef,
   fileTypeDef,
   airportTypeDef,
   cityTypeDef,
-  reserveTypeDef
 ])
 
 export default mergedTypeDefs

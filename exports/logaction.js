@@ -1,66 +1,14 @@
 import { prisma } from "../prisma.js"
-import winston from "winston"
-
-// const logger = winston.createLogger({
-//   level: "verbose",
-//   format: winston.format.prettyPrint(),
-//   transports: [
-//     new winston.transports.Console(),
-//     new winston.transports.File({ filename: "logs/combined.log" }),
-//   ],
-// });
-
-// const logger = winston.createLogger({
-//   transports: [
-//     new winston.transports.MongoDB({
-//       level: "error",
-//       db: "mongodb://localhost:27017/logs",
-//       collection: "log",
-//       format: winston.format.json(),
-//     }),
-//   ],
-// });
-
-const logger = winston.createLogger({
-  // level: "info",
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: "logs/info.log", level: "info" }),
-    new winston.transports.File({ filename: "logs/debug.log", level: "debug" }),
-    new winston.transports.File({ filename: "logs/error.log", level: "error" }),
-    new winston.transports.File({ filename: "logs/warning.log", level: "warning" }),
-    new winston.transports.File({ filename: "logs/critical.log", level: "critical" }),
-    new winston.transports.File({ filename: "logs/combined.log", level: "combined" })
-  ]
-})
-
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  )
-}
-
-// export const logAction = (userId, action, description) => {
-//   logger.info({
-//     userId,
-//     action,
-//     description,
-//     timestamp: new Date().toISOString()
-//   })
-// }
 
 const safeStringify = (data) => {
   try {
-    return JSON.stringify(data);
+    return JSON.stringify(data)
   } catch (error) {
-    console.error("Ошибка при преобразовании данных в JSON:", error);
-    return null; // Возвращаем null, если произошла ошибка
+    console.error("Ошибка при преобразовании данных в JSON:", error)
+    return null
   }
 }
-
-export const logAction = async (
+const createLog = async ({
   userId,
   action,
   reason,
@@ -71,7 +19,7 @@ export const logAction = async (
   reserveId,
   oldData = null,
   newData = null
-) => {
+}) => {
   try {
     await prisma.log.create({
       data: {
@@ -91,3 +39,31 @@ export const logAction = async (
     console.error("Ошибка при логировании действия:", error)
   }
 }
+
+const logAction = async (
+  context,
+  action,
+  reason,
+  description,
+  oldData,
+  newData,
+  hotelId = null,
+  airlineId = null,
+  requestId = null,
+  reserveId = null
+) => {
+  await createLog({
+    userId: context.user.id,
+    action,
+    reason,
+    description,
+    hotelId,
+    airlineId,
+    requestId,
+    reserveId,
+    oldData,
+    newData
+  })
+}
+
+export default logAction

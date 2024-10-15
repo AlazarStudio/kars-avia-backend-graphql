@@ -1,14 +1,11 @@
 import { prisma } from "../../prisma.js"
-// import { PubSub } from "graphql-subscriptions"
+import isEqual from "lodash.isequal"
 import { logAction } from "../../exports/logaction.js"
-
 import {
   pubsub,
   REQUEST_CREATED,
   REQUEST_UPDATED
 } from "../../exports/pubsub.js"
-
-// const pubsub = new PubSub()
 
 const requestResolver = {
   Query: {
@@ -33,16 +30,55 @@ const requestResolver = {
         totalPages
       }
     },
-    request: async (_, { id }) => {
-      return prisma.request.findUnique({
+    request: async (_, { id }, context) => {
+      const request = await prisma.request.findUnique({
         where: { id: id },
         include: {
           airline: true,
           airport: true,
           hotel: true,
-          hotelChess: true
+          hotelChess: true,
+          logs: {
+            // Добавляем логи
+            include: {
+              user: true
+            }
+          }
         }
       })
+
+      if (!request) {
+        throw new Error("Request not found")
+      }
+      // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
+      if (request.status === "created") {
+        // Обновляем статус на "opened"
+        const updatedRequest = await prisma.request.update({
+          where: { id },
+          data: { status: "opened" }
+        })
+        // Логируем только первое открытие заявки
+        try {
+          await logAction(
+            context,
+            "open_request",
+            {
+              requestId: updatedRequest.id,
+              description: `Request was opened by user ${context.user.id}`
+            },
+            { status: "created" }, // старый статус
+            { status: "opened" } // новый статус
+          )
+        } catch (error) {
+          console.error(
+            "Ошибка при логировании первого открытия заявки:",
+            error
+          )
+        }
+        return updatedRequest
+      }
+      // Если статус уже изменён, не логируем и возвращаем текущую заявку
+      return request
     }
   },
   Mutation: {
@@ -58,101 +94,62 @@ const requestResolver = {
         senderId,
         status
       } = input
-
       // Получаем количество существующих заявок для порядкового номера
       const requestCount = await prisma.request.count()
-
       // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
-
       if (!airport) {
         throw new Error("Airport not found")
       }
-
       // Форматируем текущую дату
       const currentDate = new Date()
       const formattedDate = currentDate
         .toLocaleDateString("ru-RU")
         .replace(/\./g, ".")
-
       const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
         airport.code
       }-${formattedDate}`
-
       // Создание заявки
       const newRequest = await prisma.request.create({
         data: {
-          person: {
-            connect: { id: personId }
-          },
-          airport: airportId
-            ? {
-                connect: { id: airportId }
-              }
-            : null,
+          person: { connect: { id: personId } },
+          airport: airportId ? { connect: { id: airportId } } : null,
           arrival,
           departure,
           roomCategory,
           mealPlan,
-          airline: {
-            connect: { id: airlineId } // Использование `connect` для существующей авиакомпании
-          },
-          sender: {
-            connect: { id: senderId } // Привязка к пользователю, отправившему заявку
-          },
+          airline: { connect: { id: airlineId } },
+          sender: { connect: { id: senderId } },
           status,
           requestNumber
         }
       })
-
-      // Создание чата, связанного с заявкой
-      const newChat = await prisma.chat.create({
-        data: {
-          request: { connect: { id: newRequest.id } }
-        }
-      })
-
-      // Добавление участника в чат через ChatUser
-      await prisma.chatUser.create({
-        data: {
-          chat: { connect: { id: newChat.id } },
-          user: { connect: { id: senderId } }
-        }
-      })
-
-      // Публикация события после создания заявки
-      pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
-
-      // Логирование действия
+      // Логирование действия создания
       try {
-        await logAction({
-          userId: context.user.id,
-          action: "create_request",
-          reason: null, // Причина изменения не требуется, так как это создание
-          description: {
+        await logAction(
+          context,
+          "create_request",
+          {
             requestId: newRequest.id,
             requestNumber: newRequest.requestNumber,
-            personId: personId,
-            arrival: arrival,
-            departure: departure,
-            roomCategory: roomCategory,
-            mealPlan: mealPlan,
-            status: status
+            personId,
+            airportId,
+            arrival,
+            departure,
+            roomCategory,
+            mealPlan,
+            status
           },
-          hotelId: null, // Пустое, если нет отеля
-          airlineId: airlineId, // ID авиакомпании
-          requestId: newRequest.id,
-          reserveId: null, // Пустое, если нет резерва
-          oldData: null, // Старая информация отсутствует при создании
-          newData: {
+          null,
+          {
             requestNumber: newRequest.requestNumber,
-            airportId: airportId,
-            personId: personId,
-            status: status
-          } // Новые данные по заявке
-        })
+            airportId,
+            personId,
+            status
+          }
+        )
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
       }
@@ -160,7 +157,7 @@ const requestResolver = {
     },
     updateRequest: async (_, { id, input }, context) => {
       const {
-        airport,
+        airportId,
         arrival,
         departure,
         roomCategory,
@@ -169,88 +166,76 @@ const requestResolver = {
         hotelChessId,
         roomNumber,
         status
-      } = input;
-    
+      } = input
       // Получаем старую версию заявки для логирования
       const oldRequest = await prisma.request.findUnique({
-        where: { id },
-      });
-    
+        where: { id }
+      })
       if (!oldRequest) {
-        throw new Error("Request not found");
+        throw new Error("Request not found")
       }
-    
       // Подготавливаем данные для обновления
       const dataToUpdate = {
-        airport,
+        airport: airportId ? { connect: { id: airportId } } : undefined,
         arrival,
         departure,
         roomCategory,
         mealPlan,
         roomNumber,
         status
-      };
-    
+      }
       if (hotelId) {
-        dataToUpdate.hotel = { connect: { id: hotelId } };
+        dataToUpdate.hotel = { connect: { id: hotelId } }
       }
-
       if (hotelChessId) {
-        dataToUpdate.hotelChess = { connect: { id: hotelChessId } };
+        dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
       }
-    
       // Обновление заявки
       const updatedRequest = await prisma.request.update({
         where: { id },
-        data: dataToUpdate,
-      });
-    
-      // Публикация события после обновления заявки
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest });
-    
-      // Логирование действия
-      try {
-        await logAction({
-          userId: context.user.id,
-          action: "update_request",
-          reason: null, // Причина не указана в данном случае, но можно передавать, если потребуется
-          description: {
-            requestId: updatedRequest.id,
-            requestNumber: updatedRequest.requestNumber,
-          },
-          hotelId: updatedRequest.hotelId || null,
-          airlineId: updatedRequest.airlineId || null,
-          requestId: updatedRequest.id,
-          reserveId: null, // Резерв не обновляется в данном случае
-          oldData: {
-            airport: oldRequest.airport,
-            arrival: oldRequest.arrival,
-            departure: oldRequest.departure,
-            roomCategory: oldRequest.roomCategory,
-            mealPlan: oldRequest.mealPlan,
-            hotelId: oldRequest.hotelId,
-            hotelChessId: oldRequest.hotelChessId,
-            roomNumber: oldRequest.roomNumber,
-            status: oldRequest.status,
-          }, // Старая информация
-          newData: {
-            airport: updatedRequest.airport,
-            arrival: updatedRequest.arrival,
-            departure: updatedRequest.departure,
-            roomCategory: updatedRequest.roomCategory,
-            mealPlan: updatedRequest.mealPlan,
-            hotelId: updatedRequest.hotelId,
-            hotelChessId: updatedRequest.hotelChessId,
-            roomNumber: updatedRequest.roomNumber,
-            status: updatedRequest.status,
-          }, // Новая информация
-        });
-      } catch (error) {
-        console.error("Ошибка при логировании действия обновления заявки:", error);
+        data: dataToUpdate
+      })
+      // Сравниваем старые и новые данные
+      const oldData = {
+        airportId: oldRequest.airportId,
+        arrival: oldRequest.arrival,
+        departure: oldRequest.departure,
+        roomCategory: oldRequest.roomCategory,
+        mealPlan: oldRequest.mealPlan,
+        roomNumber: oldRequest.roomNumber,
+        status: oldRequest.status
       }
-    
-      return updatedRequest;
-    },    
+      const newData = {
+        airportId,
+        arrival,
+        departure,
+        roomCategory,
+        mealPlan,
+        roomNumber,
+        status
+      }
+      try {
+        if (!isEqual(oldData, newData)) {
+          await logAction(
+            context,
+            "update_request",
+            {
+              requestId: updatedRequest.id,
+              changes: { old: oldData, new: newData }
+            },
+            oldData,
+            newData,
+            hotelId
+          )
+        }
+      } catch (error) {
+        console.error(
+          "Ошибка при логировании действия обновления заявки:",
+          error
+        )
+      }
+      return updatedRequest
+    },
     deleteRequests: async (_, {}, context) => {
       const deletedRequests = await prisma.request.deleteMany()
       return deletedRequests.count
@@ -264,7 +249,6 @@ const requestResolver = {
       subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
     }
   },
-
   Request: {
     airport: async (parent) => {
       return await prisma.airport.findUnique({

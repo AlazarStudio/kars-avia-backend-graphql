@@ -17,12 +17,17 @@ type Hotel {
   rs: String
   bank: String
   bik: String
+  link: String
+  description: String
   hotelChesses: [HotelChess!]
   categories: [Category!]
   tariffs: [Tariff!]
   images: [String!]
   prices: [Price!]
   rooms: [Room!]
+  breakfast: String
+  lunch: String
+  dinner: String
 }
 
 type HotelChess {
@@ -103,11 +108,16 @@ input CreateHotelInput {
   rs: String
   bank: String
   bik: String
+  link: String
+  description: String
   hotelChesses: [HotelChessInput!]
   categories: [CategoryInput!]
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
+  breakfast: String
+  lunch: String
+  dinner: String
 }
 
 input UpdateHotelInput {
@@ -124,11 +134,16 @@ input UpdateHotelInput {
   rs: String
   bank: String
   bik: String
+  link: String
+  description: String
   hotelChesses: [HotelChessInput!]
   categories: [CategoryInput!]
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
+  breakfast: String
+  lunch: String
+  dinner: String
 }
 
 input HotelChessInput {

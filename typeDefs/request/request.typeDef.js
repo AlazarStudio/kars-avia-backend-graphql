@@ -25,6 +25,19 @@ type Request {
   status: String
   requestNumber: String
   chat: Chat
+  logs: [Log!]!
+}
+
+type Log {
+  id: ID!
+  user: User
+  hotel: Hotel
+  airline: Airline
+  action: String!
+  description: String
+  oldData: String
+  newData: String
+  createdAt: String!
 }
 
 type Arrival {
@@ -41,9 +54,17 @@ type Departure {
 
 type MealPlan {
   included: Boolean!
-  breakfast: Boolean
-  lunch: Boolean
-  dinner: Boolean
+  breakfast: Int!
+  lunch: Int!
+  dinner: Int!
+  dailyMeals: [DailyMeal!]!
+}
+
+type DailyMeal {
+  date: String!
+  breakfast: Int!
+  lunch: Int!
+  dinner: Int!
 }
 
 type RequestConnection {

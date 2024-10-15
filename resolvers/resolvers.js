@@ -15,11 +15,11 @@ const mergedResolvers = mergeResolvers([
   hotelResolver,
   airlineResolver,
   requestResolver,
+  reserveResolver,
   chatResolver,
   fileResolver,
   airportResolver,
   cityResolver,
-  reserveResolver
 ])
 
 export default mergedResolvers
