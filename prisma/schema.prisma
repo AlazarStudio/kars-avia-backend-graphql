@@ -341,7 +341,7 @@ type MealPlan {
   breakfast  Int?
   lunch      Int?
   dinner     Int?
-  dailyMeals DailyMeal
+  dailyMeals DailyMeal?
 }
 
 type DailyMeal {

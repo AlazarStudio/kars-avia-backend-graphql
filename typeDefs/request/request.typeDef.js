@@ -11,7 +11,7 @@ type Request {
   arrival: Arrival!
   departure: Departure!
   roomCategory: String
-  mealPlan: MealPlan!
+  mealPlan: MealPlan
   senderId: String!
   receiverId: String
   createdAt: String
@@ -53,11 +53,11 @@ type Departure {
 }
 
 type MealPlan {
-  included: Boolean!
-  breakfast: Int!
-  lunch: Int!
-  dinner: Int!
-  dailyMeals: [DailyMeal!]!
+  included: Boolean
+  breakfast: Int
+  lunch: Int
+  dinner: Int
+  dailyMeals: [DailyMeal]
 }
 
 type DailyMeal {
@@ -79,7 +79,7 @@ input CreateRequestInput {
   arrival: ArrivalInput!
   departure: DepartureInput!
   roomCategory: String
-  mealPlan: MealPlanInput!
+  mealPlan: MealPlanInput
   airlineId: String!
   senderId: String!
   status: String
@@ -107,7 +107,7 @@ input DepartureInput {
 }
 
 input MealPlanInput {
-  included: Boolean!
+  included: Boolean
   breakfast: Int
   lunch: Int
   dinner: Int

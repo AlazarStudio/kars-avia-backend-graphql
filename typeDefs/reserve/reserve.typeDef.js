@@ -23,9 +23,9 @@ type Reserve {
 
 type MealPlan {
   included: Boolean!
-  breakfast: Boolean
-  lunch: Boolean
-  dinner: Boolean
+  breakfast: Int
+  lunch: Int
+  dinner: Int
 }
 
 type Family {
