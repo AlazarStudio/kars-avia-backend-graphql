@@ -15,11 +15,10 @@ type Reserve {
   status: String
   reserveNumber: String
   chat: [Chat]
-  # families: [Family]
   hotels: [Hotel]
   person: [AirlinePersonal]
   passengers: [Passenger]
-  passangerCount: Int
+  passengerCount: Int
 }
 
 type MealPlan {
@@ -29,19 +28,12 @@ type MealPlan {
   dinner: Int
 }
 
-# type Family {
-#   id: ID!
-#   passengers: [Passenger!]!
-#   reserve: Reserve!
-# }
-
 type Passenger {
   id: ID!
   name: String
   number: String
   child: Boolean
   animal: Boolean
-  # family: Family
   reserve: Reserve!
   hotel: Hotel
 }
@@ -66,7 +58,6 @@ input CreateReserveInput {
   senderId: String!
   status: String
   person: [PersonInput!]
-  # families: [FamilyInput!]
   passengers: [PassengerInput!]
 }
 
@@ -76,17 +67,12 @@ input UpdateReserveInput {
   mealPlan: MealPlanInput
   status: String
   person: [PersonInput!]
-  # families: [FamilyInput!]
   passengers: [PassengerInput!]
 }
 
 input PersonInput {
   id: String
 }
-
-# input FamilyInput {
-#   passengers: [PassengerInput!]!
-# }
 
 input PassengerInput {
   name: String

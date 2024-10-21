@@ -437,7 +437,7 @@ const hotelResolver = {
         if (passenger.hotelId) {
           throw new Error(`Пассажир ${passengerId} уже назначен в отель`)
         }
-        if (passenger.familyId) {
+        if (passenger.familyId) { 
           // Fetch all family members
           const familyMembers = await prisma.passenger.findMany({
             where: { familyId: passenger.familyId }

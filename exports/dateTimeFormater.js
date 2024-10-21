@@ -1,20 +1,28 @@
-const dateTimeFormatter = (dateString, timeString) => {
-    
-  // Разделяем строку даты на день, месяц и год
+export const reverseDateTimeFormatter = (dateString, timeString) => {
   const [day, month, year] = dateString.split(".")
 
-  // Формируем строку в формате, который понимает конструктор Date
-  // Формат: "YYYY-MM-DDTHH:MM:SS" (ISO формат)
   const dateTimeString = `${year}-${month}-${day}T${timeString}:00`
 
-  // Создаем объект Date
   const date = new Date(dateTimeString)
 
-  // Преобразуем в секунды
   const seconds = Math.floor(date.getTime() / 1000)
 
-  // console.log(seconds) // Время в секундах
   return seconds
 }
 
-export default dateTimeFormatter
+export const dateTimeFormatter = (seconds) => {
+  const date = new Date(seconds * 1000)
+
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0") 
+  const year = date.getFullYear()
+
+  const dateString = `${day}.${month}.${year}`
+
+  const hours = String(date.getHours()).padStart(2, "0")
+  const minutes = String(date.getMinutes()).padStart(2, "0")
+
+  const timeString = `${hours}:${minutes}`
+
+  return { date: dateString, time: timeString }
+}

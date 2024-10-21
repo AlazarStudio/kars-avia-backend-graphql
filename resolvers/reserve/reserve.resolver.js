@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import isEqual from "lodash.isequal"
 import logAction from "../../exports/logaction.js"
 import {
   pubsub,
@@ -69,7 +70,8 @@ const reserveResolver = {
         airlineId,
         senderId,
         status,
-        // families,
+        passengerCount,
+        passengers,
         persons
       } = input
 

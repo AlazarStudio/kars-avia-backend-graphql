@@ -22,7 +22,7 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true,
+          logs: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -40,7 +40,7 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true,
+          logs: true
         }
       })
 
@@ -65,7 +65,7 @@ const requestResolver = {
             },
             oldData: { status: "created" }, // старый статус
             newData: { status: "opened" } // новый статус
-        })
+          })
         } catch (error) {
           console.error(
             "Ошибка при логировании первого открытия заявки:",
@@ -129,7 +129,7 @@ const requestResolver = {
           context,
           action: "create_request",
           description: {
-            requestId: newRequest.id, 
+            requestId: newRequest.id,
             requestNumber: newRequest.requestNumber,
             personId,
             airportId,
@@ -147,12 +147,11 @@ const requestResolver = {
           },
           airlineId,
           requestId: newRequest.id
-      })
+        })
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
       }
 
-      
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
@@ -228,7 +227,7 @@ const requestResolver = {
             newData: newData,
             hotelId: hotelId,
             requestId: updatedRequest.id
-        })
+          })
         }
       } catch (error) {
         console.error(
