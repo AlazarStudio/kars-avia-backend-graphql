@@ -61,9 +61,13 @@ const hotelResolver = {
         }
       })
       // Логирование создания отеля
-      await logAction(context.user.id, `Create Hotel: ${createdHotel.name}`, {
-        hotelId: createdHotel.id,
-        input: data
+      await logAction({
+        context,
+        action: `Create Hotel: ${createdHotel.name}`,
+        description: {
+          hotelId: createdHotel.id,
+          input: data
+        }
       })
       return createdHotel
     },
@@ -101,14 +105,14 @@ const hotelResolver = {
           }
         })
 
-        await logAction(
+        await logAction({
           context,
-          "updateHotel",
-          "Обновление информации об отеле",
-          updatedData,
-          previousHotelData,
-          updatedHotel
-        )
+          action: "updateHotel",
+          description: "Обновление информации об отеле",
+          oldData: previousHotelData,
+          newData: updatedData,
+          hotelId: updatedHotel.id
+        })
 
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
@@ -132,14 +136,6 @@ const hotelResolver = {
                   requestId: hotelChess.requestId
                 }
               })
-              await logAction(
-                context,
-                "updateHotelChess",
-                "Обновление информации о шахматах отеля",
-                hotelChess,
-                previousHotelChessData,
-                hotelChess
-              )
 
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
@@ -153,6 +149,17 @@ const hotelResolver = {
                   }
                 }
               })
+
+              await logAction({
+                context,
+                action: "updateHotelChess",
+                description: "Обновление информации о шахматах отеля",
+                oldData: hotelChess,
+                newData: previousHotelChessData,
+                hotelId: hotelChess.hotelId,
+                requestId: hotelChess.requestId
+              })
+
               pubsub.publish(REQUEST_UPDATED, {
                 requestUpdated: updatedRequest
               })
@@ -184,6 +191,17 @@ const hotelResolver = {
                   }
                 }
               })
+
+              await logAction({
+                context,
+                action: "updateHotelChess",
+                description: "Обновление информации о шахматах отеля",
+                oldData: hotelChess,
+                newData: previousHotelChessData,
+                hotelId: hotelChess.hotelId,
+                requestId: hotelChess.requestId
+              })
+
               pubsub.publish(REQUEST_UPDATED, {
                 requestUpdated: updatedRequest
               })
@@ -205,14 +223,14 @@ const hotelResolver = {
                   categoryId: tariff.categoryId
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "updateTariff",
-                "Обновление тарифа",
-                tariff,
-                previousTariffData,
-                tariff
-              )
+                action: "updateTariff",
+                description: "Обновление тарифа",
+                oldData: previousTariffData,
+                newData: tariff,
+                hotelId: tariff.hotelId
+              })
             } else {
               await prisma.tariff.create({
                 data: {
@@ -221,14 +239,13 @@ const hotelResolver = {
                   categoryId: tariff.categoryId
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "createTariff",
-                "Создание нового тарифа",
-                tariff,
-                null,
-                tariff
-              )
+                action: "createTariff",
+                description: "Создание нового тарифа",
+                newData: tariff,
+                hotelId: tariff.hotelId
+              })
             }
           }
         }
@@ -247,14 +264,14 @@ const hotelResolver = {
                   tariffId: category.tariffId
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "updateCategory",
-                "Обновление категории",
-                category,
-                previousCategoryData,
-                category
-              )
+                action: "updateCategory",
+                description: "Обновление категории",
+                oldData: previousCategoryData,
+                newData: category,
+                hotelId: category.hotelId
+              })
             } else {
               await prisma.category.create({
                 data: {
@@ -263,14 +280,13 @@ const hotelResolver = {
                   tariffId: category.tariffId
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "createCategory",
-                "Создание новой категории",
-                category,
-                null,
-                category
-              )
+                action: "createCategory",
+                description: "Создание новой категории",
+                newData: category,
+                hotelId: category.hotelId
+              })
             }
           }
         }
@@ -295,14 +311,14 @@ const hotelResolver = {
                   }
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "updatePrice",
-                "Обновление цены",
-                price,
-                previousPriceData,
-                price
-              )
+                action: "updatePrice",
+                description: "Обновление цены",
+                oldData: previousPriceData,
+                newData: price,
+                hotelId: price.hotelId
+              })
             } else {
               await prisma.price.create({
                 data: {
@@ -319,14 +335,13 @@ const hotelResolver = {
                   }
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "createPrice",
-                "Создание новой цены",
-                price,
-                null,
-                price
-              )
+                action: "createPrice",
+                description: "Создание новой цены",
+                newData: price,
+                hotelId: price.hotelId
+              })
             }
           }
         }
@@ -347,14 +362,14 @@ const hotelResolver = {
                   places: room.places
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "updateRoom",
-                "Обновление комнаты",
-                room,
-                previousRoomData,
-                room
-              )
+                action: "updateRoom",
+                description: "Обновление комнаты",
+                oldData: previousRoomData,
+                newData: room,
+                hotelId: room.hotelId
+              })
             } else {
               await prisma.room.create({
                 data: {
@@ -365,14 +380,13 @@ const hotelResolver = {
                   places: room.places
                 }
               })
-              await logAction(
+              await logAction({
                 context,
-                "createRoom",
-                "Создание новой комнаты",
-                room,
-                null,
-                room
-              )
+                action: "createRoom",
+                description: "Создание новой комнаты",
+                newData: room,
+                hotelId: room.hotelId
+              })
             }
           }
         }
@@ -476,75 +490,110 @@ const hotelResolver = {
     },
     // ----------------------------------------------------------------
     deleteHotel: async (_, { id }, context) => {
-      hotelAdminMiddleware(context);
+      hotelAdminMiddleware(context)
       const hotelToDelete = await prisma.hotel.findUnique({
-        where: { id },
-      });
+        where: { id }
+      })
       if (!hotelToDelete) {
-        throw new Error("Отель не найден");
+        throw new Error("Отель не найден")
       }
       const deletedHotel = await prisma.hotel.delete({
-        where: { id },
-      });
-      await logAction(context, 'deleteHotel', 'Удаление отеля', hotelToDelete, hotelToDelete, null);
-      return deletedHotel;
+        where: { id }
+      })
+      await logAction({
+        context,
+        action: "deleteHotel",
+        description: "Удаление отеля",
+        oldData: hotelToDelete,
+        newData: hotelToDelete,
+        hotelId: id
+      })
+      return deletedHotel
     },
     deleteRoom: async (_, { id }, context) => {
-      hotelAdminMiddleware(context);
+      hotelAdminMiddleware(context)
       const roomToDelete = await prisma.room.findUnique({
-        where: { id },
-      });
+        where: { id }
+      })
       if (!roomToDelete) {
-        throw new Error("Комната не найдена");
+        throw new Error("Комната не найдена")
       }
       const deletedRoom = await prisma.room.delete({
-        where: { id },
-      });
-      await logAction(context, 'deleteRoom', 'Удаление комнаты', roomToDelete, roomToDelete, null);
-      return deletedRoom;
+        where: { id }
+      })
+      await logAction({
+        context,
+        action: "deleteRoom",
+        description: "Удаление комнаты",
+        oldData: roomToDelete,
+        newData: roomToDelete,
+        hotelId: roomToDelete.id
+      })
+      return deletedRoom
     },
     deletePrice: async (_, { id }, context) => {
-      hotelAdminMiddleware(context);
+      hotelAdminMiddleware(context)
       const priceToDelete = await prisma.price.findUnique({
-        where: { id },
-      });
+        where: { id }
+      })
       if (!priceToDelete) {
-        throw new Error("Цена не найдена");
+        throw new Error("Цена не найдена")
       }
       const deletedPrice = await prisma.price.delete({
-        where: { id },
-      });
-      await logAction(context, 'deletePrice', 'Удаление цены', priceToDelete, priceToDelete, null);
-      return deletedPrice;
+        where: { id }
+      })
+      await logAction({
+        context,
+        action: "deletePrice",
+        description: "Удаление цены",
+        oldData: priceToDelete,
+        newData: priceToDelete,
+        hotelId: id
+      })
+      return deletedPrice
     },
     deleteTariff: async (_, { id }, context) => {
-      hotelAdminMiddleware(context);
+      hotelAdminMiddleware(context)
       const tariffToDelete = await prisma.tariff.findUnique({
-        where: { id },
-      });
+        where: { id }
+      })
       if (!tariffToDelete) {
-        throw new Error("Тариф не найден");
+        throw new Error("Тариф не найден")
       }
       const deletedTariff = await prisma.tariff.delete({
-        where: { id },
-      });
-      await logAction(context, 'deleteTariff', 'Удаление тарифа', tariffToDelete, tariffToDelete, null);
-      return deletedTariff;
+        where: { id }
+      })
+      await logAction({
+        context,
+        action: "deleteTariff",
+        description: "Удаление тарифа",
+        oldData: tariffToDelete,
+        newData: tariffToDelete,
+        hotelId: id
+      })
+      return deletedTariff
     },
     deleteCategory: async (_, { id }, context) => {
-      hotelAdminMiddleware(context);
+      hotelAdminMiddleware(context)
       const categoryToDelete = await prisma.category.findUnique({
-        where: { id },
-      });
+        where: { id }
+      })
       if (!categoryToDelete) {
-        throw new Error("Категория не найдена");
+        throw new Error("Категория не найдена")
       }
       const deletedCategory = await prisma.category.delete({
-        where: { id },
-      });
-      await logAction(context, 'deleteCategory', 'Удаление категории', categoryToDelete, categoryToDelete, null);
-      return deletedCategory;
-    },
+        where: { id }
+      })
+      await logAction({
+        context,
+        action: "deleteCategory",
+        description: "Удаление категории",
+        oldData: categoryToDelete,
+        newData: categoryToDelete,
+        hotelId: id
+      })
+      return deletedCategory
+    }
   },
   Hotel: {
     categories: async (parent) => {

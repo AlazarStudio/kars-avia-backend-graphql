@@ -6,6 +6,7 @@ import {
   REQUEST_CREATED,
   REQUEST_UPDATED
 } from "../../exports/pubsub.js"
+import calculateMeal from "../../exports/calculateMeal.js"
 
 const requestResolver = {
   Query: {
@@ -55,16 +56,16 @@ const requestResolver = {
         })
         // Логируем только первое открытие заявки
         try {
-          await logAction(
+          await logAction({
             context,
-            "open_request",
-            {
+            action: "open_request",
+            description: {
               requestId: updatedRequest.id,
               description: `Request was opened by user ${context.user.id}`
             },
-            { status: "created" }, // старый статус
-            { status: "opened" } // новый статус
-          )
+            oldData: { status: "created" }, // старый статус
+            newData: { status: "opened" } // новый статус
+        })
         } catch (error) {
           console.error(
             "Ошибка при логировании первого открытия заявки:",
@@ -124,12 +125,11 @@ const requestResolver = {
       })
       // Логирование действия создания
       try {
-        await logAction(
+        await logAction({
           context,
-          "create_request",
-          null,
-          {
-            requestId: newRequest.id,
+          action: "create_request",
+          description: {
+            requestId: newRequest.id, 
             requestNumber: newRequest.requestNumber,
             personId,
             airportId,
@@ -139,19 +139,21 @@ const requestResolver = {
             mealPlan,
             status
           },
-          null,
-          {
+          newData: {
             requestNumber: newRequest.requestNumber,
             airportId,
             personId,
             status
           },
           airlineId,
-          newRequest.id
-        )
+          requestId: newRequest.id
+      })
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
       }
+
+      
+      pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
     updateRequest: async (_, { id, input }, context) => {
@@ -215,20 +217,18 @@ const requestResolver = {
       }
       try {
         if (!isEqual(oldData, newData)) {
-          await logAction(
+          await logAction({
             context,
-            "update_request",
-            null,
-            {
+            action: "update_request",
+            description: {
               requestId: updatedRequest.id,
               changes: { old: oldData, new: newData }
             },
-            oldData,
-            newData,
-            hotelId,
-            null,
-            updatedRequest.id
-          )
+            oldData: oldData,
+            newData: newData,
+            hotelId: hotelId,
+            requestId: updatedRequest.id
+        })
         }
       } catch (error) {
         console.error(
@@ -236,12 +236,15 @@ const requestResolver = {
           error
         )
       }
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
+    // ---------------------------- DEV tool; delete for release ------------------------------------
     deleteRequests: async (_, {}, context) => {
       const deletedRequests = await prisma.request.deleteMany()
       return deletedRequests.count
     }
+    // ---------------------------- DEV tool; delete for release ------------------------------------
   },
   Subscription: {
     requestCreated: {

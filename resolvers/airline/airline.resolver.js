@@ -3,6 +3,8 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import dateTimeFormatter from "../../exports/dateTimeFormater.js"
+import calculateMeal from "../../exports/calculateMeal.js"
 
 const airlineResolver = {
   Upload: GraphQLUpload,
@@ -223,7 +225,7 @@ const airlineResolver = {
         where: { clientId: parent.id },
         include: { hotel: true }
       })
-      return hotelChessEntries 
+      return hotelChessEntries
     }
   }
 }

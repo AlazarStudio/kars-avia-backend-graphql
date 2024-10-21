@@ -58,7 +58,7 @@ model User {
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
   twoFAMethod         TwoFAMethod?
-  logs             Log[]
+  logs                Log[]
   Reserve             Reserve[]
 }
 
@@ -91,14 +91,14 @@ model Hotel {
   prices       Price[]
   rooms        Room[]
   User         User[]
-  logs      Log[]
+  logs         Log[]
   Reserve      Reserve?       @relation(fields: [reserveId], references: [id])
   reserveId    String?        @db.ObjectId
   Passenger    Passenger[]
   ReserveHotel ReserveHotel[]
-  breakfast String? // Время завтрака
-  lunch     String? // Время обеда
-  dinner    String? // Время ужина
+  breakfast    String? // Время завтрака
+  lunch        String? // Время обеда
+  dinner       String? // Время ужина
 }
 
 model HotelChess {
@@ -187,7 +187,7 @@ model Airline {
   staff      AirlinePersonal[]
   Request    Request[]
   User       User[]
-  logs    Log[]
+  logs       Log[]
   Reserve    Reserve[]
 }
 
@@ -264,7 +264,7 @@ model Request {
   chat          Chat[]
   status        String           @default("created")
   hotelChess    HotelChess?
-  logs       Log[]
+  logs          Log[]
 }
 
 model Reserve {
@@ -285,19 +285,19 @@ model Reserve {
   status         String            @default("created")
   person         AirlinePersonal[]
   passengers     Passenger[]
-  families       Family[]
+  // families       Family[]
   hotels         ReserveHotel[]
   chat           Chat[]
   Hotel          Hotel[]
-  logs        Log[]
+  logs           Log[]
 }
 
-model Family {
-  id         String      @id @default(auto()) @map("_id") @db.ObjectId
-  passengers Passenger[]
-  reserve    Reserve     @relation(fields: [reserveId], references: [id])
-  reserveId  String      @db.ObjectId
-}
+// model Family {
+//   id         String      @id @default(auto()) @map("_id") @db.ObjectId
+//   passengers Passenger[]
+//   reserve    Reserve     @relation(fields: [reserveId], references: [id])
+//   reserveId  String      @db.ObjectId
+// }
 
 model Passenger {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
@@ -306,8 +306,8 @@ model Passenger {
   gender    String?
   child     Boolean @default(false)
   animal    Boolean @default(false)
-  family    Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  familyId  String? @db.ObjectId
+  // family    Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  // familyId  String? @db.ObjectId
   reserve   Reserve @relation(fields: [reserveId], references: [id])
   reserveId String  @db.ObjectId
   hotel     Hotel?  @relation(fields: [hotelId], references: [id])
