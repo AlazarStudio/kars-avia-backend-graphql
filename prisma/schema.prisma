@@ -92,9 +92,9 @@ model Hotel {
   rooms        Room[]
   User         User[]
   logs         Log[]
-  Reserve      Reserve?       @relation(fields: [reserveId], references: [id])
-  reserveId    String?        @db.ObjectId
-  Passenger    Passenger[]
+  // Reserve      Reserve?       @relation(fields: [reserveId], references: [id])
+  // reserveId    String?        @db.ObjectId
+  // Passenger    Passenger[]
   ReserveHotel ReserveHotel[]
   breakfast    String? // Время завтрака
   lunch        String? // Время обеда
@@ -201,23 +201,25 @@ model AirlineDepartment {
 }
 
 model AirlinePersonal {
-  id           String             @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  number       String?
-  position     String?
-  gender       String?
-  married      Boolean?           @default(false)
-  husband      AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  husbandId    String?            @db.ObjectId
-  marriedTo    AirlinePersonal[]  @relation(name: "Marriage")
-  airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId    String?            @db.ObjectId
-  department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
-  departmentId String?            @db.ObjectId
-  Request      Request[]
-  hotelChess   HotelChess[]
-  Reserve      Reserve?           @relation(fields: [reserveId], references: [id])
-  reserveId    String?            @db.ObjectId
+  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  number         String?
+  position       String?
+  gender         String?
+  married        Boolean?           @default(false)
+  husband        AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId      String?            @db.ObjectId
+  marriedTo      AirlinePersonal[]  @relation(name: "Marriage")
+  airline        Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId      String?            @db.ObjectId
+  department     AirlineDepartment? @relation(fields: [departmentId], references: [id])
+  departmentId   String?            @db.ObjectId
+  Request        Request[]
+  hotelChess     HotelChess[]
+  Reserve        Reserve?           @relation(fields: [reserveId], references: [id])
+  reserveId      String?            @db.ObjectId
+  ReserveHotel   ReserveHotel?      @relation(fields: [reserveHotelId], references: [id])
+  reserveHotelId String?            @db.ObjectId
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -285,33 +287,39 @@ model Reserve {
   status         String            @default("created")
   person         AirlinePersonal[]
   passengers     Passenger[]
-  hotels         ReserveHotel[]
+  hotel          ReserveHotel[]
   chat           Chat[]
-  Hotel          Hotel[]
+  // Hotel          Hotel[]
   logs           Log[]
 }
 
 model Passenger {
-  id        String  @id @default(auto()) @map("_id") @db.ObjectId
-  name      String? @default("no name")
-  number    String?
-  gender    String?
-  child     Boolean @default(false)
-  animal    Boolean @default(false)
-  reserve   Reserve @relation(fields: [reserveId], references: [id])
-  reserveId String  @db.ObjectId
-  hotel     Hotel?  @relation(fields: [hotelId], references: [id])
-  hotelId   String? @db.ObjectId
-  temporary Boolean @default(true)
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  name           String?       @default("no name")
+  number         String?
+  gender         String?
+  child          Boolean       @default(false)
+  animal         Boolean       @default(false)
+  reserve        Reserve       @relation(fields: [reserveId], references: [id])
+  reserveId      String        @db.ObjectId
+  // hotel     Hotel?  @relation(fields: [hotelId], references: [id])
+  // hotelId   String? @db.ObjectId
+  temporary      Boolean       @default(true)
+  ReserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
+  reserveHotelId String?       @db.ObjectId
 }
 
 model ReserveHotel {
-  id        String  @id @default(auto()) @map("_id") @db.ObjectId
-  reserve   Reserve @relation(fields: [reserveId], references: [id])
-  reserveId String  @db.ObjectId
-  hotel     Hotel   @relation(fields: [hotelId], references: [id])
-  hotelId   String  @db.ObjectId
-  capacity  Int?
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  reserve    Reserve           @relation(fields: [reserveId], references: [id])
+  reserveId  String            @db.ObjectId 
+  hotel      Hotel             @relation(fields: [hotelId], references: [id])
+  hotelId    String            @db.ObjectId
+  capacity   Int?
+  person     AirlinePersonal[]
+  passengers Passenger[]
+
+  @@unique([reserveId, hotelId])
 }
 
 type Arrival {

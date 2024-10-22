@@ -15,10 +15,19 @@ type Reserve {
   status: String
   reserveNumber: String
   chat: [Chat]
-  hotels: [Hotel]
+  hotel: [ReserveHotel]
   person: [AirlinePersonal]
   passengers: [Passenger]
   passengerCount: Int
+}
+
+type ReserveHotel {
+  id: ID!
+  capacity: Int!
+  hotel: Hotel!
+  reserve: Reserve!
+  person: [AirlinePersonal]
+  passengers: [Passenger]
 }
 
 type MealPlan {
@@ -59,6 +68,7 @@ input CreateReserveInput {
   status: String
   person: [PersonInput!]
   passengers: [PassengerInput!]
+  passengerCount: Int!
 }
 
 input UpdateReserveInput {
@@ -82,12 +92,8 @@ input PassengerInput {
   animal: Boolean
 }
 
-extend type Mutation {
-  assignPassengersToHotel(
-    reservationId: ID!
-    hotelId: ID!
-    passengerIds: [ID!]!
-  ): [Passenger!]!                                                                   
+input assignPersonInput {
+  reservationId: ID! personId: ID! hotelId: ID!
 }
 
 type Mutation {
@@ -95,6 +101,11 @@ type Mutation {
   updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
 }
 
+extend type Mutation {
+  addHotelToReserve(reservationId: ID! hotelId: ID! capacity: Int!): ReserveHotel!                                
+  addPassengerToReserve(reservationId: ID! input: PassengerInput! hotelId: ID!): Passenger!
+  assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
+}
 
 type Subscription {
   reserveCreated: Reserve!
