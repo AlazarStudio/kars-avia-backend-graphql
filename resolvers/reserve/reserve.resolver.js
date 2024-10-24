@@ -4,6 +4,7 @@ import logAction from "../../exports/logaction.js"
 import {
   pubsub,
   RESERVE_CREATED,
+  RESERVE_HOTEL,
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
 
@@ -47,6 +48,28 @@ const reserveResolver = {
         }
       })
     },
+    reservationHotels: async (_, { id }) => { 
+      return await prisma.reserveHotel.findMany({
+        where: { reserveId: id },
+        include: {
+          reserve: true,
+          hotel: true,
+          person: true, // Include person info if needed
+          passengers: true
+        }
+      })
+     },
+    reservationHotel: async (_, { id }) => { 
+      return await prisma.reserveHotel.findUnique({
+        where: { id: id },
+        include: {
+          reserve: true,
+          hotel: true,
+          person: true, // Include person info if needed
+          passengers: true
+        }
+      })
+     },
     reservationPassengers: async (_, { reservationId }) => {
       // Fetch passengers associated with the reservation
       return await prisma.passenger.findMany({
@@ -164,7 +187,7 @@ const reserveResolver = {
             capacity
           }
         })
-
+        pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotel })
         return reserveHotel
       } catch (error) {
         if (
@@ -178,36 +201,36 @@ const reserveResolver = {
     },
 
     addPassengerToReserve: async (_, { reservationId, input, hotelId }) => {
-      const { name, number, gender, child, animal } = input;
-    
+      const { name, number, gender, child, animal } = input
+
       // Проверка на существование заявки
       const reserve = await prisma.reserve.findUnique({
-        where: { id: reservationId },
-      });
-    
+        where: { id: reservationId }
+      })
+
       if (!reserve) {
-        throw new Error("Reservation not found");
+        throw new Error("Reservation not found")
       }
-    
+
       // Проверка на существование связи между заявкой и отелем в ReserveHotel
       let reserveHotel = await prisma.reserveHotel.findFirst({
         where: {
           reserveId: reservationId,
-          hotelId: hotelId,
-        },
-      });
-    
+          hotelId: hotelId
+        }
+      })
+
       // Если связь не найдена, создаем её
       if (!reserveHotel) {
         reserveHotel = await prisma.reserveHotel.create({
           data: {
             reserve: { connect: { id: reservationId } },
             hotel: { connect: { id: hotelId } },
-            capacity: 0, // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
-          },
-        });
+            capacity: 0 // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
+          }
+        })
       }
-    
+
       // Добавление пассажира к заявке с привязкой к отелю через ReserveHotel
       const newPassenger = await prisma.passenger.create({
         data: {
@@ -217,16 +240,15 @@ const reserveResolver = {
           child: child || false,
           animal: animal || false,
           reserve: { connect: { id: reservationId } },
-          ReserveHotel: { connect: { id: reserveHotel.id } },
-        },
-      });
-    
+          ReserveHotel: { connect: { id: reserveHotel.id } }
+        }
+      })
+
       // Обновление информации о заявке
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve });
-    
-      return newPassenger;
+      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+
+      return newPassenger
     },
-    
 
     assignPersonToHotel: async (_, { input }) => {
       const { reservationId, personId, hotelId } = input
@@ -315,13 +337,37 @@ const reserveResolver = {
       })
     },
     person: async (parent) => {
-      return await prisma.airlinePersonal.findUnique({
-        where: { id: parent.personId }
+      return await prisma.airlinePersonal.findMany({
+        where: { id: parent.airlineId }
       })
     },
     passengers: async (parent) => {
       return await prisma.passenger.findMany({
         where: { reserveId: parent.id }
+      })
+    }
+  },
+
+  ReserveHotel: {
+    reserve: async (parent) => {
+      return await prisma.reserve.findUnique({
+        where: { id: parent.reserveId }
+      })
+    },
+    hotel: async (parent) => {
+      return await prisma.hotel.findUnique({
+        where: { id: parent.hotelId }
+      })
+    },
+    person: async (parent) => {
+      console.log(parent)
+      return await prisma.airlinePersonal.findMany({
+        where: { reserveHotelId: parent.id }
+      })
+    },
+    passengers: async (parent) => {
+      return await prisma.passenger.findMany({
+        where: { reserveHotelId: parent.id }
       })
     }
   },

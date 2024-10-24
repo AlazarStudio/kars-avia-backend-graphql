@@ -216,10 +216,10 @@ model AirlinePersonal {
   departmentId   String?            @db.ObjectId
   Request        Request[]
   hotelChess     HotelChess[]
-  Reserve        Reserve?           @relation(fields: [reserveId], references: [id])
-  reserveId      String?            @db.ObjectId
-  ReserveHotel   ReserveHotel?      @relation(fields: [reserveHotelId], references: [id])
-  reserveHotelId String?            @db.ObjectId
+  Reserve        Reserve[]          @relation(fields: [reserveId], references: [id])
+  reserveId      String[]           @db.ObjectId
+  ReserveHotel   ReserveHotel[]     @relation(fields: [reserveHotelId], references: [id])
+  reserveHotelId String[]           @db.ObjectId
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -285,7 +285,8 @@ model Reserve {
   passengerCount Int?
   mealPlan       MealPlan
   status         String            @default("created")
-  person         AirlinePersonal[]
+  person         AirlinePersonal[] @relation(fields: [personId], references: [id])
+  personId       String[]          @db.ObjectId
   passengers     Passenger[]
   hotel          ReserveHotel[]
   chat           Chat[]
@@ -312,11 +313,12 @@ model Passenger {
 model ReserveHotel {
   id         String            @id @default(auto()) @map("_id") @db.ObjectId
   reserve    Reserve           @relation(fields: [reserveId], references: [id])
-  reserveId  String            @db.ObjectId 
+  reserveId  String            @db.ObjectId
   hotel      Hotel             @relation(fields: [hotelId], references: [id])
   hotelId    String            @db.ObjectId
   capacity   Int?
-  person     AirlinePersonal[]
+  person     AirlinePersonal[] @relation(fields: [personId], references: [id])
+  personId   String[]          @db.ObjectId
   passengers Passenger[]
 
   @@unique([reserveId, hotelId])

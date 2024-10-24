@@ -41,6 +41,7 @@ type Passenger {
   id: ID!
   name: String
   number: String
+  gender: String
   child: Boolean
   animal: Boolean
   reserve: Reserve!
@@ -110,12 +111,18 @@ extend type Mutation {
 type Subscription {
   reserveCreated: Reserve!
   reserveUpdated: Reserve!
+  reserveHotel: ReserveHotel!
 }
 
 type Query {
   reservationPassengers(reservationId: ID!): [Passenger!]!
   reserves(pagination: PaginationInput): ReserveConnection!
   reserve(id: ID!): Reserve
+}
+
+extend type Query {
+  reservationHotels(id: ID!): [ReserveHotel]
+  reservationHotel(id: ID!): ReserveHotel!
 }
 
 `

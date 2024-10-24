@@ -154,8 +154,8 @@ const hotelResolver = {
                 context,
                 action: "updateHotelChess",
                 description: "Обновление информации о шахматах отеля",
-                oldData: hotelChess,
-                newData: previousHotelChessData,
+                oldData: previousHotelChessData,
+                newData: hotelChess,
                 hotelId: hotelChess.hotelId,
                 requestId: hotelChess.requestId
               })
@@ -196,8 +196,8 @@ const hotelResolver = {
                 context,
                 action: "updateHotelChess",
                 description: "Обновление информации о шахматах отеля",
-                oldData: hotelChess,
-                newData: previousHotelChessData,
+                oldData: null,
+                newData: hotelChess,
                 hotelId: hotelChess.hotelId,
                 requestId: hotelChess.requestId
               })
