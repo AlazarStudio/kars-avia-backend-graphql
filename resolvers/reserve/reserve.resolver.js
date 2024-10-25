@@ -48,18 +48,18 @@ const reserveResolver = {
         }
       })
     },
-    reservationHotels: async (_, { id }) => { 
+    reservationHotels: async (_, { id }) => {
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
         include: {
           reserve: true,
           hotel: true,
-          person: true, // Include person info if needed
+          // person: true, // Include person info if needed
           passengers: true
         }
       })
-     },
-    reservationHotel: async (_, { id }) => { 
+    },
+    reservationHotel: async (_, { id }) => {
       return await prisma.reserveHotel.findUnique({
         where: { id: id },
         include: {
@@ -69,7 +69,7 @@ const reserveResolver = {
           passengers: true
         }
       })
-     },
+    },
     reservationPassengers: async (_, { reservationId }) => {
       // Fetch passengers associated with the reservation
       return await prisma.passenger.findMany({
@@ -362,7 +362,8 @@ const reserveResolver = {
     person: async (parent) => {
       console.log(parent)
       return await prisma.airlinePersonal.findMany({
-        where: { reserveHotelId: parent.id }
+        // where: { reserveHotelId: parent.id }
+        where: { ReserveHotel: { some: {id: parent.id} } }
       })
     },
     passengers: async (parent) => {

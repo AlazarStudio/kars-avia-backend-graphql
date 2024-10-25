@@ -201,25 +201,37 @@ model AirlineDepartment {
 }
 
 model AirlinePersonal {
-  id             String             @id @default(auto()) @map("_id") @db.ObjectId
-  name           String
-  number         String?
-  position       String?
-  gender         String?
-  married        Boolean?           @default(false)
-  husband        AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  husbandId      String?            @db.ObjectId
-  marriedTo      AirlinePersonal[]  @relation(name: "Marriage")
-  airline        Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId      String?            @db.ObjectId
-  department     AirlineDepartment? @relation(fields: [departmentId], references: [id])
-  departmentId   String?            @db.ObjectId
-  Request        Request[]
-  hotelChess     HotelChess[]
-  Reserve        Reserve[]          @relation(fields: [reserveId], references: [id])
-  reserveId      String[]           @db.ObjectId
-  ReserveHotel   ReserveHotel[]     @relation(fields: [reserveHotelId], references: [id])
-  reserveHotelId String[]           @db.ObjectId
+  id           String                     @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  number       String?
+  position     String?
+  gender       String?
+  married      Boolean?                   @default(false)
+  husband      AirlinePersonal?           @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId    String?                    @db.ObjectId
+  marriedTo    AirlinePersonal[]          @relation(name: "Marriage")
+  airline      Airline?                   @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId    String?                    @db.ObjectId
+  department   AirlineDepartment?         @relation(fields: [departmentId], references: [id])
+  departmentId String?                    @db.ObjectId
+  Request      Request[]
+  hotelChess   HotelChess[]
+  Reserve      AirlinePersonalOnReserve[] // Связь через промежуточную модель
+  ReserveHotel ReserveHotelPersonal[] // Связь через промежуточную модель
+  // Reserve        Reserve[]          @relation(fields: [reserveId], references: [id])
+  // reserveId      String[]           @db.ObjectId
+  // ReserveHotel   ReserveHotel[]             @relation(fields: [reserveHotelId], references: [id])
+  // reserveHotelId String[]                   @db.ObjectId
+}
+
+model AirlinePersonalOnReserve {
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  airlinePersonalId String          @db.ObjectId
+  reserveId         String          @db.ObjectId
+  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
+  reserve           Reserve         @relation(fields: [reserveId], references: [id])
+
+  @@unique([airlinePersonalId, reserveId]) // Уникальность комбинации
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -270,23 +282,24 @@ model Request {
 }
 
 model Reserve {
-  id             String            @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  sender         User              @relation(fields: [senderId], references: [id])
-  senderId       String            @db.ObjectId
-  airport        Airport?          @relation(fields: [airportId], references: [id])
-  airportId      String?           @db.ObjectId
-  airline        Airline           @relation(fields: [airlineId], references: [id])
-  airlineId      String            @db.ObjectId
+  id             String                     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  sender         User                       @relation(fields: [senderId], references: [id])
+  senderId       String                     @db.ObjectId
+  airport        Airport?                   @relation(fields: [airportId], references: [id])
+  airportId      String?                    @db.ObjectId
+  airline        Airline                    @relation(fields: [airlineId], references: [id])
+  airlineId      String                     @db.ObjectId
   arrival        Arrival
   departure      Departure
-  reserveNumber  String            @unique
+  reserveNumber  String                     @unique
   passengerCount Int?
   mealPlan       MealPlan
-  status         String            @default("created")
-  person         AirlinePersonal[] @relation(fields: [personId], references: [id])
-  personId       String[]          @db.ObjectId
+  status         String                     @default("created")
+  persons        AirlinePersonalOnReserve[] // Связь через промежуточную модель
+  // person         AirlinePersonal[] @relation(fields: [personId], references: [id])
+  // personId       String[]          @db.ObjectId
   passengers     Passenger[]
   hotel          ReserveHotel[]
   chat           Chat[]
@@ -311,17 +324,28 @@ model Passenger {
 }
 
 model ReserveHotel {
-  id         String            @id @default(auto()) @map("_id") @db.ObjectId
-  reserve    Reserve           @relation(fields: [reserveId], references: [id])
-  reserveId  String            @db.ObjectId
-  hotel      Hotel             @relation(fields: [hotelId], references: [id])
-  hotelId    String            @db.ObjectId
+  id         String                 @id @default(auto()) @map("_id") @db.ObjectId
+  reserve    Reserve                @relation(fields: [reserveId], references: [id])
+  reserveId  String                 @db.ObjectId
+  hotel      Hotel                  @relation(fields: [hotelId], references: [id])
+  hotelId    String                 @db.ObjectId
   capacity   Int?
-  person     AirlinePersonal[] @relation(fields: [personId], references: [id])
-  personId   String[]          @db.ObjectId
   passengers Passenger[]
+  persons    ReserveHotelPersonal[] // Связь через промежуточную модель
+  // person     AirlinePersonal[] @relation(fields: [personId], references: [id])
+  // personId   String[]          @db.ObjectId
 
   @@unique([reserveId, hotelId])
+}
+
+model ReserveHotelPersonal {
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  reserveHotelId    String          @db.ObjectId
+  airlinePersonalId String          @db.ObjectId
+  reserveHotel      ReserveHotel    @relation(fields: [reserveHotelId], references: [id])
+  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
+
+  @@unique([reserveHotelId, airlinePersonalId])
 }
 
 type Arrival {

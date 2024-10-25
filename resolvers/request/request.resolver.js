@@ -277,6 +277,7 @@ const requestResolver = {
       })
     },
     person: async (parent) => {
+      console.log('person', parent.personId)
       return await prisma.airlinePersonal.findUnique({
         where: { id: parent.personId }
       })
