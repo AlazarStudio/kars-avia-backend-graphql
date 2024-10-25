@@ -25,9 +25,14 @@ type Hotel {
   images: [String!]
   prices: [Price!]
   rooms: [Room!]
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealTime  # Изменение здесь
+  lunch: MealTime      # Изменение здесь
+  dinner: MealTime     # Изменение здесь
+}
+
+type MealTime {
+  start: String!
+  end: String!
 }
 
 type HotelChess {
@@ -115,9 +120,9 @@ input CreateHotelInput {
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealTimeInput  # Изменение здесь
+  lunch: MealTimeInput      # Изменение здесь
+  dinner: MealTimeInput     # Изменение здесь
 }
 
 input UpdateHotelInput {
@@ -141,9 +146,9 @@ input UpdateHotelInput {
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealTimeInput  # Изменение здесь
+  lunch: MealTimeInput      # Изменение здесь
+  dinner: MealTimeInput     # Изменение здесь
 }
 
 input HotelChessInput {
@@ -185,6 +190,11 @@ input PriceInput {
   categoryId: ID!
   amount: Float
   amountair: Float
+}
+
+input MealTimeInput {
+  start: String!
+  end: String!
 }
 
 `

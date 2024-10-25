@@ -48,10 +48,21 @@ const hotelResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
+
+      const defaultMealTime = {
+        breakfast: { start: "07:00", end: "10:00" },
+        lunch: { start: "12:00", end: "16:00" },
+        dinner: { start: "18:00", end: "20:00" }
+      }
+
       const data = {
         ...input,
+        breakfast: input.breakfast || defaultMealTime.breakfast,
+        lunch: input.lunch || defaultMealTime.lunch,
+        dinner: input.dinner || defaultMealTime.dinner,
         images: imagePaths
       }
+      
       const createdHotel = await prisma.hotel.create({
         data,
         include: {
@@ -437,7 +448,7 @@ const hotelResolver = {
         if (passenger.hotelId) {
           throw new Error(`Пассажир ${passengerId} уже назначен в отель`)
         }
-        if (passenger.familyId) { 
+        if (passenger.familyId) {
           // Fetch all family members
           const familyMembers = await prisma.passenger.findMany({
             where: { familyId: passenger.familyId }

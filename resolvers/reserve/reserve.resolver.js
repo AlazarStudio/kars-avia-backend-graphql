@@ -92,7 +92,8 @@ const reserveResolver = {
         senderId,
         status,
         passengerCount,
-        persons
+        persons,
+        reserveForPerson,
       } = input
 
       // Генерация номера резерва (reserveNumber), как у вас было ранее
@@ -125,7 +126,8 @@ const reserveResolver = {
           status,
           reserveNumber,
           persons,
-          passengerCount
+          passengerCount,
+          reserveForPerson
         }
       })
 
@@ -212,6 +214,10 @@ const reserveResolver = {
         throw new Error("Reservation not found")
       }
 
+      if (reserve.reserveForPerson !== false) {
+        throw new Error("Reservation created for persons")
+      }
+
       // Проверка на существование связи между заявкой и отелем в ReserveHotel
       let reserveHotel = await prisma.reserveHotel.findFirst({
         where: {
@@ -262,6 +268,10 @@ const reserveResolver = {
 
       if (!reserve) {
         throw new Error("Reservation not found")
+      }
+
+      if (reserve.reserveForPerson !== true) {
+        throw new Error("Reservation created for passengers")
       }
 
       if (!person) {
@@ -360,7 +370,7 @@ const reserveResolver = {
       })
     },
     person: async (parent) => {
-      console.log(parent)
+      // console.log(parent)
       return await prisma.airlinePersonal.findMany({
         // where: { reserveHotelId: parent.id }
         where: { ReserveHotel: { some: {id: parent.id} } }

@@ -1,3 +1,4 @@
+
 export const reverseDateTimeFormatter = (dateString, timeString) => {
   const [day, month, year] = dateString.split(".")
 
@@ -9,7 +10,7 @@ export const reverseDateTimeFormatter = (dateString, timeString) => {
 
   return seconds
 }
-
+  
 export const dateTimeFormatter = (seconds) => {
   const date = new Date(seconds * 1000)
 

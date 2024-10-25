@@ -8,6 +8,17 @@ datasource db {
 }
 
 //  ---------------- ↓↓↓↓
+
+// User
+// Hotel
+// HotelChess
+// Airline
+// AirlinePersonal
+// Request
+// Reserve
+// Message
+// Log
+
 //  ---------------- ↑↑↑↑
 
 // Пользователи  ---------------- ↓↓↓↓
@@ -83,7 +94,14 @@ model Hotel {
   bik          String?
   link         String?
   description  String?
+  breakfast    MealTime?
+  // breakfast    String?        @default("07:00 - 10:00")
+  lunch        MealTime?
+  // lunch        String?        @default("12:00 - 16:00")
+  dinner       MealTime?
+  // dinner       String?        @default("18:00 - 20:00")
   images       String[]
+  ReserveHotel ReserveHotel[]
   hotelChesses HotelChess[]
   categories   Category[]
   Request      Request[]
@@ -92,13 +110,11 @@ model Hotel {
   rooms        Room[]
   User         User[]
   logs         Log[]
-  // Reserve      Reserve?       @relation(fields: [reserveId], references: [id])
-  // reserveId    String?        @db.ObjectId
-  // Passenger    Passenger[]
-  ReserveHotel ReserveHotel[]
-  breakfast    String? // Время завтрака
-  lunch        String? // Время обеда
-  dinner       String? // Время ужина
+}
+
+type MealTime {
+  start String 
+  end   String 
 }
 
 model HotelChess {
@@ -218,10 +234,6 @@ model AirlinePersonal {
   hotelChess   HotelChess[]
   Reserve      AirlinePersonalOnReserve[] // Связь через промежуточную модель
   ReserveHotel ReserveHotelPersonal[] // Связь через промежуточную модель
-  // Reserve        Reserve[]          @relation(fields: [reserveId], references: [id])
-  // reserveId      String[]           @db.ObjectId
-  // ReserveHotel   ReserveHotel[]             @relation(fields: [reserveHotelId], references: [id])
-  // reserveHotelId String[]                   @db.ObjectId
 }
 
 model AirlinePersonalOnReserve {
@@ -282,29 +294,28 @@ model Request {
 }
 
 model Reserve {
-  id             String                     @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime                   @default(now()) @map("created_at")
-  updatedAt      DateTime                   @updatedAt @map("updated_at")
-  sender         User                       @relation(fields: [senderId], references: [id])
-  senderId       String                     @db.ObjectId
-  airport        Airport?                   @relation(fields: [airportId], references: [id])
-  airportId      String?                    @db.ObjectId
-  airline        Airline                    @relation(fields: [airlineId], references: [id])
-  airlineId      String                     @db.ObjectId
-  arrival        Arrival
-  departure      Departure
-  reserveNumber  String                     @unique
-  passengerCount Int?
-  mealPlan       MealPlan
-  status         String                     @default("created")
-  persons        AirlinePersonalOnReserve[] // Связь через промежуточную модель
-  // person         AirlinePersonal[] @relation(fields: [personId], references: [id])
-  // personId       String[]          @db.ObjectId
-  passengers     Passenger[]
-  hotel          ReserveHotel[]
-  chat           Chat[]
-  // Hotel          Hotel[]
-  logs           Log[]
+  id               String                     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  sender           User                       @relation(fields: [senderId], references: [id])
+  senderId         String                     @db.ObjectId
+  airport          Airport?                   @relation(fields: [airportId], references: [id])
+  airportId        String?                    @db.ObjectId
+  airline          Airline                    @relation(fields: [airlineId], references: [id])
+  airlineId        String                     @db.ObjectId
+  arrival          Arrival
+  departure        Departure
+  reserveNumber    String                     @unique
+  passengerCount   Int?
+  mealPlan         MealPlan
+  status           String                     @default("created")
+  person           AirlinePersonalOnReserve[] // Связь через промежуточную модель
+  hotel            ReserveHotel[]
+  passengers       Passenger[]
+  // ---- need update ----
+  chat             Chat[]
+  logs             Log[]
+  reserveForPerson Boolean
 }
 
 model Passenger {
@@ -316,8 +327,6 @@ model Passenger {
   animal         Boolean       @default(false)
   reserve        Reserve       @relation(fields: [reserveId], references: [id])
   reserveId      String        @db.ObjectId
-  // hotel     Hotel?  @relation(fields: [hotelId], references: [id])
-  // hotelId   String? @db.ObjectId
   temporary      Boolean       @default(true)
   ReserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
   reserveHotelId String?       @db.ObjectId
@@ -332,8 +341,6 @@ model ReserveHotel {
   capacity   Int?
   passengers Passenger[]
   persons    ReserveHotelPersonal[] // Связь через промежуточную модель
-  // person     AirlinePersonal[] @relation(fields: [personId], references: [id])
-  // personId   String[]          @db.ObjectId
 
   @@unique([reserveId, hotelId])
 }

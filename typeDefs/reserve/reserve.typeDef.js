@@ -19,6 +19,7 @@ type Reserve {
   person: [AirlinePersonal]
   passengers: [Passenger]
   passengerCount: Int
+  reserveForPerson: Boolean!
 }
 
 type ReserveHotel {
@@ -70,6 +71,7 @@ input CreateReserveInput {
   person: [PersonInput!]
   passengers: [PassengerInput!]
   passengerCount: Int!
+  reserveForPerson: Boolean!
 }
 
 input UpdateReserveInput {

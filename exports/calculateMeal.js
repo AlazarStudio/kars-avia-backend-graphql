@@ -20,13 +20,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем завтрак
     const breakfastStart = new Date(currentDate);
     breakfastStart.setHours(
-      mealTimes.breakfast.start.hours,
-      mealTimes.breakfast.start.minutes
+      mealTimes.breakfast.start.split(":")[0], // Извлекаем часы
+      mealTimes.breakfast.start.split(":")[1] // Извлекаем минуты
     );
     const breakfastEnd = new Date(currentDate);
     breakfastEnd.setHours(
-      mealTimes.breakfast.end.hours,
-      mealTimes.breakfast.end.minutes
+      mealTimes.breakfast.end.split(":")[0], // Извлекаем часы
+      mealTimes.breakfast.end.split(":")[1] // Извлекаем минуты
     );
 
     if (
@@ -39,13 +39,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем обед
     const lunchStart = new Date(currentDate);
     lunchStart.setHours(
-      mealTimes.lunch.start.hours,
-      mealTimes.lunch.start.minutes
+      mealTimes.lunch.start.split(":")[0], // Извлекаем часы
+      mealTimes.lunch.start.split(":")[1] // Извлекаем минуты
     );
     const lunchEnd = new Date(currentDate);
     lunchEnd.setHours(
-      mealTimes.lunch.end.hours,
-      mealTimes.lunch.end.minutes
+      mealTimes.lunch.end.split(":")[0], // Извлекаем часы
+      mealTimes.lunch.end.split(":")[1] // Извлекаем минуты
     );
 
     if (
@@ -58,13 +58,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем ужин
     const dinnerStart = new Date(currentDate);
     dinnerStart.setHours(
-      mealTimes.dinner.start.hours,
-      mealTimes.dinner.start.minutes
+      mealTimes.dinner.start.split(":")[0], // Извлекаем часы
+      mealTimes.dinner.start.split(":")[1] // Извлекаем минуты
     );
     const dinnerEnd = new Date(currentDate);
     dinnerEnd.setHours(
-      mealTimes.dinner.end.hours,
-      mealTimes.dinner.end.minutes
+      mealTimes.dinner.end.split(":")[0], // Извлекаем часы
+      mealTimes.dinner.end.split(":")[1] // Извлекаем минуты
     );
 
     if (

@@ -91,8 +91,10 @@ const requestResolver = {
         senderId,
         status
       } = input
+
       // Получаем количество существующих заявок для порядкового номера
       const requestCount = await prisma.request.count()
+
       // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
@@ -100,6 +102,7 @@ const requestResolver = {
       if (!airport) {
         throw new Error("Airport not found")
       }
+
       // Форматируем текущую дату
       const currentDate = new Date()
       const formattedDate = currentDate
@@ -108,6 +111,7 @@ const requestResolver = {
       const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
         airport.code
       }-${formattedDate}`
+
       // Создание заявки
       const newRequest = await prisma.request.create({
         data: {
@@ -123,6 +127,7 @@ const requestResolver = {
           requestNumber
         }
       })
+
       // Логирование действия создания
       try {
         await logAction({
@@ -155,6 +160,7 @@ const requestResolver = {
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
+
     updateRequest: async (_, { id, input }, context) => {
       const {
         airportId,
@@ -167,13 +173,79 @@ const requestResolver = {
         roomNumber,
         status
       } = input
+
       // Получаем старую версию заявки для логирования
       const oldRequest = await prisma.request.findUnique({
         where: { id }
       })
+
       if (!oldRequest) {
         throw new Error("Request not found")
       }
+
+      if (hotelId) {
+        dataToUpdate.hotel = { connect: { id: hotelId } }
+      }
+      let hotelMealTimes = {};
+      if (hotelId) {
+        const hotel = await prisma.hotel.findUnique({
+          where: { id: hotelId },
+          select: {
+            breakfast: true,
+            lunch: true,
+            dinner: true
+          }
+        })
+      }
+
+      if (hotel) {
+        hotelMealTimes = {
+          breakfast: {
+            start: {
+              hours: parseInt(hotel.breakfast.split(":")[0]),
+              minutes: parseInt(hotel.breakfast.split(":")[1])
+            },
+            end: {
+              hours: parseInt(hotel.breakfast.split(":")[0]) + 2, // Условие, например, 2 часа на завтрак
+              minutes: 0
+            }
+          },
+          lunch: {
+            start: {
+              hours: parseInt(hotel.lunch.split(":")[0]),
+              minutes: parseInt(hotel.lunch.split(":")[1])
+            },
+            end: {
+              hours: parseInt(hotel.lunch.split(":")[0]) + 4, // Условие, например, 4 часа на обед
+              minutes: 0
+            }
+          },
+          dinner: {
+            start: {
+              hours: parseInt(hotel.dinner.split(":")[0]),
+              minutes: parseInt(hotel.dinner.split(":")[1])
+            },
+            end: {
+              hours: parseInt(hotel.dinner.split(":")[0]) + 2, // Условие, например, 2 часа на ужин
+              minutes: 0
+            }
+          }
+        }
+      }
+
+      const mealCounts = calculateMeal(
+        reverseDateTimeFormatter(arrival.date, arrival.time),
+        reverseDateTimeFormatter(departure.date, departure.time),
+        hotelMealTimes
+      )
+
+      if (mealPlan) {
+        dataToUpdate.mealPlan = {
+          ...mealPlan
+          // Можно добавлять логику для обновления других полей mealPlan, если это необходимо
+        }
+      }
+
       // Подготавливаем данные для обновления
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
@@ -184,17 +256,17 @@ const requestResolver = {
         roomNumber,
         status
       }
-      if (hotelId) {
-        dataToUpdate.hotel = { connect: { id: hotelId } }
-      }
+
       if (hotelChessId) {
         dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
       }
+
       // Обновление заявки
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: dataToUpdate
       })
+
       // Сравниваем старые и новые данные
       const oldData = {
         airportId: oldRequest.airportId,
@@ -214,6 +286,7 @@ const requestResolver = {
         roomNumber,
         status
       }
+
       try {
         if (!isEqual(oldData, newData)) {
           await logAction({
@@ -277,7 +350,7 @@ const requestResolver = {
       })
     },
     person: async (parent) => {
-      console.log('person', parent.personId)
+      console.log("person", parent.personId)
       return await prisma.airlinePersonal.findUnique({
         where: { id: parent.personId }
       })
