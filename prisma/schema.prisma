@@ -113,8 +113,8 @@ model Hotel {
 }
 
 type MealTime {
-  start String 
-  end   String 
+  start String
+  end   String
 }
 
 model HotelChess {
@@ -340,7 +340,7 @@ model ReserveHotel {
   hotelId    String                 @db.ObjectId
   capacity   Int?
   passengers Passenger[]
-  persons    ReserveHotelPersonal[] // Связь через промежуточную модель
+  person     ReserveHotelPersonal[] // Связь через промежуточную модель
 
   @@unique([reserveId, hotelId])
 }
@@ -413,7 +413,7 @@ model Chat {
   messages     Message[]
   participants ChatUser[]
   createdAt    DateTime   @default(now())
-  Reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?    @db.ObjectId
 }
 

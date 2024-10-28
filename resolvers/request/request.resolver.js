@@ -128,6 +128,21 @@ const requestResolver = {
         }
       })
 
+      // Создание чата, связанного с заявкой
+      const newChat = await prisma.chat.create({
+        data: {
+          request: { connect: { id: newRequest.id } }
+        }
+      })
+
+      // Добавление участника в чат через ChatUser
+      await prisma.chatUser.create({
+        data: {
+          chat: { connect: { id: newChat.id } },
+          user: { connect: { id: senderId } }
+        }
+      })
+
       // Логирование действия создания
       try {
         await logAction({
@@ -186,9 +201,10 @@ const requestResolver = {
       if (hotelId) {
         dataToUpdate.hotel = { connect: { id: hotelId } }
       }
-      let hotelMealTimes = {};
+      let hotelMealTimes = {}
+      let hotel
       if (hotelId) {
-        const hotel = await prisma.hotel.findUnique({
+        hotel = await prisma.hotel.findUnique({
           where: { id: hotelId },
           select: {
             breakfast: true,
@@ -233,17 +249,20 @@ const requestResolver = {
         }
       }
 
+      // Вычисляем количество приемов пищи
       const mealCounts = calculateMeal(
         reverseDateTimeFormatter(arrival.date, arrival.time),
         reverseDateTimeFormatter(departure.date, departure.time),
         hotelMealTimes
       )
 
-      if (mealPlan) {
-        dataToUpdate.mealPlan = {
-          ...mealPlan
-          // Можно добавлять логику для обновления других полей mealPlan, если это необходимо
-        }
+      // Обновляем mealPlan с учетом новых данных
+      dataToUpdate.mealPlan = {
+        included: true, // Пример: можно установить как true или false
+        breakfast: mealCounts.totalBreakfast,
+        lunch: mealCounts.totalLunch,
+        dinner: mealCounts.totalDinner,
+        dailyMeals: mealCounts.dailyMeals
       }
 
       // Подготавливаем данные для обновления
@@ -311,12 +330,14 @@ const requestResolver = {
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
+    
     // ---------------------------- DEV tool; delete for release ------------------------------------
     deleteRequests: async (_, {}, context) => {
       const deletedRequests = await prisma.request.deleteMany()
       return deletedRequests.count
     }
     // ---------------------------- DEV tool; delete for release ------------------------------------
+
   },
   Subscription: {
     requestCreated: {
@@ -350,14 +371,13 @@ const requestResolver = {
       })
     },
     person: async (parent) => {
-      console.log("person", parent.personId)
       return await prisma.airlinePersonal.findUnique({
         where: { id: parent.personId }
       })
     },
     chat: async (parent) => {
       return await prisma.chat.findUnique({
-        where: { id: parent.requestId }
+        where: { requestId: parent.requestId }
       })
     },
     logs: async (parent) => {

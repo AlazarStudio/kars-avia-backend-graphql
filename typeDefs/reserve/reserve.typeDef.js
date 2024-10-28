@@ -108,12 +108,7 @@ extend type Mutation {
   addHotelToReserve(reservationId: ID! hotelId: ID! capacity: Int!): ReserveHotel!                                
   addPassengerToReserve(reservationId: ID! input: PassengerInput! hotelId: ID!): Passenger!
   assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
-}
-
-type Subscription {
-  reserveCreated: Reserve!
-  reserveUpdated: Reserve!
-  reserveHotel: ReserveHotel!
+  dissociatePersonFromHotel(id: ID!): ReserveHotel!
 }
 
 type Query {
@@ -125,6 +120,12 @@ type Query {
 extend type Query {
   reservationHotels(id: ID!): [ReserveHotel]
   reservationHotel(id: ID!): ReserveHotel!
+}
+
+type Subscription {
+  reserveCreated: Reserve!
+  reserveUpdated: Reserve!
+  reserveHotel: ReserveHotel!
 }
 
 `

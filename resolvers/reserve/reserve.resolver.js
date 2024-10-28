@@ -7,6 +7,7 @@ import {
   RESERVE_HOTEL,
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
+import calculateMeal from "../../exports/calculateMeal.js"
 
 const reserveResolver = {
   Query: {
@@ -54,7 +55,7 @@ const reserveResolver = {
         include: {
           reserve: true,
           hotel: true,
-          // person: true, // Include person info if needed
+          person: true, // Include person info if needed
           passengers: true
         }
       })
@@ -93,7 +94,7 @@ const reserveResolver = {
         status,
         passengerCount,
         persons,
-        reserveForPerson,
+        reserveForPerson
       } = input
 
       // Генерация номера резерва (reserveNumber), как у вас было ранее
@@ -128,6 +129,20 @@ const reserveResolver = {
           persons,
           passengerCount,
           reserveForPerson
+        }
+      })
+      // Создание чата, связанного с заявкой
+      const newChat = await prisma.chat.create({
+        data: {
+          reserve: { connect: { id: newReserve.id } }
+        }
+      })
+
+      // Добавление участника в чат через ChatUser
+      await prisma.chatUser.create({
+        data: {
+          chat: { connect: { id: newChat.id } },
+          user: { connect: { id: senderId } }
         }
       })
 
@@ -202,7 +217,10 @@ const reserveResolver = {
       }
     },
 
-    addPassengerToReserve: async (_, { reservationId, input, hotelId }) => {
+    addPassengerToReserve: async (
+      _,
+      { reservationId, input, hotelId, capacity }
+    ) => {
       const { name, number, gender, child, animal } = input
 
       // Проверка на существование заявки
@@ -232,7 +250,7 @@ const reserveResolver = {
           data: {
             reserve: { connect: { id: reservationId } },
             hotel: { connect: { id: hotelId } },
-            capacity: 0 // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
+            capacity: capacity || 1 // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
           }
         })
       }
@@ -257,7 +275,7 @@ const reserveResolver = {
     },
 
     assignPersonToHotel: async (_, { input }) => {
-      const { reservationId, personId, hotelId } = input
+      const { reservationId, personId, hotelId, capacity } = input
 
       // Проверка на существование заявки, персонала и отеля
       const [reserve, person, hotel] = await Promise.all([
@@ -298,44 +316,49 @@ const reserveResolver = {
           data: {
             reserve: { connect: { id: reservationId } },
             hotel: { connect: { id: hotelId } },
-            capacity: 0 // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
+            capacity: capacity || 1 // Установите нужное значение вместимости
           }
         })
       }
 
-      // Обновление информации о связи между персоналом и ReserveHotel
-      const updatedReserveHotel = await prisma.reserveHotel.update({
-        where: {
-          id: reserveHotel.id
-        },
+      // Используем промежуточную модель ReserveHotelPersonal для связи
+      const reserveHotelPersonal = await prisma.reserveHotelPersonal.create({
         data: {
-          person: {
-            connect: { id: personId }
-          }
-        }
-      })
-
-      // Обновляем персонала с привязкой к заявке и отелю через ReserveHotel
-      const updatedPerson = await prisma.airlinePersonal.update({
-        where: { id: personId },
-        data: {
-          Reserve: { connect: { id: reservationId } },
-          ReserveHotel: { connect: { id: reserveHotel.id } }
+          reserveHotel: { connect: { id: reserveHotel.id } },
+          airlinePersonal: { connect: { id: personId } }
         }
       })
 
       // Публикация обновлений заявки
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
 
-      return updatedPerson
+      return person
+    },
+
+    dissociatePersonFromHotel: async (_, { id }) => {
+      const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique(
+        { where: { id } }
+      )
+      const reserveHotel = await prisma.reserveHotel.findUnique({
+        where: { id: reserveHotelPersonal.reserveHotelId }
+      })
+
+      if (!reserveHotelPersonal || !reserveHotel) return null
+      await prisma.reserveHotelPersonal.delete({ where: { id } })
+      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserveHotel })
+      return reserveHotel
     }
   },
+
   Subscription: {
     reserveCreated: {
       subscribe: () => pubsub.asyncIterator([RESERVE_CREATED])
     },
     reserveUpdated: {
       subscribe: () => pubsub.asyncIterator([RESERVE_UPDATED])
+    },
+    reserveHotel: {
+      subscribe: () => pubsub.asyncIterator([RESERVE_HOTEL])
     }
   },
   // ... остальные резольверы ...
@@ -348,7 +371,7 @@ const reserveResolver = {
     },
     person: async (parent) => {
       return await prisma.airlinePersonal.findMany({
-        where: { id: parent.airlineId }
+        where: { id: parent.reservationId }
       })
     },
     passengers: async (parent) => {
@@ -370,10 +393,8 @@ const reserveResolver = {
       })
     },
     person: async (parent) => {
-      // console.log(parent)
       return await prisma.airlinePersonal.findMany({
-        // where: { reserveHotelId: parent.id }
-        where: { ReserveHotel: { some: {id: parent.id} } }
+        where: { ReserveHotel: { some: { reserveHotelId: parent.id } } }
       })
     },
     passengers: async (parent) => {

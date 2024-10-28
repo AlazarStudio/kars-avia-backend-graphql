@@ -421,84 +421,84 @@ const hotelResolver = {
       }
     },
 
-    assignPassengersToHotel: async (
-      _,
-      { reservationId, hotelId, passengerIds },
-      context
-    ) => {
-      const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } })
-      if (!hotel) {
-        throw new Error("Отель не найден")
-      }
-      const assignedPassengers = []
-      for (const passengerId of passengerIds) {
-        const passenger = await prisma.passenger.findUnique({
-          where: { id: passengerId },
-          include: { family: true }
-        })
-        if (!passenger) {
-          throw new Error(`Пассажир с ID ${passengerId} не найден`)
-        }
-        // Validate that the passenger belongs to the specified reservation
-        if (passenger.reserveId !== reservationId) {
-          throw new Error(
-            `Пассажир ${passengerId} не принадлежит к указанному резерву`
-          )
-        }
-        if (passenger.hotelId) {
-          throw new Error(`Пассажир ${passengerId} уже назначен в отель`)
-        }
-        if (passenger.familyId) {
-          // Fetch all family members
-          const familyMembers = await prisma.passenger.findMany({
-            where: { familyId: passenger.familyId }
-          })
-          // Ensure all family members belong to the same reservation
-          for (const member of familyMembers) {
-            if (member.reserveId !== reservationId) {
-              throw new Error(
-                `Член семьи ${member.id} не принадлежит к указанному резерву`
-              )
-            }
-          }
-          // Check if any family member is already assigned to a different hotel
-          for (const member of familyMembers) {
-            if (member.hotelId && member.hotelId !== hotelId) {
-              throw new Error(
-                `Член семьи ${member.id} уже назначен в другой отель`
-              )
-            }
-          }
-          // Assign all family members to the hotel
-          for (const member of familyMembers) {
-            await prisma.passenger.update({
-              where: { id: member.id },
-              data: { hotelId: hotelId }
-            })
-            assignedPassengers.push(member)
-          }
-        } else {
-          // Assign individual passenger
-          await prisma.passenger.update({
-            where: { id: passengerId },
-            data: { hotelId: hotelId }
-          })
-          assignedPassengers.push(passenger)
-        }
-      }
-      // Optional: Log the action
-      // await logAction({
-      //   userId: context.user.id,
-      //   action: 'assign_passengers_to_hotel',
-      //   description: {
-      //     reservationId,
-      //     hotelId,
-      //     passengerIds: assignedPassengers.map((p) => p.id),
-      //   },
-      //   hotelId,
-      // });
-      return assignedPassengers
-    },
+    // assignPassengersToHotel: async (
+    //   _,
+    //   { reservationId, hotelId, passengerIds },
+    //   context
+    // ) => {
+    //   const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } })
+    //   if (!hotel) {
+    //     throw new Error("Отель не найден")
+    //   }
+    //   const assignedPassengers = []
+    //   for (const passengerId of passengerIds) {
+    //     const passenger = await prisma.passenger.findUnique({
+    //       where: { id: passengerId },
+    //       include: { family: true }
+    //     })
+    //     if (!passenger) {
+    //       throw new Error(`Пассажир с ID ${passengerId} не найден`)
+    //     }
+    //     // Validate that the passenger belongs to the specified reservation
+    //     if (passenger.reserveId !== reservationId) {
+    //       throw new Error(
+    //         `Пассажир ${passengerId} не принадлежит к указанному резерву`
+    //       )
+    //     }
+    //     if (passenger.hotelId) {
+    //       throw new Error(`Пассажир ${passengerId} уже назначен в отель`)
+    //     }
+    //     if (passenger.familyId) {
+    //       // Fetch all family members
+    //       const familyMembers = await prisma.passenger.findMany({
+    //         where: { familyId: passenger.familyId }
+    //       })
+    //       // Ensure all family members belong to the same reservation
+    //       for (const member of familyMembers) {
+    //         if (member.reserveId !== reservationId) {
+    //           throw new Error(
+    //             `Член семьи ${member.id} не принадлежит к указанному резерву`
+    //           )
+    //         }
+    //       }
+    //       // Check if any family member is already assigned to a different hotel
+    //       for (const member of familyMembers) {
+    //         if (member.hotelId && member.hotelId !== hotelId) {
+    //           throw new Error(
+    //             `Член семьи ${member.id} уже назначен в другой отель`
+    //           )
+    //         }
+    //       }
+    //       // Assign all family members to the hotel
+    //       for (const member of familyMembers) {
+    //         await prisma.passenger.update({
+    //           where: { id: member.id },
+    //           data: { hotelId: hotelId }
+    //         })
+    //         assignedPassengers.push(member)
+    //       }
+    //     } else {
+    //       // Assign individual passenger
+    //       await prisma.passenger.update({
+    //         where: { id: passengerId },
+    //         data: { hotelId: hotelId }
+    //       })
+    //       assignedPassengers.push(passenger)
+    //     }
+    //   }
+    //   // Optional: Log the action
+    //   // await logAction({
+    //   //   userId: context.user.id,
+    //   //   action: 'assign_passengers_to_hotel',
+    //   //   description: {
+    //   //     reservationId,
+    //   //     hotelId,
+    //   //     passengerIds: assignedPassengers.map((p) => p.id),
+    //   //   },
+    //   //   hotelId,
+    //   // });
+    //   return assignedPassengers
+    // },
     // ----------------------------------------------------------------
     deleteHotel: async (_, { id }, context) => {
       hotelAdminMiddleware(context)
