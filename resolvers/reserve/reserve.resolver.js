@@ -347,7 +347,13 @@ const reserveResolver = {
       await prisma.reserveHotelPersonal.delete({ where: { id } })
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserveHotel })
       return reserveHotel
+    },
+    //
+    deleteReserves: async (_, {}, context) => {
+      const deletedReserves = await prisma.reserve.deleteMany()
+      return deletedReserves.count
     }
+    //
   },
 
   Subscription: {
