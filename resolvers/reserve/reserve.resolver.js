@@ -272,8 +272,10 @@ const reserveResolver = {
       })
 
       // Обновление информации о заявке
-      // pubsub.publish(RESERVE_UPDATED, { reserveHotel: newPassenger })
-      pubsub.publish(RESERVE_PASSENGERS, {reservePassengers: newPassenger})
+      
+      // pubsub.publish(RESERVE_PASSENGERS, { reservePassengers: newPassenger })
+
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return newPassenger
     },
@@ -334,8 +336,8 @@ const reserveResolver = {
       })
 
       // Публикация обновлений заявки
-      // pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotelPersonal })
-      pubsub.publish(RESERVE_PERSONS, {reservePersons: person})
+     
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return person
     },
@@ -351,7 +353,7 @@ const reserveResolver = {
       if (!reserveHotelPersonal || !reserveHotel) return null
       await prisma.reserveHotelPersonal.delete({ where: { id } })
 
-      pubsub.publish(RESERVE_PASSENGERS, {reservePersons: reserveHotelPersonal})
+      pubsub.publish(RESERVE_PASSENGERS, { reservePersons: reserveHotel })
 
       return reserveHotel
     },
@@ -428,6 +430,35 @@ const reserveResolver = {
     reserve: async (parent) => {
       return await prisma.reserve.findUnique({
         where: { id: parent.reserveId }
+      })
+    }
+  },
+
+  ReserveHotelPersonal: {
+    person: async (parent) => {
+      return await prisma.airlinePersonal.findMany({
+        where: {
+          ReserveHotel: {
+            some: {
+              reserveHotelId: parent.reserveHotelId
+            }
+          }
+        }
+      })
+    },
+    passengers: async (parent) => {
+      return await prisma.passenger.findMany({
+        where: { reserveId: parent.reserveId }
+      })
+    },
+    reserveHotel: async (parent) => {
+      return await prisma.reserveHotel.findUnique({
+        where: {
+          reserveId_hotelId: {
+            reserveId: parent.reserveId,
+            hotelId: parent.hotelId
+          }
+        }
       })
     }
   }

@@ -38,6 +38,12 @@ type MealPlan {
   dinner: Int
 }
 
+type ReserveHotelPersonal {
+  reserveHotel: ReserveHotel
+  passengers: [Passenger]
+  person: [AirlinePersonal]
+}
+
 type Passenger {
   id: ID!
   name: String
@@ -129,7 +135,7 @@ type Subscription {
   reserveCreated: Reserve!
   reserveUpdated: Reserve!
   reserveHotel: ReserveHotel!
-  reservePersons: AirlinePersonal!
+  reservePersons: ReserveHotelPersonal!
   reservePassengers: Passenger!
 }
 
