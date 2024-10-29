@@ -5,6 +5,8 @@ import {
   pubsub,
   RESERVE_CREATED,
   RESERVE_HOTEL,
+  RESERVE_PASSENGERS,
+  RESERVE_PERSONS,
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
@@ -205,6 +207,7 @@ const reserveResolver = {
           }
         })
         pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotel })
+        // pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserveHotel })
         return reserveHotel
       } catch (error) {
         if (
@@ -269,7 +272,8 @@ const reserveResolver = {
       })
 
       // Обновление информации о заявке
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+      // pubsub.publish(RESERVE_UPDATED, { reserveHotel: newPassenger })
+      pubsub.publish(RESERVE_PASSENGERS, {reservePassengers: newPassenger})
 
       return newPassenger
     },
@@ -330,7 +334,8 @@ const reserveResolver = {
       })
 
       // Публикация обновлений заявки
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+      // pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotelPersonal })
+      pubsub.publish(RESERVE_PERSONS, {reservePersons: person})
 
       return person
     },
@@ -345,15 +350,18 @@ const reserveResolver = {
 
       if (!reserveHotelPersonal || !reserveHotel) return null
       await prisma.reserveHotelPersonal.delete({ where: { id } })
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserveHotel })
+
+      pubsub.publish(RESERVE_PASSENGERS, {reservePersons: reserveHotelPersonal})
+
       return reserveHotel
     },
-    //
+
+    // ---------------------------- DEV tool; delete for release ------------------------------------
     deleteReserves: async (_, {}, context) => {
       const deletedReserves = await prisma.reserve.deleteMany()
       return deletedReserves.count
     }
-    //
+    // ---------------------------- DEV tool; delete for release ------------------------------------
   },
 
   Subscription: {
@@ -365,6 +373,12 @@ const reserveResolver = {
     },
     reserveHotel: {
       subscribe: () => pubsub.asyncIterator([RESERVE_HOTEL])
+    },
+    reservePassengers: {
+      subscribe: () => pubsub.asyncIterator([RESERVE_PASSENGERS])
+    },
+    reservePersons: {
+      subscribe: () => pubsub.asyncIterator([RESERVE_PERSONS])
     }
   },
   // ... остальные резольверы ...

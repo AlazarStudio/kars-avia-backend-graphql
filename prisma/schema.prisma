@@ -334,7 +334,7 @@ model Passenger {
 
 model ReserveHotel {
   id         String                 @id @default(auto()) @map("_id") @db.ObjectId
-  reserve    Reserve                @relation(fields: [reserveId], references: [id])
+  reserve    Reserve                @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId  String                 @db.ObjectId
   hotel      Hotel                  @relation(fields: [hotelId], references: [id])
   hotelId    String                 @db.ObjectId
@@ -349,7 +349,7 @@ model ReserveHotelPersonal {
   id                String          @id @default(auto()) @map("_id") @db.ObjectId
   reserveHotelId    String          @db.ObjectId
   airlinePersonalId String          @db.ObjectId
-  reserveHotel      ReserveHotel    @relation(fields: [reserveHotelId], references: [id])
+  reserveHotel      ReserveHotel    @relation(fields: [reserveHotelId], references: [id], onDelete: Cascade)
   airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
 
   @@unique([reserveHotelId, airlinePersonalId])
@@ -391,14 +391,14 @@ model Message {
   senderId   String   @db.ObjectId
   receiver   User?    @relation(name: "messageReceiver", fields: [receiverId], references: [id])
   receiverId String?  @db.ObjectId
-  chat       Chat?    @relation(fields: [chatId], references: [id])
+  chat       Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId     String?  @db.ObjectId
   createdAt  DateTime @default(now())
 }
 
 model ChatUser {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
-  chat   Chat   @relation(fields: [chatId], references: [id])
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id])
   userId String @db.ObjectId

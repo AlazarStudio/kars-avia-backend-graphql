@@ -123,10 +123,14 @@ extend type Query {
   reservationHotel(id: ID!): ReserveHotel!
 }
 
+
+
 type Subscription {
   reserveCreated: Reserve!
   reserveUpdated: Reserve!
   reserveHotel: ReserveHotel!
+  reservePersons: AirlinePersonal!
+  reservePassengers: Passenger!
 }
 
 `
