@@ -38,6 +38,7 @@
     "mongoose": "^8.4.5",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",
+    "pm2": "^5.4.2",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",
     "stream-promise": "^3.2.0",

@@ -9,6 +9,7 @@ import fileResolver from "./file/file.resolver.js"
 import airportResolver from "./airport/airport.resolver.js"
 import cityResolver from "./city/city.resolver.js"
 import reserveResolver from "./reserve/reserve.resolver.js"
+import reportResolver from "./report/report.resolver.js"
 
 const mergedResolvers = mergeResolvers([
   userResolver,
@@ -20,6 +21,7 @@ const mergedResolvers = mergeResolvers([
   fileResolver,
   airportResolver,
   cityResolver,
+  // reportResolver,
 ])
 
 export default mergedResolvers
