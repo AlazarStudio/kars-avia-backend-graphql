@@ -3,10 +3,11 @@ import { pubsub, MESSAGE_SENT } from "../../exports/pubsub.js"
 
 const chatResolver = {
   Query: {
-    chats: async (_, { requestId }) => {
+    chats: async (_, { requestId, reserveId }) => {
       const chats = await prisma.chat.findMany({
-        where: { requestId }
-        // Можно не включать связанные данные, если есть резольверы на уровне типов
+        where: {
+          OR: [requestId ? { requestId } : {}, reserveId ? { reserveId } : {}]
+        }
       })
       return chats
     },

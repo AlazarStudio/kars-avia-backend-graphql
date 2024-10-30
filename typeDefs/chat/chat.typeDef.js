@@ -9,8 +9,9 @@ const chatTypeDef = `#graphql
 
   type Chat {
     id: ID!
-    requestId: ID!
-    messages: [Message!]
+    # requestId: ID
+    # reserveId: ID
+    messages: [Message]
     participants: [User!]
     createdAt: String!
   }
@@ -22,7 +23,7 @@ const chatTypeDef = `#graphql
   }
 
   type Query {
-    chats(requestId: ID!): [Chat!]!
+    chats(requestId: ID, reserveId: ID): [Chat!]!
     messages(chatId: ID!): [Message!]!
     messagesFrom(senderId: ID!): [Message!]!
     messagesTo(receiverId: ID!): [Message!]!

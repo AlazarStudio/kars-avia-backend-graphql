@@ -272,7 +272,7 @@ const reserveResolver = {
       })
 
       // Обновление информации о заявке
-      
+
       // pubsub.publish(RESERVE_PASSENGERS, { reservePassengers: newPassenger })
 
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
@@ -336,27 +336,43 @@ const reserveResolver = {
       })
 
       // Публикация обновлений заявки
-     
+
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return person
     },
 
-    dissociatePersonFromHotel: async (_, { id }) => {
-      const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique(
-        { where: { id } }
-      )
+    dissociatePersonFromHotel: async (_, { reserveHotelId, airlinePersonalId }) => {
+      const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique({
+        where: {
+          reserveHotelId_airlinePersonalId: {
+            reserveHotelId,
+            airlinePersonalId,
+          },
+        },
+      });
+    
+      if (!reserveHotelPersonal) return null;
+    
       const reserveHotel = await prisma.reserveHotel.findUnique({
-        where: { id: reserveHotelPersonal.reserveHotelId }
-      })
-
-      if (!reserveHotelPersonal || !reserveHotel) return null
-      await prisma.reserveHotelPersonal.delete({ where: { id } })
-
-      pubsub.publish(RESERVE_PASSENGERS, { reservePersons: reserveHotel })
-
-      return reserveHotel
+        where: { id: reserveHotelPersonal.reserveHotelId },
+      });
+    
+      if (!reserveHotel) return null;
+    
+      // Удаляем запись после проверки
+      await prisma.reserveHotelPersonal.delete({
+        where: {
+          id: reserveHotelPersonal.id,
+        },
+      });
+    
+      // Обновление подписки
+      pubsub.publish(RESERVE_PASSENGERS, { reservePersons: reserveHotel });
+    
+      return reserveHotel;
     },
+    
 
     // ---------------------------- DEV tool; delete for release ------------------------------------
     deleteReserves: async (_, {}, context) => {
