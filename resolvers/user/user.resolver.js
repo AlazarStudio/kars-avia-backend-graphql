@@ -8,6 +8,7 @@ import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
+import { v4 as uuidv4 } from 'uuid';
 
 const transporter = nodemailer.createTransport({
   host: "smtp.mail.ru",

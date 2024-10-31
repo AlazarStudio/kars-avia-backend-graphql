@@ -338,7 +338,7 @@ model ReserveHotel {
   id         String                 @id @default(auto()) @map("_id") @db.ObjectId
   reserve    Reserve                @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId  String                 @db.ObjectId
-  hotel      Hotel                  @relation(fields: [hotelId], references: [id])
+  hotel      Hotel                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId    String                 @db.ObjectId
   capacity   Int?
   passengers Passenger[]
