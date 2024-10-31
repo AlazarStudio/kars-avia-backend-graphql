@@ -52,26 +52,27 @@ model User {
   number              String?
   login               String             @unique
   password            String
+  images              String[]
   role                Role
   sender              Request[]          @relation(name: "sender")
   receiver            Request[]          @relation(name: "receiver")
-  hotel               Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  hotelId             String?            @db.ObjectId
+  Reserve             Reserve[]
   airline             Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId           String?            @db.ObjectId
-  messageSender       Message[]          @relation(name: "messageSender")
-  messageReceiver     Message[]          @relation(name: "messageReceiver")
-  chats               ChatUser[]
-  images              String[]
   AirlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
   airlineDepartmentId String?            @db.ObjectId
+  hotel               Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hotelId             String?            @db.ObjectId
+  chats               ChatUser[]
+  messageSender       Message[]          @relation(name: "messageSender")
+  messageReceiver     Message[]          @relation(name: "messageReceiver")
+  logs                Log[]
   dispatcher          Boolean?           @default(false)
   // ----------------------------------------------------------------
+  refreshToken        String?
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
   twoFAMethod         TwoFAMethod?
-  logs                Log[]
-  Reserve             Reserve[]
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -444,7 +445,6 @@ model Log {
 
 // Отчёты  ---------------- ↓↓↓↓
 
-
 // model Report {
 //   id            String   @id @default(auto()) @map("_id") @db.ObjectId
 //   user          User?    @relation(fields: [userId], references: [id])
@@ -459,5 +459,3 @@ model Log {
 // }
 
 // Отчёты  ---------------- ↑↑↑↑
-
-

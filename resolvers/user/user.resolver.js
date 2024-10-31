@@ -89,7 +89,7 @@ const userResolver = {
           hotelId: newUser.hotelId && newUser.hotelId,
           airlineId: newUser.airlineId && newUser.airlineId
         },
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET, { expiresIn: "24h" }
       )
 
       return {
@@ -213,7 +213,7 @@ const userResolver = {
           hotelId: user.hotelId && user.hotelId,
           airlineId: user.airlineId && user.airlineId
         },
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET, { expiresIn: "24h" }
       )
 
       return {

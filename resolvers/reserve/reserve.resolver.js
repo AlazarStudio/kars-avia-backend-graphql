@@ -5,7 +5,6 @@ import {
   pubsub,
   RESERVE_CREATED,
   RESERVE_HOTEL,
-  RESERVE_PASSENGERS,
   RESERVE_PERSONS,
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
@@ -273,8 +272,6 @@ const reserveResolver = {
 
       // Обновление информации о заявке
 
-      // pubsub.publish(RESERVE_PASSENGERS, { reservePassengers: newPassenger })
-
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return newPassenger
@@ -368,18 +365,11 @@ const reserveResolver = {
       });
     
       // Обновление подписки
-      pubsub.publish(RESERVE_PASSENGERS, { reservePersons: reserveHotel });
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel });
     
       return reserveHotel;
     },
     
-
-    // ---------------------------- DEV tool; delete for release ------------------------------------
-    deleteReserves: async (_, {}, context) => {
-      const deletedReserves = await prisma.reserve.deleteMany()
-      return deletedReserves.count
-    }
-    // ---------------------------- DEV tool; delete for release ------------------------------------
   },
 
   Subscription: {
@@ -392,14 +382,10 @@ const reserveResolver = {
     reserveHotel: {
       subscribe: () => pubsub.asyncIterator([RESERVE_HOTEL])
     },
-    reservePassengers: {
-      subscribe: () => pubsub.asyncIterator([RESERVE_PASSENGERS])
-    },
     reservePersons: {
       subscribe: () => pubsub.asyncIterator([RESERVE_PERSONS])
     }
   },
-  // ... остальные резольверы ...
   Reserve: {
     hotel: async (parent) => {
       if (!parent.hotelId) return null

@@ -127,7 +127,6 @@ type Query {
 type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
-  deleteRequests: Request!
 }
 
 type Subscription {

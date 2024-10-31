@@ -330,14 +330,6 @@ const requestResolver = {
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
-    
-    // ---------------------------- DEV tool; delete for release ------------------------------------
-    deleteRequests: async (_, {}, context) => {
-      const deletedRequests = await prisma.request.deleteMany()
-      return deletedRequests.count
-    }
-    // ---------------------------- DEV tool; delete for release ------------------------------------
-
   },
   Subscription: {
     requestCreated: {
