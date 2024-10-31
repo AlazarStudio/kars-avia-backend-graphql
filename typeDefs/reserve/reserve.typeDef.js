@@ -113,6 +113,7 @@ type Mutation {
 extend type Mutation {
   addHotelToReserve(reservationId: ID! hotelId: ID! capacity: Int!): ReserveHotel!                                
   addPassengerToReserve(reservationId: ID! input: PassengerInput! hotelId: ID!): Passenger!
+  deletePassengerFromReserve(id: ID!): ReserveHotel!
   assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
   dissociatePersonFromHotel(reserveHotelId: ID!, airlinePersonalId: ID!): ReserveHotel!
 }

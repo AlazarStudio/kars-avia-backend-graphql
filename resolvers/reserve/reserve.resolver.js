@@ -277,6 +277,21 @@ const reserveResolver = {
       return newPassenger
     },
 
+    deletePassengerFromReserve: async (_, { id }, context) => {
+      const deletedPassenger = await prisma.passenger.delete({
+        where: { id }
+      })
+
+      const reserveHotel = await prisma.reserveHotel.findUnique({
+        where: { id: deletedPassenger.reserveHotelId }
+      })
+
+      // Обновление информации о заявке
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
+
+      return reserveHotel
+    },
+
     assignPersonToHotel: async (_, { input }) => {
       const { reservationId, personId, hotelId, capacity } = input
 
@@ -339,37 +354,41 @@ const reserveResolver = {
       return person
     },
 
-    dissociatePersonFromHotel: async (_, { reserveHotelId, airlinePersonalId }) => {
-      const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique({
-        where: {
-          reserveHotelId_airlinePersonalId: {
-            reserveHotelId,
-            airlinePersonalId,
-          },
-        },
-      });
-    
-      if (!reserveHotelPersonal) return null;
-    
+    dissociatePersonFromHotel: async (
+      _,
+      { reserveHotelId, airlinePersonalId }
+    ) => {
+      const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique(
+        {
+          where: {
+            reserveHotelId_airlinePersonalId: {
+              reserveHotelId,
+              airlinePersonalId
+            }
+          }
+        }
+      )
+
+      if (!reserveHotelPersonal) return null
+
       const reserveHotel = await prisma.reserveHotel.findUnique({
-        where: { id: reserveHotelPersonal.reserveHotelId },
-      });
-    
-      if (!reserveHotel) return null;
-    
+        where: { id: reserveHotelPersonal.reserveHotelId }
+      })
+
+      if (!reserveHotel) return null
+
       // Удаляем запись после проверки
       await prisma.reserveHotelPersonal.delete({
         where: {
-          id: reserveHotelPersonal.id,
-        },
-      });
-    
+          id: reserveHotelPersonal.id
+        }
+      })
+
       // Обновление подписки
-      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel });
-    
-      return reserveHotel;
-    },
-    
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
+
+      return reserveHotel
+    }
   },
 
   Subscription: {
