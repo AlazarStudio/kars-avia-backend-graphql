@@ -33,6 +33,7 @@ const requestResolver = {
       }
     },
     request: async (_, { id }, context) => {
+      console.log(context)
       const request = await prisma.request.findUnique({
         where: { id: id },
         include: {
@@ -47,6 +48,13 @@ const requestResolver = {
       if (!request) {
         throw new Error("Request not found")
       }
+
+      const { user } = context;
+      if (!user || !user.dispatcher) {
+        // Если не диспетчер, возвращаем текущую заявку без изменения статуса
+        return request;
+      }
+
       // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (request.status === "created") {
         // Обновляем статус на "opened"

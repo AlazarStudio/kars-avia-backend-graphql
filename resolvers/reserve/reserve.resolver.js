@@ -37,8 +37,8 @@ const reserveResolver = {
         totalPages
       }
     },
-    reserve: async (_, { id }) => {
-      const reserve = prisma.reserve.findUnique({
+    reserve: async (_, { id }, context) => {
+      const reserve = await prisma.reserve.findUnique({
         where: { id },
         include: {
           airline: true,
@@ -46,20 +46,28 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
-          chat: true
-        }
-      })
-
+          chat: true,
+        },
+      });
+    
       if (!reserve) {
-        throw new Error("Reserve not found")
+        throw new Error("Reserve not found");
       }
+    
+      const { user } = context;
+      if (!user || !user.dispatcher) {
+        // Если не диспетчер, возвращаем текущую заявку без изменения статуса
+        return reserve;
+      }
+    
       // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (reserve.status === "created") {
         // Обновляем статус на "opened"
         const updatedReserve = await prisma.reserve.update({
           where: { id },
-          data: { status: "opened" }
-        })
+          data: { status: "opened" },
+        });
+    
         // Логируем только первое открытие заявки
         try {
           await logAction({
@@ -67,24 +75,24 @@ const reserveResolver = {
             action: "open_reserve",
             description: {
               reserveId: updatedReserve.id,
-              description: `Reserve was opened by user ${context.user.id}`
+              description: `Reserve was opened by user ${user.id}`, // более читаемая запись user.id
             },
             oldData: { status: "created" }, // старый статус
             newData: { status: "opened" }, // новый статус
-            reserveId: updatedReserve.id
-          })
+            reserveId: updatedReserve.id,
+          });
         } catch (error) {
-          console.error(
-            "Ошибка при логировании первого открытия заявки:",
-            error
-          )
+          console.error("Ошибка при логировании первого открытия заявки:", error);
         }
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
-        return updatedReserve
+    
+        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve });
+        return updatedReserve;
       }
+    
       // Если статус уже изменён, не логируем и возвращаем текущую заявку
-      return reserve
+      return reserve;
     },
+    
     reservationHotels: async (_, { id }) => {
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
