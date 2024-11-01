@@ -442,6 +442,13 @@ const reserveResolver = {
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return reserveHotel
+    },
+    allResDelete: async (_, { }, context) => {
+      const reserves = await prisma.reserve.findMany()
+      await Promise.all(reserves.map(async (reserve) => {
+        await prisma.reserve.delete({ where: { id: reserve.id } })
+      }))
+      return "All reserves deleted"
     }
   },
 

@@ -402,6 +402,14 @@ const requestResolver = {
       }
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
+    },
+    allReqDelete: async (_, { }, context) => {
+      const requests = await prisma.request.findMany()
+      await Promise.all(requests.map(async (request) => {
+        await prisma.request.delete({ where: { id: request.id } })
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: request })
+      }))
+      return "All requests deleted"
     }
   },
   Subscription: {

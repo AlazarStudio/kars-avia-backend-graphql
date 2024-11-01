@@ -108,6 +108,7 @@ input assignPersonInput {
 type Mutation {
   createReserve(input: CreateReserveInput!): Reserve!
   updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
+  allResDelete: Reserve
 }
 
 extend type Mutation {
