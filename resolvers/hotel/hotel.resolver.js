@@ -74,11 +74,13 @@ const hotelResolver = {
       // Логирование создания отеля
       await logAction({
         context,
-        action: `Create Hotel: ${createdHotel.name}`,
+        action: `create hotel`,
         description: {
+          hotelName:  createdHotel.name,
           hotelId: createdHotel.id,
           input: data
-        }
+        },
+        hotelId: createdHotel.id,
       })
       return createdHotel
     },
@@ -118,8 +120,10 @@ const hotelResolver = {
 
         await logAction({
           context,
-          action: "updateHotel",
-          description: "Обновление информации об отеле",
+          action: "update hotel",
+          description: {
+
+          },
           oldData: previousHotelData,
           newData: updatedData,
           hotelId: updatedHotel.id
@@ -163,8 +167,10 @@ const hotelResolver = {
 
               await logAction({
                 context,
-                action: "updateHotelChess",
-                description: "Обновление информации о шахматах отеля",
+                action: "update hotel chess",
+                description: {
+
+                },
                 oldData: previousHotelChessData,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,
@@ -205,8 +211,10 @@ const hotelResolver = {
 
               await logAction({
                 context,
-                action: "updateHotelChess",
-                description: "Обновление информации о шахматах отеля",
+                action: "update hotel chess",
+                description: {
+
+                },
                 oldData: null,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,
@@ -236,8 +244,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "updateTariff",
-                description: "Обновление тарифа",
+                action: "update tariff",
+                description: {
+
+                },
                 oldData: previousTariffData,
                 newData: tariff,
                 hotelId: tariff.hotelId
@@ -252,8 +262,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "createTariff",
-                description: "Создание нового тарифа",
+                action: "create cariff",
+                description: {
+
+                },
                 newData: tariff,
                 hotelId: tariff.hotelId
               })
@@ -277,8 +289,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "updateCategory",
-                description: "Обновление категории",
+                action: "update category",
+                description: {
+
+                },
                 oldData: previousCategoryData,
                 newData: category,
                 hotelId: category.hotelId
@@ -293,8 +307,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "createCategory",
-                description: "Создание новой категории",
+                action: "create category",
+                description: {
+
+                },
                 newData: category,
                 hotelId: category.hotelId
               })
@@ -324,8 +340,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "updatePrice",
-                description: "Обновление цены",
+                action: "update price",
+                description: {
+
+                },
                 oldData: previousPriceData,
                 newData: price,
                 hotelId: price.hotelId
@@ -348,8 +366,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "createPrice",
-                description: "Создание новой цены",
+                action: "create price",
+                description: {
+
+                },
                 newData: price,
                 hotelId: price.hotelId
               })
@@ -375,8 +395,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "updateRoom",
-                description: "Обновление комнаты",
+                action: "update room",
+                description: {
+
+                },
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
@@ -393,8 +415,10 @@ const hotelResolver = {
               })
               await logAction({
                 context,
-                action: "createRoom",
-                description: "Создание новой комнаты",
+                action: "create room",
+                description: {
+
+                },
                 newData: room,
                 hotelId: room.hotelId
               })
@@ -513,8 +537,10 @@ const hotelResolver = {
       })
       await logAction({
         context,
-        action: "deleteHotel",
-        description: "Удаление отеля",
+        action: "delete hotel",
+        description: {
+
+        },
         oldData: hotelToDelete,
         newData: hotelToDelete,
         hotelId: id
@@ -534,8 +560,10 @@ const hotelResolver = {
       })
       await logAction({
         context,
-        action: "deleteRoom",
-        description: "Удаление комнаты",
+        action: "delete room",
+        description: {
+
+        },
         oldData: roomToDelete,
         newData: roomToDelete,
         hotelId: roomToDelete.id
@@ -555,8 +583,10 @@ const hotelResolver = {
       })
       await logAction({
         context,
-        action: "deletePrice",
-        description: "Удаление цены",
+        action: "delete price",
+        description: {
+
+        },
         oldData: priceToDelete,
         newData: priceToDelete,
         hotelId: id
@@ -576,8 +606,10 @@ const hotelResolver = {
       })
       await logAction({
         context,
-        action: "deleteTariff",
-        description: "Удаление тарифа",
+        action: "delete tariff",
+        description: {
+          
+        },
         oldData: tariffToDelete,
         newData: tariffToDelete,
         hotelId: id
@@ -597,8 +629,10 @@ const hotelResolver = {
       })
       await logAction({
         context,
-        action: "deleteCategory",
-        description: "Удаление категории",
+        action: "delete category",
+        description: {
+          
+        },
         oldData: categoryToDelete,
         newData: categoryToDelete,
         hotelId: id

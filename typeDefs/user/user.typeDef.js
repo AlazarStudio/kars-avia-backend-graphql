@@ -53,6 +53,7 @@ const userTypeDef = `#graphql
     logout: LogoutResponse
     deleteUser(id: ID!): User!
     # ---- 2FA ---- ↓↓↓↓
+    refreshToken(refreshToken: String!): AuthPayload
     enable2FA(input: TwoFAMethodInput): QRCodeResponse
     verify2FA(token: String!): SuccessResponse
   }
@@ -105,6 +106,7 @@ const userTypeDef = `#graphql
     login: String
     role: String
     token: String
+    refreshToken: String
     images: [String!]
   }
 

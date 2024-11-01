@@ -8,7 +8,7 @@ import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid"
 
 const transporter = nodemailer.createTransport({
   host: "smtp.mail.ru",
@@ -90,7 +90,8 @@ const userResolver = {
           hotelId: newUser.hotelId && newUser.hotelId,
           airlineId: newUser.airlineId && newUser.airlineId
         },
-        process.env.JWT_SECRET, { expiresIn: "24h" }
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
       )
 
       return {
@@ -144,7 +145,6 @@ const userResolver = {
       }
       return { qrCodeUrlL: null }
     },
-
     verify2FA: async (_, { token }, context) => {
       if (!context.user) throw new Error("Unauthorized")
 
@@ -214,7 +214,8 @@ const userResolver = {
           hotelId: user.hotelId && user.hotelId,
           airlineId: user.airlineId && user.airlineId
         },
-        process.env.JWT_SECRET, { expiresIn: "24h" }
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
       )
 
       return {
@@ -309,6 +310,38 @@ const userResolver = {
 
       return user
     },
+    // ---------------------------------------------------------------- need changes
+    refreshToken: async (_, { refreshToken }) => {
+      const user = await prisma.user.findUnique({ where: { refreshToken } })
+
+      if (!user) {
+        throw new Error("Invalid refresh token")
+      }
+
+      // Генерируем новый access токен
+      const newAccessToken = jwt.sign(
+        {
+          userId: user.id,
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "15m" } // Новый access токен
+      )
+
+      // Генерируем новый refresh токен для безопасности
+      const newRefreshToken = uuidv4()
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken: newRefreshToken }
+      })
+
+      return {
+        token: newAccessToken,
+        refreshToken: newRefreshToken
+      }
+    },
+    // ---------------------------------------------------------------- need changes
+
     logout: async (_, __, context) => {
       //
       return { message: "Logged out successfully" }

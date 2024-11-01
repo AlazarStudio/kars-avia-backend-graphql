@@ -64,7 +64,8 @@ const requestResolver = {
               description: `Request was opened by user ${context.user.id}`
             },
             oldData: { status: "created" }, // старый статус
-            newData: { status: "opened" } // новый статус
+            newData: { status: "opened" }, // новый статус
+            requestId: updatedRequest.id
           })
         } catch (error) {
           console.error(
@@ -72,6 +73,7 @@ const requestResolver = {
             error
           )
         }
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
         return updatedRequest
       }
       // Если статус уже изменён, не логируем и возвращаем текущую заявку
