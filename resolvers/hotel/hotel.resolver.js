@@ -14,7 +14,6 @@ import calculateMeal from "../../exports/calculateMeal.js"
 
 const hotelResolver = {
   Upload: GraphQLUpload,
-
   Query: {
     hotels: async (_, {}, context) => {
       return await prisma.hotel.findMany({
@@ -218,15 +217,12 @@ const hotelResolver = {
                 new Date(departure).getTime() / 1000, // В секундах
                 mealTimes
               )
-              await prisma.request.update({
+              const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
                   status: "done",
                   hotel: {
                     connect: { id }
-                  },
-                  hotelChess: {
-                    connect: { id: hotelChess.id }
                   },
                   mealPlan: {
                     included: true,
@@ -241,9 +237,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update_hotel_chess",
-                description: {
-                  
-                },
+                description: {},
                 oldData: null,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,

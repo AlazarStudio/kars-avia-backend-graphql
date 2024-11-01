@@ -24,6 +24,7 @@ type Request {
   airline: Airline!
   status: String
   requestNumber: String
+  archive: Boolean
   chat: Chat
   logs: [Log]
 }
@@ -116,12 +117,13 @@ input MealPlanInput {
 input PaginationInput {
   skip: Int
   take: Int
+  status: [String]
 }
 
 type Query {
   requests(pagination: PaginationInput): RequestConnection!
-  # requests: [Request!]!
   request(id:ID): Request
+  requestArchive(pagination: PaginationInput): RequestConnection!
 }
 
 type Mutation {

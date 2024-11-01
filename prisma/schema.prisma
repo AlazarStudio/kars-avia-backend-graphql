@@ -285,7 +285,8 @@ model Request {
   requestNumber String           @unique
   roomCategory  String?
   roomNumber    String?
-  mealPlan      MealPlan
+  // mealPlan      MealPlan
+  mealPlan      Json
   hotel         Hotel?           @relation(fields: [hotelId], references: [id])
   hotelId       String?          @db.ObjectId
   receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
@@ -294,6 +295,7 @@ model Request {
   status        String           @default("created")
   hotelChess    HotelChess?
   logs          Log[]
+  archive       Boolean @default(false)
 }
 
 model Reserve {
@@ -310,7 +312,8 @@ model Reserve {
   departure        Departure
   reserveNumber    String                     @unique
   passengerCount   Int?
-  mealPlan         MealPlan
+  // mealPlan         MealPlan
+  mealPlan         Json
   status           String                     @default("created")
   person           AirlinePersonalOnReserve[] // Связь через промежуточную модель
   hotel            ReserveHotel[]

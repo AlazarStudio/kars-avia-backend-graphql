@@ -11,11 +11,26 @@ import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
 
 const requestResolver = {
   Query: {
-    requests: async (_, input) => {
-      const totalCount = await prisma.request.count()
-      const { skip, take } = input.pagination
-      const totalPages = Math.ceil(totalCount / take)
+    requests: async (_, { pagination }) => {
+      const { skip, take, status } = pagination;
+    
+      // Определяем фильтр статусов
+      const statusFilter = status && status.includes("all") ? {} : { status: { in: status } };
+    
+      const totalCount = await prisma.request.count({
+        where: {
+          ...statusFilter,
+          archive: { not: true },
+        },
+      });
+    
+      const totalPages = Math.ceil(totalCount / take);
+    
       const requests = await prisma.request.findMany({
+        where: {
+          ...statusFilter,
+          archive: { not: true },
+        },
         skip: skip * take,
         take: take,
         include: {
@@ -23,15 +38,54 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true
+          logs: true,
         },
-        orderBy: { createdAt: "desc" }
-      })
+        orderBy: { createdAt: "desc" },
+      });
+    
       return {
         totalCount,
         requests,
-        totalPages
-      }
+        totalPages,
+      };
+    },
+    requestArchive: async (_, { pagination }, context) => {
+      const { skip, take, status } = pagination;
+    
+      // Определяем фильтр статусов
+      const statusFilter = status && status.includes("all") ? {} : { status: { in: status } };
+    
+      const totalCount = await prisma.request.count({
+        where: {
+          ...statusFilter,
+          archive: true,
+        },
+      });
+    
+      const totalPages = Math.ceil(totalCount / take);
+    
+      const requests = await prisma.request.findMany({
+        where: {
+          ...statusFilter,
+          archive: true ,
+        },
+        skip: skip * take,
+        take: take,
+        include: {
+          airline: true,
+          airport: true,
+          hotel: true,
+          hotelChess: true,
+          logs: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    
+      return {
+        totalCount,
+        requests,
+        totalPages,
+      };
     },
     request: async (_, { id }, context) => {
       const request = await prisma.request.findUnique({
@@ -41,35 +95,32 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true,
-        },
-      });
-    
+          logs: true
+        }
+      })
       if (!request) {
-        throw new Error("Request not found");
+        throw new Error("Request not found")
       }
-    
-      const { user } = context;
+      const { user } = context
       if (!user || !user.dispatcher) {
-        return request;
+        return request
       }
-    
       // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (request.status === "created") {
         // Обновляем статус на "opened"
         const updatedRequest = await prisma.request.update({
           where: { id },
-          data: { status: "opened" },
-        });
-    
+          data: { status: "opened", receiverId: user.id }
+        })
+
         // Проверка, существует ли уже лог о первом открытии заявки
         const existingLog = await prisma.log.findFirst({
           where: {
             action: "open_request",
-            requestId: updatedRequest.id,
-          },
-        });
-    
+            requestId: updatedRequest.id
+          }
+        })
+
         if (!existingLog) {
           // Логируем только если ещё не было записи об открытии
           try {
@@ -78,24 +129,26 @@ const requestResolver = {
               action: "open_request",
               description: {
                 requestId: updatedRequest.id,
-                requestNumber: updatedRequest.requestNumber,
+                requestNumber: updatedRequest.requestNumber
               },
               oldData: { status: "created" },
               newData: { status: "opened" },
-              requestId: updatedRequest.id,
-            });
+              requestId: updatedRequest.id
+            })
           } catch (error) {
-            console.error("Ошибка при логировании первого открытия заявки:", error);
+            console.error(
+              "Ошибка при логировании первого открытия заявки:",
+              error
+            )
           }
         }
-    
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest });
-        return updatedRequest;
+
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        return updatedRequest
       }
-    
-      return request;
-    },
-    
+
+      return request
+    }
   },
   Mutation: {
     createRequest: async (_, { input }, context) => {
@@ -349,7 +402,7 @@ const requestResolver = {
       }
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
-    },
+    }
   },
   Subscription: {
     requestCreated: {
