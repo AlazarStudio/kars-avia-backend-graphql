@@ -61,7 +61,7 @@ const requestResolver = {
             action: "open_request",
             description: {
               requestId: updatedRequest.id,
-              description: `Request was opened by user ${context.user.id}`
+              requestNumber: updatedRequest.requestNumber,
             },
             oldData: { status: "created" }, // старый статус
             newData: { status: "opened" }, // новый статус
