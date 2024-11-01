@@ -68,21 +68,31 @@ const reserveResolver = {
           data: { status: "opened" },
         });
     
-        // Логируем только первое открытие заявки
-        try {
-          await logAction({
-            context,
+        // Проверка, существует ли уже лог о первом открытии заявки
+        const existingLog = await prisma.log.findFirst({
+          where: {
             action: "open_reserve",
-            description: {
-              reserveId: updatedReserve.id,
-              description: `Reserve was opened by user ${user.id}`, // более читаемая запись user.id
-            },
-            oldData: { status: "created" }, // старый статус
-            newData: { status: "opened" }, // новый статус
             reserveId: updatedReserve.id,
-          });
-        } catch (error) {
-          console.error("Ошибка при логировании первого открытия заявки:", error);
+          },
+        });
+    
+        if (!existingLog) {
+          // Логируем только если ещё не было записи об открытии
+          try {
+            await logAction({
+              context,
+              action: "open_reserve",
+              description: {
+                reserveId: updatedReserve.id,
+                description: `Reserve was opened by user ${user.id}`,
+              },
+              oldData: { status: "created" }, // старый статус
+              newData: { status: "opened" }, // новый статус
+              reserveId: updatedReserve.id,
+            });
+          } catch (error) {
+            console.error("Ошибка при логировании первого открытия заявки:", error);
+          }
         }
     
         pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve });
@@ -91,7 +101,7 @@ const reserveResolver = {
     
       // Если статус уже изменён, не логируем и возвращаем текущую заявку
       return reserve;
-    },
+    },    
     
     reservationHotels: async (_, { id }) => {
       return await prisma.reserveHotel.findMany({

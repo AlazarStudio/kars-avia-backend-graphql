@@ -7,6 +7,7 @@ import {
   REQUEST_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
+import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
 
 const requestResolver = {
   Query: {
@@ -33,7 +34,6 @@ const requestResolver = {
       }
     },
     request: async (_, { id }, context) => {
-      console.log(context)
       const request = await prisma.request.findUnique({
         where: { id: id },
         include: {
@@ -41,52 +41,61 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true
-        }
-      })
-
+          logs: true,
+        },
+      });
+    
       if (!request) {
-        throw new Error("Request not found")
+        throw new Error("Request not found");
       }
-
+    
       const { user } = context;
       if (!user || !user.dispatcher) {
-        // Если не диспетчер, возвращаем текущую заявку без изменения статуса
         return request;
       }
-
+    
       // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (request.status === "created") {
         // Обновляем статус на "opened"
         const updatedRequest = await prisma.request.update({
           where: { id },
-          data: { status: "opened" }
-        })
-        // Логируем только первое открытие заявки
-        try {
-          await logAction({
-            context,
+          data: { status: "opened" },
+        });
+    
+        // Проверка, существует ли уже лог о первом открытии заявки
+        const existingLog = await prisma.log.findFirst({
+          where: {
             action: "open_request",
-            description: {
+            requestId: updatedRequest.id,
+          },
+        });
+    
+        if (!existingLog) {
+          // Логируем только если ещё не было записи об открытии
+          try {
+            await logAction({
+              context,
+              action: "open_request",
+              description: {
+                requestId: updatedRequest.id,
+                requestNumber: updatedRequest.requestNumber,
+              },
+              oldData: { status: "created" },
+              newData: { status: "opened" },
               requestId: updatedRequest.id,
-              requestNumber: updatedRequest.requestNumber,
-            },
-            oldData: { status: "created" }, // старый статус
-            newData: { status: "opened" }, // новый статус
-            requestId: updatedRequest.id
-          })
-        } catch (error) {
-          console.error(
-            "Ошибка при логировании первого открытия заявки:",
-            error
-          )
+            });
+          } catch (error) {
+            console.error("Ошибка при логировании первого открытия заявки:", error);
+          }
         }
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
-        return updatedRequest
+    
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest });
+        return updatedRequest;
       }
-      // Если статус уже изменён, не логируем и возвращаем текущую заявку
-      return request
-    }
+    
+      return request;
+    },
+    
   },
   Mutation: {
     createRequest: async (_, { input }, context) => {
@@ -109,6 +118,7 @@ const requestResolver = {
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
+
       if (!airport) {
         throw new Error("Airport not found")
       }
@@ -224,56 +234,56 @@ const requestResolver = {
         })
       }
 
-      if (hotel) {
-        hotelMealTimes = {
-          breakfast: {
-            start: {
-              hours: parseInt(hotel.breakfast.split(":")[0]),
-              minutes: parseInt(hotel.breakfast.split(":")[1])
-            },
-            end: {
-              hours: parseInt(hotel.breakfast.split(":")[0]) + 2, // Условие, например, 2 часа на завтрак
-              minutes: 0
-            }
-          },
-          lunch: {
-            start: {
-              hours: parseInt(hotel.lunch.split(":")[0]),
-              minutes: parseInt(hotel.lunch.split(":")[1])
-            },
-            end: {
-              hours: parseInt(hotel.lunch.split(":")[0]) + 4, // Условие, например, 4 часа на обед
-              minutes: 0
-            }
-          },
-          dinner: {
-            start: {
-              hours: parseInt(hotel.dinner.split(":")[0]),
-              minutes: parseInt(hotel.dinner.split(":")[1])
-            },
-            end: {
-              hours: parseInt(hotel.dinner.split(":")[0]) + 2, // Условие, например, 2 часа на ужин
-              minutes: 0
-            }
-          }
-        }
-      }
+      // if (hotel) {
+      //   hotelMealTimes = {
+      //     breakfast: {
+      //       start: {
+      //         hours: parseInt(hotel.breakfast.split(":")[0]),
+      //         minutes: parseInt(hotel.breakfast.split(":")[1])
+      //       },
+      //       end: {
+      //         hours: parseInt(hotel.breakfast.split(":")[0]) + 2, // Условие, например, 2 часа на завтрак
+      //         minutes: 0
+      //       }
+      //     },
+      //     lunch: {
+      //       start: {
+      //         hours: parseInt(hotel.lunch.split(":")[0]),
+      //         minutes: parseInt(hotel.lunch.split(":")[1])
+      //       },
+      //       end: {
+      //         hours: parseInt(hotel.lunch.split(":")[0]) + 4, // Условие, например, 4 часа на обед
+      //         minutes: 0
+      //       }
+      //     },
+      //     dinner: {
+      //       start: {
+      //         hours: parseInt(hotel.dinner.split(":")[0]),
+      //         minutes: parseInt(hotel.dinner.split(":")[1])
+      //       },
+      //       end: {
+      //         hours: parseInt(hotel.dinner.split(":")[0]) + 2, // Условие, например, 2 часа на ужин
+      //         minutes: 0
+      //       }
+      //     }
+      //   }
+      // }
 
-      // Вычисляем количество приемов пищи
-      const mealCounts = calculateMeal(
-        reverseDateTimeFormatter(arrival.date, arrival.time),
-        reverseDateTimeFormatter(departure.date, departure.time),
-        hotelMealTimes
-      )
+      // // Вычисляем количество приемов пищи
+      // const mealCounts = calculateMeal(
+      //   reverseDateTimeFormatter(arrival.date, arrival.time),
+      //   reverseDateTimeFormatter(departure.date, departure.time),
+      //   hotelMealTimes
+      // )
 
-      // Обновляем mealPlan с учетом новых данных
-      dataToUpdate.mealPlan = {
-        included: true, // Пример: можно установить как true или false
-        breakfast: mealCounts.totalBreakfast,
-        lunch: mealCounts.totalLunch,
-        dinner: mealCounts.totalDinner,
-        dailyMeals: mealCounts.dailyMeals
-      }
+      // // Обновляем mealPlan с учетом новых данных
+      // dataToUpdate.mealPlan = {
+      //   included: true, // Пример: можно установить как true или false
+      //   breakfast: mealCounts.totalBreakfast,
+      //   lunch: mealCounts.totalLunch,
+      //   dinner: mealCounts.totalDinner,
+      //   dailyMeals: mealCounts.dailyMeals
+      // }
 
       // Подготавливаем данные для обновления
       const dataToUpdate = {

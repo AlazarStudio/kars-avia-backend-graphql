@@ -10,6 +10,7 @@ import {
   hotelMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
+import calculateMeal from "../../exports/calculateMeal.js"
 
 const hotelResolver = {
   Upload: GraphQLUpload,
@@ -62,7 +63,7 @@ const hotelResolver = {
         dinner: input.dinner || defaultMealTime.dinner,
         images: imagePaths
       }
-      
+
       const createdHotel = await prisma.hotel.create({
         data,
         include: {
@@ -76,11 +77,11 @@ const hotelResolver = {
         context,
         action: `create hotel`,
         description: {
-          hotelName:  createdHotel.name,
+          hotelName: createdHotel.name,
           hotelId: createdHotel.id,
           input: data
         },
-        hotelId: createdHotel.id,
+        hotelId: createdHotel.id
       })
       return createdHotel
     },
@@ -121,9 +122,7 @@ const hotelResolver = {
         await logAction({
           context,
           action: "update hotel",
-          description: {
-
-          },
+          description: {},
           oldData: previousHotelData,
           newData: updatedData,
           hotelId: updatedHotel.id
@@ -168,9 +167,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update hotel chess",
-                description: {
-
-                },
+                description: {},
                 oldData: previousHotelChessData,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,
@@ -199,21 +196,53 @@ const hotelResolver = {
                   }
                 }
               })
-              const updatedRequest = await prisma.request.update({
+              // Получаем данные даты прибытия и отъезда
+              const arrival = `${hotelChess.start} ${hotelChess.startTime}`
+              const departure = `${hotelChess.end} ${hotelChess.endTime}`
+
+              // Найдите информацию о времени приема пищи в отеле
+              const hotel = await prisma.hotel.findUnique({
+                where: { id },
+                select: { breakfast: true, lunch: true, dinner: true }
+              })
+
+              const mealTimes = {
+                breakfast: hotel.breakfast,
+                lunch: hotel.lunch,
+                dinner: hotel.dinner
+              }
+
+              // Вычисление питания
+              const mealPlan = calculateMeal(
+                new Date(arrival).getTime() / 1000, // В секундах
+                new Date(departure).getTime() / 1000, // В секундах
+                mealTimes
+              )
+              await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
                   status: "done",
                   hotel: {
-                    connect: { id: id }
+                    connect: { id }
+                  },
+                  hotelChess: {
+                    connect: { id: hotelChess.id }
+                  },
+                  mealPlan: {
+                    included: true,
+                    breakfast: mealPlan.totalBreakfast,
+                    lunch: mealPlan.totalLunch,
+                    dinner: mealPlan.totalDinner,
+                    dailyMeals: mealPlan.dailyMeals
                   }
                 }
               })
 
               await logAction({
                 context,
-                action: "update hotel chess",
+                action: "update_hotel_chess",
                 description: {
-
+                  
                 },
                 oldData: null,
                 newData: hotelChess,
@@ -245,9 +274,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update tariff",
-                description: {
-
-                },
+                description: {},
                 oldData: previousTariffData,
                 newData: tariff,
                 hotelId: tariff.hotelId
@@ -263,9 +290,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "create cariff",
-                description: {
-
-                },
+                description: {},
                 newData: tariff,
                 hotelId: tariff.hotelId
               })
@@ -290,9 +315,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update category",
-                description: {
-
-                },
+                description: {},
                 oldData: previousCategoryData,
                 newData: category,
                 hotelId: category.hotelId
@@ -308,9 +331,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "create category",
-                description: {
-
-                },
+                description: {},
                 newData: category,
                 hotelId: category.hotelId
               })
@@ -341,9 +362,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update price",
-                description: {
-
-                },
+                description: {},
                 oldData: previousPriceData,
                 newData: price,
                 hotelId: price.hotelId
@@ -367,9 +386,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "create price",
-                description: {
-
-                },
+                description: {},
                 newData: price,
                 hotelId: price.hotelId
               })
@@ -396,9 +413,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update room",
-                description: {
-
-                },
+                description: {},
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
@@ -416,9 +431,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "create room",
-                description: {
-
-                },
+                description: {},
                 newData: room,
                 hotelId: room.hotelId
               })
@@ -538,9 +551,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete hotel",
-        description: {
-
-        },
+        description: {},
         oldData: hotelToDelete,
         newData: hotelToDelete,
         hotelId: id
@@ -561,9 +572,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete room",
-        description: {
-
-        },
+        description: {},
         oldData: roomToDelete,
         newData: roomToDelete,
         hotelId: roomToDelete.id
@@ -584,9 +593,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete price",
-        description: {
-
-        },
+        description: {},
         oldData: priceToDelete,
         newData: priceToDelete,
         hotelId: id
@@ -607,9 +614,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete tariff",
-        description: {
-          
-        },
+        description: {},
         oldData: tariffToDelete,
         newData: tariffToDelete,
         hotelId: id
@@ -630,9 +635,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete category",
-        description: {
-          
-        },
+        description: {},
         oldData: categoryToDelete,
         newData: categoryToDelete,
         hotelId: id
