@@ -12,24 +12,25 @@ import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
 const requestResolver = {
   Query: {
     requests: async (_, { pagination }) => {
-      const { skip, take, status } = pagination;
-    
+      const { skip, take, status } = pagination
+
       // Определяем фильтр статусов
-      const statusFilter = status && status.includes("all") ? {} : { status: { in: status } };
-    
+      const statusFilter =
+        status && status.includes("all") ? {} : { status: { in: status } }
+
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
-          archive: { not: true },
-        },
-      });
-    
-      const totalPages = Math.ceil(totalCount / take);
-    
+          archive: { not: true }
+        }
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
-          archive: { not: true },
+          archive: { not: true }
         },
         skip: skip * take,
         take: take,
@@ -38,36 +39,37 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true,
+          logs: true
         },
-        orderBy: { createdAt: "desc" },
-      });
-    
+        orderBy: { createdAt: "desc" }
+      })
+
       return {
         totalCount,
         requests,
-        totalPages,
-      };
+        totalPages
+      }
     },
     requestArchive: async (_, { pagination }, context) => {
-      const { skip, take, status } = pagination;
-    
+      const { skip, take, status } = pagination
+
       // Определяем фильтр статусов
-      const statusFilter = status && status.includes("all") ? {} : { status: { in: status } };
-    
+      const statusFilter =
+        status && status.includes("all") ? {} : { status: { in: status } }
+
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
-          archive: true,
-        },
-      });
-    
-      const totalPages = Math.ceil(totalCount / take);
-    
+          archive: true
+        }
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
-          archive: true ,
+          archive: true
         },
         skip: skip * take,
         take: take,
@@ -76,16 +78,16 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true,
+          logs: true
         },
-        orderBy: { createdAt: "desc" },
-      });
-    
+        orderBy: { createdAt: "desc" }
+      })
+
       return {
         totalCount,
         requests,
-        totalPages,
-      };
+        totalPages
+      }
     },
     request: async (_, { id }, context) => {
       const request = await prisma.request.findUnique({
@@ -402,14 +404,6 @@ const requestResolver = {
       }
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
-    },
-    allReqDelete: async (_, { }, context) => {
-      const requests = await prisma.request.findMany()
-      await Promise.all(requests.map(async (request) => {
-        await prisma.request.delete({ where: { id: request.id } })
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: request })
-      }))
-      return "All requests deleted"
     }
   },
   Subscription: {
