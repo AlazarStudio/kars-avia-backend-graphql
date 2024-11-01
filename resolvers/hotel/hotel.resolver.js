@@ -448,7 +448,7 @@ const hotelResolver = {
         return hotelWithRelations
       } catch (error) {
         console.error("Ошибка при обновлении отеля:", error)
-        throw new Error("Не удалось обновить отель")
+        throw new Error("Не удалось обновить отель", error)
       }
     },
 
