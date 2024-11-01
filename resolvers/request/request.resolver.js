@@ -8,6 +8,7 @@ import {
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
+import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
 const requestResolver = {
   Query: {
@@ -51,6 +52,7 @@ const requestResolver = {
       }
     },
     requestArchive: async (_, { pagination }, context) => {
+      airlineAdminMiddleware(context)
       const { skip, take, status } = pagination
 
       // Определяем фильтр статусов
@@ -404,7 +406,57 @@ const requestResolver = {
       }
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
+    },
+
+    extendRequestDates: async (_, { input }, context) => {
+      const { requestId, newEnd, newEndTime } = input
+
+      // Находим заявку по ID и проверяем, что она уже размещена в отеле
+      const request = await prisma.request.findUnique({
+        where: { id: requestId },
+        include: { hotelChess: true } // Включаем hotelChess для проверки связи
+      })
+
+      if (!request) {
+        throw new Error("Request not found")
+      }
+
+      if (!request.hotelChess) {
+        throw new Error("Request has not been placed in a hotel")
+      }
+
+      // Обновляем дату конца в hotelChess
+      const updatedHotelChess = await prisma.hotelChess.update({
+        where: { id: request.hotelChess.id },
+        data: {
+          end: newEnd,
+          endTime: newEndTime
+        }
+      })
+
+      // Обновляем дату выезда в запросе
+      const updatedRequest = await prisma.request.update({
+        where: { id: requestId },
+        data: {
+          departure: {
+            date: newEnd,
+            time: newEndTime
+          }
+        },
+        include: {
+          arrival: true,
+          departure: true,
+          hotelChess: true // Включаем hotelChess для возвращения
+        }
+      })
+
+      // Публикация обновления
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+
+      return updatedRequest
     }
+
+    // ----------------------------------------------------------------
   },
   Subscription: {
     requestCreated: {

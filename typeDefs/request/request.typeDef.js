@@ -2,6 +2,7 @@ const requestTypeDef = `#graphql
 
 scalar Date
 
+# types
 type Request {
   id: ID!
   person: AirlinePersonal
@@ -74,6 +75,7 @@ type RequestConnection {
   requests: [Request!]!
 }
 
+# inputs
 input CreateRequestInput {
   personId: String
   airportId: String
@@ -120,6 +122,13 @@ input PaginationInput {
   status: [String]
 }
 
+input ExtendRequestDatesInput {
+  requestId: ID!
+  newEnd: String!
+  newEndTime: String!
+}
+
+# queryes
 type Query {
   requests(pagination: PaginationInput): RequestConnection!
   request(id:ID): Request
@@ -129,6 +138,10 @@ type Query {
 type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
+}
+
+extend type Mutation {
+  extendRequestDates(input: ExtendRequestDatesInput!): Request!
 }
 
 type Subscription {
