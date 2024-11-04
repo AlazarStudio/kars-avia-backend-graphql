@@ -1,6 +1,6 @@
 import { prisma } from "../prisma.js";
-import logAction from "logAction.js";
-import calculateMeal from "calculateMeal.js";
+import logAction from "./logaction.js";
+import calculateMeal from "./calculateMeal.js";
 
 const updateHotelChess = async (prisma, pubsub, context, hotelChess, id) => {
   if (hotelChess.id) {
