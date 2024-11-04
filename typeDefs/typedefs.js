@@ -21,7 +21,7 @@ const mergedTypeDefs = mergeTypeDefs([
   fileTypeDef,
   airportTypeDef,
   cityTypeDef,
-  // reportTypeDef,
+  reportTypeDef,
 ])
 
 export default mergedTypeDefs

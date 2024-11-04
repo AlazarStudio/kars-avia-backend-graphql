@@ -21,7 +21,7 @@ const mergedResolvers = mergeResolvers([
   fileResolver,
   airportResolver,
   cityResolver,
-  // reportResolver,
+  reportResolver,
 ])
 
 export default mergedResolvers

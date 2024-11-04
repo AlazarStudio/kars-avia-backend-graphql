@@ -459,31 +459,36 @@ const requestResolver = {
 
     //   return updatedRequest
     // }
-
+    
     extendRequestDates: async (_, { input }, context) => {
-      const { requestId, newEnd, newEndTime } = input
-
+      const { requestId, newEnd, newEndTime } = input;
+    
       // Находим заявку и проверяем размещение
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true }
-      })
-
+      });
+    
       if (!request) {
-        throw new Error("Request not found")
+        throw new Error("Request not found");
       }
-
+    
       if (!request.hotelChess) {
-        throw new Error("Request has not been placed in a hotel")
+        throw new Error("Request has not been placed in a hotel");
       }
-
+    
+      // Проверяем наличие hotelId в hotelChess
+      if (!request.hotelChess.hotelId) {
+        throw new Error("Hotel ID is missing in the associated hotel chess data");
+      }
+    
       // Обновление данных для продления
       const updatedHotelChessData = {
         ...request.hotelChess,
         end: newEnd,
         endTime: newEndTime
-      }
-
+      };
+    
       // Используем функцию обновления hotelChess
       const updatedRequest = await updateHotelChess(
         prisma,
@@ -491,12 +496,13 @@ const requestResolver = {
         context,
         updatedHotelChessData,
         request.hotelChess.hotelId
-      )
-
-      pubsub.publish("REQUEST_UPDATED", { requestUpdated: updatedRequest })
-
-      return updatedRequest
+      );
+    
+      pubsub.publish("REQUEST_UPDATED", { requestUpdated: updatedRequest });
+    
+      return updatedRequest;
     }
+    
 
     // ----------------------------------------------------------------
   },
