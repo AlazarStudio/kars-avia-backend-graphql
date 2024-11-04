@@ -133,7 +133,7 @@ model HotelChess {
   endTime   String?
   client    AirlinePersonal? @relation(fields: [clientId], references: [id])
   clientId  String?          @db.ObjectId
-  request   Request          @relation(fields: [requestId], references: [id])
+  request   Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId String           @unique @db.ObjectId
 }
 
