@@ -10,27 +10,29 @@ import calculateMeal from "../../exports/calculateMeal.js"
 import updateHotelChess from "../../exports/updateHotelChess.js"
 import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import updateDailyMeals from "../../exports/updateDailyMeals.js";
 
 const requestResolver = {
   Query: {
     requests: async (_, { pagination }) => {
-      const { skip, take, status } = pagination;
-    
+      const { skip, take, status } = pagination
+
       // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
-      const statusFilter = status && status.length > 0 && !status.includes("all")
-        ? { status: { in: status } }
-        : {};
-    
+      const statusFilter =
+        status && status.length > 0 && !status.includes("all")
+          ? { status: { in: status } }
+          : {}
+
       // Подсчитываем записи с учетом фильтрации по статусу и архиву
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
           archive: { not: true }
         }
-      });
-    
-      const totalPages = Math.ceil(totalCount / take);
-    
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
       // Получаем записи
       const requests = await prisma.request.findMany({
         where: {
@@ -47,13 +49,13 @@ const requestResolver = {
           logs: true
         },
         orderBy: { createdAt: "desc" }
-      });
-    
+      })
+
       return {
         totalCount,
         requests,
         totalPages
-      };
+      }
     },
     requestArchive: async (_, { pagination }, context) => {
       airlineAdminMiddleware(context)
@@ -415,10 +417,10 @@ const requestResolver = {
     // extendRequestDates: async (_, { input }, context) => {
     //   const { requestId, newEnd, newEndTime } = input
 
-    //   // Находим заявку по ID и проверяем, что она уже размещена в отеле
+    //   // Находим заявку и проверяем наличие отеля и hotelChess
     //   const request = await prisma.request.findUnique({
     //     where: { id: requestId },
-    //     include: { hotelChess: true } // Включаем hotelChess для проверки связи
+    //     include: { hotelChess: true, hotel: true }
     //   })
 
     //   if (!request) {
@@ -438,71 +440,174 @@ const requestResolver = {
     //     }
     //   })
 
-    //   // Обновляем дату выезда в запросе
+    //   // Сохраняем существующий план питания
+    //   const existingMealPlan = request.mealPlan || {
+    //     included: true,
+    //     breakfast: 0,
+    //     lunch: 0,
+    //     dinner: 0,
+    //     dailyMeals: []
+    //   }
+
+    //   // Дата и время начала и конца для пересчета питания
+    //   const arrivalDateTime = `${updatedHotelChess.start} ${updatedHotelChess.startTime}`
+    //   const departureDateTime = `${newEnd} ${newEndTime}`
+
+    //   // Получаем расписание приемов пищи в отеле
+    //   const hotel = request.hotel
+    //   const mealTimes = {
+    //     breakfast: hotel.breakfast,
+    //     lunch: hotel.lunch,
+    //     dinner: hotel.dinner
+    //   }
+
+    //   // Рассчитываем питание для продленного периода
+    //   const newMealPlan = calculateMeal(
+    //     new Date(arrivalDateTime).getTime() / 1000,
+    //     new Date(departureDateTime).getTime() / 1000,
+    //     mealTimes
+    //   )
+
+    //   // Фильтруем новые дни, чтобы избежать дублирования
+    //   const filteredDailyMeals = newMealPlan.dailyMeals.filter(
+    //     (newDay) =>
+    //       !existingMealPlan.dailyMeals.some(
+    //         (existingDay) => existingDay.date === newDay.date
+    //       )
+    //   )
+
+    //   // Обновляем общее количество приемов пищи, добавляя новые данные к существующим
+    //   const updatedMealPlan = {
+    //     included: true,
+    //     breakfast: existingMealPlan.breakfast + newMealPlan.totalBreakfast,
+    //     lunch: existingMealPlan.lunch + newMealPlan.totalLunch,
+    //     dinner: existingMealPlan.dinner + newMealPlan.totalDinner,
+    //     dailyMeals: [...existingMealPlan.dailyMeals, ...filteredDailyMeals]
+    //   }
+
+    //   // Обновляем данные о выезде и плане питания в заявке
     //   const updatedRequest = await prisma.request.update({
     //     where: { id: requestId },
     //     data: {
     //       departure: {
     //         date: newEnd,
     //         time: newEndTime
-    //       }
+    //       },
+    //       mealPlan: updatedMealPlan
     //     },
     //     include: {
     //       arrival: true,
     //       departure: true,
-    //       hotelChess: true // Включаем hotelChess для возвращения
+    //       hotelChess: true
     //     }
     //   })
 
     //   // Публикация обновления
-    //   pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+    //   pubsub.publish("REQUEST_UPDATED", { requestUpdated: updatedRequest })
 
     //   return updatedRequest
-    // }
+    // },
+
+    modifyDailyMeals: async (_, { input }, context) => {
+      const { requestId, dailyMeals } = input;
     
-    extendRequestDates: async (_, { input }, context) => {
-      const { requestId, newEnd, newEndTime } = input;
-    
-      // Находим заявку и проверяем размещение
+      // Проверяем существование заявки
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        include: { hotelChess: true }
+        select: { id: true }
       });
     
       if (!request) {
         throw new Error("Request not found");
       }
     
+      // Вызываем функцию обновления питания
+      const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals);
+    
+      pubsub.publish(REQUEST_UPDATED, {
+        requestUpdated: { id: requestId, mealPlan: updatedMealPlan }
+      });
+    
+      return updatedMealPlan; // возвращаем полный updatedMealPlan
+    },    
+
+    extendRequestDates: async (_, { input }, context) => {
+      const { requestId, newEnd, newEndTime } = input;
+
+      const request = await prisma.request.findUnique({
+        where: { id: requestId },
+        include: { hotelChess: true, hotel: true }
+      });
+
+      if (!request) {
+        throw new Error("Request not found");
+      }
+
       if (!request.hotelChess) {
         throw new Error("Request has not been placed in a hotel");
       }
-    
-      // Проверяем наличие hotelId в hotelChess
-      if (!request.hotelChess.hotelId) {
-        throw new Error("Hotel ID is missing in the associated hotel chess data");
-      }
-    
-      // Обновление данных для продления
-      const updatedHotelChessData = {
-        ...request.hotelChess,
-        end: newEnd,
-        endTime: newEndTime
+
+      const updatedHotelChess = await prisma.hotelChess.update({
+        where: { id: request.hotelChess.id },
+        data: {
+          end: newEnd,
+          endTime: newEndTime
+        }
+      });
+
+      const existingMealPlan = request.mealPlan || {
+        included: true,
+        breakfast: 0,
+        lunch: 0,
+        dinner: 0,
+        dailyMeals: []
       };
-    
-      // Используем функцию обновления hotelChess
-      const updatedRequest = await updateHotelChess(
-        prisma,
-        pubsub,
-        context,
-        updatedHotelChessData,
-        request.hotelChess.hotelId
+
+      const arrivalDateTime = `${updatedHotelChess.start} ${updatedHotelChess.startTime}`;
+      const departureDateTime = `${newEnd} ${newEndTime}`;
+
+      const hotel = request.hotel;
+      const mealTimes = {
+        breakfast: hotel.breakfast,
+        lunch: hotel.lunch,
+        dinner: hotel.dinner
+      };
+
+      const newMealPlan = calculateMeal(
+        new Date(arrivalDateTime).getTime() / 1000,
+        new Date(departureDateTime).getTime() / 1000,
+        mealTimes
       );
-    
-      pubsub.publish("REQUEST_UPDATED", { requestUpdated: updatedRequest });
-    
+
+      const filteredDailyMeals = newMealPlan.dailyMeals.filter(
+        (newDay) =>
+          !existingMealPlan.dailyMeals.some(
+            (existingDay) => existingDay.date === newDay.date
+          )
+      );
+
+      const updatedMealPlan = await updateDailyMeals(requestId, filteredDailyMeals);
+
+      const updatedRequest = await prisma.request.update({
+        where: { id: requestId },
+        data: {
+          departure: {
+            date: newEnd,
+            time: newEndTime
+          },
+          mealPlan: updatedMealPlan
+        },
+        include: {
+          arrival: true,
+          departure: true,
+          hotelChess: true
+        }
+      });
+
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest });
+
       return updatedRequest;
     }
-    
 
     // ----------------------------------------------------------------
   },

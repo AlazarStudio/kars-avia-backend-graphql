@@ -116,6 +116,18 @@ input MealPlanInput {
   dinner: Int
 }
 
+input DailyMealInput {
+  date: String!
+  breakfast: Int
+  lunch: Int
+  dinner: Int
+}
+
+input ModifyDailyMealsInput {
+  requestId: ID!
+  dailyMeals: [DailyMealInput!]!
+}
+
 input PaginationInput {
   skip: Int
   take: Int
@@ -128,7 +140,7 @@ input ExtendRequestDatesInput {
   newEndTime: String!
 }
 
-# queryes
+# queries
 type Query {
   requests(pagination: PaginationInput): RequestConnection!
   request(id:ID): Request
@@ -138,6 +150,7 @@ type Query {
 type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
+  modifyDailyMeals(input: ModifyDailyMealsInput!): MealPlan!
 }
 
 extend type Mutation {
@@ -148,8 +161,6 @@ type Subscription {
   requestCreated: Request!
   requestUpdated: Request!
 }
-
-
 `
 
 export default requestTypeDef
