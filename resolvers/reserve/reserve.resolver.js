@@ -15,26 +15,27 @@ const reserveResolver = {
     reserves: async (_, { pagination }) => {
       const { skip, take, status } = pagination;
     
-      // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
-      const statusFilter = status && status.length > 0 && !status.includes("all")
-        ? { status: { in: status } }
-        : {};
+      // Проверка статуса на пустой массив или ["all"]
+      const statusFilter =
+        !status || status.length === 0 || status.includes("all")
+          ? {}
+          : { status: { in: status } };
     
-      // Подсчитываем записи с учетом фильтрации по статусу и архиву
+      // Подсчет общего количества записей без архивных резервов
       const totalCount = await prisma.reserve.count({
         where: {
           ...statusFilter,
-          archive: { not: true }
-        }
+          // archive: { not: true }, // Исключение архивных записей
+        },
       });
     
       const totalPages = Math.ceil(totalCount / take);
     
-      // Получаем записи
+      // Запрос для получения резервов с учетом фильтра
       const reserves = await prisma.reserve.findMany({
         where: {
           ...statusFilter,
-          archive: { not: true }
+          // archive: { not: true }, // Исключение архивных записей
         },
         skip: skip * take,
         take: take,
@@ -44,17 +45,18 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
-          chat: true
+          chat: true,
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
       });
     
       return {
         totalCount,
         reserves,
-        totalPages
+        totalPages,
       };
     },
+    
     reserveArchive: async (_, { pagination }, context) => {
       airlineAdminMiddleware(context) // Проверка прав доступа
 
