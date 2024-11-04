@@ -430,11 +430,8 @@ const requestResolver = {
       // Вызываем функцию обновления питания
       const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals)
 
-      pubsub.publish(REQUEST_UPDATED, {
-        requestUpdated: { id: requestId, mealPlan: updatedMealPlan }
-      })
-
-      return updatedMealPlan // возвращаем полный updatedMealPlan
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedMealPlan })
+      return updatedMealPlan
     },
 
     // extendRequestDates: async (_, { input }, context) => {
