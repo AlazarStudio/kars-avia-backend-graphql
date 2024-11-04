@@ -14,21 +14,24 @@ import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 const requestResolver = {
   Query: {
     requests: async (_, { pagination }) => {
-      const { skip, take, status } = pagination
-
-      // Определяем фильтр статусов
-      const statusFilter =
-        status && status.includes("all") ? {} : { status: { in: status } }
-
+      const { skip, take, status } = pagination;
+    
+      // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
+      const statusFilter = status && status.length > 0 && !status.includes("all")
+        ? { status: { in: status } }
+        : {};
+    
+      // Подсчитываем записи с учетом фильтрации по статусу и архиву
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
           archive: { not: true }
         }
-      })
-
-      const totalPages = Math.ceil(totalCount / take)
-
+      });
+    
+      const totalPages = Math.ceil(totalCount / take);
+    
+      // Получаем записи
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
@@ -44,13 +47,13 @@ const requestResolver = {
           logs: true
         },
         orderBy: { createdAt: "desc" }
-      })
-
+      });
+    
       return {
         totalCount,
         requests,
         totalPages
-      }
+      };
     },
     requestArchive: async (_, { pagination }, context) => {
       airlineAdminMiddleware(context)

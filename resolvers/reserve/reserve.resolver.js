@@ -14,23 +14,73 @@ const reserveResolver = {
   Query: {
     reserves: async (_, { pagination }) => {
       const { skip, take, status } = pagination;
-
-      // Определяем фильтр статусов
-      const statusFilter = status && status.includes("all") 
-        ? {} 
-        : { status: { in: status } };
-
-      // Получаем общее количество резервов с учетом фильтра
+    
+      // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
+      const statusFilter = status && status.length > 0 && !status.includes("all")
+        ? { status: { in: status } }
+        : {};
+    
+      // Подсчитываем записи с учетом фильтрации по статусу и архиву
       const totalCount = await prisma.reserve.count({
         where: {
-          ...statusFilter
+          ...statusFilter,
+          archive: { not: true }
         }
       });
-
-      // Рассчитываем общее количество страниц
+    
       const totalPages = Math.ceil(totalCount / take);
-
+    
+      // Получаем записи
       const reserves = await prisma.reserve.findMany({
+        where: {
+          ...statusFilter,
+          archive: { not: true }
+        },
+        skip: skip * take,
+        take: take,
+        include: {
+          airline: true,
+          airport: true,
+          person: true,
+          passengers: true,
+          hotel: true,
+          chat: true
+        },
+        orderBy: { createdAt: "desc" }
+      });
+    
+      return {
+        totalCount,
+        reserves,
+        totalPages
+      };
+    },
+    reserveArchive: async (_, { pagination }, context) => {
+      airlineAdminMiddleware(context) // Проверка прав доступа
+
+      const { skip, take, status } = pagination
+
+      // Определяем фильтр статусов
+      const statusFilter =
+        status && status.includes("all") ? {} : { status: { in: status } }
+
+      // Подсчет общего количества архивных записей с учетом фильтра
+      const totalCount = await prisma.reserve.count({
+        where: {
+          ...statusFilter,
+          archive: true
+        }
+      })
+
+      // Расчет количества страниц
+      const totalPages = Math.ceil(totalCount / take)
+
+      // Получение архивных резервов с учетом фильтрации и пагинации
+      const reserves = await prisma.reserve.findMany({
+        where: {
+          ...statusFilter,
+          archive: true
+        },
         skip: skip * take,
         take: take,
         include: {
@@ -118,52 +168,6 @@ const reserveResolver = {
       // Если статус уже изменён, не логируем и возвращаем текущую заявку
       return reserve
     },
-    reserveArchive: async (_, { pagination }, context) => {
-      airlineAdminMiddleware(context); // Проверка прав доступа
-    
-      const { skip, take, status } = pagination;
-    
-      // Определяем фильтр статусов
-      const statusFilter =
-        status && status.includes("all") ? {} : { status: { in: status } };
-    
-      // Подсчет общего количества архивных записей с учетом фильтра
-      const totalCount = await prisma.reserve.count({
-        where: {
-          ...statusFilter,
-          archive: true
-        }
-      });
-    
-      // Расчет количества страниц
-      const totalPages = Math.ceil(totalCount / take);
-    
-      // Получение архивных резервов с учетом фильтрации и пагинации
-      const reserves = await prisma.reserve.findMany({
-        where: {
-          ...statusFilter,
-          archive: true
-        },
-        skip: skip * take,
-        take: take,
-        include: {
-          airline: true,
-          airport: true,
-          person: true,
-          passengers: true,
-          hotel: true,
-          chat: true
-        },
-        orderBy: { createdAt: "desc" }
-      });
-    
-      return {
-        totalCount,
-        reserves,
-        totalPages
-      };
-    },
-    
     reservationHotels: async (_, { id }) => {
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
