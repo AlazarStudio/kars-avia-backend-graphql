@@ -7,6 +7,7 @@ import {
   REQUEST_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
+import updateHotelChess from "../../exports/updateHotelChess.js"
 import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
@@ -408,13 +409,61 @@ const requestResolver = {
       return updatedRequest
     },
 
+    // extendRequestDates: async (_, { input }, context) => {
+    //   const { requestId, newEnd, newEndTime } = input
+
+    //   // Находим заявку по ID и проверяем, что она уже размещена в отеле
+    //   const request = await prisma.request.findUnique({
+    //     where: { id: requestId },
+    //     include: { hotelChess: true } // Включаем hotelChess для проверки связи
+    //   })
+
+    //   if (!request) {
+    //     throw new Error("Request not found")
+    //   }
+
+    //   if (!request.hotelChess) {
+    //     throw new Error("Request has not been placed in a hotel")
+    //   }
+
+    //   // Обновляем дату конца в hotelChess
+    //   const updatedHotelChess = await prisma.hotelChess.update({
+    //     where: { id: request.hotelChess.id },
+    //     data: {
+    //       end: newEnd,
+    //       endTime: newEndTime
+    //     }
+    //   })
+
+    //   // Обновляем дату выезда в запросе
+    //   const updatedRequest = await prisma.request.update({
+    //     where: { id: requestId },
+    //     data: {
+    //       departure: {
+    //         date: newEnd,
+    //         time: newEndTime
+    //       }
+    //     },
+    //     include: {
+    //       arrival: true,
+    //       departure: true,
+    //       hotelChess: true // Включаем hotelChess для возвращения
+    //     }
+    //   })
+
+    //   // Публикация обновления
+    //   pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+
+    //   return updatedRequest
+    // }
+
     extendRequestDates: async (_, { input }, context) => {
       const { requestId, newEnd, newEndTime } = input
 
-      // Находим заявку по ID и проверяем, что она уже размещена в отеле
+      // Находим заявку и проверяем размещение
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        include: { hotelChess: true } // Включаем hotelChess для проверки связи
+        include: { hotelChess: true }
       })
 
       if (!request) {
@@ -425,33 +474,23 @@ const requestResolver = {
         throw new Error("Request has not been placed in a hotel")
       }
 
-      // Обновляем дату конца в hotelChess
-      const updatedHotelChess = await prisma.hotelChess.update({
-        where: { id: request.hotelChess.id },
-        data: {
-          end: newEnd,
-          endTime: newEndTime
-        }
-      })
+      // Обновление данных для продления
+      const updatedHotelChessData = {
+        ...request.hotelChess,
+        end: newEnd,
+        endTime: newEndTime
+      }
 
-      // Обновляем дату выезда в запросе
-      const updatedRequest = await prisma.request.update({
-        where: { id: requestId },
-        data: {
-          departure: {
-            date: newEnd,
-            time: newEndTime
-          }
-        },
-        include: {
-          arrival: true,
-          departure: true,
-          hotelChess: true // Включаем hotelChess для возвращения
-        }
-      })
+      // Используем функцию обновления hotelChess
+      const updatedRequest = await updateHotelChess(
+        prisma,
+        pubsub,
+        context,
+        updatedHotelChessData,
+        request.hotelChess.hotelId
+      )
 
-      // Публикация обновления
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+      pubsub.publish("REQUEST_UPDATED", { requestUpdated: updatedRequest })
 
       return updatedRequest
     }

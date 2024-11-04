@@ -127,6 +127,7 @@ const hotelResolver = {
           hotelId: updatedHotel.id
         })
 
+        // Needs refinement
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
             if (hotelChess.id) {

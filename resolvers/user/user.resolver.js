@@ -25,10 +25,14 @@ const transporter = nodemailer.createTransport({
 const userResolver = {
   Upload: GraphQLUpload,
 
+  // need middleware for Query and Mutations
+
   Query: {
+
     users: async () => {
       return prisma.user.findMany()
     },
+
     airlineUsers: async (_, { airlineId }) => {
       return prisma.user.findMany({
         where: {
@@ -36,6 +40,7 @@ const userResolver = {
         }
       })
     },
+
     hotelUsers: async (_, { hotelId }) => {
       return prisma.user.findMany({
         where: {
@@ -43,6 +48,7 @@ const userResolver = {
         }
       })
     },
+
     dispatcherUsers: async () => {
       return prisma.user.findMany({
         where: {
@@ -50,12 +56,14 @@ const userResolver = {
         }
       })
     },
+
     user: async (_, { userId }) => {
       return prisma.user.findUnique({
         where: { id: userId }
       })
     }
   },
+
   Mutation: {
     signUp: async (_, { input, images }) => {
       let imagePaths = []

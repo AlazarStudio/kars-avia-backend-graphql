@@ -295,7 +295,7 @@ model Request {
   status        String           @default("created")
   hotelChess    HotelChess?
   logs          Log[]
-  archive       Boolean @default(false)
+  archive       Boolean          @default(false)
 }
 
 model Reserve {
@@ -322,6 +322,7 @@ model Reserve {
   chat             Chat[]
   logs             Log[]
   reserveForPerson Boolean
+  archive          Boolean                    @default(false)
 }
 
 model Passenger {

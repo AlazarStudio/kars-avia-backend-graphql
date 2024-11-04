@@ -61,11 +61,6 @@ type ReserveConnection {
   reserves: [Reserve!]!
 }
 
-input PaginationInput {
-  skip: Int
-  take: Int
-}
-
 input CreateReserveInput {
   airportId: String!
   arrival: ArrivalInput!
@@ -105,6 +100,12 @@ input assignPersonInput {
   reservationId: ID! personId: ID! hotelId: ID!
 }
 
+input PaginationInput {
+  skip: Int
+  take: Int
+  status: [String]
+}
+
 type Mutation {
   createReserve(input: CreateReserveInput!): Reserve!
   updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
@@ -122,6 +123,7 @@ type Query {
   reservationPassengers(reservationId: ID!): [Passenger!]!
   reserves(pagination: PaginationInput): ReserveConnection!
   reserve(id: ID!): Reserve
+  reserveArchive(pagination: PaginationInput): ReserveConnection!
 }
 
 extend type Query {

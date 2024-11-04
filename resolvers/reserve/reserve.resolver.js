@@ -13,9 +13,22 @@ import calculateMeal from "../../exports/calculateMeal.js"
 const reserveResolver = {
   Query: {
     reserves: async (_, { pagination }) => {
-      const totalCount = await prisma.reserve.count()
-      const { skip, take } = pagination
-      const totalPages = Math.ceil(totalCount / take)
+      const { skip, take, status } = pagination;
+
+      // Определяем фильтр статусов
+      const statusFilter = status && status.includes("all") 
+        ? {} 
+        : { status: { in: status } };
+
+      // Получаем общее количество резервов с учетом фильтра
+      const totalCount = await prisma.reserve.count({
+        where: {
+          ...statusFilter
+        }
+      });
+
+      // Рассчитываем общее количество страниц
+      const totalPages = Math.ceil(totalCount / take);
 
       const reserves = await prisma.reserve.findMany({
         skip: skip * take,
@@ -105,7 +118,52 @@ const reserveResolver = {
       // Если статус уже изменён, не логируем и возвращаем текущую заявку
       return reserve
     },
-
+    reserveArchive: async (_, { pagination }, context) => {
+      airlineAdminMiddleware(context); // Проверка прав доступа
+    
+      const { skip, take, status } = pagination;
+    
+      // Определяем фильтр статусов
+      const statusFilter =
+        status && status.includes("all") ? {} : { status: { in: status } };
+    
+      // Подсчет общего количества архивных записей с учетом фильтра
+      const totalCount = await prisma.reserve.count({
+        where: {
+          ...statusFilter,
+          archive: true
+        }
+      });
+    
+      // Расчет количества страниц
+      const totalPages = Math.ceil(totalCount / take);
+    
+      // Получение архивных резервов с учетом фильтрации и пагинации
+      const reserves = await prisma.reserve.findMany({
+        where: {
+          ...statusFilter,
+          archive: true
+        },
+        skip: skip * take,
+        take: take,
+        include: {
+          airline: true,
+          airport: true,
+          person: true,
+          passengers: true,
+          hotel: true,
+          chat: true
+        },
+        orderBy: { createdAt: "desc" }
+      });
+    
+      return {
+        totalCount,
+        reserves,
+        totalPages
+      };
+    },
+    
     reservationHotels: async (_, { id }) => {
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
