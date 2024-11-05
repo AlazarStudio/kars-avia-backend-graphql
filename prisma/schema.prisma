@@ -187,28 +187,30 @@ model Room {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id         String              @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  images     String[]
-  country    String?
-  city       String?
-  address    String?
-  index      String?
-  quote      String?
-  email      String?
-  number     String?
-  inn        String?
-  ogrn       String?
-  rs         String?
-  bank       String?
-  bik        String?
-  department AirlineDepartment[]
-  staff      AirlinePersonal[]
-  Request    Request[]
-  User       User[]
-  logs       Log[]
-  Reserve    Reserve[]
-  amountair  Float?
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  images      String[]
+  country     String?
+  city        String?
+  address     String?
+  index       String?
+  quote       String?
+  email       String?
+  number      String?
+  inn         String?
+  ogrn        String?
+  rs          String?
+  bank        String?
+  bik         String?
+  link        String?
+  description String?
+  department  AirlineDepartment[]
+  staff       AirlinePersonal[]
+  Request     Request[]
+  User        User[]
+  logs        Log[]
+  Reserve     Reserve[]
+  amountair   Float?
 }
 
 model AirlineDepartment {
@@ -374,7 +376,7 @@ type Departure {
   date   String
   time   String
 }
- 
+
 type MealPlan {
   included   Boolean
   breakfast  Int?

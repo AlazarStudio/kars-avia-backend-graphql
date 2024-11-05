@@ -529,7 +529,7 @@ const requestResolver = {
     // }
     
     extendRequestDates: async (_, { input }, context) => {
-      const { requestId, newEnd, newEndTime } = input
+      const { requestId, newEnd, newEndTime, newEndName } = input
 
       const request = await prisma.request.findUnique({
         where: { id: requestId },
@@ -548,7 +548,8 @@ const requestResolver = {
         where: { id: request.hotelChess.id },
         data: {
           end: newEnd,
-          endTime: newEndTime
+          endTime: newEndTime,
+
         }
       })
 
@@ -605,7 +606,8 @@ const requestResolver = {
         data: {
           departure: {
             date: newEnd,
-            time: newEndTime
+            time: newEndTime,
+            flight: newEndName
           },
           mealPlan: updatedMealPlan
         },
