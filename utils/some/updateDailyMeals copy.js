@@ -20,13 +20,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем завтрак
     const breakfastStart = new Date(currentDate);
     breakfastStart.setHours(
-      parseInt(mealTimes.breakfast.start.split(":")[0]),
-      parseInt(mealTimes.breakfast.start.split(":")[1])
+      mealTimes.breakfast.start.split(":")[0], // Извлекаем часы
+      mealTimes.breakfast.start.split(":")[1] // Извлекаем минуты
     );
     const breakfastEnd = new Date(currentDate);
     breakfastEnd.setHours(
-      parseInt(mealTimes.breakfast.end.split(":")[0]),
-      parseInt(mealTimes.breakfast.end.split(":")[1])
+      mealTimes.breakfast.end.split(":")[0], // Извлекаем часы
+      mealTimes.breakfast.end.split(":")[1] // Извлекаем минуты
     );
 
     if (
@@ -39,13 +39,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем обед
     const lunchStart = new Date(currentDate);
     lunchStart.setHours(
-      parseInt(mealTimes.lunch.start.split(":")[0]),
-      parseInt(mealTimes.lunch.start.split(":")[1])
+      mealTimes.lunch.start.split(":")[0], // Извлекаем часы
+      mealTimes.lunch.start.split(":")[1] // Извлекаем минуты
     );
     const lunchEnd = new Date(currentDate);
     lunchEnd.setHours(
-      parseInt(mealTimes.lunch.end.split(":")[0]),
-      parseInt(mealTimes.lunch.end.split(":")[1])
+      mealTimes.lunch.end.split(":")[0], // Извлекаем часы
+      mealTimes.lunch.end.split(":")[1] // Извлекаем минуты
     );
 
     if (
@@ -58,13 +58,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     // Проверяем ужин
     const dinnerStart = new Date(currentDate);
     dinnerStart.setHours(
-      parseInt(mealTimes.dinner.start.split(":")[0]),
-      parseInt(mealTimes.dinner.start.split(":")[1])
+      mealTimes.dinner.start.split(":")[0], // Извлекаем часы
+      mealTimes.dinner.start.split(":")[1] // Извлекаем минуты
     );
     const dinnerEnd = new Date(currentDate);
     dinnerEnd.setHours(
-      parseInt(mealTimes.dinner.end.split(":")[0]),
-      parseInt(mealTimes.dinner.end.split(":")[1])
+      mealTimes.dinner.end.split(":")[0], // Извлекаем часы
+      mealTimes.dinner.end.split(":")[1] // Извлекаем минуты
     );
 
     if (
@@ -84,13 +84,6 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
 
     // Переходим к следующему дню
     currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  // Уменьшаем количество ужинов, если последний день совпадает с выездом
-  const lastMealDay = mealPlan.dailyMeals[mealPlan.dailyMeals.length - 1];
-  if (lastMealDay && lastMealDay.date === departureDate.toISOString().split("T")[0]) {
-    lastMealDay.dinner = 0; // Ужин не включается в день выезда
-    mealPlan.totalDinner -= 1; // Убираем ужин из общего количества
   }
 
   return mealPlan;

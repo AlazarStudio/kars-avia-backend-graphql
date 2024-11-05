@@ -218,6 +218,7 @@ const hotelResolver = {
                 new Date(departure).getTime() / 1000, // В секундах
                 mealTimes
               )
+              
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {

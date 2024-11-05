@@ -373,7 +373,7 @@ type Departure {
   date   String
   time   String
 }
-
+ 
 type MealPlan {
   included   Boolean
   breakfast  Int?
