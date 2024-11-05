@@ -208,6 +208,7 @@ model Airline {
   User       User[]
   logs       Log[]
   Reserve    Reserve[]
+  amountair  Float?
 }
 
 model AirlineDepartment {
