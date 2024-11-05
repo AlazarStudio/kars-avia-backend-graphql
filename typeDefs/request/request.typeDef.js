@@ -136,6 +136,7 @@ input PaginationInput {
 
 input ExtendRequestDatesInput {
   requestId: ID!
+  newEndName: String!
   newEnd: String!
   newEndTime: String!
 }
