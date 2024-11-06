@@ -56,7 +56,6 @@ const reserveResolver = {
         totalPages,
       };
     },
-    
     reserveArchive: async (_, { pagination }, context) => {
       airlineAdminMiddleware(context) // Проверка прав доступа
 
@@ -509,7 +508,40 @@ const reserveResolver = {
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
 
       return reserveHotel
-    }
+    }, 
+
+    // archivingReserve: async (_, input, context) => {
+    //   const requestId = input.id
+    //   const request = await prisma.request.findUnique({
+    //     where: { id: requestId }
+    //     // include: { airline: true, airport: true, hotel: true, hotelChess: true }
+    //   })
+    //   // Проверяем вышел ли срок заявки
+    //   if (
+    //     new Date(request.departure.date) < new Date(Date.now()) &&
+    //     request.status !== "archived"
+    //   ) {
+    //     const archiveRequest = await prisma.request.update({
+    //       where: { id: requestId },
+    //       data: { status: "archived", archive: true }
+    //     })
+    //     await logAction({
+    //       context,
+    //       action: "archive_request",
+    //       description: { requestId: request.id },
+    //       oldData: request,
+    //       newData: { status: "archived" },
+    //       hotelId: request.hotelId,
+    //       requestId: request.id
+    //     })
+
+    //     pubsub.publish(REQUEST_UPDATED, { requestUpdated: archiveRequest })
+    //     return archiveRequest
+    //   } else {
+    //     throw new Error("Request is not expired or already archived")
+    //   }
+    // }
+    // 
   },
 
   Subscription: {

@@ -17,11 +17,15 @@ import { makeExecutableSchema } from "@graphql-tools/schema"
 import { prisma } from "./prisma.js"
 import mergedTypeDefs from "./typeDefs/typedefs.js"
 import mergedResolvers from "./resolvers/resolvers.js"
-import authMiddleware, { adminMiddleware } from "./middlewares/authMiddleware.js"
+import authMiddleware, {
+  adminMiddleware
+} from "./middlewares/authMiddleware.js"
 
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
+
+import { startArchivingJob } from "./utils/request/cronTasks.js"
 
 dotenv.config()
 const app = express()
@@ -53,7 +57,10 @@ const server = new ApolloServer({
     ApolloServerPluginLandingPageLocalDefault({ embed: true })
   ]
 })
+// --------------------------------
+startArchivingJob()
 
+// --------------------------------
 await server.start()
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))

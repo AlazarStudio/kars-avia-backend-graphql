@@ -156,6 +156,7 @@ type Mutation {
 
 extend type Mutation {
   extendRequestDates(input: ExtendRequestDatesInput!): Request!
+  archivingRequst(id: ID!): Request!
 }
 
 type Subscription {

@@ -98,6 +98,7 @@ const requestResolver = {
       }
     },
     request: async (_, { id }, context) => {
+      const { user } = context
       const request = await prisma.request.findUnique({
         where: { id: id },
         include: {
@@ -111,7 +112,9 @@ const requestResolver = {
       if (!request) {
         throw new Error("Request not found")
       }
-      const { user } = context
+      if (request.archive === true) {
+        airlineAdminMiddleware(context)
+      }
       if (!user || !user.dispatcher) {
         return request
       }
@@ -297,57 +300,6 @@ const requestResolver = {
         })
       }
 
-      // if (hotel) {
-      //   hotelMealTimes = {
-      //     breakfast: {
-      //       start: {
-      //         hours: parseInt(hotel.breakfast.split(":")[0]),
-      //         minutes: parseInt(hotel.breakfast.split(":")[1])
-      //       },
-      //       end: {
-      //         hours: parseInt(hotel.breakfast.split(":")[0]) + 2, // Условие, например, 2 часа на завтрак
-      //         minutes: 0
-      //       }
-      //     },
-      //     lunch: {
-      //       start: {
-      //         hours: parseInt(hotel.lunch.split(":")[0]),
-      //         minutes: parseInt(hotel.lunch.split(":")[1])
-      //       },
-      //       end: {
-      //         hours: parseInt(hotel.lunch.split(":")[0]) + 4, // Условие, например, 4 часа на обед
-      //         minutes: 0
-      //       }
-      //     },
-      //     dinner: {
-      //       start: {
-      //         hours: parseInt(hotel.dinner.split(":")[0]),
-      //         minutes: parseInt(hotel.dinner.split(":")[1])
-      //       },
-      //       end: {
-      //         hours: parseInt(hotel.dinner.split(":")[0]) + 2, // Условие, например, 2 часа на ужин
-      //         minutes: 0
-      //       }
-      //     }
-      //   }
-      // }
-
-      // // Вычисляем количество приемов пищи
-      // const mealCounts = calculateMeal(
-      //   reverseDateTimeFormatter(arrival.date, arrival.time),
-      //   reverseDateTimeFormatter(departure.date, departure.time),
-      //   hotelMealTimes
-      // )
-
-      // // Обновляем mealPlan с учетом новых данных
-      // dataToUpdate.mealPlan = {
-      //   included: true, // Пример: можно установить как true или false
-      //   breakfast: mealCounts.totalBreakfast,
-      //   lunch: mealCounts.totalLunch,
-      //   dinner: mealCounts.totalDinner,
-      //   dailyMeals: mealCounts.dailyMeals
-      // }
-
       // Подготавливаем данные для обновления
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
@@ -434,100 +386,6 @@ const requestResolver = {
       return updatedMealPlan
     },
 
-    // extendRequestDates: async (_, { input }, context) => {
-    //   const { requestId, newEnd, newEndTime } = input;
-    
-    //   const request = await prisma.request.findUnique({
-    //     where: { id: requestId },
-    //     include: { hotelChess: true, hotel: true }
-    //   });
-    
-    //   if (!request) {
-    //     throw new Error("Request not found");
-    //   }
-    
-    //   if (!request.hotelChess) {
-    //     throw new Error("Request has not been placed in a hotel");
-    //   }
-    
-    //   // Обновляем данные о дате окончания проживания в отеле
-    //   const updatedHotelChess = await prisma.hotelChess.update({
-    //     where: { id: request.hotelChess.id },
-    //     data: {
-    //       end: newEnd,
-    //       endTime: newEndTime
-    //     }
-    //   });
-    
-    //   // Получаем текущее состояние плана питания
-    //   const existingMealPlan = request.mealPlan || {
-    //     included: true,
-    //     breakfast: 0,
-    //     lunch: 0,
-    //     dinner: 0,
-    //     dailyMeals: []
-    //   };
-    
-    //   // Формируем временные метки для расчета питания
-    //   const arrivalDateTime = new Date(updatedHotelChess.start).getTime() / 1000;
-    //   const departureDateTime = new Date(`${newEnd} ${newEndTime}`).getTime() / 1000;
-    
-    //   // Получаем информацию о времени приема пищи в отеле
-    //   const hotel = request.hotel;
-    //   const mealTimes = {
-    //     breakfast: hotel.breakfast,
-    //     lunch: hotel.lunch,
-    //     dinner: hotel.dinner
-    //   };
-    
-    //   // Вычисляем новое количество приемов пищи
-    //   const newMealPlan = calculateMeal(arrivalDateTime, departureDateTime, mealTimes);
-    
-    //   // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
-    //   const newEndDate = new Date(newEnd);
-    //   const adjustedDailyMeals = existingMealPlan.dailyMeals.filter(
-    //     (day) => new Date(day.date) <= newEndDate
-    //   );
-    
-    //   // Добавляем новые дни, если их нет в отфильтрованных dailyMeals
-    //   newMealPlan.dailyMeals.forEach((newDay) => {
-    //     if (!adjustedDailyMeals.some(existingDay => existingDay.date === newDay.date)) {
-    //       adjustedDailyMeals.push(newDay);
-    //     }
-    //   });
-    
-    //   // Обновляем план питания в базе данных
-    //   const updatedMealPlan = {
-    //     included: true, // или можно использовать значение из существующего плана
-    //     breakfast: newMealPlan.totalBreakfast,
-    //     lunch: newMealPlan.totalLunch,
-    //     dinner: newMealPlan.totalDinner,
-    //     dailyMeals: adjustedDailyMeals
-    //   };
-    
-    //   // Обновление заявки
-    //   const updatedRequest = await prisma.request.update({
-    //     where: { id: requestId },
-    //     data: {
-    //       departure: {
-    //         date: newEnd,
-    //         time: newEndTime
-    //       },
-    //       mealPlan: updatedMealPlan
-    //     },
-    //     include: {
-    //       arrival: true,
-    //       departure: true,
-    //       hotelChess: true
-    //     }
-    //   });
-    
-    //   // Уведомление о обновлении заявки
-    //   pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest });
-    
-    //   return updatedRequest;
-    // }
-    
     extendRequestDates: async (_, { input }, context) => {
       const { requestId, newEnd, newEndTime, newEndName } = input
 
@@ -548,8 +406,7 @@ const requestResolver = {
         where: { id: request.hotelChess.id },
         data: {
           end: newEnd,
-          endTime: newEndTime,
-
+          endTime: newEndTime
         }
       })
 
@@ -621,8 +478,40 @@ const requestResolver = {
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
 
       return updatedRequest
-    }
+    },
 
+    // функция архивирования заявки
+    archivingRequst: async (_, input, context) => {
+      const requestId = input.id
+      const request = await prisma.request.findUnique({
+        where: { id: requestId }
+        // include: { airline: true, airport: true, hotel: true, hotelChess: true }
+      })
+      // Проверяем вышел ли срок заявки
+      if (
+        new Date(request.departure.date) < new Date(Date.now()) &&
+        request.status !== "archived"
+      ) {
+        const archiveRequest = await prisma.request.update({
+          where: { id: requestId },
+          data: { status: "archived", archive: true }
+        })
+        await logAction({
+          context,
+          action: "archive_request",
+          description: { requestId: request.id },
+          oldData: request,
+          newData: { status: "archived" },
+          hotelId: request.hotelId,
+          requestId: request.id
+        })
+
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: archiveRequest })
+        return archiveRequest
+      } else {
+        throw new Error("Request is not expired or already archived")
+      }
+    }
     // ----------------------------------------------------------------
   },
   Subscription: {

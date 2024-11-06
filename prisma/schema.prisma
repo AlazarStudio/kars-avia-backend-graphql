@@ -55,6 +55,8 @@ model User {
   password            String
   images              String[]
   role                Role
+  // position Position
+  // position String
   sender              Request[]          @relation(name: "sender")
   receiver            Request[]          @relation(name: "receiver")
   Reserve             Reserve[]
@@ -211,6 +213,7 @@ model Airline {
   logs        Log[]
   Reserve     Reserve[]
   amountair   Float?
+  // rework amount Air prices with meal and room type
 }
 
 model AirlineDepartment {
