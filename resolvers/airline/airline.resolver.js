@@ -39,19 +39,16 @@ const airlineResolver = {
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
       airlineAdminMiddleware(context)
-
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
       }
-
       const data = {
         ...input,
         images: imagePaths
       }
-
       return await prisma.airline.create({
         data,
         include: {
@@ -62,20 +59,13 @@ const airlineResolver = {
     },
     updateAirline: async (_, { id, input, images }, context) => {
       airlineAdminMiddleware(context)
-
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
       }
-      // const data = {
-      //   ...input,
-      //   ...(imagePaths.length > 0 && { images: { set: imagePaths } })
-      // }
-
       const { department, staff, ...restInput } = input
-
       try {
         const updatedAirline = await prisma.airline.update({
           where: { id },
@@ -84,7 +74,6 @@ const airlineResolver = {
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
-
         if (department) {
           for (const depart of department) {
             if (depart.id) {
@@ -114,7 +103,6 @@ const airlineResolver = {
             }
           }
         }
-
         if (staff) {
           for (const person of staff) {
             if (person.id) {
@@ -142,7 +130,6 @@ const airlineResolver = {
             }
           }
         }
-
         const airlineWithRelations = await prisma.airline.findUnique({
           where: { id },
           include: {
@@ -150,21 +137,11 @@ const airlineResolver = {
             staff: true
           }
         })
-
         return airlineWithRelations
       } catch (error) {
         console.error("Ошибка при обновлении авиакомпании:", error)
         throw new Error("Не удалось обновить авиакомпанию")
       }
-
-      // return await prisma.airline.update({
-      //   where: { id },
-      //   data,
-      //   include: {
-      //     staff: true,
-      //     department: true
-      //   }
-      // })
     },
     deleteAirline: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
@@ -190,7 +167,6 @@ const airlineResolver = {
       })
     }
   },
-
   Airline: {
     department: async (parent) => {
       return await prisma.airlineDepartment.findMany({
@@ -203,7 +179,6 @@ const airlineResolver = {
       })
     }
   },
-
   AirlineDepartment: {
     users: async (parent) => {
       return await prisma.user.findMany({
@@ -216,7 +191,6 @@ const airlineResolver = {
       })
     }
   },
-
   AirlinePersonal: {
     hotelChess: async (parent) => {
       const hotelChessEntries = await prisma.hotelChess.findMany({

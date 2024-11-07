@@ -106,6 +106,7 @@ model Hotel {
   dinner       MealTime?
   // dinner       String?        @default("18:00 - 20:00")
   images       String[]
+  MealPrice    MealPrice[]
   ReserveHotel ReserveHotel[]
   hotelChesses HotelChess[]
   categories   Category[]
@@ -186,6 +187,12 @@ model Room {
 
 // Отели  ---------------- ↑↑↑↑
 
+type MealPrice {
+  breakfast Float?
+  lunch     Float?
+  dinner    Float?
+}
+
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
@@ -212,8 +219,10 @@ model Airline {
   User        User[]
   logs        Log[]
   Reserve     Reserve[]
-  amountair   Float?
   // rework amount Air prices with meal and room type
+  MealPrice   MealPrice[]
+  airOnePrice Float?
+  airTwoPrice Float?
 }
 
 model AirlineDepartment {
@@ -241,8 +250,8 @@ model AirlinePersonal {
   departmentId String?                    @db.ObjectId
   Request      Request[]
   hotelChess   HotelChess[]
-  Reserve      AirlinePersonalOnReserve[] // Связь через промежуточную модель
-  ReserveHotel ReserveHotelPersonal[] // Связь через промежуточную модель
+  Reserve      AirlinePersonalOnReserve[]
+  ReserveHotel ReserveHotelPersonal[]
 }
 
 model AirlinePersonalOnReserve {
@@ -252,7 +261,7 @@ model AirlinePersonalOnReserve {
   airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
   reserve           Reserve         @relation(fields: [reserveId], references: [id])
 
-  @@unique([airlinePersonalId, reserveId]) // Уникальность комбинации
+  @@unique([airlinePersonalId, reserveId])
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -291,7 +300,6 @@ model Request {
   requestNumber String           @unique
   roomCategory  String?
   roomNumber    String?
-  // mealPlan      MealPlan
   mealPlan      Json
   hotel         Hotel?           @relation(fields: [hotelId], references: [id])
   hotelId       String?          @db.ObjectId
@@ -318,10 +326,9 @@ model Reserve {
   departure        Departure
   reserveNumber    String                     @unique
   passengerCount   Int?
-  // mealPlan         MealPlan
   mealPlan         Json
   status           String                     @default("created")
-  person           AirlinePersonalOnReserve[] // Связь через промежуточную модель
+  person           AirlinePersonalOnReserve[]
   hotel            ReserveHotel[]
   passengers       Passenger[]
   // ---- need update ----
@@ -353,7 +360,7 @@ model ReserveHotel {
   hotelId    String                 @db.ObjectId
   capacity   Int?
   passengers Passenger[]
-  person     ReserveHotelPersonal[] // Связь через промежуточную модель
+  person     ReserveHotelPersonal[]
 
   @@unique([reserveId, hotelId])
 }

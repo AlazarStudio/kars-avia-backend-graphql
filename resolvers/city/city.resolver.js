@@ -10,7 +10,7 @@ const cityResolver = {
         where: { city: { contains: city, mode: "insensitive" } }
       })
     }
-  },
+  }
   // Mutation: {
   // }
 }

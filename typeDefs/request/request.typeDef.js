@@ -163,6 +163,7 @@ type Subscription {
   requestCreated: Request!
   requestUpdated: Request!
 }
+
 `
 
 export default requestTypeDef

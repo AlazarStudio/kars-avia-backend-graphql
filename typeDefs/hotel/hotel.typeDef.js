@@ -120,9 +120,9 @@ input CreateHotelInput {
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
-  breakfast: MealTimeInput  # Изменение здесь
-  lunch: MealTimeInput      # Изменение здесь
-  dinner: MealTimeInput     # Изменение здесь
+  breakfast: MealTimeInput
+  lunch: MealTimeInput
+  dinner: MealTimeInput
 }
 
 input UpdateHotelInput {
@@ -146,9 +146,9 @@ input UpdateHotelInput {
   tariffs: [TariffInput!]
   prices: [PriceInput!]
   rooms: [RoomInput!]
-  breakfast: MealTimeInput  # Изменение здесь
-  lunch: MealTimeInput      # Изменение здесь
-  dinner: MealTimeInput     # Изменение здесь
+  breakfast: MealTimeInput
+  lunch: MealTimeInput
+  dinner: MealTimeInput
 }
 
 input HotelChessInput {

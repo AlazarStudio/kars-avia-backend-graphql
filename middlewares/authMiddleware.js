@@ -4,24 +4,19 @@ import { prisma } from "../prisma.js"
 // Общий мидлвар для авторизации
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization
-
   if (!token) {
     return res.status(401).json({ message: "Authorization token missing" })
   }
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
-
     if (!user) {
       return res.status(401).json({ message: "User not found" })
     }
-
     // -------- 2FA -------- ↓↓↓↓
     if (user.is2FAEnabled && !req.headers["x-2fa-token"]) {
       return res.status(403).json({ message: "2FA token missing" })
     }
-
     req.user = user // Добавляем пользователя в запрос
     next()
   } catch (error) {
@@ -34,7 +29,6 @@ const authMiddleware = async (req, res, next) => {
 // Универсальный мидлвар для проверки ролей
 export const roleMiddleware = (context, allowedRoles) => {
   const { user } = context
-
   if (!user || !allowedRoles.includes(user.role)) {
     throw new Error("Access forbidden: Insufficient rights.")
   }

@@ -38,5 +38,7 @@ const chatTypeDef = `#graphql
     messageSent(chatId: ID!): Message
     messageReceived(senderId: ID!, receiverId: ID!): Message!
   }
+
 `
+
 export default chatTypeDef

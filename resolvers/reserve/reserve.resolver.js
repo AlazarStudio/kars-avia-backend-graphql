@@ -12,29 +12,25 @@ import calculateMeal from "../../exports/calculateMeal.js"
 
 const reserveResolver = {
   Query: {
-    reserves: async (_, { pagination }) => {
-      const { skip, take, status } = pagination;
-    
+    reserves: async (_, { pagination }, context) => {
+      const { skip, take, status } = pagination
       // Проверка статуса на пустой массив или ["all"]
       const statusFilter =
         !status || status.length === 0 || status.includes("all")
           ? {}
-          : { status: { in: status } };
-    
+          : { status: { in: status } }
       // Подсчет общего количества записей без архивных резервов
       const totalCount = await prisma.reserve.count({
         where: {
-          ...statusFilter,
+          ...statusFilter
           // archive: { not: true }, // Исключение архивных записей
-        },
-      });
-    
-      const totalPages = Math.ceil(totalCount / take);
-    
+        }
+      })
+      const totalPages = Math.ceil(totalCount / take)
       // Запрос для получения резервов с учетом фильтра
       const reserves = await prisma.reserve.findMany({
         where: {
-          ...statusFilter,
+          ...statusFilter
           // archive: { not: true }, // Исключение архивных записей
         },
         skip: skip * take,
@@ -45,26 +41,22 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
-          chat: true,
+          chat: true
         },
-        orderBy: { createdAt: "desc" },
-      });
-    
+        orderBy: { createdAt: "desc" }
+      })
       return {
         totalCount,
         reserves,
-        totalPages,
-      };
+        totalPages
+      }
     },
     reserveArchive: async (_, { pagination }, context) => {
       airlineAdminMiddleware(context) // Проверка прав доступа
-
       const { skip, take, status } = pagination
-
       // Определяем фильтр статусов
       const statusFilter =
         status && status.includes("all") ? {} : { status: { in: status } }
-
       // Подсчет общего количества архивных записей с учетом фильтра
       const totalCount = await prisma.reserve.count({
         where: {
@@ -72,10 +64,8 @@ const reserveResolver = {
           archive: true
         }
       })
-
       // Расчет количества страниц
       const totalPages = Math.ceil(totalCount / take)
-
       // Получение архивных резервов с учетом фильтрации и пагинации
       const reserves = await prisma.reserve.findMany({
         where: {
@@ -94,7 +84,6 @@ const reserveResolver = {
         },
         orderBy: { createdAt: "desc" }
       })
-
       return {
         totalCount,
         reserves,
@@ -113,35 +102,25 @@ const reserveResolver = {
           chat: true
         }
       })
-
       if (!reserve) {
         throw new Error("Reserve not found")
       }
-
       const { user } = context
       if (!user || !user.dispatcher) {
-        // Если не диспетчер, возвращаем текущую заявку без изменения статуса
         return reserve
       }
-
-      // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (reserve.status === "created") {
-        // Обновляем статус на "opened"
         const updatedReserve = await prisma.reserve.update({
           where: { id },
           data: { status: "opened" }
         })
-
-        // Проверка, существует ли уже лог о первом открытии заявки
         const existingLog = await prisma.log.findFirst({
           where: {
             action: "open_reserve",
             reserveId: updatedReserve.id
           }
         })
-
         if (!existingLog) {
-          // Логируем только если ещё не было записи об открытии
           try {
             await logAction({
               context,
@@ -150,8 +129,8 @@ const reserveResolver = {
                 reserveId: updatedReserve.id,
                 description: `Reserve was opened by user ${user.id}`
               },
-              oldData: { status: "created" }, // старый статус
-              newData: { status: "opened" }, // новый статус
+              oldData: { status: "created" }, 
+              newData: { status: "opened" }, 
               reserveId: updatedReserve.id
             })
           } catch (error) {
@@ -161,43 +140,39 @@ const reserveResolver = {
             )
           }
         }
-
         pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
         return updatedReserve
       }
-
-      // Если статус уже изменён, не логируем и возвращаем текущую заявку
       return reserve
     },
-    reservationHotels: async (_, { id }) => {
+    reservationHotels: async (_, { id }, context) => {
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
         include: {
           reserve: true,
           hotel: true,
-          person: true, // Include person info if needed
+          person: true,
           passengers: true
         }
       })
     },
-    reservationHotel: async (_, { id }) => {
+    reservationHotel: async (_, { id }, context) => {
       return await prisma.reserveHotel.findUnique({
         where: { id: id },
         include: {
           reserve: true,
           hotel: true,
-          person: true, // Include person info if needed
+          person: true, 
           passengers: true
         }
       })
     },
-    reservationPassengers: async (_, { reservationId }) => {
-      // Fetch passengers associated with the reservation
+    reservationPassengers: async (_, { reservationId }, context) => {
       return await prisma.passenger.findMany({
         where: { reserveId: reservationId },
         include: {
           person: true,
-          hotel: true // Include hotel info if needed
+          hotel: true
         }
       })
     }
@@ -216,17 +191,14 @@ const reserveResolver = {
         persons,
         reserveForPerson
       } = input
-
       // Генерация номера резерва (reserveNumber), как у вас было ранее
       const reserveCount = await prisma.reserve.count()
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
-
       if (!airport) {
         throw new Error("Airport not found")
       }
-
       const currentDate = new Date()
       const formattedDate = currentDate
         .toLocaleDateString("ru-RU")
@@ -234,7 +206,6 @@ const reserveResolver = {
       const reserveNumber = `${String(reserveCount + 1).padStart(4, "0")}-${
         airport.code
       }-${formattedDate}`
-
       // Создание резерва
       const newReserve = await prisma.reserve.create({
         data: {
@@ -257,7 +228,6 @@ const reserveResolver = {
           reserve: { connect: { id: newReserve.id } }
         }
       })
-
       // Добавление участника в чат через ChatUser
       await prisma.chatUser.create({
         data: {
@@ -265,7 +235,6 @@ const reserveResolver = {
           user: { connect: { id: senderId } }
         }
       })
-
       // Логирование действия и публикация события
       await logAction({
         context,
@@ -277,15 +246,11 @@ const reserveResolver = {
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
-
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
-
       return newReserve
     },
-
     updateReserve: async (_, { id, input }, context) => {
       const { arrival, departure, mealPlan, status, persons } = input
-
       // Обновление заявки без изменения списка пассажиров
       const updatedReserve = await prisma.reserve.update({
         where: { id },
@@ -297,7 +262,6 @@ const reserveResolver = {
           persons
         }
       })
-
       // Логирование действия и публикация события
       await logAction({
         userId: context.user.id,
@@ -309,13 +273,14 @@ const reserveResolver = {
         reserveId: updatedReserve.id,
         airlineId: updatedReserve.airlineId
       })
-
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
-
       return updatedReserve
     },
-
-    addHotelToReserve: async (_, { reservationId, hotelId, capacity }) => {
+    addHotelToReserve: async (
+      _,
+      { reservationId, hotelId, capacity },
+      context
+    ) => {
       try {
         const reserveHotel = await prisma.reserveHotel.create({
           data: {
@@ -324,9 +289,7 @@ const reserveResolver = {
             capacity
           }
         })
-
         pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotel })
-        // pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserveHotel })
         return reserveHotel
       } catch (error) {
         if (
@@ -338,26 +301,22 @@ const reserveResolver = {
         throw error
       }
     },
-
     addPassengerToReserve: async (
       _,
-      { reservationId, input, hotelId, capacity }
+      { reservationId, input, hotelId, capacity },
+      context
     ) => {
       const { name, number, gender, child, animal } = input
-
       // Проверка на существование заявки
       const reserve = await prisma.reserve.findUnique({
         where: { id: reservationId }
       })
-
       if (!reserve) {
         throw new Error("Reservation not found")
       }
-
       if (reserve.reserveForPerson !== false) {
         throw new Error("Reservation created for persons")
       }
-
       // Проверка на существование связи между заявкой и отелем в ReserveHotel
       let reserveHotel = await prisma.reserveHotel.findFirst({
         where: {
@@ -365,7 +324,6 @@ const reserveResolver = {
           hotelId: hotelId
         }
       })
-
       // Если связь не найдена, создаем её
       if (!reserveHotel) {
         reserveHotel = await prisma.reserveHotel.create({
@@ -376,7 +334,6 @@ const reserveResolver = {
           }
         })
       }
-
       // Добавление пассажира к заявке с привязкой к отелю через ReserveHotel
       const newPassenger = await prisma.passenger.create({
         data: {
@@ -389,55 +346,41 @@ const reserveResolver = {
           ReserveHotel: { connect: { id: reserveHotel.id } }
         }
       })
-
       // Обновление информации о заявке
-
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
-
       return newPassenger
     },
-
     deletePassengerFromReserve: async (_, { id }, context) => {
       const deletedPassenger = await prisma.passenger.delete({
         where: { id }
       })
-
       const reserveHotel = await prisma.reserveHotel.findUnique({
         where: { id: deletedPassenger.reserveHotelId }
       })
-
       // Обновление информации о заявке
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
-
       return reserveHotel
     },
-
-    assignPersonToHotel: async (_, { input }) => {
+    assignPersonToHotel: async (_, { input }, context) => {
       const { reservationId, personId, hotelId, capacity } = input
-
       // Проверка на существование заявки, персонала и отеля
       const [reserve, person, hotel] = await Promise.all([
         prisma.reserve.findUnique({ where: { id: reservationId } }),
         prisma.airlinePersonal.findUnique({ where: { id: personId } }),
         prisma.hotel.findUnique({ where: { id: hotelId } })
       ])
-
       if (!reserve) {
         throw new Error("Reservation not found")
       }
-
       if (reserve.reserveForPerson !== true) {
         throw new Error("Reservation created for passengers")
       }
-
       if (!person) {
         throw new Error("Person not found")
       }
-
       if (!hotel) {
         throw new Error("Hotel not found")
       }
-
       // Проверка на существование связи между заявкой и отелем в ReserveHotel
       let reserveHotel = await prisma.reserveHotel.findUnique({
         where: {
@@ -447,7 +390,6 @@ const reserveResolver = {
           }
         }
       })
-
       // Если связь не найдена, создаем её
       if (!reserveHotel) {
         reserveHotel = await prisma.reserveHotel.create({
@@ -458,7 +400,6 @@ const reserveResolver = {
           }
         })
       }
-
       // Используем промежуточную модель ReserveHotelPersonal для связи
       const reserveHotelPersonal = await prisma.reserveHotelPersonal.create({
         data: {
@@ -466,17 +407,14 @@ const reserveResolver = {
           airlinePersonal: { connect: { id: personId } }
         }
       })
-
       // Публикация обновлений заявки
-
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
-
       return person
     },
-
     dissociatePersonFromHotel: async (
       _,
-      { reserveHotelId, airlinePersonalId }
+      { reserveHotelId, airlinePersonalId },
+      context
     ) => {
       const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique(
         {
@@ -488,62 +426,50 @@ const reserveResolver = {
           }
         }
       )
-
       if (!reserveHotelPersonal) return null
-
       const reserveHotel = await prisma.reserveHotel.findUnique({
         where: { id: reserveHotelPersonal.reserveHotelId }
       })
-
       if (!reserveHotel) return null
-
       // Удаляем запись после проверки
       await prisma.reserveHotelPersonal.delete({
         where: {
           id: reserveHotelPersonal.id
         }
       })
-
       // Обновление подписки
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
-
       return reserveHotel
-    }, 
-
-    // archivingReserve: async (_, input, context) => {
-    //   const requestId = input.id
-    //   const request = await prisma.request.findUnique({
-    //     where: { id: requestId }
-    //     // include: { airline: true, airport: true, hotel: true, hotelChess: true }
-    //   })
-    //   // Проверяем вышел ли срок заявки
-    //   if (
-    //     new Date(request.departure.date) < new Date(Date.now()) &&
-    //     request.status !== "archived"
-    //   ) {
-    //     const archiveRequest = await prisma.request.update({
-    //       where: { id: requestId },
-    //       data: { status: "archived", archive: true }
-    //     })
-    //     await logAction({
-    //       context,
-    //       action: "archive_request",
-    //       description: { requestId: request.id },
-    //       oldData: request,
-    //       newData: { status: "archived" },
-    //       hotelId: request.hotelId,
-    //       requestId: request.id
-    //     })
-
-    //     pubsub.publish(REQUEST_UPDATED, { requestUpdated: archiveRequest })
-    //     return archiveRequest
-    //   } else {
-    //     throw new Error("Request is not expired or already archived")
-    //   }
-    // }
-    // 
+    },
+    archivingReserve: async (_, input, context) => {
+      const reserveId = input.id
+      const reserve = await prisma.reserve.findUnique({
+        where: { id: reserveId }
+      })
+      // Проверяем вышел ли срок заявки
+      if (
+        new Date(reserve.departure.date) < new Date(Date.now()) &&
+        reserve.status !== "archived"
+      ) {
+        const archiveReserve = await prisma.reserve.update({
+          where: { id: reserveId },
+          data: { status: "archived", archive: true }
+        })
+        await logAction({
+          context,
+          action: "archive_reserve",
+          description: { reserveId: reserve.id },
+          oldData: reserve,
+          newData: { status: "archived" },
+          reserveId: reserve.id
+        })
+        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: archiveReserve })
+        return archiveReserve
+      } else {
+        throw new Error("Reserve is not expired or already archived")
+      }
+    }
   },
-
   Subscription: {
     reserveCreated: {
       subscribe: () => pubsub.asyncIterator([RESERVE_CREATED])
@@ -576,7 +502,6 @@ const reserveResolver = {
       })
     }
   },
-
   ReserveHotel: {
     reserve: async (parent) => {
       return await prisma.reserve.findUnique({
@@ -599,7 +524,6 @@ const reserveResolver = {
       })
     }
   },
-
   Passenger: {
     reserve: async (parent) => {
       return await prisma.reserve.findUnique({
@@ -607,7 +531,6 @@ const reserveResolver = {
       })
     }
   },
-
   ReserveHotelPersonal: {
     person: async (parent) => {
       return await prisma.airlinePersonal.findMany({

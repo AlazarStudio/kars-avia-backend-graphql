@@ -1,13 +1,13 @@
-import { prisma } from "../prisma.js";
+import { prisma } from "../prisma.js"
 
 const safeStringify = (data) => {
   try {
-    return JSON.stringify(data);
+    return JSON.stringify(data)
   } catch (error) {
-    console.error("Ошибка при преобразовании данных в JSON:", error);
-    return null;
+    console.error("Ошибка при преобразовании данных в JSON:", error)
+    return null
   }
-};
+}
 
 const createLog = async ({
   userId,
@@ -35,11 +35,11 @@ const createLog = async ({
         oldData: oldData ? safeStringify(oldData) : null,
         newData: newData ? safeStringify(newData) : null
       }
-    });
+    })
   } catch (error) {
-    console.error("Ошибка при логировании действия:", error);
+    console.error("Ошибка при логировании действия:", error)
   }
-};
+}
 
 const logAction = async ({
   context,
@@ -64,7 +64,7 @@ const logAction = async ({
     reserveId,
     oldData,
     newData
-  });
-};
+  })
+}
 
-export default logAction;
+export default logAction

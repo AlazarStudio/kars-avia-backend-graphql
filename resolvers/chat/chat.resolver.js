@@ -3,7 +3,7 @@ import { pubsub, MESSAGE_SENT } from "../../exports/pubsub.js"
 
 const chatResolver = {
   Query: {
-    chats: async (_, { requestId, reserveId }) => {
+    chats: async (_, { requestId, reserveId }, context) => {
       const chats = await prisma.chat.findMany({
         where: {
           OR: [requestId ? { requestId } : {}, reserveId ? { reserveId } : {}]
@@ -11,7 +11,7 @@ const chatResolver = {
       })
       return chats
     },
-    messages: async (_, { chatId }) => {
+    messages: async (_, { chatId }, context) => {
       return await prisma.message.findMany({
         where: { chatId },
         include: { sender: true }
@@ -19,7 +19,7 @@ const chatResolver = {
     }
   },
   Mutation: {
-    sendMessage: async (_, { chatId, senderId, text }) => {
+    sendMessage: async (_, { chatId, senderId, text }, context) => {
       const message = await prisma.message.create({
         data: {
           text,
@@ -28,18 +28,15 @@ const chatResolver = {
         },
         include: { sender: true, chat: true }
       })
-
       pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
-
       return message
     },
-    createChat: async (_, { requestId, userIds }) => {
+    createChat: async (_, { requestId, userIds }, context) => {
       const chat = await prisma.chat.create({
         data: {
           request: { connect: { id: requestId } }
         }
       })
-
       const chatUserPromises = userIds.map((userId) =>
         prisma.chatUser.create({
           data: {
@@ -48,9 +45,7 @@ const chatResolver = {
           }
         })
       )
-
       await Promise.all(chatUserPromises)
-
       return chat
     }
   },
@@ -66,7 +61,6 @@ const chatResolver = {
         where: { chatId: parent.id },
         include: { user: true }
       })
-
       return chatUsers.map((chatUser) => chatUser.user)
     },
     messages: async (parent) => {

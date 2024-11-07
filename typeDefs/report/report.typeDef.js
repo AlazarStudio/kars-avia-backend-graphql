@@ -5,8 +5,8 @@ const reportTypeDef = `#graphql
 # hotelReport
 
 type Query {
-    airlineReport(startDate: String!, endDate: String!, airlineId: ID!): [Request!]!
     dispatcherReport(startDate: String!, endDate: String!): [Request!]!
+    airlineReport(startDate: String!, endDate: String!, airlineId: ID!): [Request!]!
     hotelReport(startDate: String!, endDate: String!, hotelId: ID!): [Request!]!
 }
 `
