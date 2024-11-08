@@ -1,5 +1,5 @@
 export const reverseDateTimeFormatter = (dateString, timeString) => {
-  const [day, month, year] = dateString.split(".")
+  const [year, month, day ] = dateString.split("-")
 
   const dateTimeString = `${year}-${month}-${day}T${timeString}:00`
 

@@ -1,15 +1,31 @@
 import { prisma } from "../prisma.js"
+import { reverseDateTimeFormatter, dateTimeFormatter } from "./dateTimeFormater.js"
 
-const generateDispatcherReport = async ( startDate, endDate ) => {
-  // const {startDate, endDate} = input
-  const isoStart = new Date(startDate).toISOString()
-  const isoEnd = new Date(endDate).toISOString()
+const generateDispatcherReport = async (startDate, endDate) => {
+  const time = "01:00"
+  const isoStart = reverseDateTimeFormatter(startDate, time)
+  const isoEnd = reverseDateTimeFormatter(endDate, time)
 
-  console.log("startDate", isoStart, "endDate", isoEnd)
+  const isoStartSe = dateTimeFormatter(isoStart)
+  const isoEndSe = dateTimeFormatter(isoEnd)
+  // const isoStart = new Date(startDate).toISOString()
+  // const isoEnd = new Date(endDate).toISOString()
+
+  console.log(
+    "startDate",
+    // startDate,
+    " - ",
+    isoStartSe,
+    "endDate",
+    // endDate,
+    " - ",
+    isoEndSe
+  )
+
   const requests = await prisma.request.findMany({
     where: {
       AND: {
-        createdAt: {gte: isoStart, lte: isoEnd}
+        createdAt: { gte: isoStart, lte: isoEnd }
       }
     }
   })
@@ -26,10 +42,7 @@ const generateDispatcherReport = async ( startDate, endDate ) => {
       }`,
       numberOfNights: Math.ceil(
         (departureDate - arrivalDate) / (24 * 60 * 60 * 1000)
-      ),
-      // accommodationCost: request.accommodationCost,
-      // mealCost: request.mealCost,
-      // transferCost: request.transferCost || 0
+      )
     }
   })
 }
@@ -38,9 +51,8 @@ const generateAirlineReport = async (startDate, endDate, airlineId) => {
   const requests = await prisma.request.findMany({
     where: {
       airlineId: airlineId,
-      arrival: { date: { gte: startDate } }, // Используйте arrival.date
-      departure: { date: { lte: endDate } }, // Используйте departure.date
-      status: { not: "archived" } // Исключаем архивированные заявки
+      arrival: { date: { gte: startDate } },
+      departure: { date: { lte: endDate } }
     },
     include: {
       employee: true,
@@ -73,8 +85,7 @@ const generateHotelReport = async (startDate, endDate, hotelId) => {
     where: {
       hotelId: hotelId,
       arrival: { date: { gte: startDate } },
-      departure: { date: { lte: endDate } },
-      status: { not: "archived" } // Исключаем архивированные заявки
+      departure: { date: { lte: endDate } }
     },
     include: {
       employee: true,
@@ -102,23 +113,22 @@ const generateHotelReport = async (startDate, endDate, hotelId) => {
   })
 }
 
-// Новый метод для получения отчетов по архивированным заявкам
 const generateArchivedDispatcherReport = async (startDate, endDate) => {
   const requests = await prisma.request.findMany({
     where: {
       AND: [
         {
           arrival: {
-            date: { gte: startDate } // Используйте только startDate
+            date: { gte: startDate }
           }
         },
         {
           departure: {
-            date: { lte: endDate } // Используйте только endDate
+            date: { lte: endDate }
           }
         }
       ],
-      status: "archived" // Включаем архивированные заявки
+      status: "archived"
     },
     include: {
       employee: true,
