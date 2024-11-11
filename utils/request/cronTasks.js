@@ -4,7 +4,6 @@ import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js" // Импор�
 
 const checkAndArchiveRequests = async () => {
   const currentDateTime = new Date()
-  // Получаем все заявки
   const requests = await prisma.request.findMany({
     where: {
       status: { not: "archived" } // Исключаем уже архивированные заявки
