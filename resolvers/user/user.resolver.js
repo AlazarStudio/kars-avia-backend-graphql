@@ -123,7 +123,7 @@ const userResolver = {
           airlineId: newUser.airlineId && newUser.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "15m" }
+        { expiresIn: "24h" }
       )
       return {
         ...newUser,
@@ -171,7 +171,7 @@ const userResolver = {
           airlineId: user.airlineId && user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "15m" }
+        { expiresIn: "24h" }
       )
       return {
         ...user,
@@ -287,7 +287,7 @@ const userResolver = {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: "15m" } // Новый access токен
+        { expiresIn: "24h" } // Новый access токен
       )
       // Генерируем новый refresh токен для безопасности
       const newRefreshToken = uuidv4()
