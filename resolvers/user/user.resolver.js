@@ -125,7 +125,7 @@ const userResolver = {
           airlineId: newUser.airlineId && newUser.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "24d" }
       )
       return {
         ...newUser,
@@ -160,11 +160,11 @@ const userResolver = {
         }
       }
       // ---------------- 2FA ---------------- ↑↑↑↑
-      const refreshToken = uuidv4()
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken }
-      })
+      // const refreshToken = uuidv4()
+      // await prisma.user.update({
+      //   where: { id: user.id },
+      //   data: { refreshToken }
+      // })
       const token = jwt.sign(
         {
           userId: user.id,
@@ -173,12 +173,11 @@ const userResolver = {
           airlineId: user.airlineId && user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "24d" }  
       )
       return {
         ...user,
-        token,
-        refreshToken
+        token
       }
     },
     updateUser: async (_, { input, images }, context) => {
@@ -290,7 +289,7 @@ const userResolver = {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" } // Новый access токен
+        { expiresIn: "24d" } // Новый access токен
       )
       // Генерируем новый refresh токен для безопасности
       const newRefreshToken = uuidv4()

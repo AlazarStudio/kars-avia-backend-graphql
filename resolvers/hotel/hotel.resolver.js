@@ -26,7 +26,14 @@ const hotelResolver = {
       return await prisma.hotel.findMany({
         include: {
           rooms: true,
-          hotelChesses: true
+          hotelChesses: true,
+          MealPrice: {
+            select: {
+              breakfast: true,
+              lunch: true,
+              dinner: true
+            }
+          },
         }
       })
     },
@@ -35,7 +42,14 @@ const hotelResolver = {
         where: { id },
         include: {
           rooms: true,
-          hotelChesses: true
+          hotelChesses: true,
+          MealPrice: {
+            select: {
+              breakfast: true,
+              lunch: true,
+              dinner: true
+            }
+          },
         }
       })
     }
@@ -50,6 +64,12 @@ const hotelResolver = {
         }
       }
 
+      // const defaultMealPrice = {
+      //   breakfast: 600,
+      //   lunch: 600,
+      //   dinner: 600
+      // };
+
       const defaultMealTime = {
         breakfast: { start: "07:00", end: "10:00" },
         lunch: { start: "12:00", end: "16:00" },
@@ -58,6 +78,7 @@ const hotelResolver = {
 
       const data = {
         ...input,
+        // MealPrice: input.MealPrice || defaultMealPrice,
         breakfast: input.breakfast || defaultMealTime.breakfast,
         lunch: input.lunch || defaultMealTime.lunch,
         dinner: input.dinner || defaultMealTime.dinner,
@@ -336,7 +357,7 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { client: true }
       })
-    }
+    },
   },
   HotelChess: {
     client: async (parent) => {

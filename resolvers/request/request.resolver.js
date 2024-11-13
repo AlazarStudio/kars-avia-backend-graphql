@@ -53,7 +53,9 @@ const requestResolver = {
       }
     },
     requestArchive: async (_, { pagination }, context) => {
+      console.log(context)
       airlineAdminMiddleware(context)
+
       const { skip, take, status } = pagination
       // Определяем фильтр статусов
       const statusFilter =
@@ -239,6 +241,7 @@ const requestResolver = {
       return newRequest
     },
     updateRequest: async (_, { id, input }, context) => {
+      airlineAdminMiddleware(context)
       console.log(context)
       const {
         airportId,
