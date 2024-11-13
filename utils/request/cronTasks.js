@@ -35,6 +35,6 @@ const checkAndArchiveRequests = async () => {
 }
 
 export const startArchivingJob = () => {
-  // Запускаем проверку каждые 4 минуты 
-  setInterval(checkAndArchiveRequests, 4 * 60 * 1000)
+  // Запускаем проверку каждые 2 минуты 
+  setInterval(checkAndArchiveRequests, 2 * 60 * 1000)
 }

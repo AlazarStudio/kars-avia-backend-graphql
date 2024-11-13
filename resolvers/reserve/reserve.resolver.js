@@ -106,7 +106,7 @@ const reserveResolver = {
         throw new Error("Reserve not found")
       }
       const { user } = context
-      if (!user || !user.dispatcher) {
+      if (!user.dispatcher && !user.hotelId) {
         return reserve
       }
       if (reserve.status === "created") {
@@ -129,8 +129,8 @@ const reserveResolver = {
                 reserveId: updatedReserve.id,
                 description: `Reserve was opened by user ${user.id}`
               },
-              oldData: { status: "created" }, 
-              newData: { status: "opened" }, 
+              oldData: { status: "created" },
+              newData: { status: "opened" },
               reserveId: updatedReserve.id
             })
           } catch (error) {
@@ -162,7 +162,7 @@ const reserveResolver = {
         include: {
           reserve: true,
           hotel: true,
-          person: true, 
+          person: true,
           passengers: true
         }
       })
@@ -250,8 +250,9 @@ const reserveResolver = {
       return newReserve
     },
     updateReserve: async (_, { id, input }, context) => {
+      console.log(context)
       const { arrival, departure, mealPlan, status, persons } = input
-      // Обновление заявки без изменения списка пассажиров
+      
       const updatedReserve = await prisma.reserve.update({
         where: { id },
         data: {
@@ -262,17 +263,18 @@ const reserveResolver = {
           persons
         }
       })
-      // Логирование действия и публикация события
-      await logAction({
-        userId: context.user.id,
-        action: "update_reserve",
-        description: {
-          reserveId: updatedReserve.id,
-          reserveNumber: updatedReserve.reserveNumber
-        },
-        reserveId: updatedReserve.id,
-        airlineId: updatedReserve.airlineId
-      })
+
+      // await logAction({
+      //   userId: context.user.id,
+      //   action: "update_reserve",
+      //   description: {
+      //     reserveId: updatedReserve.id,
+      //     reserveNumber: updatedReserve.reserveNumber
+      //   },
+      //   reserveId: updatedReserve.id,
+      //   airlineId: updatedReserve.airlineId
+      // })
+      
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },

@@ -68,6 +68,7 @@ const userResolver = {
         login,
         password,
         role,
+        position,
         hotelId,
         airlineId,
         dispatcher,
@@ -82,6 +83,7 @@ const userResolver = {
         hotelId: hotelId ? hotelId : undefined,
         airlineId: airlineId ? airlineId : undefined,
         role: role || "USER",
+        position: position,
         dispatcher: dispatcher || false,
         airlineDepartmentId: airlineDepartmentId || null
       }
@@ -189,7 +191,7 @@ const userResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
-      const { id, name, email, login, password } = input
+      const { id, name, email, login, password, position } = input
       let hashedPassword
       if (password) {
         hashedPassword = await argon2.hash(password)
@@ -197,7 +199,8 @@ const userResolver = {
       const updatedData = {
         name,
         email,
-        login
+        login,
+        position
       }
       if (images != null) {
         updatedData.images = imagePaths

@@ -239,6 +239,7 @@ const requestResolver = {
       return newRequest
     },
     updateRequest: async (_, { id, input }, context) => {
+      console.log(context)
       const {
         airportId,
         arrival,
@@ -250,7 +251,6 @@ const requestResolver = {
         roomNumber,
         status
       } = input
-      // Получаем старую версию заявки для логирования
       const oldRequest = await prisma.request.findUnique({
         where: { id }
       })
@@ -375,7 +375,8 @@ const requestResolver = {
         dinner: 0,
         dailyMeals: []
       }
-      const arrivalDateTime = updatedHotelChess.start
+      // const arrivalDateTime = updatedHotelChess.start
+      const arrivalDateTime = request.arrival.date
       const departureDateTime = newEnd
       const hotel = request.hotel
       const mealTimes = {
@@ -393,12 +394,8 @@ const requestResolver = {
       // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
       const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
         (day) => new Date(day.date) <= newEndDate
-      );      
-      // const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
-      //   (day) => new Date(day.date) < newEndDate || new Date(day.date).toDateString() === newEndDate.toDateString()
-      // );
+      );
       
-      // Добавляем новые дни, только если их нет в отфильтрованных dailyMeals
       newMealPlan.dailyMeals.forEach((newDay) => {
         if (
           !adjustedDailyMeals.some(

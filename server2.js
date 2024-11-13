@@ -69,4 +69,14 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
   return mealPlan;
 };
 
-export default calculateMeal;
+
+const arrivalTime = 1731323952;
+const departureTime = 1731500411; 
+const mealTimes = {
+  breakfast: { start: { hours: 7, minutes: 0 }, end: { hours: 9, minutes: 0 } },
+  lunch: { start: { hours: 12, minutes: 0 }, end: { hours: 16, minutes: 0 } },
+  dinner: { start: { hours: 18, minutes: 0 }, end: { hours: 20, minutes: 0 } }
+};
+
+const result = calculateMeal(arrivalTime, departureTime, mealTimes);
+console.log(result);

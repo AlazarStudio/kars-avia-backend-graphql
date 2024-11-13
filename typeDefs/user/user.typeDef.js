@@ -77,6 +77,7 @@ const userTypeDef = `#graphql
     login: String!
     password: String!
     role: String
+    position: String
     hotelId: String
     airlineId: String
     dispatcher: Boolean
@@ -90,6 +91,7 @@ const userTypeDef = `#graphql
     login: String
     password: String
     role: String
+    position: String
     hotelId: String
     airlineId: String
     airlineDepartmentId: ID
@@ -105,6 +107,7 @@ const userTypeDef = `#graphql
     email: String
     login: String
     role: String
+    position: String
     token: String
     refreshToken: String
     images: [String!]

@@ -134,6 +134,7 @@ input HotelChessInput {
 }
 
 input RoomInput {
+  id: ID
   name: String
   category: Category!
 }
