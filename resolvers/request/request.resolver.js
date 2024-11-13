@@ -350,7 +350,7 @@ const requestResolver = {
       return updatedMealPlan
     },
     extendRequestDates: async (_, { input }, context) => {
-      const { requestId, newEnd, newEndTime, newEndName } = input
+      const { requestId, newEnd, newEndName } = input
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true, hotel: true }
@@ -365,7 +365,7 @@ const requestResolver = {
         where: { id: request.hotelChess.id },
         data: {
           end: newEnd,
-          endTime: newEndTime
+          // endTime: newEndTime
         }
       })
       const existingMealPlan = request.mealPlan || {
@@ -375,8 +375,8 @@ const requestResolver = {
         dinner: 0,
         dailyMeals: []
       }
-      const arrivalDateTime = `${updatedHotelChess.start} ${updatedHotelChess.startTime}`
-      const departureDateTime = `${newEnd} ${newEndTime}`
+      const arrivalDateTime = updatedHotelChess.start
+      const departureDateTime = newEnd
       const hotel = request.hotel
       const mealTimes = {
         breakfast: hotel.breakfast,
@@ -384,15 +384,20 @@ const requestResolver = {
         dinner: hotel.dinner
       }
       const newMealPlan = calculateMeal(
-        new Date(arrivalDateTime).getTime() / 1000,
-        new Date(departureDateTime).getTime() / 1000,
+        arrivalDateTime,
+        departureDateTime,
         mealTimes
       )
-      const newEndDate = new Date(newEnd)
+      // const newEndDate = new Date(newEnd)
+      const newEndDate = newEnd
       // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
-      const adjustedDailyMeals = existingMealPlan.dailyMeals.filter(
+      const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
         (day) => new Date(day.date) <= newEndDate
-      )
+      );      
+      // const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
+      //   (day) => new Date(day.date) < newEndDate || new Date(day.date).toDateString() === newEndDate.toDateString()
+      // );
+      
       // Добавляем новые дни, только если их нет в отфильтрованных dailyMeals
       newMealPlan.dailyMeals.forEach((newDay) => {
         if (
@@ -413,7 +418,7 @@ const requestResolver = {
         data: {
           departure: {
             date: newEnd,
-            time: newEndTime,
+            // time: newEndTime,
             flight: newEndName
           },
           mealPlan: updatedMealPlan
@@ -432,7 +437,6 @@ const requestResolver = {
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
-        // include: { airline: true, airport: true, hotel: true, hotelChess: true }
       })
       // Проверяем вышел ли срок заявки
       if (
@@ -458,7 +462,6 @@ const requestResolver = {
         throw new Error("Request is not expired or already archived")
       }
     }
-    // ----------------------------------------------------------------
   },
   Subscription: {
     requestCreated: {

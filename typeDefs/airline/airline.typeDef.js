@@ -17,9 +17,12 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
-    images: [String!]!
+    images: [String]
     department: [AirlineDepartment!]!
     staff: [AirlinePersonal!]!
+    priceOneCategory: Float
+    priceTwoCategory: Float
+    MealPrice: MealPrice
   }
 
   type AirlineDepartment {
@@ -69,8 +72,9 @@ const airlineTypeDef = `#graphql
     rs: String
     bank: String
     bik: String
-    # staff: AirlinePersonalInput
-    # department: AirlineDepartmentInput
+    priceOneCategory: Float
+    priceTwoCategory: Float
+    MealPrice: MealPriceInput
   }
 
   input UpdateAirlineInput {
@@ -89,6 +93,9 @@ const airlineTypeDef = `#graphql
     bik: String
     staff: [AirlinePersonalInput!]
     department: [AirlineDepartmentInput!]
+    priceOneCategory: Float
+    priceTwoCategory: Float
+    MealPrice: MealPriceInput
   }
 
   input AirlineDepartmentInput {

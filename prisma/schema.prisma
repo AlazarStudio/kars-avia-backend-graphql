@@ -39,6 +39,11 @@ enum Role {
   USER
 }
 
+enum Category {
+  onePlace
+  twoPlace
+}
+
 enum TwoFAMethod {
   HOTP
   TOTP
@@ -55,8 +60,7 @@ model User {
   password            String
   images              String[]
   role                Role
-  // position Position
-  // position String
+  position            String?
   sender              Request[]          @relation(name: "sender")
   receiver            Request[]          @relation(name: "receiver")
   Reserve             Reserve[]
@@ -71,7 +75,6 @@ model User {
   messageReceiver     Message[]          @relation(name: "messageReceiver")
   logs                Log[]
   dispatcher          Boolean?           @default(false)
-  // ----------------------------------------------------------------
   refreshToken        String?
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
@@ -83,39 +86,39 @@ model User {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id           String         @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  country      String?        @default("Россия")
-  city         String?
-  address      String?
-  index        String?
-  quote        String?
-  email        String?
-  number       String?
-  inn          String?
-  ogrn         String?
-  rs           String?
-  bank         String?
-  bik          String?
-  link         String?
-  description  String?
-  breakfast    MealTime?
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  country          String?        @default("Россия")
+  city             String?
+  address          String?
+  index            String?
+  quote            String?
+  email            String?
+  number           String?
+  inn              String?
+  ogrn             String?
+  rs               String?
+  bank             String?
+  bik              String?
+  link             String?
+  description      String?
+  breakfast        MealTime?
   // breakfast    String?        @default("07:00 - 10:00")
-  lunch        MealTime?
+  lunch            MealTime?
   // lunch        String?        @default("12:00 - 16:00")
-  dinner       MealTime?
+  dinner           MealTime?
   // dinner       String?        @default("18:00 - 20:00")
-  images       String[]
-  MealPrice    MealPrice[]
-  ReserveHotel ReserveHotel[]
-  hotelChesses HotelChess[]
-  categories   Category[]
-  Request      Request[]
-  tariffs      Tariff[]
-  prices       Price[]
-  rooms        Room[]
-  User         User[]
-  logs         Log[]
+  images           String[]
+  MealPrice        MealPrice[]
+  ReserveHotel     ReserveHotel[]
+  hotelChesses     HotelChess[]
+  Request          Request[]
+  priceOneCategory Float? @default(0)
+  priceTwoCategory Float? @default(0)
+  rooms            Room[]
+  User             User[]
+  logs             Log[]
+  
 }
 
 type MealTime {
@@ -130,59 +133,21 @@ model HotelChess {
   public    Boolean?
   room      String?
   place     Float?
-  start     String?
-  startTime String?
-  end       String?
-  endTime   String?
+  start     DateTime?
+  end       DateTime?
   client    AirlinePersonal? @relation(fields: [clientId], references: [id])
   clientId  String?          @db.ObjectId
   request   Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId String           @unique @db.ObjectId
 }
 
-model Tariff {
-  id       String     @id @default(auto()) @map("_id") @db.ObjectId
-  name     String
-  hotel    Hotel      @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String     @db.ObjectId
-  room     Room[]
-  price    Price[]
-  Category Category[]
-}
-
-model Category {
-  id       String  @id @default(auto()) @map("_id") @db.ObjectId
-  name     String
-  hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String  @db.ObjectId
-  rooms    Room[]
-  Tariff   Tariff? @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId String? @db.ObjectId
-  Price    Price[]
-}
-
-model Price {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String    @db.ObjectId
-  amount     Float?
-  amountair  Float?
-  tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId   String?   @db.ObjectId
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String?   @db.ObjectId
-}
-
 model Room {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  hotel      Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String    @db.ObjectId
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String?   @db.ObjectId
-  Tariff     Tariff?   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
-  tariffId   String?   @db.ObjectId
-  places     Float?
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId  String   @db.ObjectId
+  category Category
+  places   Float?
 }
 
 // Отели  ---------------- ↑↑↑↑
@@ -196,33 +161,32 @@ type MealPrice {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id          String              @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  images      String[]
-  country     String?
-  city        String?
-  address     String?
-  index       String?
-  quote       String?
-  email       String?
-  number      String?
-  inn         String?
-  ogrn        String?
-  rs          String?
-  bank        String?
-  bik         String?
-  link        String?
-  description String?
-  department  AirlineDepartment[]
-  staff       AirlinePersonal[]
-  Request     Request[]
-  User        User[]
-  logs        Log[]
-  Reserve     Reserve[]
-  // rework amount Air prices with meal and room type
-  MealPrice   MealPrice[]
-  airOnePrice Float?
-  airTwoPrice Float?
+  id               String              @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  images           String[]
+  country          String?
+  city             String?
+  address          String?
+  index            String?
+  quote            String?
+  email            String?
+  number           String?
+  inn              String?
+  ogrn             String?
+  rs               String?
+  bank             String?
+  bik              String?
+  link             String?
+  description      String?
+  department       AirlineDepartment[]
+  staff            AirlinePersonal[]
+  Request          Request[]
+  User             User[]
+  logs             Log[]
+  Reserve          Reserve[]
+  MealPrice        MealPrice[]
+  priceOneCategory Float? @default(0)
+  priceTwoCategory Float? @default(0)
 }
 
 model AirlineDepartment {
@@ -331,7 +295,6 @@ model Reserve {
   person           AirlinePersonalOnReserve[]
   hotel            ReserveHotel[]
   passengers       Passenger[]
-  // ---- need update ----
   chat             Chat[]
   logs             Log[]
   reserveForPerson Boolean
@@ -377,14 +340,12 @@ model ReserveHotelPersonal {
 
 type Arrival {
   flight String?
-  date   String
-  time   String
+  date   DateTime
 }
 
 type Departure {
   flight String?
-  date   String
-  time   String
+  date   DateTime
 }
 
 type MealPlan {
@@ -396,7 +357,7 @@ type MealPlan {
 }
 
 type DailyMeal {
-  date      String
+  date      DateTime
   breakfast Int
   lunch     Int
   dinner    Int

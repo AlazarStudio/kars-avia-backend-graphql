@@ -26,10 +26,11 @@ const userTypeDef = `#graphql
     login: String!
     password: String!
     role: String!
+    position: String
     token: String
     hotelId: String
     airlineId: String
-    images: [String!]!
+    images: [String]
     dispatcher: Boolean
     twoFASecret: String
     twoFAMethod: TwoFAMethod
@@ -52,7 +53,6 @@ const userTypeDef = `#graphql
     updateUser(input: UpdateUserInput!,  images: [Upload!]): AuthPayload
     logout: LogoutResponse
     deleteUser(id: ID!): User!
-    # ---- 2FA ---- ↓↓↓↓
     refreshToken(refreshToken: String!): AuthPayload
     enable2FA(input: TwoFAMethodInput): QRCodeResponse
     verify2FA(token: String!): SuccessResponse

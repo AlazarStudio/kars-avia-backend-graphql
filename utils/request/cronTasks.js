@@ -27,9 +27,9 @@ const checkAndArchiveRequests = async () => {
       })
       // Отправляем уведомление о заархивированной заявке
       pubsub.publish(REQUEST_UPDATED, {
-        requestUpdated: { ...request, status: "archiving" }
+        requestUpdated: request
       })
-      console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
+      // console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
     }
   }
 }

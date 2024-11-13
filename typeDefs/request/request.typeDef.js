@@ -15,8 +15,8 @@ type Request {
   mealPlan: MealPlan
   senderId: String!
   receiverId: String
-  createdAt: String
-  updatedAt: String
+  createdAt: Date
+  updatedAt: Date
   hotelId: String
   hotel: Hotel
   hotelChess: HotelChess
@@ -39,19 +39,17 @@ type Log {
   description: String
   oldData: String
   newData: String
-  createdAt: String!
+  createdAt: Date!
 }
 
 type Arrival {
   flight: String
-  date: String!
-  time: String!
+  date: Date!
 }
 
 type Departure {
   flight: String
-  date: String!
-  time: String!
+  date: Date!
 }
 
 type MealPlan {
@@ -63,7 +61,7 @@ type MealPlan {
 }
 
 type DailyMeal {
-  date: String!
+  date: Date!
   breakfast: Int!
   lunch: Int!
   dinner: Int!
@@ -99,14 +97,12 @@ input UpdateRequestInput {
 
 input ArrivalInput {
   flight: String
-  date: String!
-  time: String!
+  date: Date!
 }
 
 input DepartureInput {
   flight: String
-  date: String!
-  time: String!
+  date: Date!
 }
 
 input MealPlanInput {
@@ -117,7 +113,7 @@ input MealPlanInput {
 }
 
 input DailyMealInput {
-  date: String!
+  date: Date!
   breakfast: Int
   lunch: Int
   dinner: Int
@@ -137,8 +133,7 @@ input PaginationInput {
 input ExtendRequestDatesInput {
   requestId: ID!
   newEndName: String!
-  newEnd: String!
-  newEndTime: String!
+  newEnd: Date!
 }
 
 # queries

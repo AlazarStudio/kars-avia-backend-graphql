@@ -1,19 +1,22 @@
 const chatTypeDef = `#graphql
+
+scalar Date
+
   type Message {
     id: ID!
     text: String!
     sender: User!
     chat: Chat!
-    createdAt: String!
+    createdAt: Date!
   }
 
   type Chat {
     id: ID!
-    # requestId: ID
-    # reserveId: ID
+    requestId: ID
+    reserveId: ID
     messages: [Message]
     participants: [User!]
-    createdAt: String!
+    createdAt: Date!
   }
 
   type ChatUser {

@@ -1,13 +1,15 @@
 const reportTypeDef = `#graphql
 
+scalar Date
+
 # dispatcherReport
 # airlineReport
 # hotelReport
 
 type Query {
-    dispatcherReport(startDate: String!, endDate: String!): [Request!]!
-    airlineReport(startDate: String!, endDate: String!, airlineId: ID!): [Request!]!
-    hotelReport(startDate: String!, endDate: String!, hotelId: ID!): [Request!]!
+    dispatcherReport(startDate: Date!, endDate: Date!): [Request!]!
+    airlineReport(startDate: Date!, endDate: Date!, airlineId: ID!): [Request!]!
+    hotelReport(startDate: Date!, endDate: Date!, hotelId: ID!): [Request!]!
 }
 `
 export default reportTypeDef

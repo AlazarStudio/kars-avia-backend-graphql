@@ -4,8 +4,8 @@ scalar Date
 
 type Reserve {
   id: ID!
-  createdAt: String
-  updatedAt: String
+  createdAt: Date
+  updatedAt: Date
   airport: Airport
   airline: Airline
   senderId: String!

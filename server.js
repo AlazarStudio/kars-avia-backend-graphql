@@ -63,6 +63,7 @@ app.use(
   expressMiddleware(server, {
     context: async ({ req, res }) => {
       const authHeader = req.headers.authorization
+      // console.log("headers: ", req.headers)
       if (!authHeader) {
         return { user: null }
       }
@@ -73,7 +74,21 @@ app.use(
       if (token) {
         try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET)
-          user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+          user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              number: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          })
         } catch (e) {
           console.error("Error verifying token:", e)
         }

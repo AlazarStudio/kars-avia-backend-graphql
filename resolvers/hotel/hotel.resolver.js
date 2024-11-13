@@ -12,16 +12,20 @@ import {
 import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 
+const categoryToPlaces = {
+  onePlace: 1,
+  twoPlace: 2
+};
+
+const calculatePlaces = (category) => categoryToPlaces[category] || 1;
+
 const hotelResolver = {
   Upload: GraphQLUpload,
   Query: {
     hotels: async (_, {}, context) => {
       return await prisma.hotel.findMany({
         include: {
-          categories: true,
           rooms: true,
-          tariffs: true,
-          prices: true,
           hotelChesses: true
         }
       })
@@ -30,10 +34,7 @@ const hotelResolver = {
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
-          categories: true,
           rooms: true,
-          tariffs: true,
-          prices: true,
           hotelChesses: true
         }
       })
@@ -66,9 +67,7 @@ const hotelResolver = {
       const createdHotel = await prisma.hotel.create({
         data,
         include: {
-          categories: true,
           rooms: true,
-          tariffs: true
         }
       })
       // Логирование создания отеля
@@ -92,13 +91,10 @@ const hotelResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
-      const { categories, rooms, tariffs, prices, hotelChesses, ...restInput } =
+      const { rooms, hotelChesses, ...restInput } =
         input
       const updatedData = {
-        categories,
         rooms,
-        tariffs,
-        prices,
         hotelChesses,
         ...restInput
       }
@@ -137,9 +133,7 @@ const hotelResolver = {
                   room: hotelChess.room,
                   place: hotelChess.place,
                   start: hotelChess.start,
-                  startTime: hotelChess.startTime,
                   end: hotelChess.end,
-                  endTime: hotelChess.endTime,
                   clientId: hotelChess.clientId,
                   requestId: hotelChess.requestId
                 }
@@ -178,19 +172,15 @@ const hotelResolver = {
                   room: hotelChess.room,
                   place: hotelChess.place,
                   start: hotelChess.start,
-                  startTime: hotelChess.startTime,
                   end: hotelChess.end,
-                  endTime: hotelChess.endTime,
                   client: { connect: { id: hotelChess.clientId } },
                   request: {
                     connect: { id: hotelChess.requestId }
                   }
                 }
               })
-              // Получаем данные даты прибытия и отъезда
-              const arrival = `${hotelChess.start} ${hotelChess.startTime}`
-              const departure = `${hotelChess.end} ${hotelChess.endTime}`
-              // Найдите информацию о времени приема пищи в отеле
+              const arrival = `${hotelChess.start}`
+              const departure = `${hotelChess.end}`
               const hotel = await prisma.hotel.findUnique({
                 where: { id },
                 select: { breakfast: true, lunch: true, dinner: true }
@@ -200,7 +190,6 @@ const hotelResolver = {
                 lunch: hotel.lunch,
                 dinner: hotel.dinner
               }
-              // Вычисление питания
               const mealPlan = calculateMeal(
                 new Date(arrival).getTime() / 1000, // В секундах
                 new Date(departure).getTime() / 1000, // В секундах
@@ -237,156 +226,22 @@ const hotelResolver = {
             }
           }
         }
-        // Обработка тарифов
-        if (tariffs) {
-          for (const tariff of tariffs) {
-            if (tariff.id) {
-              const previousTariffData = await prisma.tariff.findUnique({
-                where: { id: tariff.id }
-              })
-              await prisma.tariff.update({
-                where: { id: tariff.id },
-                data: {
-                  name: tariff.name,
-                  categoryId: tariff.categoryId
-                }
-              })
-              await logAction({
-                context,
-                action: "update tariff",
-                description: {},
-                oldData: previousTariffData,
-                newData: tariff,
-                hotelId: tariff.hotelId
-              })
-            } else {
-              await prisma.tariff.create({
-                data: {
-                  hotelId: id,
-                  name: tariff.name,
-                  categoryId: tariff.categoryId
-                }
-              })
-              await logAction({
-                context,
-                action: "create cariff",
-                description: {},
-                newData: tariff,
-                hotelId: tariff.hotelId
-              })
-            }
-          }
-        }
-        // Обработка категорий
-        if (categories) {
-          for (const category of categories) {
-            if (category.id) {
-              const previousCategoryData = await prisma.category.findUnique({
-                where: { id: category.id }
-              })
-              await prisma.category.update({
-                where: { id: category.id },
-                data: {
-                  name: category.name,
-                  tariffId: category.tariffId
-                }
-              })
-              await logAction({
-                context,
-                action: "update category",
-                description: {},
-                oldData: previousCategoryData,
-                newData: category,
-                hotelId: category.hotelId
-              })
-            } else {
-              await prisma.category.create({
-                data: {
-                  hotelId: id,
-                  name: category.name,
-                  tariffId: category.tariffId
-                }
-              })
-              await logAction({
-                context,
-                action: "create category",
-                description: {},
-                newData: category,
-                hotelId: category.hotelId
-              })
-            }
-          }
-        }
-        // Обработка цен
-        if (prices) {
-          for (const price of prices) {
-            if (price.id) {
-              const previousPriceData = await prisma.price.findUnique({
-                where: { id: price.id }
-              })
-              await prisma.price.update({
-                where: { id: price.id },
-                data: {
-                  amount: price.amount,
-                  amountair: price.amountair,
-                  category: {
-                    connect: { id: price.categoryId }
-                  },
-                  tariff: {
-                    connect: { id: price.tariffId }
-                  }
-                }
-              })
-              await logAction({
-                context,
-                action: "update price",
-                description: {},
-                oldData: previousPriceData,
-                newData: price,
-                hotelId: price.hotelId
-              })
-            } else {
-              await prisma.price.create({
-                data: {
-                  amount: price.amount,
-                  amountair: price.amountair,
-                  category: {
-                    connect: { id: price.categoryId }
-                  },
-                  tariff: {
-                    connect: { id: price.tariffId }
-                  },
-                  hotel: {
-                    connect: { id: id }
-                  }
-                }
-              })
-              await logAction({
-                context,
-                action: "create price",
-                description: {},
-                newData: price,
-                hotelId: price.hotelId
-              })
-            }
-          }
-        }
         // Обработка комнат
         if (rooms) {
           for (const room of rooms) {
+            const places = calculatePlaces(room.category); // используем отдельную функцию для расчёта мест
             if (room.id) {
               const previousRoomData = await prisma.room.findUnique({
                 where: { id: room.id }
-              })
+              });
               await prisma.room.update({
                 where: { id: room.id },
                 data: {
                   name: room.name,
-                  tariffId: room.tariffId,
-                  categoryId: room.categoryId,
-                  places: room.places
+                  category: room.category,
+                  places: places
                 }
-              })
+              });
               await logAction({
                 context,
                 action: "update room",
@@ -394,35 +249,31 @@ const hotelResolver = {
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
-              })
+              });
             } else {
               await prisma.room.create({
                 data: {
                   hotelId: id,
                   name: room.name,
-                  tariffId: room.tariffId,
-                  categoryId: room.categoryId,
-                  places: room.places
+                  category: room.category,
+                  places: places
                 }
-              })
+              });
               await logAction({
                 context,
                 action: "create room",
                 description: {},
                 newData: room,
                 hotelId: room.hotelId
-              })
+              });
             }
           }
-        }
+        }        
         // Получаем обновленный отель с вложенными данными
         const hotelWithRelations = await prisma.hotel.findUnique({
           where: { id },
           include: {
-            categories: true,
             rooms: true,
-            tariffs: true,
-            prices: true,
             hotelChesses: true
           }
         })
@@ -472,89 +323,11 @@ const hotelResolver = {
         hotelId: roomToDelete.id
       })
       return deletedRoom
-    },
-    deletePrice: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
-      const priceToDelete = await prisma.price.findUnique({
-        where: { id }
-      })
-      if (!priceToDelete) {
-        throw new Error("Цена не найдена")
-      }
-      const deletedPrice = await prisma.price.delete({
-        where: { id }
-      })
-      await logAction({
-        context,
-        action: "delete price",
-        description: {},
-        oldData: priceToDelete,
-        newData: priceToDelete,
-        hotelId: id
-      })
-      return deletedPrice
-    },
-    deleteTariff: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
-      const tariffToDelete = await prisma.tariff.findUnique({
-        where: { id }
-      })
-      if (!tariffToDelete) {
-        throw new Error("Тариф не найден")
-      }
-      const deletedTariff = await prisma.tariff.delete({
-        where: { id }
-      })
-      await logAction({
-        context,
-        action: "delete tariff",
-        description: {},
-        oldData: tariffToDelete,
-        newData: tariffToDelete,
-        hotelId: id
-      })
-      return deletedTariff
-    },
-    deleteCategory: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
-      const categoryToDelete = await prisma.category.findUnique({
-        where: { id }
-      })
-      if (!categoryToDelete) {
-        throw new Error("Категория не найдена")
-      }
-      const deletedCategory = await prisma.category.delete({
-        where: { id }
-      })
-      await logAction({
-        context,
-        action: "delete category",
-        description: {},
-        oldData: categoryToDelete,
-        newData: categoryToDelete,
-        hotelId: id
-      })
-      return deletedCategory
     }
   },
   Hotel: {
-    categories: async (parent) => {
-      return await prisma.category.findMany({
-        where: { hotelId: parent.id }
-      })
-    },
     rooms: async (parent) => {
       return await prisma.room.findMany({
-        where: { hotelId: parent.id }
-      })
-    },
-    tariffs: async (parent) => {
-      return await prisma.tariff.findMany({
-        where: { hotelId: parent.id }
-      })
-    },
-    prices: async (parent) => {
-      return await prisma.price.findMany({
         where: { hotelId: parent.id }
       })
     },
@@ -574,62 +347,6 @@ const hotelResolver = {
     request: async (parent) => {
       return await prisma.request.findUnique({
         where: { id: parent.requestId }
-      })
-    }
-  },
-  Tariff: {
-    prices: async (parent) => {
-      return await prisma.price.findMany({
-        where: { tariffId: parent.id },
-        include: {
-          category: true
-        }
-      })
-    },
-    category: async (parent) => {
-      return await prisma.category.findMany({
-        where: { tariffId: parent.id }
-      })
-    }
-  },
-  Category: {
-    rooms: async (parent) => {
-      return await prisma.room.findMany({
-        where: { categoryId: parent.id }
-      })
-    },
-    prices: async (parent) => {
-      return await prisma.price.findMany({
-        where: { categoryId: parent.id }
-      })
-    },
-    tariffs: async (parent) => {
-      return await prisma.tariff.findUnique({
-        where: { id: parent.tariffId }
-      })
-    }
-  },
-  Room: {
-    category: async (parent) => {
-      return await prisma.category.findUnique({
-        where: { id: parent.categoryId }
-      })
-    },
-    tariff: async (parent) => {
-      return await prisma.tariff.findUnique({
-        where: { id: parent.tariffId }
-      })
-    }
-  },
-  Price: {
-    category: async (parent) => {
-      return await prisma.category.findUnique({
-        where: { id: parent.categoryId }
-      })
-    },
-    tariff: async (parent) => {
-      return await prisma.tariff.findUnique({
-        where: { id: parent.tariffId }
       })
     }
   }
