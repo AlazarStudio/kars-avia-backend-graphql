@@ -58,7 +58,7 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     mealPlan.totalBreakfast += dailyMeal.breakfast;
     mealPlan.totalLunch += dailyMeal.lunch;
     mealPlan.totalDinner += dailyMeal.dinner;
-
+    
     // Добавляем информацию о текущем дне
     mealPlan.dailyMeals.push(dailyMeal);
 
