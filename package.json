@@ -3,6 +3,7 @@
   "version": "1.6.8",
   "main": "server.js",
   "scripts": {
+    "backup": "node utils/cron/backup.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dev2": "node server2.js",
@@ -22,6 +23,7 @@
     "apollo-server-express": "^3.13.0",
     "argon2": "^0.40.3",
     "bcryptjs": "^2.4.3",
+    "child_process": "^1.0.2",
     "connect-mongodb-session": "^2.2.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -36,6 +38,7 @@
     "jsonwebtoken": "^9.0.2",
     "lodash.isequal": "^4.5.0",
     "mongoose": "^8.4.5",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",
     "pm2": "^5.4.2",

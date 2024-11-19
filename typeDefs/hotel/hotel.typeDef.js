@@ -61,6 +61,8 @@ type Room {
   name: String!
   category: Category
   places: Float
+  active: Boolean
+  reserve: Boolean
 }
 
 type MealPrice {
@@ -136,7 +138,9 @@ input HotelChessInput {
 input RoomInput {
   id: ID
   name: String
-  category: Category!
+  category: Category
+  active: Boolean
+  reserve: Boolean
 }
 
 input MealPriceInput {

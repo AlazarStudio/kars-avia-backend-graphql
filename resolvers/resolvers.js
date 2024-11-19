@@ -12,16 +12,17 @@ import reserveResolver from "./reserve/reserve.resolver.js"
 import reportResolver from "./report/report.resolver.js"
 
 const mergedResolvers = mergeResolvers([
-  userResolver,
-  hotelResolver,
   airlineResolver,
+  airportResolver,
+  chatResolver,
+  cityResolver,
+  fileResolver,
+  hotelResolver,
+  reportResolver,
   requestResolver,
   reserveResolver,
-  chatResolver,
-  fileResolver,
-  airportResolver,
-  cityResolver,
-  reportResolver,
+  userResolver,
+  
 ])
 
 export default mergedResolvers

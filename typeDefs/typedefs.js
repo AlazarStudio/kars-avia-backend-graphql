@@ -12,16 +12,17 @@ import reserveTypeDef from "./reserve/reserve.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
-  userTypeDef,
-  hotelTypeDef,
   airlineTypeDef,
+  airportTypeDef,
+  chatTypeDef,
+  cityTypeDef,
+  fileTypeDef,
+  hotelTypeDef,
+  reportTypeDef,
   requestTypeDef,
   reserveTypeDef,
-  chatTypeDef,
-  fileTypeDef,
-  airportTypeDef,
-  cityTypeDef,
-  reportTypeDef,
+  userTypeDef,
+  
 ])
 
 export default mergedTypeDefs

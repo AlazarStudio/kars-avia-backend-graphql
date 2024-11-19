@@ -109,16 +109,15 @@ model Hotel {
   dinner           MealTime?
   // dinner       String?        @default("18:00 - 20:00")
   images           String[]
-  MealPrice        MealPrice[]
+  MealPrice        MealPrice
   ReserveHotel     ReserveHotel[]
   hotelChesses     HotelChess[]
   Request          Request[]
-  priceOneCategory Float? @default(0)
-  priceTwoCategory Float? @default(0)
+  priceOneCategory Float?         @default(0)
+  priceTwoCategory Float?         @default(0)
   rooms            Room[]
   User             User[]
   logs             Log[]
-  
 }
 
 type MealTime {
@@ -148,6 +147,8 @@ model Room {
   hotelId  String   @db.ObjectId
   category Category
   places   Float?
+  reserve Boolean @default(false)
+  active   Boolean  @default(true)
 }
 
 // Отели  ---------------- ↑↑↑↑
@@ -184,9 +185,9 @@ model Airline {
   User             User[]
   logs             Log[]
   Reserve          Reserve[]
-  MealPrice        MealPrice[]
-  priceOneCategory Float? @default(0)
-  priceTwoCategory Float? @default(0)
+  MealPrice        MealPrice
+  priceOneCategory Float?              @default(0)
+  priceTwoCategory Float?              @default(0)
 }
 
 model AirlineDepartment {

@@ -45,8 +45,16 @@ const airlineResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
+      
+      const defaultMealPrice = {
+        breakfast: 600,
+        lunch: 600,
+        dinner: 600
+      };
+
       const data = {
         ...input,
+        MealPrice: input.MealPrice || defaultMealPrice,
         images: imagePaths
       }
       return await prisma.airline.create({

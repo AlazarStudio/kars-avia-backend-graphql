@@ -368,7 +368,6 @@ const requestResolver = {
         where: { id: request.hotelChess.id },
         data: {
           end: newEnd,
-          // endTime: newEndTime
         }
       })
       const existingMealPlan = request.mealPlan || {
@@ -418,7 +417,6 @@ const requestResolver = {
         data: {
           departure: {
             date: newEnd,
-            // time: newEndTime,
             flight: newEndName
           },
           mealPlan: updatedMealPlan
@@ -432,7 +430,6 @@ const requestResolver = {
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
-    // функция архивирования заявки
     archivingRequst: async (_, input, context) => {
       const requestId = input.id
       const request = await prisma.request.findUnique({
@@ -460,6 +457,31 @@ const requestResolver = {
         return archiveRequest
       } else {
         throw new Error("Request is not expired or already archived")
+      }
+    },
+    cancelRequest: async (_, input, context) => {
+      const requestId = input.id
+      const request = await prisma.request.findUnique({
+        where: { id: requestId }
+      })
+      if (request.status != "done") {
+        const canceledRequest = await prisma.request.update({
+          where: { id: requestId },
+          data: { status: "canceled" }
+        })
+        await logAction({
+          context,
+          action: "cancel_request",
+          description: { requestId: request.id },
+          oldData: request,
+          newData: { status: "canceled" },
+          hotelId: request.hotelId,
+          requestId: request.id
+        })
+        pubsub.publish(REQUEST_UPDATED, { requestUpdated: canceledRequest })
+        return canceledRequest
+      } else {
+        throw new Error("Request is not in the 'created' status")
       }
     }
   },

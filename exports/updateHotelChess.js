@@ -15,9 +15,7 @@ const updateHotelChess = async (prisma, pubsub, context, hotelChess, id) => {
         room: hotelChess.room,
         place: hotelChess.place,
         start: hotelChess.start,
-        // startTime: hotelChess.startTime,
         end: hotelChess.end,
-        // endTime: hotelChess.endTime,
         clientId: hotelChess.clientId,
         requestId: hotelChess.requestId
       }
@@ -57,9 +55,7 @@ const updateHotelChess = async (prisma, pubsub, context, hotelChess, id) => {
         room: hotelChess.room,
         place: hotelChess.place,
         start: hotelChess.start,
-        // startTime: hotelChess.startTime,
         end: hotelChess.end,
-        // endTime: hotelChess.endTime,
         client: { connect: { id: hotelChess.clientId } },
         request: { connect: { id: hotelChess.requestId } }
       }

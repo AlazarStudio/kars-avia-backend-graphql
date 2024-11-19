@@ -147,6 +147,7 @@ type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
   modifyDailyMeals(input: ModifyDailyMealsInput!): MealPlan!
+  cancelRequest(id: ID!): Request!
 }
 
 extend type Mutation {

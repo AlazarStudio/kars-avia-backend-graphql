@@ -64,11 +64,11 @@ const hotelResolver = {
         }
       }
 
-      // const defaultMealPrice = {
-      //   breakfast: 600,
-      //   lunch: 600,
-      //   dinner: 600
-      // };
+      const defaultMealPrice = {
+        breakfast: 600,
+        lunch: 600,
+        dinner: 600
+      };
 
       const defaultMealTime = {
         breakfast: { start: "07:00", end: "10:00" },
@@ -78,8 +78,8 @@ const hotelResolver = {
 
       const data = {
         ...input,
-        // MealPrice: input.MealPrice || defaultMealPrice,
-        breakfast: input.breakfast || defaultMealTime.breakfast,
+        MealPrice: input.MealPrice || defaultMealPrice,
+        breakfast: input.breakfast || defaultMealTime.breakfast,  
         lunch: input.lunch || defaultMealTime.lunch,
         dinner: input.dinner || defaultMealTime.dinner,
         images: imagePaths
@@ -260,6 +260,8 @@ const hotelResolver = {
                 data: {
                   name: room.name,
                   category: room.category,
+                  reserve: room.reserve,
+                  active: room.active,
                   places: places
                 }
               });
@@ -277,6 +279,8 @@ const hotelResolver = {
                   hotelId: id,
                   name: room.name,
                   category: room.category,
+                  reserve: room.reserve,
+                  active: room.active,
                   places: places
                 }
               });
@@ -304,7 +308,7 @@ const hotelResolver = {
       }
     },
     deleteHotel: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
+      superAdminMiddleware(context)
       const hotelToDelete = await prisma.hotel.findUnique({
         where: { id }
       })
