@@ -29,7 +29,8 @@ const app = express()
 const sslOptions = {
   key: fs.readFileSync("/etc/ssl/private/privkey.pem"), // Укажите правильный путь
   cert: fs.readFileSync("/etc/ssl/certs/cert.pem"),
-  ca: fs.readFileSync("/etc/ssl/certs/chain.pem") // Если есть цепочка сертификатов
+  passphrase: process.env.SSL_PASSWORD, // Используйте переменную окружения для хранения пароля
+  // Уберите строку ca, если у вас нет цепочки сертификатов
 }
 
 // HTTP сервер для перенаправления на HTTPS
