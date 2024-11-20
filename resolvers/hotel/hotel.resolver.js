@@ -27,13 +27,13 @@ const hotelResolver = {
         include: {
           rooms: true,
           hotelChesses: true,
-          MealPrice: {
-            select: {
-              breakfast: true,
-              lunch: true,
-              dinner: true
-            }
-          },
+          // MealPrice: {
+          //   select: {
+          //     breakfast: true,
+          //     lunch: true,
+          //     dinner: true
+          //   }
+          // },
         }
       })
     },
@@ -43,13 +43,13 @@ const hotelResolver = {
         include: {
           rooms: true,
           hotelChesses: true,
-          MealPrice: {
-            select: {
-              breakfast: true,
-              lunch: true,
-              dinner: true
-            }
-          },
+          // MealPrice: {
+          //   select: {
+          //     breakfast: true,
+          //     lunch: true,
+          //     dinner: true
+          //   }
+          // },
         }
       })
     }
