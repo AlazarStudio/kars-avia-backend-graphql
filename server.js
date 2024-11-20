@@ -24,19 +24,33 @@ import { startArchivingJob } from "./utils/request/cronTasks.js"
 
 dotenv.config()
 const app = express()
-const httpServer = http.createServer(app)
+
+// Загрузка SSL сертификатов
+const sslOptions = {
+  key: fs.readFileSync("/etc/ssl/private/privkey.pem"), // Укажите правильный путь
+  cert: fs.readFileSync("/etc/ssl/certs/cert.pem"),
+  ca: fs.readFileSync("/etc/ssl/certs/chain.pem") // Если есть цепочка сертификатов
+}
+
+// HTTP сервер для перенаправления на HTTPS
+const httpServer = http.createServer((req, res) => {
+  res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` })
+  res.end()
+})
+
+const httpsServer = https.createServer(sslOptions, app)
 const schema = makeExecutableSchema({
   typeDefs: mergedTypeDefs,
   resolvers: mergedResolvers
 })
-const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" })
+const wsServer = new WebSocketServer({ server: httpsServer, path: "/graphql" })
 const serverCleanup = useServer({ schema }, wsServer)
 const server = new ApolloServer({
   schema: schema,
   csrfPrevention: true,
   cache: "bounded",
   plugins: [
-    ApolloServerPluginDrainHttpServer({ httpServer }),
+    ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
     {
       async serverWillStart() {
         return {
@@ -49,6 +63,7 @@ const server = new ApolloServer({
     ApolloServerPluginLandingPageLocalDefault({ embed: true })
   ]
 })
+
 // --------------------------------
 startArchivingJob()
 
@@ -63,7 +78,6 @@ app.use(
   expressMiddleware(server, {
     context: async ({ req, res }) => {
       const authHeader = req.headers.authorization
-      // console.log("headers: ", req.headers.authorization)
       if (!authHeader) {
         return { user: null }
       }
@@ -98,9 +112,15 @@ app.use(
   })
 )
 
-const PORT = 4000
-const HOST = "0.0.0.0"
-// Now that our HTTP server is fully set up, we can listen to it.
-httpServer.listen({ port: PORT, host: HOST }, () => {
-  console.log(`Server is now running on http://localhost:${PORT}/graphql`)
+const PORT = 443 // HTTPS порт
+const HTTP_PORT = 80 // HTTP порт
+
+// Запуск HTTPS сервера
+httpsServer.listen(PORT, () => {
+  console.log(`Server is now running on https://localhost:${PORT}/graphql`)
+})
+
+// Запуск HTTP сервера для редиректа
+httpServer.listen(HTTP_PORT, () => {
+  console.log(`Redirecting HTTP to HTTPS on port ${HTTP_PORT}`)
 })

@@ -1,165 +1,45 @@
-import { prisma } from "../prisma.js"
-import { reverseDateTimeFormatter, dateTimeFormatter } from "./dateTimeFormater.js"
+import { prisma } from "../prisma.js";
 
-const generateDispatcherReport = async (startDate, endDate) => {
-  const time = "01:00"
-  const isoStart = reverseDateTimeFormatter(startDate, time)
-  const isoEnd = reverseDateTimeFormatter(endDate, time)
+const generateDispatcherReport = async (startDate, endDate, includeArchive) => {
+  const filters = { createdAt: { gte: startDate, lte: endDate } };
+  if (includeArchive) filters.archive = true;
 
-  const isoStartSe = dateTimeFormatter(isoStart)
-  const isoEndSe = dateTimeFormatter(isoEnd)
-  // const isoStart = new Date(startDate).toISOString()
-  // const isoEnd = new Date(endDate).toISOString()
+  const requests = await prisma.request.findMany({ where: filters });
+  return aggregateReportData(requests);
+};
 
-  console.log(
-    "startDate",
-    // startDate,
-    " - ",
-    isoStartSe,
-    "endDate",
-    // endDate,
-    " - ",
-    isoEndSe
-  )
+const generateAirlineReport = async (startDate, endDate, airlineId, includeArchive) => {
+  const filters = { airlineId, createdAt: { gte: startDate, lte: endDate } };
+  if (includeArchive) filters.archive = true;
 
-  const requests = await prisma.request.findMany({
-    where: {
-      AND: {
-        createdAt: { gte: isoStart, lte: isoEnd }
-      }
-    }
-  })
+  const requests = await prisma.request.findMany({ where: filters });
+  return aggregateReportData(requests);
+};
 
-  return requests.map((request) => {
-    const arrivalDate = new Date(request.arrival.date)
-    const departureDate = new Date(request.departure.date)
+const generateHotelReport = async (startDate, endDate, hotelId, includeArchive) => {
+  const filters = { hotelId, createdAt: { gte: startDate, lte: endDate } };
+  if (includeArchive) filters.archive = true;
 
-    return {
-      employeeName: request.personId,
-      requestNumber: request.requestNumber,
-      stayDates: `${arrivalDate.toISOString().split("T")[0]} - ${
-        departureDate.toISOString().split("T")[0]
-      }`,
-      numberOfNights: Math.ceil(
-        (departureDate - arrivalDate) / (24 * 60 * 60 * 1000)
-      )
-    }
-  })
-}
+  const requests = await prisma.request.findMany({ where: filters });
+  return aggregateReportData(requests);
+};
 
-const generateAirlineReport = async (startDate, endDate, airlineId) => {
-  const requests = await prisma.request.findMany({
-    where: {
-      airlineId: airlineId,
-      arrival: { date: { gte: startDate } },
-      departure: { date: { lte: endDate } }
-    },
-    include: {
-      employee: true,
-      hotel: true
-    }
-  })
+const aggregateReportData = (requests) => {
+  // Пример агрегации данных
+  return requests.map((request) => ({
+    name: request.person.name,
+    roomCategory: request.roomCategory,
+    stayDates: `${request.arrival.date} - ${request.departure.date}`,
+    mealPlan: request.mealPlan,
+    totalCost: calculateTotalCost(request),
+  }));
+};
 
-  return requests.map((request) => {
-    const arrivalDate = new Date(request.arrival.date)
-    const departureDate = new Date(request.departure.date)
+const calculateTotalCost = (request) => {
+  // Пример расчёта стоимости
+  const mealCost = (request.mealPlan.breakfast || 0) * 500;
+  const roomCost = request.roomCategory === "Standard" ? 3000 : 5000;
+  return mealCost + roomCost;
+};
 
-    return {
-      employeeName: request.employee.name,
-      requestNumber: request.id,
-      stayDates: `${arrivalDate.toISOString().split("T")[0]} - ${
-        departureDate.toISOString().split("T")[0]
-      }`,
-      numberOfNights: Math.ceil(
-        (departureDate - arrivalDate) / (24 * 60 * 60 * 1000)
-      ),
-      accommodationCost: request.accommodationCost,
-      mealCost: request.mealCost,
-      transferCost: request.transferCost || 0
-    }
-  })
-}
-
-const generateHotelReport = async (startDate, endDate, hotelId) => {
-  const requests = await prisma.request.findMany({
-    where: {
-      hotelId: hotelId,
-      arrival: { date: { gte: startDate } },
-      departure: { date: { lte: endDate } }
-    },
-    include: {
-      employee: true,
-      airline: true
-    }
-  })
-
-  return requests.map((request) => {
-    const arrivalDate = new Date(request.arrival.date)
-    const departureDate = new Date(request.departure.date)
-
-    return {
-      employeeName: request.employee.name,
-      requestNumber: request.id,
-      stayDates: `${arrivalDate.toISOString().split("T")[0]} - ${
-        departureDate.toISOString().split("T")[0]
-      }`,
-      numberOfNights: Math.ceil(
-        (departureDate - arrivalDate) / (24 * 60 * 60 * 1000)
-      ),
-      accommodationCost: request.accommodationCost,
-      mealCost: request.mealCost,
-      transferCost: request.transferCost || 0
-    }
-  })
-}
-
-const generateArchivedDispatcherReport = async (startDate, endDate) => {
-  const requests = await prisma.request.findMany({
-    where: {
-      AND: [
-        {
-          arrival: {
-            date: { gte: startDate }
-          }
-        },
-        {
-          departure: {
-            date: { lte: endDate }
-          }
-        }
-      ],
-      status: "archived"
-    },
-    include: {
-      employee: true,
-      hotel: true,
-      airline: true
-    }
-  })
-
-  return requests.map((request) => {
-    const arrivalDate = new Date(request.arrival.date)
-    const departureDate = new Date(request.departure.date)
-
-    return {
-      employeeName: request.employee.name,
-      requestNumber: request.id,
-      stayDates: `${arrivalDate.toISOString().split("T")[0]} - ${
-        departureDate.toISOString().split("T")[0]
-      }`,
-      numberOfNights: Math.ceil(
-        (departureDate - arrivalDate) / (24 * 60 * 60 * 1000)
-      ),
-      accommodationCost: request.accommodationCost,
-      mealCost: request.mealCost,
-      transferCost: request.transferCost || 0
-    }
-  })
-}
-
-export {
-  generateDispatcherReport,
-  generateAirlineReport,
-  generateHotelReport,
-  generateArchivedDispatcherReport
-}
+export { generateDispatcherReport, generateAirlineReport, generateHotelReport };
