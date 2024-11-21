@@ -367,7 +367,7 @@ const requestResolver = {
       const updatedHotelChess = await prisma.hotelChess.update({
         where: { id: request.hotelChess.id },
         data: {
-          end: newEnd,
+          end: newEnd
         }
       })
       const existingMealPlan = request.mealPlan || {
@@ -396,8 +396,8 @@ const requestResolver = {
       // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
       const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
         (day) => new Date(day.date) <= newEndDate
-      );
-      
+      )
+
       newMealPlan.dailyMeals.forEach((newDay) => {
         if (
           !adjustedDailyMeals.some(

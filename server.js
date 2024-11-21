@@ -27,10 +27,9 @@ const app = express()
 
 // Загрузка SSL сертификатов
 const sslOptions = {
-  key: fs.readFileSync("/etc/ssl/private/privkey.pem"), // Укажите правильный путь
-  cert: fs.readFileSync("/etc/ssl/certs/cert.pem"),
-  passphrase: process.env.SSL_PASSWORD, // Используйте переменную окружения для хранения пароля
-  // Уберите строку ca, если у вас нет цепочки сертификатов
+  key: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/privkey.pem"),
+  cert: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/cert.pem"),
+  ca: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/chain.pem")
 }
 
 // HTTP сервер для перенаправления на HTTPS

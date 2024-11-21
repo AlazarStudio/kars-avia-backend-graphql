@@ -57,6 +57,6 @@ type MealPlan {
   dinners: Int
   mealCost: Float
 }
-`;
+`
 
-export default reportTypeDef;
+export default reportTypeDef

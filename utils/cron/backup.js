@@ -3,6 +3,9 @@ import { dirname, join } from "path"
 import { existsSync, mkdirSync } from "fs"
 import { spawn } from "child_process"
 import cron from "node-cron"
+import dotenv from "dotenv"
+
+dotenv.config()
 
 // Эмуляция __dirname
 const __filename = fileURLToPath(import.meta.url)
@@ -45,7 +48,8 @@ const createBackup = () => {
 }
 
 // Запускаем cron задачу для автоматического резервного копирования
-cron.schedule("0 3 * * *", () => {
+cron.schedule("0 * * * *", () => {
+  // Запуск каждый час
   console.log("Запуск задачи резервного копирования...")
   createBackup()
 })

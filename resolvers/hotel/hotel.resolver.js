@@ -15,9 +15,9 @@ import calculateMeal from "../../exports/calculateMeal.js"
 const categoryToPlaces = {
   onePlace: 1,
   twoPlace: 2
-};
+}
 
-const calculatePlaces = (category) => categoryToPlaces[category] || 1;
+const calculatePlaces = (category) => categoryToPlaces[category] || 1
 
 const hotelResolver = {
   Upload: GraphQLUpload,
@@ -26,7 +26,7 @@ const hotelResolver = {
       return await prisma.hotel.findMany({
         include: {
           rooms: true,
-          hotelChesses: true,
+          hotelChesses: true
           // MealPrice: {
           //   select: {
           //     breakfast: true,
@@ -42,7 +42,7 @@ const hotelResolver = {
         where: { id },
         include: {
           rooms: true,
-          hotelChesses: true,
+          hotelChesses: true
           // MealPrice: {
           //   select: {
           //     breakfast: true,
@@ -68,7 +68,7 @@ const hotelResolver = {
         breakfast: 600,
         lunch: 600,
         dinner: 600
-      };
+      }
 
       const defaultMealTime = {
         breakfast: { start: "07:00", end: "10:00" },
@@ -79,7 +79,7 @@ const hotelResolver = {
       const data = {
         ...input,
         MealPrice: input.MealPrice || defaultMealPrice,
-        breakfast: input.breakfast || defaultMealTime.breakfast,  
+        breakfast: input.breakfast || defaultMealTime.breakfast,
         lunch: input.lunch || defaultMealTime.lunch,
         dinner: input.dinner || defaultMealTime.dinner,
         images: imagePaths
@@ -88,7 +88,7 @@ const hotelResolver = {
       const createdHotel = await prisma.hotel.create({
         data,
         include: {
-          rooms: true,
+          rooms: true
         }
       })
       // Логирование создания отеля
@@ -112,8 +112,7 @@ const hotelResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
-      const { rooms, hotelChesses, ...restInput } =
-        input
+      const { rooms, hotelChesses, ...restInput } = input
       const updatedData = {
         rooms,
         hotelChesses,
@@ -250,11 +249,11 @@ const hotelResolver = {
         // Обработка комнат
         if (rooms) {
           for (const room of rooms) {
-            const places = calculatePlaces(room.category); // используем отдельную функцию для расчёта мест
+            const places = calculatePlaces(room.category) // используем отдельную функцию для расчёта мест
             if (room.id) {
               const previousRoomData = await prisma.room.findUnique({
                 where: { id: room.id }
-              });
+              })
               await prisma.room.update({
                 where: { id: room.id },
                 data: {
@@ -264,7 +263,7 @@ const hotelResolver = {
                   active: room.active,
                   places: places
                 }
-              });
+              })
               await logAction({
                 context,
                 action: "update room",
@@ -272,7 +271,7 @@ const hotelResolver = {
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
-              });
+              })
             } else {
               await prisma.room.create({
                 data: {
@@ -283,17 +282,17 @@ const hotelResolver = {
                   active: room.active,
                   places: places
                 }
-              });
+              })
               await logAction({
                 context,
                 action: "create room",
                 description: {},
                 newData: room,
                 hotelId: room.hotelId
-              });
+              })
             }
           }
-        }        
+        }
         // Получаем обновленный отель с вложенными данными
         const hotelWithRelations = await prisma.hotel.findUnique({
           where: { id },
@@ -361,7 +360,7 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { client: true }
       })
-    },
+    }
   },
   HotelChess: {
     client: async (parent) => {

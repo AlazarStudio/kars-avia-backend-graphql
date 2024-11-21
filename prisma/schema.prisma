@@ -147,7 +147,7 @@ model Room {
   hotelId  String   @db.ObjectId
   category Category
   places   Float?
-  reserve Boolean @default(false)
+  reserve  Boolean  @default(false)
   active   Boolean  @default(true)
 }
 

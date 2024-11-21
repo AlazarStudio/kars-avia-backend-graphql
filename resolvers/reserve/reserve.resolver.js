@@ -252,7 +252,7 @@ const reserveResolver = {
     updateReserve: async (_, { id, input }, context) => {
       console.log(context)
       const { arrival, departure, mealPlan, status, persons } = input
-      
+
       const updatedReserve = await prisma.reserve.update({
         where: { id },
         data: {
@@ -274,7 +274,7 @@ const reserveResolver = {
       //   reserveId: updatedReserve.id,
       //   airlineId: updatedReserve.airlineId
       // })
-      
+
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },
