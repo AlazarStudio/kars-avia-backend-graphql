@@ -1,6 +1,6 @@
 import { fileURLToPath } from "url"
 import { dirname, join } from "path"
-import { existsSync, mkdirSync } from "fs"
+import { existsSync, mkdirSync, readdirSync } from "fs"
 import { spawn } from "child_process"
 import cron from "node-cron"
 import dotenv from "dotenv"
@@ -24,32 +24,76 @@ if (!existsSync(BACKUP_DIR)) {
   mkdirSync(BACKUP_DIR, { recursive: true })
 }
 
-// Функция для выполнения mongodump
+// Функция для создания резервной копии
 const createBackup = () => {
   const timestamp = new Date().toISOString().replace(/:/g, "-")
-  const backupPath = `${BACKUP_DIR}/${DB_NAME}-${timestamp}`
+  const backupPath = `${BACKUP_DIR}/${DB_NAME}-${timestamp}.gz`
 
-  const args = [`--uri=${MONGO_URI}`, `--db=${DB_NAME}`, `--out=${backupPath}`]
+  const args = [
+    `--uri=${MONGO_URI}`,
+    `--db=${DB_NAME}`,
+    "--archive", // Создаёт архив
+    "--gzip", // Сжимает архив
+    `--out=${backupPath}`
+  ]
+
   const process = spawn("mongodump", args)
 
   process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
   process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(
-        `Резервное копирование завершено. Данные сохранены в: ${backupPath}`
-      )
+      console.log(`Резервное копирование завершено. Архив: ${backupPath}`)
     } else {
       console.error(`Процесс завершился с кодом: ${code}`)
     }
   })
 }
 
+// Функция для восстановления из резервной копии
+const restoreBackup = (backupFile) => {
+  const backupPath = join(BACKUP_DIR, backupFile)
+
+  if (!existsSync(backupPath)) {
+    console.error(`Файл резервной копии не найден: ${backupPath}`)
+    return
+  }
+
+  const args = [
+    `--uri=${MONGO_URI}`,
+    `--db=${DB_NAME}`,
+    "--archive", // Указывает на архивный файл
+    "--gzip", // Указывает, что файл сжат
+    `--drop`, // Удаляет существующие данные перед восстановлением
+    `--file=${backupPath}`
+  ]
+
+  const process = spawn("mongorestore", args)
+
+  process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
+  process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
+  process.on("close", (code) => {
+    if (code === 0) {
+      console.log(`Восстановление завершено из файла: ${backupPath}`)
+    } else {
+      console.error(`Процесс завершился с кодом: ${code}`)
+    }
+  })
+}
+
+// Функция для получения списка доступных бэкапов
+const listBackups = () => {
+  const files = readdirSync(BACKUP_DIR)
+  return files.filter((file) => file.endsWith(".gz"))
+}
+
 // Запускаем cron задачу для автоматического резервного копирования
 cron.schedule("0 * * * *", () => {
-  // Запуск каждый час
   console.log("Запуск задачи резервного копирования...")
   createBackup()
 })
 
 console.log("Сервис резервного копирования запущен.")
+
+// Экспортируем функции для использования
+export { createBackup, restoreBackup, listBackups }
