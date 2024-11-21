@@ -113,7 +113,8 @@ app.use(
   })
 )
 
-const PORT = 443 // HTTPS порт
+const PORT = 4000
+// const PORT = 443 // HTTPS порт
 const HTTP_PORT = 80 // HTTP порт
 
 // Запуск HTTPS сервера
