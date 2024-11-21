@@ -16,8 +16,6 @@ const BACKUP_DIR = join(__dirname, "../../backups")
 const DB_NAME = process.env.DB_NAME
 const MONGO_URI = process.env.DATABASE_URL
 
-console.log("DB_NAME - ", DB_NAME, "MONGO_URI - ", MONGO_URI)
-
 if (!DB_NAME || !MONGO_URI) {
   throw new Error("Не установлены переменные среды DB_NAME или DATABASE_URL.")
 }
