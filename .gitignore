@@ -1,6 +1,7 @@
 .env
 node_modules/
 uploads/
+backups/
 logs/
 cert/
 data.csv
