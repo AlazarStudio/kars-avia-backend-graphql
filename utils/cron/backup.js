@@ -1,6 +1,5 @@
 import { fileURLToPath } from "url"
-import { dirname, join } from "path"
-import { resolve } from "path"
+import { dirname, join, resolve } from "path"
 import { existsSync, mkdirSync, readdirSync } from "fs"
 import { spawn } from "child_process"
 import cron from "node-cron"
@@ -52,15 +51,16 @@ const createBackup = () => {
 
 // Функция для восстановления из резервной копии
 const restoreBackup = (backupFile) => {
-  const absolutePath = resolve(backupFile)
-  console.log(`Попытка восстановления из: ${absolutePath}`)
+  // Убедимся, что путь включает папку backups
+  const fullBackupPath = resolve(join(BACKUP_DIR, backupFile))
+  console.log(`Попытка восстановления из: ${fullBackupPath}`)
 
-  if (!existsSync(absolutePath)) {
-    console.error(`Файл ${absolutePath} не найден.`)
+  if (!existsSync(fullBackupPath)) {
+    console.error(`Файл ${fullBackupPath} не найден.`)
     return
   }
 
-  const args = [`--uri=${MONGO_URI}`, `--archive=${absolutePath}`, `--gzip`]
+  const args = [`--uri=${MONGO_URI}`, `--archive=${fullBackupPath}`, `--gzip`]
 
   const process = spawn("mongorestore", args)
 
@@ -68,7 +68,7 @@ const restoreBackup = (backupFile) => {
   process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(`Восстановление завершено из файла: ${absolutePath}`)
+      console.log(`Восстановление завершено из файла: ${fullBackupPath}`)
     } else {
       console.error(`Процесс завершился с кодом: ${code}`)
     }
