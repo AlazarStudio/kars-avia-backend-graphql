@@ -10,7 +10,6 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 })
-y
 
 const showMenu = () => {
   console.log(`
