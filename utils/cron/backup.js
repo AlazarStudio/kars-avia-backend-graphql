@@ -1,5 +1,6 @@
 import { fileURLToPath } from "url"
 import { dirname, join } from "path"
+import { resolve } from "path"
 import { existsSync, mkdirSync, readdirSync } from "fs"
 import { spawn } from "child_process"
 import cron from "node-cron"
@@ -26,56 +27,53 @@ if (!existsSync(BACKUP_DIR)) {
 
 // Функция для создания резервной копии
 const createBackup = () => {
-  const timestamp = new Date().toISOString().replace(/:/g, "-");
-  const backupFile = `${BACKUP_DIR}/${DB_NAME}-${timestamp}.gz`;
+  const timestamp = new Date().toISOString().replace(/:/g, "-")
+  const backupFile = `${BACKUP_DIR}/${DB_NAME}-${timestamp}.gz`
 
   const args = [
     `--uri=${MONGO_URI}`,
     `--db=${DB_NAME}`,
     `--archive=${backupFile}`,
     `--gzip`
-  ];
+  ]
 
-  const process = spawn("mongodump", args);
+  const process = spawn("mongodump", args)
 
-  process.stdout.on("data", (data) => console.log(`stdout: ${data}`));
-  process.stderr.on("data", (data) => console.error(`stderr: ${data}`));
+  process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
+  process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(`Резервное копирование завершено. Архив: ${backupFile}`);
+      console.log(`Резервное копирование завершено. Архив: ${backupFile}`)
     } else {
-      console.error(`Процесс завершился с кодом: ${code}`);
+      console.error(`Процесс завершился с кодом: ${code}`)
     }
-  });
-};
-
+  })
+}
 
 // Функция для восстановления из резервной копии
 const restoreBackup = (backupFile) => {
-  if (!existsSync(backupFile)) {
-    console.error(`Файл ${backupFile} не найден.`);
-    return;
+  const absolutePath = resolve(backupFile)
+  console.log(`Попытка восстановления из: ${absolutePath}`)
+
+  if (!existsSync(absolutePath)) {
+    console.error(`Файл ${absolutePath} не найден.`)
+    return
   }
 
-  const args = [
-    `--uri=${MONGO_URI}`,
-    `--archive=${backupFile}`,
-    `--gzip`
-  ];
+  const args = [`--uri=${MONGO_URI}`, `--archive=${absolutePath}`, `--gzip`]
 
-  const process = spawn("mongorestore", args);
+  const process = spawn("mongorestore", args)
 
-  process.stdout.on("data", (data) => console.log(`stdout: ${data}`));
-  process.stderr.on("data", (data) => console.error(`stderr: ${data}`));
+  process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
+  process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(`Восстановление завершено из файла: ${backupFile}`);
+      console.log(`Восстановление завершено из файла: ${absolutePath}`)
     } else {
-      console.error(`Процесс завершился с кодом: ${code}`);
+      console.error(`Процесс завершился с кодом: ${code}`)
     }
-  });
-};
-
+  })
+}
 
 // Функция для получения списка доступных бэкапов
 const listBackups = () => {
