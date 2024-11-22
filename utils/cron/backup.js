@@ -52,34 +52,30 @@ const createBackup = () => {
 
 // Функция для восстановления из резервной копии
 const restoreBackup = (backupFile) => {
-  const backupPath = join(BACKUP_DIR, backupFile)
-
-  if (!existsSync(backupPath)) {
-    console.error(`Файл резервной копии не найден: ${backupPath}`)
-    return
+  if (!existsSync(backupFile)) {
+    console.error(`Файл ${backupFile} не найден.`);
+    return;
   }
 
   const args = [
     `--uri=${MONGO_URI}`,
-    `--db=${DB_NAME}`,
-    "--archive", // Указывает на архивный файл
-    "--gzip", // Указывает, что файл сжат
-    `--drop`, // Удаляет существующие данные перед восстановлением
-    `--file=${backupPath}`
-  ]
+    `--archive=${backupFile}`,
+    `--gzip`
+  ];
 
-  const process = spawn("mongorestore", args)
+  const process = spawn("mongorestore", args);
 
-  process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
-  process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
+  process.stdout.on("data", (data) => console.log(`stdout: ${data}`));
+  process.stderr.on("data", (data) => console.error(`stderr: ${data}`));
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(`Восстановление завершено из файла: ${backupPath}`)
+      console.log(`Восстановление завершено из файла: ${backupFile}`);
     } else {
-      console.error(`Процесс завершился с кодом: ${code}`)
+      console.error(`Процесс завершился с кодом: ${code}`);
     }
-  })
-}
+  });
+};
+
 
 // Функция для получения списка доступных бэкапов
 const listBackups = () => {
