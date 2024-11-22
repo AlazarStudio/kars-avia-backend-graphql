@@ -26,29 +26,29 @@ if (!existsSync(BACKUP_DIR)) {
 
 // Функция для создания резервной копии
 const createBackup = () => {
-  const timestamp = new Date().toISOString().replace(/:/g, "-")
-  const backupPath = `${BACKUP_DIR}/${DB_NAME}-${timestamp}.gz`
+  const timestamp = new Date().toISOString().replace(/:/g, "-");
+  const backupFile = `${BACKUP_DIR}/${DB_NAME}-${timestamp}.gz`;
 
   const args = [
     `--uri=${MONGO_URI}`,
     `--db=${DB_NAME}`,
-    "--archive", // Создаёт архив
-    "--gzip", // Сжимает архив
-    `--out=${backupPath}`
-  ]
+    `--archive=${backupFile}`,
+    `--gzip`
+  ];
 
-  const process = spawn("mongodump", args)
+  const process = spawn("mongodump", args);
 
-  process.stdout.on("data", (data) => console.log(`stdout: ${data}`))
-  process.stderr.on("data", (data) => console.error(`stderr: ${data}`))
+  process.stdout.on("data", (data) => console.log(`stdout: ${data}`));
+  process.stderr.on("data", (data) => console.error(`stderr: ${data}`));
   process.on("close", (code) => {
     if (code === 0) {
-      console.log(`Резервное копирование завершено. Архив: ${backupPath}`)
+      console.log(`Резервное копирование завершено. Архив: ${backupFile}`);
     } else {
-      console.error(`Процесс завершился с кодом: ${code}`)
+      console.error(`Процесс завершился с кодом: ${code}`);
     }
-  })
-}
+  });
+};
+
 
 // Функция для восстановления из резервной копии
 const restoreBackup = (backupFile) => {
