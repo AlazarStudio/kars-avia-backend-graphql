@@ -88,17 +88,17 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     dailyMeals: []
   };
 
-  console.log("Meal Times:", mealTimes);
-  console.log("Arrival Time:", arrivalTime);
-  console.log("Departure Time:", departureTime);
+  // console.log("Meal Times:", mealTimes);
+  // console.log("Arrival Time:", arrivalTime);
+  // console.log("Departure Time:", departureTime);
 
   // Преобразуем время в объекты Date
   const arrivalDate = new Date(arrivalTime);
   const departureDate = new Date(departureTime);
   departureDate.setHours(23, 59, 59); // Устанавливаем конец дня для включения последнего дня
 
-  console.log("Parsed Arrival Date:", arrivalDate);
-  console.log("Parsed Departure Date:", departureDate);
+  // console.log("Parsed Arrival Date:", arrivalDate);
+  // console.log("Parsed Departure Date:", departureDate);
 
   // Копируем дату прибытия для начала цикла
   const currentDate = new Date(arrivalDate);
@@ -115,7 +115,7 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const breakfastEnd = new Date(currentDate);
     breakfastEnd.setHours(breakfastEndHour, breakfastEndMinute);
 
-    console.log("Breakfast Start:", breakfastStart, "Breakfast End:", breakfastEnd);
+    // console.log("Breakfast Start:", breakfastStart, "Breakfast End:", breakfastEnd);
 
     if ((arrivalDate <= breakfastEnd && currentDate >= breakfastStart) || (arrivalDate <= breakfastEnd && departureDate >= breakfastStart)) {
       dailyMeal.breakfast = 1;
@@ -130,7 +130,7 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const lunchEnd = new Date(currentDate);
     lunchEnd.setHours(lunchEndHour, lunchEndMinute);
 
-    console.log("Lunch Start:", lunchStart, "Lunch End:", lunchEnd);
+    // console.log("Lunch Start:", lunchStart, "Lunch End:", lunchEnd);
 
     if ((arrivalDate <= lunchEnd && currentDate >= lunchStart) || (arrivalDate <= lunchEnd && departureDate >= lunchStart)) {
       dailyMeal.lunch = 1;
@@ -145,7 +145,7 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const dinnerEnd = new Date(currentDate);
     dinnerEnd.setHours(dinnerEndHour, dinnerEndMinute);
 
-    console.log("Dinner Start:", dinnerStart, "Dinner End:", dinnerEnd);
+    // console.log("Dinner Start:", dinnerStart, "Dinner End:", dinnerEnd);
 
     if ((arrivalDate <= dinnerEnd && currentDate >= dinnerStart) || (arrivalDate <= dinnerEnd && departureDate >= dinnerStart)) {
       dailyMeal.dinner = 1;

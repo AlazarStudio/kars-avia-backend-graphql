@@ -53,7 +53,7 @@ const requestResolver = {
       }
     },
     requestArchive: async (_, { pagination }, context) => {
-      console.log(context)
+      // console.log(context)
       airlineAdminMiddleware(context)
 
       const { skip, take, status } = pagination
@@ -242,7 +242,7 @@ const requestResolver = {
     },
     updateRequest: async (_, { id, input }, context) => {
       airlineAdminMiddleware(context)
-      console.log(context)
+      // console.log(context)
       const {
         airportId,
         arrival,
