@@ -184,7 +184,7 @@ const userResolver = {
       const { id, name, email, login, password, position } = input
       console.log("input: ", input)
 
-      if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
+      if (adminMiddleware && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-update allowed")
       }
       
