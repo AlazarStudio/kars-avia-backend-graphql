@@ -183,7 +183,7 @@ const userResolver = {
     updateUser: async (_, { input, images }, context) => {
       const { id, name, email, login, password, position } = input
 
-      if ((context.user.role !== "SUPERADMIN" || context.user.role !== "DISPATCHERADMIN") && context.user.id !== id) {
+      if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-update allowed")
       }
       
