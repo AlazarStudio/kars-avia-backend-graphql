@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
-import { adminHotelAirMiddleware } from "../../middlewares/authMiddleware.js"
+import { adminHotelAirMiddleware, adminMiddleware } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
@@ -181,9 +181,10 @@ const userResolver = {
       }
     },
     updateUser: async (_, { input, images }, context) => {
-      if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
+      if ((context.user.role !== "SUPERADMIN" || context.user.role !== "DISPATCHERADMIN") && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-update allowed")
       }
+      
       let imagePaths = []
       if (images && images.length > 0 && images !== null) {
         for (const image of images) {
