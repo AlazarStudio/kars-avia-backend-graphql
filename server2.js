@@ -1,82 +1,105 @@
-const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
-  const mealPlan = {
-    totalBreakfast: 0,
-    totalLunch: 0,
-    totalDinner: 0,
-    dailyMeals: []
-  };
+import fs from "fs"
+import jwt from "jsonwebtoken"
+import cors from "cors"
+import http from "http"
+import https from "https"
+import dotenv from "dotenv"
+import express from "express"
+import { prisma } from "./prisma.js"
+import { ApolloServer } from "@apollo/server"
+import { expressMiddleware } from "@apollo/server/express4"
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
+import { WebSocketServer } from "ws"
+import { useServer } from "graphql-ws/lib/use/ws"
+import { makeExecutableSchema } from "@graphql-tools/schema"
+import mergedTypeDefs from "./typeDefs/typedefs.js"
+import mergedResolvers from "./resolvers/resolvers.js"
+import authMiddleware, {
+  adminMiddleware
+} from "./middlewares/authMiddleware.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
+import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
+import { startArchivingJob } from "./utils/request/cronTasks.js"
 
-  // Преобразуем время в объекты Date (в миллисекунды)
-  const arrivalDate = new Date(arrivalTime * 1000); // Преобразование в миллисекунды
-  const departureDate = new Date(departureTime * 1000); // Преобразование в миллисекунды
-  console.log("Arrival Date:", arrivalDate); // Проверка даты прибытия
-  console.log("Departure Date:", departureDate); // Проверка даты отъезда
+dotenv.config()
+const app = express()
+const httpServer = http.createServer(app)
+const schema = makeExecutableSchema({
+  typeDefs: mergedTypeDefs,
+  resolvers: mergedResolvers
+})
+const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" })
+const serverCleanup = useServer({ schema }, wsServer)
+const server = new ApolloServer({
+  schema: schema,
+  csrfPrevention: true,
+  cache: "bounded",
+  plugins: [
+    ApolloServerPluginDrainHttpServer({ httpServer }),
+    {
+      async serverWillStart() {
+        return {
+          async drainServer() {
+            await serverCleanup.dispose()
+          }
+        }
+      }
+    },
+    ApolloServerPluginLandingPageLocalDefault({ embed: true })
+  ]
+})
+// --------------------------------
+startArchivingJob()
 
-  // Копируем дату прибытия для начала цикла
-  const currentDate = new Date(arrivalDate);
-  while (currentDate <= departureDate) {
-    const dateString = currentDate.toISOString().split("T")[0];
-    const dailyMeal = { date: dateString, breakfast: 0, lunch: 0, dinner: 0 };
-
-    // Проверка завтрака
-    const breakfastStart = new Date(currentDate);
-    breakfastStart.setHours(mealTimes.breakfast.start.hours, mealTimes.breakfast.start.minutes);
-    const breakfastEnd = new Date(currentDate);
-    breakfastEnd.setHours(mealTimes.breakfast.end.hours, mealTimes.breakfast.end.minutes);
-    
-    console.log("Breakfast Start:", breakfastStart, "Breakfast End:", breakfastEnd); // Логируем время завтрака
-
-    if ((arrivalDate <= breakfastEnd && currentDate >= breakfastStart) || (arrivalDate <= breakfastEnd && departureDate >= breakfastStart)) {
-      dailyMeal.breakfast = 1; // Можно получить завтрак
+// --------------------------------
+await server.start()
+app.use(graphqlUploadExpress())
+app.use("/uploads", express.static("uploads"))
+app.use(
+  "/",
+  cors(),
+  express.json(),
+  expressMiddleware(server, {
+    context: async ({ req, res }) => {
+      const authHeader = req.headers.authorization
+      if (!authHeader) {
+        return { user: null }
+      }
+      const token = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7, authHeader.length)
+        : authHeader
+      let user = null
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET)
+          user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              number: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          })
+        } catch (e) {
+          console.error("Error verifying token:", e)
+        }
+      }
+      return { user }
     }
+  })
+)
 
-    // Проверка обеда
-    const lunchStart = new Date(currentDate);
-    lunchStart.setHours(mealTimes.lunch.start.hours, mealTimes.lunch.start.minutes);
-    const lunchEnd = new Date(currentDate);
-    lunchEnd.setHours(mealTimes.lunch.end.hours, mealTimes.lunch.end.minutes);
-    
-    console.log("Lunch Start:", lunchStart, "Lunch End:", lunchEnd); // Логируем время обеда
-
-    if ((arrivalDate <= lunchEnd && currentDate >= lunchStart) || (arrivalDate <= lunchEnd && departureDate >= lunchStart)) {
-      dailyMeal.lunch = 1; // Можно получить обед
-    }
-
-    // Проверка ужина
-    const dinnerStart = new Date(currentDate);
-    dinnerStart.setHours(mealTimes.dinner.start.hours, mealTimes.dinner.start.minutes);
-    const dinnerEnd = new Date(currentDate);
-    dinnerEnd.setHours(mealTimes.dinner.end.hours, mealTimes.dinner.end.minutes);
-    
-    console.log("Dinner Start:", dinnerStart, "Dinner End:", dinnerEnd); // Логируем время ужина
-
-    if ((arrivalDate <= dinnerEnd && currentDate >= dinnerStart) || (arrivalDate <= dinnerEnd && departureDate >= dinnerStart)) {
-      dailyMeal.dinner = 1; // Можно получить ужин
-    }
-
-    // Обновляем общее количество приемов пищи
-    mealPlan.totalBreakfast += dailyMeal.breakfast;
-    mealPlan.totalLunch += dailyMeal.lunch;
-    mealPlan.totalDinner += dailyMeal.dinner;
-    
-    // Добавляем информацию о текущем дне
-    mealPlan.dailyMeals.push(dailyMeal);
-
-    // Переход к следующему дню
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  return mealPlan;
-};
-
-
-const arrivalTime = 1731323952;
-const departureTime = 1731500411; 
-const mealTimes = {
-  breakfast: { start: { hours: 7, minutes: 0 }, end: { hours: 9, minutes: 0 } },
-  lunch: { start: { hours: 12, minutes: 0 }, end: { hours: 16, minutes: 0 } },
-  dinner: { start: { hours: 18, minutes: 0 }, end: { hours: 20, minutes: 0 } }
-};
-
-const result = calculateMeal(arrivalTime, departureTime, mealTimes);
-console.log(result);
+const PORT = 4000
+const HOST = "0.0.0.0"
+// Now that our HTTP server is fully set up, we can listen to it.
+httpServer.listen({ port: PORT, host: HOST }, () => {
+  console.log(`Server is now running on http://localhost:${PORT}/graphql`)
+})

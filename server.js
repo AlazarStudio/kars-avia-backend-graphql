@@ -107,6 +107,7 @@ app.use(
           console.error("Error verifying token:", e)
         }
       }
+      console.log("token - ", token)
       return { user }
     }
   })
