@@ -1,55 +1,35 @@
 import { prisma } from "../prisma.js"
 
-const generateDispatcherReport = async (startDate, endDate, includeArchive) => {
-  const filters = { createdAt: { gte: startDate, lte: endDate } }
-  if (includeArchive) filters.archive = true
+// Применение фильтров
+const applyFilters = (filter) => {
+  const { startDate, endDate, archived, personId } = filter
+  const where = {}
 
-  const requests = await prisma.request.findMany({ where: filters })
-  return aggregateReportData(requests)
+  if (startDate) where.createdAt = { gte: new Date(startDate) }
+  if (endDate) where.createdAt = { lte: new Date(endDate) }
+  if (archived !== undefined) where.archive = archived
+  if (personId) where.personId = personId
+
+  return where
 }
 
-const generateAirlineReport = async (
-  startDate,
-  endDate,
-  airlineId,
-  includeArchive
-) => {
-  const filters = { airlineId, createdAt: { gte: startDate, lte: endDate } }
-  if (includeArchive) filters.archive = true
-
-  const requests = await prisma.request.findMany({ where: filters })
-  return aggregateReportData(requests)
+// Расчёт стоимости проживания
+const calculateLivingCost = (request) => {
+  const days =
+    (new Date(request.departure) - new Date(request.arrival)) /
+    (1000 * 60 * 60 * 24)
+  return days * request.hotel.priceOneCategory // Пример
 }
 
-const generateHotelReport = async (
-  startDate,
-  endDate,
-  hotelId,
-  includeArchive
-) => {
-  const filters = { hotelId, createdAt: { gte: startDate, lte: endDate } }
-  if (includeArchive) filters.archive = true
-
-  const requests = await prisma.request.findMany({ where: filters })
-  return aggregateReportData(requests)
+// Расчёт стоимости питания
+const calculateMealCost = (request) => {
+  const meals = request.mealPlan || { breakfast: 0, lunch: 0, dinner: 0 }
+  return meals.breakfast + meals.lunch + meals.dinner
 }
 
-const aggregateReportData = (requests) => {
-  // Пример агрегации данных
-  return requests.map((request) => ({
-    name: request.person.name,
-    roomCategory: request.roomCategory,
-    stayDates: `${request.arrival.date} - ${request.departure.date}`,
-    mealPlan: request.mealPlan,
-    totalCost: calculateTotalCost(request)
-  }))
+// Расчёт диспетчерских сборов
+const calculateDispatcherFee = (request) => {
+  return request.airline.priceOneCategory || 0 // Пример
 }
 
-const calculateTotalCost = (request) => {
-  // Пример расчёта стоимости
-  const mealCost = (request.mealPlan.breakfast || 0) * 500
-  const roomCost = request.roomCategory === "Standard" ? 3000 : 5000
-  return mealCost + roomCost
-}
-
-export { generateDispatcherReport, generateAirlineReport, generateHotelReport }
+export { applyFilters, calculateLivingCost, calculateMealCost, calculateDispatcherFee }

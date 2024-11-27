@@ -2,61 +2,54 @@ const reportTypeDef = `#graphql
 scalar Date
 
 type Query {
-  dispatcherReport(startDate: Date!, endDate: Date!, includeArchive: Boolean): [DispatcherReport!]!
-  airlineReport(startDate: Date!, endDate: Date!, airlineId: ID!, includeArchive: Boolean): [AirlineReport!]!
-  hotelReport(startDate: Date!, endDate: Date!, hotelId: ID!, includeArchive: Boolean): [HotelReport!]!
+  # Получение отчётов для диспетчера
+  getDispatcherReport(filter: ReportFilterInput): [DispatcherReport!]!
+
+  # Получение отчётов для авиакомпаний
+  getAirlineReport(filter: ReportFilterInput): [AirlineReport!]!
+
+  # Получение отчётов для отелей
+  getHotelReport(filter: ReportFilterInput): [HotelReport!]!
 }
 
+# Фильтры для запросов
+input ReportFilterInput {
+  startDate: String
+  endDate: String
+  archived: Boolean
+  personId: String
+  hotelId: String
+  airlineId: String
+}
+
+# Отчёт для диспетчера
 type DispatcherReport {
-  dateRange: String!
-  totalDays: Int!
-  totalCost: Float!
-  details: [DispatcherDetail!]!
+  airlineName: String
+  hotelName: String
+  personName: String
+  totalLivingCost: Float
+  totalMealCost: Float
+  totalDispatcherFee: Float
+  balance: Float
 }
 
-type DispatcherDetail {
-  name: String!
-  roomCategory: String
-  stayDates: String!
-  mealPlan: MealPlan
-  totalCost: Float!
-}
-
+# Отчёт для авиакомпании
 type AirlineReport {
-  dateRange: String!
-  totalDays: Int!
-  totalCost: Float!
-  details: [AirlineDetail!]!
+  airlineName: String
+  personName: String
+  totalDispatcherFee: Float
+  debtToDispatcher: Float
 }
 
-type AirlineDetail {
-  name: String!
-  flightNumber: String
-  stayDates: String!
-  mealPlan: MealPlan
-  totalCost: Float!
-}
-
+# Отчёт для отеля
 type HotelReport {
-  dateRange: String!
-  totalDays: Int!
-  totalCost: Float!
-  details: [HotelDetail!]!
+  hotelName: String
+  personName: String
+  totalLivingCost: Float
+  totalMealCost: Float
+  totalDebt: Float
 }
 
-type HotelDetail {
-  guestName: String!
-  roomCategory: String
-  stayDates: String!
-  totalCost: Float!
-}
-
-type MealPlan {
-  breakfasts: Int
-  lunches: Int
-  dinners: Int
-  mealCost: Float
-}
 `
 
 export default reportTypeDef

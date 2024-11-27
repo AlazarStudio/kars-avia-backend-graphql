@@ -166,6 +166,11 @@ type Mutation {
   deleteRoom(id: ID!): Room!
 }
 
+type Subscription {
+  hotelCreated: Hotel!
+  hotelUpdated: Hotel!
+}
+
 `
 
 export default hotelTypeDef

@@ -6,7 +6,7 @@
     "backup": "node utils/cron/backup.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "dev2": "node server2.js",
+    "dev2": "nodemon server2.js",
     "prisma": "prisma"
   },
   "type": "module",

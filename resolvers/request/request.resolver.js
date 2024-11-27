@@ -242,7 +242,6 @@ const requestResolver = {
     },
     updateRequest: async (_, { id, input }, context) => {
       airlineAdminMiddleware(context)
-      // console.log(context)
       const {
         airportId,
         arrival,
@@ -255,85 +254,96 @@ const requestResolver = {
         status
       } = input
       const oldRequest = await prisma.request.findUnique({
-        where: { id }
+        where: { id },
+        include: {
+          hotelChess: true,
+          hotel: true
+        }
       })
       if (!oldRequest) {
         throw new Error("Request not found")
       }
+      const isArrivalChanged =
+        arrival?.date && arrival.date !== oldRequest.arrival?.date
+      const isDepartureChanged =
+        departure?.date && departure.date !== oldRequest.departure?.date
+      const dataToUpdate = {
+        airport: airportId ? { connect: { id: airportId } } : undefined,
+        arrival: arrival ? { date: new Date(arrival.date) } : undefined,
+        departure: departure ? { date: new Date(departure.date) } : undefined,
+        roomCategory,
+        roomNumber,
+        status,
+        mealPlan
+      }
       if (hotelId) {
         dataToUpdate.hotel = { connect: { id: hotelId } }
       }
-      let hotelMealTimes = {}
-      let hotel
-      if (hotelId) {
-        hotel = await prisma.hotel.findUnique({
-          where: { id: hotelId },
+      if (hotelChessId) {
+        dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
+      }
+      let updatedHotelChess
+      if (oldRequest.hotelChess && (isArrivalChanged || isDepartureChanged)) {
+        updatedHotelChess = await prisma.hotelChess.update({
+          where: { id: oldRequest.hotelChess.id },
+          data: {
+            start: isArrivalChanged
+              ? new Date(arrival.date)
+              : oldRequest.hotelChess.start,
+            end: isDepartureChanged
+              ? new Date(departure.date)
+              : oldRequest.hotelChess.end
+          }
+        })
+      }
+      let updatedMealPlan = oldRequest.mealPlan
+      if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
+        const hotel = await prisma.hotel.findUnique({
+          where: { id: oldRequest.hotel.id },
           select: {
             breakfast: true,
             lunch: true,
             dinner: true
           }
         })
-      }
-      // Подготавливаем данные для обновления
-      const dataToUpdate = {
-        airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival,
-        departure,
-        roomCategory,
-        mealPlan,
-        roomNumber,
-        status
-      }
-      if (hotelChessId) {
-        dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
-      }
-      // Обновление заявки
-      const updatedRequest = await prisma.request.update({
-        where: { id },
-        data: dataToUpdate
-      })
-      // Сравниваем старые и новые данные
-      const oldData = {
-        airportId: oldRequest.airportId,
-        arrival: oldRequest.arrival,
-        departure: oldRequest.departure,
-        roomCategory: oldRequest.roomCategory,
-        mealPlan: oldRequest.mealPlan,
-        roomNumber: oldRequest.roomNumber,
-        status: oldRequest.status
-      }
-      const newData = {
-        airportId,
-        arrival,
-        departure,
-        roomCategory,
-        mealPlan,
-        roomNumber,
-        status
-      }
-
-      try {
-        if (!isEqual(oldData, newData)) {
-          await logAction({
-            context,
-            action: "update_request",
-            description: {
-              requestId: updatedRequest.id,
-              changes: { old: oldData, new: newData }
-            },
-            oldData: oldData,
-            newData: newData,
-            hotelId: hotelId,
-            requestId: updatedRequest.id
-          })
+        const mealTimes = {
+          breakfast: hotel.breakfast,
+          lunch: hotel.lunch,
+          dinner: hotel.dinner
         }
-      } catch (error) {
-        console.error(
-          "Ошибка при логировании действия обновления заявки:",
-          error
+        const newMealPlan = calculateMeal(
+          isArrivalChanged ? arrival.date : oldRequest.arrival.date,
+          isDepartureChanged
+            ? new Date(departure.date)
+            : oldRequest.departure.date,
+          mealTimes
+        )
+        const adjustedDailyMeals = (
+          oldRequest.mealPlan?.dailyMeals || []
+        ).filter((day) => new Date(day.date) <= new Date(departure.date))
+        newMealPlan.dailyMeals.forEach((newDay) => {
+          if (
+            !adjustedDailyMeals.some(
+              (existingDay) => existingDay.date === newDay.date
+            )
+          ) {
+            adjustedDailyMeals.push(newDay)
+          }
+        })
+        updatedMealPlan = await updateDailyMeals(
+          id,
+          adjustedDailyMeals,
+          departure.date
         )
       }
+      if (updatedMealPlan) {
+        dataToUpdate.mealPlan = updatedMealPlan
+      }
+      const updatedRequest = await prisma.request.update({
+        where: { id },
+        data: dataToUpdate,
+        include: { hotelChess: true }
+      })
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },

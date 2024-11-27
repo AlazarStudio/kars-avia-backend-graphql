@@ -9,7 +9,12 @@ import {
   hotelModerMiddleware,
   hotelMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
+import {
+  pubsub,
+  REQUEST_UPDATED,
+  HOTEL_CREATED,
+  HOTEL_UPDATED
+} from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 
 const categoryToPlaces = {
@@ -102,6 +107,7 @@ const hotelResolver = {
         },
         hotelId: createdHotel.id
       })
+      pubsub.publish(HOTEL_CREATED, { hotelCreated: createdHotel })
       return createdHotel
     },
     updateHotel: async (_, { id, input, images }, context) => {
@@ -161,7 +167,7 @@ const hotelResolver = {
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
-                  status: "done",
+                  // status: "done",
                   hotel: {
                     connect: { id: id }
                   },
@@ -301,8 +307,10 @@ const hotelResolver = {
             hotelChesses: true
           }
         })
+        pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
+        console.error("Ошибка при обновлении отеля:", error)
         throw new Error("Не удалось обновить отель", error)
       }
     },
@@ -360,6 +368,14 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { client: true }
       })
+    }
+  },
+  Subscription: {
+    hotelCreated: {
+      subscribe: () => pubsub.asyncIterator([HOTEL_CREATED])
+    },
+    hotelUpdated: {
+      subscribe: () => pubsub.asyncIterator([HOTEL_UPDATED])
     }
   },
   HotelChess: {

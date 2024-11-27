@@ -43,21 +43,6 @@ const airlineTypeDef = `#graphql
     hotelChess: [HotelChess!]
   }
 
-  type Query {
-    airlines: [Airline!]!
-    airline(id: ID!): Airline
-    airlineStaff(id: ID!): AirlinePersonal
-    airlineStaffs(id: ID!): [AirlinePersonal]
-  }
-
-  type Mutation {
-    createAirline(input: CreateAirlineInput!, images: [Upload!]): Airline!
-    updateAirline(id: ID!, input: UpdateAirlineInput!, images: [Upload!]): Airline!
-    deleteAirline(id: ID!): Airline!
-    deleteAirlineDepartment(id: ID!): AirlineDepartment!
-    deleteAirlineStaff(id: ID!): AirlinePersonal!
-  }
-
   input CreateAirlineInput {
     name: String!
     country: String
@@ -111,6 +96,26 @@ const airlineTypeDef = `#graphql
     position: String
     gender: String
     departmentId: ID
+  }
+
+  type Query {
+    airlines: [Airline!]!
+    airline(id: ID!): Airline
+    airlineStaff(id: ID!): AirlinePersonal
+    airlineStaffs(id: ID!): [AirlinePersonal]
+  }
+
+  type Mutation {
+    createAirline(input: CreateAirlineInput!, images: [Upload!]): Airline!
+    updateAirline(id: ID!, input: UpdateAirlineInput!, images: [Upload!]): Airline!
+    deleteAirline(id: ID!): Airline!
+    deleteAirlineDepartment(id: ID!): AirlineDepartment!
+    deleteAirlineStaff(id: ID!): AirlinePersonal!
+  }
+
+  type Subscription {
+    airlineCreated: Airline!
+    airlineUpdated: Airline!
   }
 
 `

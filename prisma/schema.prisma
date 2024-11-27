@@ -223,8 +223,8 @@ model AirlinePersonalOnReserve {
   id                String          @id @default(auto()) @map("_id") @db.ObjectId
   airlinePersonalId String          @db.ObjectId
   reserveId         String          @db.ObjectId
-  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
-  reserve           Reserve         @relation(fields: [reserveId], references: [id])
+  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
+  reserve           Reserve         @relation(fields: [reserveId], references: [id], onDelete: Cascade)
 
   @@unique([airlinePersonalId, reserveId])
 }
@@ -256,9 +256,9 @@ model Request {
   senderId      String           @db.ObjectId
   airport       Airport?         @relation(fields: [airportId], references: [id])
   airportId     String?          @db.ObjectId
-  airline       Airline          @relation(fields: [airlineId], references: [id])
+  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId     String           @db.ObjectId
-  person        AirlinePersonal? @relation(fields: [personId], references: [id])
+  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: Cascade)
   personId      String?          @db.ObjectId
   arrival       Arrival
   departure     Departure
@@ -285,7 +285,7 @@ model Reserve {
   senderId         String                     @db.ObjectId
   airport          Airport?                   @relation(fields: [airportId], references: [id])
   airportId        String?                    @db.ObjectId
-  airline          Airline                    @relation(fields: [airlineId], references: [id])
+  airline          Airline                    @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId        String                     @db.ObjectId
   arrival          Arrival
   departure        Departure
@@ -334,7 +334,7 @@ model ReserveHotelPersonal {
   reserveHotelId    String          @db.ObjectId
   airlinePersonalId String          @db.ObjectId
   reserveHotel      ReserveHotel    @relation(fields: [reserveHotelId], references: [id], onDelete: Cascade)
-  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id])
+  airlinePersonal   AirlinePersonal @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
 
   @@unique([reserveHotelId, airlinePersonalId])
 }

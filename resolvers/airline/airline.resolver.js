@@ -3,6 +3,11 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  pubsub,
+  AIRLINE_CREATED,
+  AIRLINE_UPDATED
+} from "../../exports/pubsub.js"
 
 const airlineResolver = {
   Upload: GraphQLUpload,
@@ -45,25 +50,27 @@ const airlineResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
-      
+
       const defaultMealPrice = {
         breakfast: 600,
         lunch: 600,
         dinner: 600
-      };
+      }
 
       const data = {
         ...input,
         MealPrice: input.MealPrice || defaultMealPrice,
         images: imagePaths
       }
-      return await prisma.airline.create({
+      const createdAirline = await prisma.airline.create({
         data,
         include: {
           staff: true,
           department: true
         }
       })
+      pubsub.publish(AIRLINE_CREATED, { airlineCreated: createdAirline })
+      return createdAirline
     },
     updateAirline: async (_, { id, input, images }, context) => {
       airlineAdminMiddleware(context)
@@ -145,6 +152,9 @@ const airlineResolver = {
             staff: true
           }
         })
+        pubsub.publish(AIRLINE_UPDATED, {
+          airlineUpdated: airlineWithRelations
+        })
         return airlineWithRelations
       } catch (error) {
         console.error("Ошибка при обновлении авиакомпании:", error)
@@ -174,6 +184,14 @@ const airlineResolver = {
         where: { id }
       })
     }
+  },
+  Subscription: {
+    airlineCreated: {
+      subscribe: () => pubsub.asyncIterator([AIRLINE_CREATED])
+    },
+    airlineUpdated: {
+      subscribe: () => pubsub.asyncIterator([AIRLINE_UPDATED])
+    },
   },
   Airline: {
     department: async (parent) => {
