@@ -80,7 +80,7 @@
 // };
 
 // export default calculateMeal;
-const calculateMeal = (arrivalTime, departureTime, mealTimes) => { 
+const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
   const mealPlan = {
     totalBreakfast: 0,
     totalLunch: 0,
@@ -88,20 +88,13 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     dailyMeals: []
   };
 
-  // console.log("Meal Times:", mealTimes);
-  // console.log("Arrival Time:", arrivalTime);
-  // console.log("Departure Time:", departureTime);
-
   // Преобразуем время в объекты Date
   const arrivalDate = new Date(arrivalTime);
   const departureDate = new Date(departureTime);
-  departureDate.setHours(23, 59, 59); // Устанавливаем конец дня для включения последнего дня
-
-  // console.log("Parsed Arrival Date:", arrivalDate);
-  // console.log("Parsed Departure Date:", departureDate);
 
   // Копируем дату прибытия для начала цикла
   const currentDate = new Date(arrivalDate);
+
   while (currentDate <= departureDate) {
     const dateString = currentDate.toISOString().split("T")[0];
     const dailyMeal = { date: dateString, breakfast: 0, lunch: 0, dinner: 0 };
@@ -111,13 +104,12 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const [breakfastEndHour, breakfastEndMinute] = mealTimes.breakfast.end.split(':').map(Number);
 
     const breakfastStart = new Date(currentDate);
-    breakfastStart.setHours(breakfastStartHour, breakfastStartMinute);
+    breakfastStart.setUTCHours(breakfastStartHour, breakfastStartMinute, 0, 0);
     const breakfastEnd = new Date(currentDate);
-    breakfastEnd.setHours(breakfastEndHour, breakfastEndMinute);
+    breakfastEnd.setUTCHours(breakfastEndHour, breakfastEndMinute, 0, 0);
 
-    // console.log("Breakfast Start:", breakfastStart, "Breakfast End:", breakfastEnd);
-
-    if ((arrivalDate <= breakfastEnd && currentDate >= breakfastStart) || (arrivalDate <= breakfastEnd && departureDate >= breakfastStart)) {
+    // Проверка попадания времени завтрака
+    if ((arrivalDate <= breakfastEnd && departureDate >= breakfastStart)) {
       dailyMeal.breakfast = 1;
     }
 
@@ -126,13 +118,12 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const [lunchEndHour, lunchEndMinute] = mealTimes.lunch.end.split(':').map(Number);
 
     const lunchStart = new Date(currentDate);
-    lunchStart.setHours(lunchStartHour, lunchStartMinute);
+    lunchStart.setUTCHours(lunchStartHour, lunchStartMinute, 0, 0);
     const lunchEnd = new Date(currentDate);
-    lunchEnd.setHours(lunchEndHour, lunchEndMinute);
+    lunchEnd.setUTCHours(lunchEndHour, lunchEndMinute, 0, 0);
 
-    // console.log("Lunch Start:", lunchStart, "Lunch End:", lunchEnd);
-
-    if ((arrivalDate <= lunchEnd && currentDate >= lunchStart) || (arrivalDate <= lunchEnd && departureDate >= lunchStart)) {
+    // Проверка попадания времени обеда
+    if ((arrivalDate <= lunchEnd && departureDate >= lunchStart)) {
       dailyMeal.lunch = 1;
     }
 
@@ -141,13 +132,12 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     const [dinnerEndHour, dinnerEndMinute] = mealTimes.dinner.end.split(':').map(Number);
 
     const dinnerStart = new Date(currentDate);
-    dinnerStart.setHours(dinnerStartHour, dinnerStartMinute);
+    dinnerStart.setUTCHours(dinnerStartHour, dinnerStartMinute, 0, 0);
     const dinnerEnd = new Date(currentDate);
-    dinnerEnd.setHours(dinnerEndHour, dinnerEndMinute);
+    dinnerEnd.setUTCHours(dinnerEndHour, dinnerEndMinute, 0, 0);
 
-    // console.log("Dinner Start:", dinnerStart, "Dinner End:", dinnerEnd);
-
-    if ((arrivalDate <= dinnerEnd && currentDate >= dinnerStart) || (arrivalDate <= dinnerEnd && departureDate >= dinnerStart)) {
+    // Проверка попадания времени ужина
+    if ((arrivalDate <= dinnerEnd && departureDate >= dinnerStart)) {
       dailyMeal.dinner = 1;
     }
 
@@ -160,10 +150,20 @@ const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
     mealPlan.dailyMeals.push(dailyMeal);
 
     // Переход к следующему дню
-    currentDate.setDate(currentDate.getDate() + 1);
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+
+    console.log(
+      "breakfastStart - ", breakfastStart,
+      "breakfastEnd - ", breakfastEnd,
+      "lunchStart - ", lunchStart,
+      "lunchEnd - ", lunchEnd,
+      "dinnerStart - ", dinnerStart,
+      "dinnerEnd - ", dinnerEnd,
+    )
   }
 
   return mealPlan;
 };
+
 
 export default calculateMeal;

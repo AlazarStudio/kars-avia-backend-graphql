@@ -269,8 +269,8 @@ const requestResolver = {
         departure?.date && departure.date !== oldRequest.departure?.date
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival: arrival ? { date: new Date(arrival.date) } : undefined,
-        departure: departure ? { date: new Date(departure.date) } : undefined,
+        arrival: arrival ? { date: new Date(arrival.date), flight: arrival.flight } : undefined,
+        departure: departure ? { date: new Date(departure.date), flight: departure.flight } : undefined,
         roomCategory,
         roomNumber,
         status,
@@ -296,7 +296,9 @@ const requestResolver = {
           }
         })
       }
-      let updatedMealPlan = oldRequest.mealPlan
+      
+      // let updatedMealPlan = oldRequest.mealPlan
+
       if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
         const hotel = await prisma.hotel.findUnique({
           where: { id: oldRequest.hotel.id },
@@ -313,32 +315,39 @@ const requestResolver = {
         }
         const newMealPlan = calculateMeal(
           isArrivalChanged ? arrival.date : oldRequest.arrival.date,
-          isDepartureChanged
-            ? new Date(departure.date)
-            : oldRequest.departure.date,
+          isDepartureChanged ? departure.date : oldRequest.departure.date,
           mealTimes
         )
-        const adjustedDailyMeals = (
-          oldRequest.mealPlan?.dailyMeals || []
-        ).filter((day) => new Date(day.date) <= new Date(departure.date))
-        newMealPlan.dailyMeals.forEach((newDay) => {
-          if (
-            !adjustedDailyMeals.some(
-              (existingDay) => existingDay.date === newDay.date
-            )
-          ) {
-            adjustedDailyMeals.push(newDay)
-          }
-        })
-        updatedMealPlan = await updateDailyMeals(
-          id,
-          adjustedDailyMeals,
-          departure.date
-        )
+
+        dataToUpdate.mealPlan = {
+          included: true,
+          breakfast: newMealPlan.totalBreakfast,
+          lunch: newMealPlan.totalLunch,
+          dinner: newMealPlan.totalDinner,
+          dailyMeals: newMealPlan.dailyMeals
+        }
+
+        // const adjustedDailyMeals = (
+        //   oldRequest.mealPlan?.dailyMeals || []
+        // ).filter((day) => new Date(day.date) <= new Date(departure.date))
+        // newMealPlan.dailyMeals.forEach((newDay) => {
+        //   if (
+        //     !adjustedDailyMeals.some(
+        //       (existingDay) => existingDay.date === newDay.date
+        //     )
+        //   ) {
+        //     adjustedDailyMeals.push(newDay)
+        //   }
+        // })
+        // updatedMealPlan = await updateDailyMeals(
+        //   id,
+        //   adjustedDailyMeals,
+        //   departure.date
+        // )
       }
-      if (updatedMealPlan) {
-        dataToUpdate.mealPlan = updatedMealPlan
-      }
+      // if (updatedMealPlan) {
+      //   dataToUpdate.mealPlan = updatedMealPlan
+      // }
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: dataToUpdate,
@@ -401,6 +410,9 @@ const requestResolver = {
         departureDateTime,
         mealTimes
       )
+
+      console.log("newMealPlan: " + JSON.stringify(newMealPlan))
+
       // const newEndDate = new Date(newEnd)
       const newEndDate = newEnd
       // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
