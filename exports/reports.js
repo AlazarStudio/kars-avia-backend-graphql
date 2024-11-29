@@ -32,4 +32,9 @@ const calculateDispatcherFee = (request) => {
   return request.airline.priceOneCategory || 0 // Пример
 }
 
-export { applyFilters, calculateLivingCost, calculateMealCost, calculateDispatcherFee }
+export {
+  applyFilters,
+  calculateLivingCost,
+  calculateMealCost,
+  calculateDispatcherFee
+}

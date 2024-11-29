@@ -269,8 +269,12 @@ const requestResolver = {
         departure?.date && departure.date !== oldRequest.departure?.date
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival: arrival ? { date: new Date(arrival.date), flight: arrival.flight } : undefined,
-        departure: departure ? { date: new Date(departure.date), flight: departure.flight } : undefined,
+        arrival: arrival
+          ? { date: new Date(arrival.date), flight: arrival.flight }
+          : undefined,
+        departure: departure
+          ? { date: new Date(departure.date), flight: departure.flight }
+          : undefined,
         roomCategory,
         roomNumber,
         status,
@@ -296,7 +300,7 @@ const requestResolver = {
           }
         })
       }
-      
+
       // let updatedMealPlan = oldRequest.mealPlan
 
       if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {

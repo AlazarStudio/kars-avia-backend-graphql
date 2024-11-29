@@ -8,7 +8,7 @@ const reportResolver = {
         where: applyFilters(filter),
         include: { person: true, hotelChess: true, hotel: true, airline: true }
       })
-      // console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
+      console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
       return aggregateReports(requests, "dispatcher")
     },
 
@@ -18,7 +18,7 @@ const reportResolver = {
         where: applyFilters(filter),
         include: { person: true, hotelChess: true, hotel: true, airline: true }
       })
-      // console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
+      console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
       return aggregateReports(requests, "airline")
     },
 
@@ -28,7 +28,7 @@ const reportResolver = {
         where: applyFilters(filter),
         include: { person: true, hotelChess: true, hotel: true, airline: true }
       })
-      // console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
+      console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
       return aggregateReports(requests, "hotel")
     }
   }
@@ -85,7 +85,7 @@ const aggregateReports = (requests, reportType) => {
 }
 
 // Расчёт стоимости проживания
-const calculateLivingCost = (request, type) => {
+const calculateLivingCost = (request) => {
   const startDate = request.hotelChess?.start
   const endDate = request.hotelChess?.end
   const pricePerDay = request.airline?.priceOneCategory || 0
@@ -95,8 +95,6 @@ const calculateLivingCost = (request, type) => {
   }
 
   const days = (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
-
-  console.log(days)
 
   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
 }
@@ -126,7 +124,7 @@ const calculateDispatcherFee = (request) => {
   const days = (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
 
   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
-
+  
   // return request.airline?.priceOneCategory || 0 // Если данных нет, возвращаем 0
 }
 

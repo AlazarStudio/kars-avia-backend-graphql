@@ -167,7 +167,7 @@ const hotelResolver = {
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
-                  // status: "done",
+                  status: "transferred",
                   hotel: {
                     connect: { id: id }
                   },
