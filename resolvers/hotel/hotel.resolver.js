@@ -217,8 +217,8 @@ const hotelResolver = {
                 dinner: hotel.dinner
               }
               const mealPlan = calculateMeal(
-                new Date(arrival).getTime() / 1000, // В секундах
-                new Date(departure).getTime() / 1000, // В секундах
+                arrival,
+                departure,
                 mealTimes
               )
               const updatedRequest = await prisma.request.update({

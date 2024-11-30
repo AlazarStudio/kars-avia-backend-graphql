@@ -1,64 +1,75 @@
-import { jsPDF } from "jspdf"
-import ExcelJS from "exceljs"
+import pdfMake from "pdfmake";
+import ExcelJS from "exceljs";
 
-// const generatePDF = (reportData, title) => {
-//   const doc = new jsPDF()
-//   doc.text(title, 10, 10)
-//   reportData.forEach((data, index) => {
-//     doc.text(
-//       `${index + 1}. ${data.name} - ${data.totalCost}`,
-//       10,
-//       20 + index * 10
-//     )
-//   })
-//   doc.save(`${title}.pdf`)
-// }
-
-// const generateExcel = (reportData, title) => {
-//   const workbook = new ExcelJS.Workbook()
-//   const sheet = workbook.addWorksheet(title)
-//   sheet.columns = [
-//     { header: "Name", key: "name" },
-//     { header: "Total Cost", key: "totalCost" }
-//   ]
-//   sheet.addRows(reportData)
-//   workbook.xlsx.writeFile(`${title}.xlsx`)
-// }
-
-const generatePDF = (reportData) => {
-  const pdfMake = require("pdfmake")
-
+const generatePDF = (reportData, title = "Отчёт") => {
   const docDefinition = {
-    content: [{ text: "Отчёт", style: "header" }, tableContent(reportData)],
+    content: [
+      { text: title, style: "header", alignment: "center", margin: [0, 0, 0, 20] },
+      {
+        table: {
+          headerRows: 1,
+          widths: ["auto", "*", "*", "*", "*", "*"],
+          body: [
+            // Заголовки таблицы
+            ["Авиакомпания", "Имя", "Проживание", "Питание", "Долг", "Итог"],
+            // Данные отчета
+            ...reportData.map((row) => [
+              row.airlineName || "Не указано",
+              row.personName || "Не указано",
+              row.totalLivingCost || 0,
+              row.totalMealCost || 0,
+              row.totalDebt || 0,
+              row.totalLivingCost + row.totalMealCost || 0
+            ])
+          ]
+        },
+        layout: "lightHorizontalLines" // Визуальное оформление таблицы
+      }
+    ],
     styles: {
-      header: { fontSize: 18, bold: true }
+      header: {
+        fontSize: 18,
+        bold: true
+      },
+      tableHeader: {
+        bold: true,
+        fontSize: 12,
+        color: "black"
+      }
     }
-  }
+  };
 
-  const pdfDoc = pdfMake.createPdf(docDefinition)
-  pdfDoc.download("report.pdf")
-}
+  pdfMake.createPdf(docDefinition).download(`${title}.pdf`);
+};
 
-const tableContent = (data) => {
-  const headers = [
-    "Авиакомпания",
-    "Отель",
-    "Имя",
-    "Проживание",
-    "Питание",
-    "Сборы",
-    "Баланс"
-  ]
-  const rows = data.map((row) => [
-    row.airlineName,
-    row.hotelName,
-    row.personName,
-    row.totalLivingCost,
-    row.totalMealCost,
-    row.totalDispatcherFee,
-    row.balance
-  ])
-  return [headers, ...rows]
-}
+const generateExcel = async (reportData, title = "Отчёт") => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(title);
 
-export { generatePDF, generateExcel }
+  // Заголовки таблицы
+  sheet.columns = [
+    { header: "Авиакомпания", key: "airlineName", width: 20 },
+    { header: "Имя", key: "personName", width: 20 },
+    { header: "Проживание", key: "totalLivingCost", width: 15 },
+    { header: "Питание", key: "totalMealCost", width: 15 },
+    { header: "Долг", key: "totalDebt", width: 15 },
+    { header: "Итог", key: "totalCost", width: 15 }
+  ];
+
+  // Добавляем строки с данными
+  reportData.forEach((row) => {
+    sheet.addRow({
+      airlineName: row.airlineName || "Не указано",
+      personName: row.personName || "Не указано",
+      totalLivingCost: row.totalLivingCost || 0,
+      totalMealCost: row.totalMealCost || 0,
+      totalDebt: row.totalDebt || 0,
+      totalCost: (row.totalLivingCost || 0) + (row.totalMealCost || 0)
+    });
+  });
+
+  // Сохраняем файл
+  await workbook.xlsx.writeFile(`${title}.xlsx`);
+};
+
+export { generatePDF, generateExcel };
