@@ -3,6 +3,7 @@ import logAction from "./logaction.js"
 import calculateMeal from "./calculateMeal.js"
 
 const updateHotelChess = async (prisma, pubsub, context, hotelChess, id) => {
+  const { user } = context
   if (hotelChess.id) {
     // Обновляем данные о существующем hotelChess
     const previousHotelChessData = await prisma.hotelChess.findUnique({
@@ -33,8 +34,8 @@ const updateHotelChess = async (prisma, pubsub, context, hotelChess, id) => {
 
     await logAction({
       context,
-      action: "update hotel chess",
-      description: {},
+      action: "update_hotel_chess",
+      description: ``,
       oldData: previousHotelChessData,
       newData: hotelChess,
       hotelId: hotelChess.hotelId,

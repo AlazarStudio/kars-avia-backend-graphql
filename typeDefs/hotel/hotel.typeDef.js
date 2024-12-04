@@ -34,6 +34,8 @@ type Hotel {
   priceOneCategory: Float
   priceTwoCategory: Float
   MealPrice: MealPrice
+  stars: String
+  airportDistance: String
 }
 
 type MealTime {
@@ -95,6 +97,8 @@ input CreateHotelInput {
   priceOneCategory: Float
   priceTwoCategory: Float
   MealPrice: MealPriceInput
+  stars: String
+  airportDistance: String
 }
 
 input UpdateHotelInput {
@@ -121,6 +125,8 @@ input UpdateHotelInput {
   priceOneCategory: Float
   priceTwoCategory: Float
   MealPrice: MealPriceInput
+  stars: String
+  airportDistance: String
 }
 
 input HotelChessInput {

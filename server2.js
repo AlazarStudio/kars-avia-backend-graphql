@@ -56,6 +56,8 @@ startArchivingJob()
 await server.start()
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
+app.use("/reports", express.static("reports"))
+
 app.use(
   "/",
   cors(),
@@ -97,6 +99,7 @@ app.use(
   })
 )
 
+// const PORT = 4444
 const PORT = 4000
 const HOST = "0.0.0.0"
 // Now that our HTTP server is fully set up, we can listen to it.

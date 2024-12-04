@@ -52,9 +52,9 @@ const airlineResolver = {
       }
 
       const defaultMealPrice = {
-        breakfast: 600,
-        lunch: 600,
-        dinner: 600
+        breakfast: 0,
+        lunch: 0,
+        dinner: 0
       }
 
       const data = {
@@ -191,7 +191,7 @@ const airlineResolver = {
     },
     airlineUpdated: {
       subscribe: () => pubsub.asyncIterator([AIRLINE_UPDATED])
-    },
+    }
   },
   Airline: {
     department: async (parent) => {

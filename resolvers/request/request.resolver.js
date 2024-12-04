@@ -130,10 +130,13 @@ const requestResolver = {
             await logAction({
               context,
               action: "open_request",
-              description: {
-                requestId: updatedRequest.id,
-                requestNumber: updatedRequest.requestNumber
-              },
+              description: `
+                Заявка № ${updatedRequest.requestNumber} открыта пользователем ${user.name}
+              `,
+              // {
+              //   requestId: updatedRequest.id,
+              //   requestNumber: updatedRequest.requestNumber
+              // },
               oldData: { status: "created" },
               newData: { status: "opened" },
               requestId: updatedRequest.id
@@ -153,6 +156,7 @@ const requestResolver = {
   },
   Mutation: {
     createRequest: async (_, { input }, context) => {
+      const { user } = context
       const {
         personId,
         airportId,
@@ -194,6 +198,14 @@ const requestResolver = {
           sender: { connect: { id: senderId } },
           status,
           requestNumber
+        },
+        include: {
+          airline: true,
+          airport: true,
+          person: true
+          // hotel: true,
+          // hotelChess: true,
+          // logs: true
         }
       })
       // Создание чата, связанного с заявкой
@@ -210,21 +222,12 @@ const requestResolver = {
         }
       })
       // Логирование действия создания
+      // console.log(newRequest)
       try {
         await logAction({
           context,
           action: "create_request",
-          description: {
-            requestId: newRequest.id,
-            requestNumber: newRequest.requestNumber,
-            personId,
-            airportId,
-            arrival,
-            departure,
-            roomCategory,
-            mealPlan,
-            status
-          },
+          description: `Пользователь ${user.name} создал заявку № ${newRequest.requestNumber} для ${newRequest.person.position} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`,
           newData: {
             requestNumber: newRequest.requestNumber,
             airportId,
@@ -355,8 +358,39 @@ const requestResolver = {
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: dataToUpdate,
-        include: { hotelChess: true }
+        include: {
+          hotelChess: true,
+          person: true
+        }
       })
+
+      // Логирование действия изменения
+      try {
+        await logAction({
+          context,
+          action: "update_request",
+          description: `Пользователь ${user.name} ${
+            updatedRequest.status === "extended"
+              ? "продлил"
+              : updatedRequest.status === "reduced"
+              ? "сократил"
+              : "изменил"
+          } заявку № ${updatedRequest.requestNumber} для ${
+            updatedRequest.person.position
+          } ${updatedRequest.person.name}`,
+          newData: {
+            requestNumber: newRequest.requestNumber,
+            airportId,
+            personId,
+            status
+          },
+          airlineId,
+          requestId: newRequest.id
+        })
+      } catch (error) {
+        console.error("Ошибка при логировании действия создания заявки:", error)
+      }
+
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
@@ -415,7 +449,7 @@ const requestResolver = {
         mealTimes
       )
 
-      console.log("newMealPlan: " + JSON.stringify(newMealPlan))
+      // console.log("newMealPlan: " + JSON.stringify(newMealPlan))
 
       // const newEndDate = new Date(newEnd)
       const newEndDate = newEnd
@@ -457,6 +491,7 @@ const requestResolver = {
       return updatedRequest
     },
     archivingRequst: async (_, input, context) => {
+      const { user } = context
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
@@ -473,7 +508,8 @@ const requestResolver = {
         await logAction({
           context,
           action: "archive_request",
-          description: { requestId: request.id },
+          description: `Пользователь ${user.name} отправил заявку № ${archiveRequest.requestNumber} в архив`,
+          // description: { requestId: request.id },
           oldData: request,
           newData: { status: "archived" },
           hotelId: request.hotelId,
@@ -486,6 +522,7 @@ const requestResolver = {
       }
     },
     cancelRequest: async (_, input, context) => {
+      const { user } = context
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
@@ -498,7 +535,8 @@ const requestResolver = {
         await logAction({
           context,
           action: "cancel_request",
-          description: { requestId: request.id },
+          description: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
+          // description: { requestId: request.id },
           oldData: request,
           newData: { status: "canceled" },
           hotelId: request.hotelId,

@@ -33,7 +33,7 @@ const createLog = async ({
         requestId: requestId ? requestId : null,
         reserveId: reserveId ? reserveId : null,
         oldData: oldData ? safeStringify(oldData) : null,
-        newData: newData ? safeStringify(newData) : null
+        newData: newData ? safeStringify(newData) : null,
       }
     })
   } catch (error) {
@@ -51,7 +51,7 @@ const logAction = async ({
   hotelId = null,
   airlineId = null,
   requestId = null,
-  reserveId = null
+  reserveId = null,
 }) => {
   await createLog({
     userId: context.user.id,
@@ -63,7 +63,7 @@ const logAction = async ({
     requestId,
     reserveId,
     oldData,
-    newData
+    newData,
   })
 }
 

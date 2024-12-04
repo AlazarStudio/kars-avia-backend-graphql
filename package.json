@@ -46,6 +46,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",
+    "pdfmake": "^0.2.15",
     "pm2": "^5.4.2",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",

@@ -70,9 +70,9 @@ const hotelResolver = {
       }
 
       const defaultMealPrice = {
-        breakfast: 600,
-        lunch: 600,
-        dinner: 600
+        breakfast: 0,
+        lunch: 0,
+        dinner: 0
       }
 
       const defaultMealTime = {
@@ -111,6 +111,7 @@ const hotelResolver = {
       return createdHotel
     },
     updateHotel: async (_, { id, input, images }, context) => {
+      const { user } = context
       hotelAdminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
@@ -164,6 +165,9 @@ const hotelResolver = {
                   requestId: hotelChess.requestId
                 }
               })
+              const room = await prisma.room.findFirst({
+                where: {hotelId: hotelChess.hotelId, name: hotelChess.room}
+              })
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
@@ -173,13 +177,16 @@ const hotelResolver = {
                   },
                   hotelChess: {
                     connect: { id: hotelChess.id }
-                  }
+                  },
+                  roomCategory: room.category,
+                  roomNumber: room.name
                 }
               })
               await logAction({
                 context,
-                action: "update hotel chess",
-                description: {},
+                action: "update_hotel_chess",
+                description: `Заявка № ${updatedRequest.requestNumber} была пересена в номер ${hotelChess.room} пользователем ${user.name} `,
+                // description: {},
                 oldData: previousHotelChessData,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,
@@ -204,7 +211,7 @@ const hotelResolver = {
                     connect: { id: hotelChess.requestId }
                   }
                 }
-              })
+              })              
               const arrival = `${hotelChess.start}`
               const departure = `${hotelChess.end}`
               const hotel = await prisma.hotel.findUnique({
@@ -216,11 +223,12 @@ const hotelResolver = {
                 lunch: hotel.lunch,
                 dinner: hotel.dinner
               }
-              const mealPlan = calculateMeal(
-                arrival,
-                departure,
-                mealTimes
-              )
+              const mealPlan = calculateMeal(arrival, departure, mealTimes)
+
+              const room = await prisma.room.findFirst({
+                where: {hotelId: hotelChess.hotelId, name: hotelChess.room}
+              })
+
               const updatedRequest = await prisma.request.update({
                 where: { id: hotelChess.requestId },
                 data: {
@@ -234,13 +242,24 @@ const hotelResolver = {
                     lunch: mealPlan.totalLunch,
                     dinner: mealPlan.totalDinner,
                     dailyMeals: mealPlan.dailyMeals
-                  }
+                  },
+                  roomCategory: room.category,
+                  roomNumber: room.name
+                },
+                include: {
+                  // airline: true,
+                  // airport: true,
+                  hotel: true,
+                  person: true,
+                  hotelChess: true,
+                  // logs: true
                 }
               })
+
               await logAction({
                 context,
                 action: "update_hotel_chess",
-                description: {},
+                description: `${updatedRequest.person.name} был размещён в отеле ${updatedRequest.hotel.name} в номер ${hotelChess.room} по заявке № ${updatedRequest.requestNumber} пользователем ${user.name} `,
                 oldData: null,
                 newData: hotelChess,
                 hotelId: hotelChess.hotelId,

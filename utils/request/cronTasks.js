@@ -12,9 +12,8 @@ const checkAndArchiveRequests = async () => {
   // Обновляем статус для каждой заявки, если время выселения прошло
   for (const request of requests) {
     // Создаем объект даты для выселения
-    const departureDate = new Date(
-      `${request.departure.date}T${request.departure.time}:00`
-    )
+    const departureDate =  request.departure.date
+    // new Date(`${request.departure.date}T${request.departure.time}:00`)
     // Преобразуем время в локальное
     const localDepartureDate = new Date(
       departureDate.getTime() - departureDate.getTimezoneOffset() * 60000
@@ -29,12 +28,12 @@ const checkAndArchiveRequests = async () => {
       pubsub.publish(REQUEST_UPDATED, {
         requestUpdated: request
       })
-      // console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
+      console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
     }
   }
 }
 
 export const startArchivingJob = () => {
-  // Запускаем проверку каждые 2 минуты 
-  setInterval(checkAndArchiveRequests, 2 * 60 * 1000)
+  // Запускаем проверку каждые 6 часов  
+  setInterval(checkAndArchiveRequests, 6 * 60 * 60 * 1000)
 }

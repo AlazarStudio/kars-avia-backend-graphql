@@ -1,75 +1,135 @@
-import pdfMake from "pdfmake";
-import ExcelJS from "exceljs";
+import ExcelJS from "exceljs"
+import pdfMake from "pdfmake/build/pdfmake.js" // Основная библиотека
+import * as pdfFonts from "pdfmake/build/vfs_fonts.js" // Шрифты
+import fs from "fs"
 
-const generatePDF = (reportData, title = "Отчёт") => {
+// Настройка встроенных шрифтов
+pdfMake.vfs = pdfFonts.default?.pdfMake?.vfs || pdfFonts.pdfMake?.vfs
+
+// Формирование pdf файла. +
+
+export const generatePDF = async (reportData, filePath) => {
   const docDefinition = {
+    pageSize: "LEGAL", // Увеличенный формат страницы
+    pageOrientation: "landscape", // Альбомная ориентация
     content: [
-      { text: title, style: "header", alignment: "center", margin: [0, 0, 0, 20] },
+      { text: "Реестр услуг", style: "header", alignment: "center", margin: [0, 0, 0, 20] },
       {
         table: {
           headerRows: 1,
-          widths: ["auto", "*", "*", "*", "*", "*"],
+          widths: [50, 90, 100, 100, 50, 40, 40, 40, 60, 60, 60],
           body: [
-            // Заголовки таблицы
-            ["Авиакомпания", "Имя", "Проживание", "Питание", "Долг", "Итог"],
-            // Данные отчета
+            [
+              { text: "Комната", bold: true, fontSize: 10 },
+              { text: "Имя", bold: true, fontSize: 10 },
+              { text: "Заезд", bold: true, fontSize: 10 },
+              { text: "Выезд", bold: true, fontSize: 10 },
+              { text: "Кол-во суток", bold: true, fontSize: 10 },
+              { text: "Завтрак", bold: true, fontSize: 10 },
+              { text: "Обед", bold: true, fontSize: 10 },
+              { text: "Ужин", bold: true, fontSize: 10 },
+              { text: "Проживание", bold: true, fontSize: 10 },
+              { text: "Питание", bold: true, fontSize: 10 },
+              { text: "Итог", bold: true, fontSize: 10 },
+            ],
             ...reportData.map((row) => [
-              row.airlineName || "Не указано",
-              row.personName || "Не указано",
-              row.totalLivingCost || 0,
-              row.totalMealCost || 0,
-              row.totalDebt || 0,
-              row.totalLivingCost + row.totalMealCost || 0
-            ])
-          ]
+              { text: row.room, fontSize: 9 },
+              { text: row.personName, fontSize: 9 },
+              { text: row.arrival, fontSize: 9, alignment: "center" },
+              { text: row.departure, fontSize: 9, alignment: "center" },
+              { text: row.totalDays, fontSize: 9, alignment: "center" },
+              { text: row.breakfastCount, fontSize: 9, alignment: "center" },
+              { text: row.lunchCount, fontSize: 9, alignment: "center" },
+              { text: row.dinnerCount, fontSize: 9, alignment: "center" },
+              { text: row.totalLivingCost.toFixed(2), fontSize: 9, alignment: "right" },
+              { text: row.totalMealCost.toFixed(2), fontSize: 9, alignment: "right" },
+              { text: row.totalDebt.toFixed(2), fontSize: 9, alignment: "right" },
+            ]),
+          ],
         },
-        layout: "lightHorizontalLines" // Визуальное оформление таблицы
-      }
+        layout: "lightHorizontalLines",
+      },
+      {
+        text: `Итого по проживанию: ${reportData.reduce((sum, row) => sum + row.totalLivingCost, 0).toFixed(2)}`,
+        margin: [0, 20, 0, 0],
+        alignment: "right",
+      },
+      {
+        text: `Итого по питанию: ${reportData.reduce((sum, row) => sum + row.totalMealCost, 0).toFixed(2)}`,
+        margin: [0, 5, 0, 0],
+        alignment: "right",
+      },
+      {
+        text: `Общая сумма: ${reportData.reduce((sum, row) => sum + row.totalDebt, 0).toFixed(2)}`,
+        margin: [0, 5, 0, 0],
+        alignment: "right",
+      },
     ],
     styles: {
-      header: {
-        fontSize: 18,
-        bold: true
-      },
-      tableHeader: {
-        bold: true,
-        fontSize: 12,
-        color: "black"
-      }
-    }
+      header: { fontSize: 18, bold: true },
+    },
   };
 
-  pdfMake.createPdf(docDefinition).download(`${title}.pdf`);
+  return new Promise((resolve, reject) => {
+    try {
+      const pdfDoc = pdfMake.createPdf(docDefinition);
+      pdfDoc.getBuffer((buffer) => {
+        fs.writeFileSync(filePath, buffer);
+        resolve();
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
 };
 
-const generateExcel = async (reportData, title = "Отчёт") => {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(title);
 
-  // Заголовки таблицы
+// Формирование xlsx файла. +
+
+export const generateExcel = async (reportData, filePath) => {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("Реестр услуг")
+
   sheet.columns = [
-    { header: "Авиакомпания", key: "airlineName", width: 20 },
+    { header: "Комната", key: "room", width: 15 },
     { header: "Имя", key: "personName", width: 20 },
+    { header: "Заезд", key: "arrival", width: 20 },
+    { header: "Выезд", key: "departure", width: 20 },
+    { header: "Кол-во суток", key: "totalDays", width: 15 },
+    { header: "Завтрак", key: "breakfastCount", width: 10 },
+    { header: "Обед", key: "lunchCount", width: 10 },
+    { header: "Ужин", key: "dinnerCount", width: 10 },
     { header: "Проживание", key: "totalLivingCost", width: 15 },
     { header: "Питание", key: "totalMealCost", width: 15 },
-    { header: "Долг", key: "totalDebt", width: 15 },
-    { header: "Итог", key: "totalCost", width: 15 }
-  ];
+    { header: "Итог", key: "totalDebt", width: 15 }
+  ]
 
-  // Добавляем строки с данными
   reportData.forEach((row) => {
     sheet.addRow({
-      airlineName: row.airlineName || "Не указано",
-      personName: row.personName || "Не указано",
-      totalLivingCost: row.totalLivingCost || 0,
-      totalMealCost: row.totalMealCost || 0,
-      totalDebt: row.totalDebt || 0,
-      totalCost: (row.totalLivingCost || 0) + (row.totalMealCost || 0)
-    });
-  });
+      room: row.room,
+      personName: row.personName,
+      arrival: row.arrival,
+      departure: row.departure,
+      totalDays: row.totalDays,
+      breakfastCount: row.breakfastCount,
+      lunchCount: row.lunchCount,
+      dinnerCount: row.dinnerCount,
+      totalLivingCost: row.totalLivingCost,
+      totalMealCost: row.totalMealCost,
+      totalDebt: row.totalDebt
+    })
+  })
 
-  // Сохраняем файл
-  await workbook.xlsx.writeFile(`${title}.xlsx`);
-};
+  sheet.addRow({})
+  sheet.addRow({
+    room: "Итого",
+    totalLivingCost: reportData.reduce(
+      (sum, row) => sum + row.totalLivingCost,
+      0
+    ),
+    totalMealCost: reportData.reduce((sum, row) => sum + row.totalMealCost, 0),
+    totalDebt: reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+  })
 
-export { generatePDF, generateExcel };
+  await workbook.xlsx.writeFile(filePath)
+}

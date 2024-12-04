@@ -93,6 +93,7 @@ model Hotel {
   address          String?
   index            String?
   quote            String?
+  provision        String?
   email            String?
   number           String?
   inn              String?
@@ -118,6 +119,8 @@ model Hotel {
   rooms            Room[]
   User             User[]
   logs             Log[]
+  stars            String?
+  airportDistance  String?
 }
 
 type MealTime {
@@ -437,5 +440,12 @@ model Log {
 //   reportData    String?
 //   createdAt     DateTime @default(now())
 // }
+
+model SavedReport {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  url       String
+  createdAt DateTime @default(now())
+}
 
 // Отчёты  ---------------- ↑↑↑↑

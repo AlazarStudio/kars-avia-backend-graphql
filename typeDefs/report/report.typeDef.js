@@ -9,6 +9,11 @@ type Query {
   getHotelReport(filter: ReportFilterInput): [HotelReport!]!
 }
 
+type Mutation {
+  # Создание и сохранение отчёта
+  createReport(input: CreateReportInput!): SavedReport!
+}
+
 # Фильтры для запросов
 input ReportFilterInput {
   startDate: String
@@ -17,6 +22,13 @@ input ReportFilterInput {
   personId: String
   hotelId: String
   airlineId: String
+}
+
+# Входные данные для создания отчёта
+input CreateReportInput {
+  filter: ReportFilterInput!
+  type: String! # Тип отчёта: "airline" или "hotel"
+  format: String! # Формат отчёта: "pdf" или "excel"
 }
 
 # Отчёт для авиакомпании
@@ -35,6 +47,14 @@ type HotelReport {
   totalLivingCost: Float
   totalMealCost: Float
   totalDebt: Float
+}
+
+# Сохранённый отчёт
+type SavedReport {
+  id: ID!
+  name: String!
+  url: String! # Ссылка для загрузки отчёта
+  createdAt: Date!
 }
 
 `
