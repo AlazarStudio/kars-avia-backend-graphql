@@ -121,6 +121,7 @@ model Hotel {
   logs             Log[]
   stars            String?
   airportDistance  String?
+  SavedReport      SavedReport[]
 }
 
 type MealTime {
@@ -191,6 +192,7 @@ model Airline {
   MealPrice        MealPrice
   priceOneCategory Float?              @default(0)
   priceTwoCategory Float?              @default(0)
+  SavedReport      SavedReport[]
 }
 
 model AirlineDepartment {
@@ -445,7 +447,14 @@ model SavedReport {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   url       String
+  hotel     Hotel?   @relation(fields: [hotelId], references: [id])
+  hotelId   String?  @db.ObjectId
+  airline   Airline? @relation(fields: [airlineId], references: [id])
+  airlineId String?  @db.ObjectId
+  startDate DateTime
+  endDate   DateTime
   createdAt DateTime @default(now())
 }
+
 
 // Отчёты  ---------------- ↑↑↑↑

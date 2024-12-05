@@ -33,20 +33,16 @@ input CreateReportInput {
 
 # Отчёт для авиакомпании
 type AirlineReport {
-  airlineName: String
-  personName: String
-  totalLivingCost: Float
-  totalMealCost: Float
-  totalDebt: Float
+  airlineId: String
+  airline: Airline
+  reports: [SavedReport]
 }
 
 # Отчёт для отеля
 type HotelReport {
-  hotelName: String
-  personName: String
-  totalLivingCost: Float
-  totalMealCost: Float
-  totalDebt: Float
+  hotelId: String
+  hotel: Hotel
+  reports: [SavedReport]
 }
 
 # Сохранённый отчёт
@@ -54,8 +50,15 @@ type SavedReport {
   id: ID!
   name: String!
   url: String! # Ссылка для загрузки отчёта
+  startDate: Date! # Начальная дата
+  endDate: Date!   # Конечная дата
   createdAt: Date!
+  hotelId: String
+  hotel: Hotel
+  airlineId: String
+  airline: Airline
 }
+
 
 `
 

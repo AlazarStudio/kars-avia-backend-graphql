@@ -2,46 +2,141 @@ import { generateExcel, generatePDF } from "../../exports/exporter.js"
 import { prisma } from "../../prisma.js"
 import path from "path"
 import fs from "fs"
+import {
+  adminMiddleware,
+  airlineAdminMiddleware,
+  hotelAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
+import { report } from "process"
 
 const reportResolver = {
   Query: {
     // Отчёт для авиакомпаний
-    getAirlineReport: async (_, { filter }) => {
-      const requests = await prisma.request.findMany({
-        where: applyFilters(filter),
-        include: { person: true, hotelChess: true, hotel: true, airline: true }
+    getAirlineReport: async (_, { filter }, context) => {
+      const { user } = context
+      airlineAdminMiddleware(context)
+
+      if (filter.hotelId) {
+        throw new Error("Cannot fetch hotel reports in getAirlineReport")
+      }
+
+      const reports = await prisma.savedReport.findMany({
+        where: {
+          ...applyFilters(filter),
+          airlineId: { not: null },
+          ...(filter.airlineId
+            ? { airlineId: filter.airlineId } // Если передан airlineId, используем его
+            : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
+            ? {} // Для администраторов - полный доступ
+            : { airlineId: user.airlineId }) // Для остальных - фильтрация по airlineId пользователя
+        },
+        include: { airline: true } // Включаем связь с авиакомпанией
       })
-      // console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
-      return aggregateReports(requests, "airline")
+
+      const uniqueReports = []
+      const seenIds = new Set()
+
+      reports.forEach((report) => {
+        if (!seenIds.has(report.id)) {
+          seenIds.add(report.id)
+          uniqueReports.push(report)
+        }
+      })
+
+      return [
+        {
+          airlineId:
+            filter.airlineId ||
+            (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
+              ? null
+              : user.airlineId),
+          reports: uniqueReports.map((report) => ({
+            id: report.id,
+            name: report.name,
+            url: report.url,
+            startDate: report.startDate,
+            endDate: report.endDate,
+            createdAt: report.createdAt,
+            hotelId: report.hotelId,
+            airlineId: report.airlineId,
+            airline: report.airline // Возвращаем связанную авиакомпанию
+          }))
+        }
+      ]
     },
+
     // Отчёт для отелей
-    getHotelReport: async (_, { filter }) => {
-      const requests = await prisma.request.findMany({
-        where: applyFilters(filter),
-        include: { person: true, hotelChess: true, hotel: true, airline: true }
+    getHotelReport: async (_, { filter }, context) => {
+      const { user } = context
+      hotelAdminMiddleware(context)
+
+      const reports = await prisma.savedReport.findMany({
+        where: {
+          ...applyFilters(filter),
+          hotelId: { not: null },
+          ...(filter.hotelId
+            ? { hotelId: filter.hotelId } // Если передан hotelId, используем его
+            : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
+            ? {} // Для администраторов - полный доступ
+            : { hotelId: user.hotelId }) // Для остальных - фильтрация по hotelId пользователя
+        },
+        include: { hotel: true } // Включаем связь с отелем
       })
-      // console.log("Результат запросов: ", JSON.stringify(requests, null, 2))
-      return aggregateReports(requests, "hotel")
+
+      const uniqueReports = []
+      const seenIds = new Set()
+
+      reports.forEach((report) => {
+        if (!seenIds.has(report.id)) {
+          seenIds.add(report.id)
+          uniqueReports.push(report)
+        }
+      })
+
+      return [
+        {
+          hotelId:
+            filter.hotelId ||
+            (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
+              ? null
+              : user.hotelId),
+          reports: uniqueReports.map((report) => ({
+            id: report.id,
+            name: report.name,
+            url: report.url,
+            startDate: report.startDate,
+            endDate: report.endDate,
+            createdAt: report.createdAt,
+            hotelId: report.hotelId,
+            airlineId: report.airlineId,
+            hotel: report.hotel // Возвращаем связанный отель
+          }))
+        }
+      ]
     }
   },
   Mutation: {
     // Мутация для создания нового отчёта
-    createReport: async (_, { input }) => {
+    createReport: async (_, { input }, context) => {
+      const { user } = context
       const { filter, type, format } = input
 
-      // Получаем данные отчёта
+      if (!user) {
+        throw new Error("Access denied")
+      }
+
+      // Получаем запросы для формирования отчёта
       const requests = await prisma.request.findMany({
         where: applyFilters(filter),
         include: { person: true, hotelChess: true, hotel: true, airline: true }
       })
 
       const reportData = aggregateReports(requests, type)
-
-      // Генерируем отчёт
       const reportName = `${type}_report_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
+      // Генерация отчёта
       if (format === "pdf") {
         await generatePDF(reportData, reportPath)
       } else if (format === "xlsx") {
@@ -50,21 +145,42 @@ const reportResolver = {
         throw new Error("Unsupported report format")
       }
 
-      // Сохраняем информацию о файле в базе данных
-      const savedReport = await prisma.savedReport.create({
-        data: {
-          name: reportName,
-          url: `/reports/${reportName}`, // Путь для загрузки
-          createdAt: new Date()
+      // Создание записи отчёта
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate), // Добавляем startDate
+        endDate: new Date(filter.endDate), // Добавляем endDate
+        createdAt: new Date()
+      }
+
+      // Логика для разных ролей
+      if (user.role === "AIRLINEADMIN") {
+        reportRecord.airlineId = user.airlineId
+      } else if (user.role === "HOTELADMIN") {
+        reportRecord.hotelId = user.hotelId
+      } else if (
+        user.role === "SUPERADMIN" ||
+        user.role === "DISPATCHERADMIN"
+      ) {
+        // Если SUPERADMIN или DISPATCHERADMIN, добавляем данные из фильтра
+        if (type === "airline" && filter.airlineId) {
+          reportRecord.airlineId = filter.airlineId
+        } else if (type === "hotel" && filter.hotelId) {
+          reportRecord.hotelId = filter.hotelId
+        } else {
+          throw new Error(
+            "For SUPERADMIN/DISPATCHERADMIN, either airlineId or hotelId must be provided in the filter based on the report type."
+          )
         }
+      }
+
+      // Сохранение отчёта
+      const savedReport = await prisma.savedReport.create({
+        data: reportRecord
       })
 
-      return {
-        id: savedReport.id,
-        name: savedReport.name,
-        url: savedReport.url,
-        createdAt: savedReport.createdAt
-      }
+      return savedReport
     }
   }
 }
@@ -75,7 +191,7 @@ const applyFilters = (filter) => {
 
   if (startDate) where.createdAt = { gte: new Date(startDate) }
   if (endDate) where.createdAt = { lte: new Date(endDate) }
-  if (archived !== undefined) where.archive = archived
+  if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
@@ -133,7 +249,6 @@ const calculateTotalDays = (start, end) => {
   const differenceInMilliseconds = new Date(end) - new Date(start)
   return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
 }
-
 
 // Расчёт стоимости проживания
 const calculateLivingCost = (request, type) => {
