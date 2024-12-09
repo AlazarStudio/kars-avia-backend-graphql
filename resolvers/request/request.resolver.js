@@ -15,16 +15,20 @@ import updateDailyMeals from "../../exports/updateDailyMeals.js"
 const requestResolver = {
   Query: {
     requests: async (_, { pagination }, context) => {
+      const { user } = context
       const { skip, take, status } = pagination
       // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
       const statusFilter =
         status && status.length > 0 && !status.includes("all")
           ? { status: { in: status } }
           : {}
-      // Подсчитываем записи с учетом фильтрации по статусу и архиву
+      // Добавляем airlineId в фильтр только если он существует
+      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
+      // Подсчитываем записи с учетом фильтрации по статусу, архиву и airlineId
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
+          ...airlineFilter,
           archive: { not: true }
         }
       })
@@ -33,6 +37,7 @@ const requestResolver = {
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
+          ...airlineFilter,
           archive: { not: true }
         },
         skip: skip * take,
@@ -52,17 +57,20 @@ const requestResolver = {
         totalPages
       }
     },
+
     requestArchive: async (_, { pagination }, context) => {
       // console.log(context)
       airlineAdminMiddleware(context)
-
       const { skip, take, status } = pagination
       // Определяем фильтр статусов
       const statusFilter =
         status && status.includes("all") ? {} : { status: { in: status } }
+      // Добавляем airlineId в фильтр только если он существует
+      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
+          ...airlineFilter,
           archive: true
         }
       })
@@ -70,6 +78,7 @@ const requestResolver = {
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
+          ...airlineFilter,
           archive: true
         },
         skip: skip * take,

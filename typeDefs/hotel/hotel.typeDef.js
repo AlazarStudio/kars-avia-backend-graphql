@@ -49,6 +49,8 @@ type HotelChess {
   hotelId: ID
   public: Boolean
   room: String
+  roomN: Room
+  roomId: ID
   place: Float
   start: Date
   end: Date
@@ -56,6 +58,8 @@ type HotelChess {
   clientId: String
   request: Request
   requestId: String
+  reserve: Reserve
+  reserveId: String
 }
 
 type Room {
@@ -139,6 +143,7 @@ input HotelChessInput {
   end: Date
   clientId: ID
   requestId: ID
+  reserveId: ID
 }
 
 input RoomInput {

@@ -180,6 +180,7 @@ const airlineResolver = {
       })
     },
     deleteAirlineStaff: async (_, { id }, context) => {
+      airlineAdminMiddleware(context)
       return await prisma.airlinePersonal.delete({
         where: { id }
       })

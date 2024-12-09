@@ -135,24 +135,31 @@ model HotelChess {
   hotelId   String           @db.ObjectId
   public    Boolean?
   room      String?
+  roomN     Room?            @relation(fields: [roomId], references: [id])
+  roomId    String?          @db.ObjectId
   place     Float?
   start     DateTime?
   end       DateTime?
   client    AirlinePersonal? @relation(fields: [clientId], references: [id])
   clientId  String?          @db.ObjectId
-  request   Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId String           @unique @db.ObjectId
+  request   Request?         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String?          @unique @db.ObjectId
+  reserve   Reserve?         @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId String?          @db.ObjectId
+  // passanger Passenger? @relation(fields: [passangerId], references: [id], onDelete: Cascade)
+  // passangerId String?          @db.ObjectId
 }
 
 model Room {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  name     String
-  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId  String   @db.ObjectId
-  category Category
-  places   Float?
-  reserve  Boolean  @default(false)
-  active   Boolean  @default(true)
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  hotel      Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String       @db.ObjectId
+  category   Category
+  places     Float?
+  reserve    Boolean      @default(false)
+  active     Boolean      @default(true)
+  HotelChess HotelChess[]
 }
 
 // Отели  ---------------- ↑↑↑↑
@@ -305,6 +312,7 @@ model Reserve {
   logs             Log[]
   reserveForPerson Boolean
   archive          Boolean                    @default(false)
+  hotelChess       HotelChess[]
 }
 
 model Passenger {
@@ -319,6 +327,7 @@ model Passenger {
   temporary      Boolean       @default(true)
   ReserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
   reserveHotelId String?       @db.ObjectId
+  // hotelChess   HotelChess[]
 }
 
 model ReserveHotel {
@@ -455,6 +464,5 @@ model SavedReport {
   endDate   DateTime
   createdAt DateTime @default(now())
 }
-
 
 // Отчёты  ---------------- ↑↑↑↑

@@ -1,91 +1,150 @@
 import ExcelJS from "exceljs"
-import pdfMake from "pdfmake/build/pdfmake.js" // Основная библиотека
-import * as pdfFonts from "pdfmake/build/vfs_fonts.js" // Шрифты
+import pdfMake from "pdfmake/build/pdfmake.js"
+import * as pdfFonts from "pdfmake/build/vfs_fonts.js"
 import fs from "fs"
 
-// Настройка встроенных шрифтов
+// Настройка шрифтов для pdfMake
 pdfMake.vfs = pdfFonts.default?.pdfMake?.vfs || pdfFonts.pdfMake?.vfs
 
-// Формирование pdf файла. +
+// Функция для форматирования чисел
+const formatCurrency = (value) => {
+  return `${value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`
+}
+
+// Функция для удаления секунд из дат
+const formatDateWithoutSeconds = (date) => {
+  return new Date(date).toLocaleString("ru-RU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  })
+}
+
+// Функция для вычисления ширины колонок
+const calculateColumnWidths = (reportData, headers) => {
+  const maxWidths = headers.map((header) => header.text.length) // Изначально длины заголовков
+  reportData.forEach((row) => {
+    headers.forEach((header, index) => {
+      const cellLength = (row[header.key] || "").toString().length
+      maxWidths[index] = Math.max(maxWidths[index], cellLength)
+    })
+  })
+  return maxWidths.map((width) => width * 7) // Умножение для пропорциональной ширины
+}
 
 export const generatePDF = async (reportData, filePath) => {
+  const headers = [
+    { text: "Комната", key: "room" },
+    { text: "Имя", key: "personName" },
+    { text: "Заезд", key: "arrival" },
+    { text: "Выезд", key: "departure" },
+    { text: "Кол-во суток", key: "totalDays" },
+    { text: "Завтрак", key: "breakfastCount" },
+    { text: "Обед", key: "lunchCount" },
+    { text: "Ужин", key: "dinnerCount" },
+    { text: "Проживание", key: "totalLivingCost" },
+    { text: "Питание", key: "totalMealCost" },
+    { text: "Итог", key: "totalDebt" }
+  ]
+
+  // Вычисляем ширину колонок
+  const columnWidths = calculateColumnWidths(reportData, headers)
+
   const docDefinition = {
-    pageSize: "LEGAL", // Увеличенный формат страницы
-    pageOrientation: "landscape", // Альбомная ориентация
+    pageSize: "A3",
+    pageOrientation: "landscape",
     content: [
-      { text: "Реестр услуг", style: "header", alignment: "center", margin: [0, 0, 0, 20] },
+      {
+        text: "Реестр услуг",
+        style: "header",
+        alignment: "center",
+        margin: [0, 0, 0, 20]
+      },
       {
         table: {
           headerRows: 1,
-          widths: [50, 90, 100, 100, 50, 40, 40, 40, 60, 60, 60],
+          widths: columnWidths,
           body: [
-            [
-              { text: "Комната", bold: true, fontSize: 10 },
-              { text: "Имя", bold: true, fontSize: 10 },
-              { text: "Заезд", bold: true, fontSize: 10 },
-              { text: "Выезд", bold: true, fontSize: 10 },
-              { text: "Кол-во суток", bold: true, fontSize: 10 },
-              { text: "Завтрак", bold: true, fontSize: 10 },
-              { text: "Обед", bold: true, fontSize: 10 },
-              { text: "Ужин", bold: true, fontSize: 10 },
-              { text: "Проживание", bold: true, fontSize: 10 },
-              { text: "Питание", bold: true, fontSize: 10 },
-              { text: "Итог", bold: true, fontSize: 10 },
-            ],
-            ...reportData.map((row) => [
-              { text: row.room, fontSize: 9 },
-              { text: row.personName, fontSize: 9 },
-              { text: row.arrival, fontSize: 9, alignment: "center" },
-              { text: row.departure, fontSize: 9, alignment: "center" },
-              { text: row.totalDays, fontSize: 9, alignment: "center" },
-              { text: row.breakfastCount, fontSize: 9, alignment: "center" },
-              { text: row.lunchCount, fontSize: 9, alignment: "center" },
-              { text: row.dinnerCount, fontSize: 9, alignment: "center" },
-              { text: row.totalLivingCost.toFixed(2), fontSize: 9, alignment: "right" },
-              { text: row.totalMealCost.toFixed(2), fontSize: 9, alignment: "right" },
-              { text: row.totalDebt.toFixed(2), fontSize: 9, alignment: "right" },
-            ]),
-          ],
+            headers.map((header) => ({
+              text: header.text,
+              bold: true,
+              fontSize: 10
+            })),
+            ...reportData.map((row) =>
+              headers.map((header) => {
+                const value = row[header.key]
+                if (header.key === "arrival" || header.key === "departure") {
+                  return {
+                    text: formatDateWithoutSeconds(value || "Не указано"),
+                    fontSize: 8,
+                    alignment: "center"
+                  }
+                }
+                if (
+                  header.key === "totalLivingCost" ||
+                  header.key === "totalMealCost" ||
+                  header.key === "totalDebt"
+                ) {
+                  return {
+                    text: formatCurrency(value || 0),
+                    fontSize: 8,
+                    alignment: "right"
+                  }
+                }
+                return {
+                  text: value?.toString() || "Не указано",
+                  fontSize: 8,
+                  alignment: "center"
+                }
+              })
+            )
+          ]
         },
-        layout: "lightHorizontalLines",
+        layout: "lightHorizontalLines"
       },
       {
-        text: `Итого по проживанию: ${reportData.reduce((sum, row) => sum + row.totalLivingCost, 0).toFixed(2)}`,
+        text: `Итого по проживанию: ${formatCurrency(
+          reportData.reduce((sum, row) => sum + row.totalLivingCost, 0)
+        )}`,
         margin: [0, 20, 0, 0],
-        alignment: "right",
+        alignment: "right"
       },
       {
-        text: `Итого по питанию: ${reportData.reduce((sum, row) => sum + row.totalMealCost, 0).toFixed(2)}`,
+        text: `Итого по питанию: ${formatCurrency(
+          reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
+        )}`,
         margin: [0, 5, 0, 0],
-        alignment: "right",
+        alignment: "right"
       },
       {
-        text: `Общая сумма: ${reportData.reduce((sum, row) => sum + row.totalDebt, 0).toFixed(2)}`,
+        text: `Общая сумма: ${formatCurrency(
+          reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+        )}`,
         margin: [0, 5, 0, 0],
-        alignment: "right",
-      },
+        alignment: "right"
+      }
     ],
     styles: {
-      header: { fontSize: 18, bold: true },
-    },
-  };
+      header: { fontSize: 20, bold: true }
+    }
+  }
 
   return new Promise((resolve, reject) => {
     try {
-      const pdfDoc = pdfMake.createPdf(docDefinition);
+      const pdfDoc = pdfMake.createPdf(docDefinition)
       pdfDoc.getBuffer((buffer) => {
-        fs.writeFileSync(filePath, buffer);
-        resolve();
-      });
+        fs.writeFileSync(filePath, buffer)
+        resolve()
+      })
     } catch (err) {
-      reject(err);
+      reject(err)
     }
-  });
-};
-
+  })
+}
 
 // Формирование xlsx файла. +
-
 export const generateExcel = async (reportData, filePath) => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet("Реестр услуг")
@@ -108,27 +167,34 @@ export const generateExcel = async (reportData, filePath) => {
     sheet.addRow({
       room: row.room,
       personName: row.personName,
-      arrival: row.arrival,
-      departure: row.departure,
+      arrival: row.arrival
+        ? formatDateWithoutSeconds(row.arrival)
+        : "Не указано",
+      departure: row.departure
+        ? formatDateWithoutSeconds(row.departure)
+        : "Не указано",
       totalDays: row.totalDays,
       breakfastCount: row.breakfastCount,
       lunchCount: row.lunchCount,
       dinnerCount: row.dinnerCount,
-      totalLivingCost: row.totalLivingCost,
-      totalMealCost: row.totalMealCost,
-      totalDebt: row.totalDebt
+      totalLivingCost: formatCurrency(row.totalLivingCost),
+      totalMealCost: formatCurrency(row.totalMealCost),
+      totalDebt: formatCurrency(row.totalDebt)
     })
   })
 
   sheet.addRow({})
   sheet.addRow({
     room: "Итого",
-    totalLivingCost: reportData.reduce(
-      (sum, row) => sum + row.totalLivingCost,
-      0
+    totalLivingCost: formatCurrency(
+      reportData.reduce((sum, row) => sum + row.totalLivingCost, 0)
     ),
-    totalMealCost: reportData.reduce((sum, row) => sum + row.totalMealCost, 0),
-    totalDebt: reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+    totalMealCost: formatCurrency(
+      reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
+    ),
+    totalDebt: formatCurrency(
+      reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+    )
   })
 
   await workbook.xlsx.writeFile(filePath)

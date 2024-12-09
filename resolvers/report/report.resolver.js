@@ -30,7 +30,8 @@ const reportResolver = {
             ? {} // Для администраторов - полный доступ
             : { airlineId: user.airlineId }) // Для остальных - фильтрация по airlineId пользователя
         },
-        include: { airline: true } // Включаем связь с авиакомпанией
+        include: { airline: true },
+        orderBy: { createdAt: "desc" }
       })
 
       const uniqueReports = []
@@ -59,7 +60,7 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            airline: report.airline // Возвращаем связанную авиакомпанию
+            airline: report.airline 
           }))
         }
       ]
@@ -80,7 +81,8 @@ const reportResolver = {
             ? {} // Для администраторов - полный доступ
             : { hotelId: user.hotelId }) // Для остальных - фильтрация по hotelId пользователя
         },
-        include: { hotel: true } // Включаем связь с отелем
+        include: { hotel: true },
+        orderBy: { createdAt: "desc" }
       })
 
       const uniqueReports = []
@@ -109,7 +111,7 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            hotel: report.hotel // Возвращаем связанный отель
+            hotel: report.hotel 
           }))
         }
       ]
