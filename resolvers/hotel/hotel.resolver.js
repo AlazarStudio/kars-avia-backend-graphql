@@ -206,7 +206,7 @@ const hotelResolver = {
                 await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {
-                    status: "transferred",
+                    // status: "transferred",
                     hotelChess: { connect: { id: hotelChess.id } }
                   }
                 })
@@ -301,7 +301,7 @@ const hotelResolver = {
                 await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {
-                    status: "done",
+                    // status: "done",
                     hotelChess: { connect: { id: newHotelChess.id } }
                   }
                 })
@@ -465,30 +465,29 @@ const hotelResolver = {
   HotelChess: {
     client: async (parent) => {
       if (!parent.clientId) {
-        return null; // Если clientId отсутствует, возвращаем null
+        return null // Если clientId отсутствует, возвращаем null
       }
       return await prisma.airlinePersonal.findUnique({
-        where: { id: parent.clientId },
-      });
+        where: { id: parent.clientId }
+      })
     },
     request: async (parent) => {
       if (!parent.requestId || typeof parent.requestId !== "string") {
-        return null; // Если requestId отсутствует или некорректный, возвращаем null
+        return null // Если requestId отсутствует или некорректный, возвращаем null
       }
       return await prisma.request.findUnique({
-        where: { id: parent.requestId },
-      });
+        where: { id: parent.requestId }
+      })
     },
     reserve: async (parent) => {
       if (!parent.reserveId || typeof parent.reserveId !== "string") {
-        return null; // Если reserveId отсутствует или некорректный, возвращаем null
+        return null // Если reserveId отсутствует или некорректный, возвращаем null
       }
       return await prisma.reserve.findUnique({
-        where: { id: parent.reserveId },
-      });
-    },
-  },
-  
+        where: { id: parent.reserveId }
+      })
+    }
+  }
 }
 
 export default hotelResolver
