@@ -14,7 +14,8 @@ type Hotel {
   country: String
   city: String
   address: String
-  quote: String
+  quote: Int
+  provision: Int
   index: String
   email: String
   number: String
@@ -56,6 +57,8 @@ type HotelChess {
   end: Date
   client: AirlinePersonal
   clientId: String
+  passenger: Passenger
+  passengerId: String
   request: Request
   requestId: String
   reserve: Reserve
@@ -69,6 +72,8 @@ type Room {
   places: Float
   active: Boolean
   reserve: Boolean
+  description: String
+  images: [String!]
 }
 
 type MealPrice {
@@ -142,6 +147,7 @@ input HotelChessInput {
   start: Date
   end: Date
   clientId: ID
+  passengerId: ID
   requestId: ID
   reserveId: ID
 }
@@ -152,6 +158,8 @@ input RoomInput {
   category: Category
   active: Boolean
   reserve: Boolean
+  description: String
+  # images: [Upload!]
 }
 
 input MealPriceInput {
@@ -171,8 +179,8 @@ type Query {
 }
 
 type Mutation { 
-  createHotel(input: CreateHotelInput!, images: [Upload!]): Hotel!
-  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!]): Hotel!
+  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!]): Hotel!
+  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
 }

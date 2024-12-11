@@ -62,6 +62,7 @@ const hotelResolver = {
   },
   Mutation: {
     createHotel: async (_, { input, images }, context) => {
+      const { user } = context
       adminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
@@ -100,18 +101,17 @@ const hotelResolver = {
       // Логирование создания отеля
       await logAction({
         context,
-        action: `create hotel`,
-        description: {
-          hotelName: createdHotel.name,
-          hotelId: createdHotel.id,
-          input: data
-        },
+        action: `create_hotel`,
+        description: `Пользователь ${user.name} создал отель ${createdHotel.name}`,
+        hotelName: createdHotel.name,
+        hotelId: createdHotel.id,
+        input: data,
         hotelId: createdHotel.id
       })
       pubsub.publish(HOTEL_CREATED, { hotelCreated: createdHotel })
       return createdHotel
     },
-    updateHotel: async (_, { id, input, images }, context) => {
+    updateHotel: async (_, { id, input, images, roomImages }, context) => {
       const { user } = context
       hotelAdminMiddleware(context)
       let imagePaths = []
@@ -139,8 +139,8 @@ const hotelResolver = {
         })
         await logAction({
           context,
-          action: "update hotel",
-          description: {},
+          action: "update_hotel",
+          description: `Пользователь ${user.name} изменил данные в отеле ${updatedHotel.name}`,
           oldData: previousHotelData,
           newData: updatedData,
           hotelId: updatedHotel.id
@@ -195,7 +195,8 @@ const hotelResolver = {
                   description: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
-                  hotelId: hotelChess.hotelId
+                  hotelId: hotelChess.hotelId,
+                  requestId: updatedRequest.id
                 })
 
                 pubsub.publish(REQUEST_UPDATED, {
@@ -214,7 +215,7 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Бронь № ${hotelChess.reserveId} была обновлена пользователем ${user.name}`,
+                  description: `Заявка № ${hotelChess.reserveId} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId
@@ -222,23 +223,71 @@ const hotelResolver = {
               }
             } else {
               // Создание новой записи
-              const newHotelChess = await prisma.hotelChess.create({
-                data: {
-                  hotel: { connect: { id: id } },
-                  public: hotelChess.public,
-                  room: hotelChess.room,
-                  place: hotelChess.place,
-                  start: hotelChess.start,
-                  end: hotelChess.end,
-                  client: { connect: { id: hotelChess.clientId } },
-                  request: hotelChess.requestId
-                    ? { connect: { id: hotelChess.requestId } }
-                    : undefined,
-                  reserve: hotelChess.reserveId
-                    ? { connect: { id: hotelChess.reserveId } }
-                    : undefined
+              let reserveForPerson
+              let newHotelChess // Объявляем переменную вне блоков if/else
+
+              if (hotelChess.reserveId) {
+                const reserve = await prisma.reserve.findUnique({
+                  where: { id: hotelChess.reserveId },
+                  select: { reserveForPerson: true }
+                })
+
+                reserveForPerson = reserve?.reserveForPerson
+
+                if (reserveForPerson === true) {
+                  newHotelChess = await prisma.hotelChess.create({
+                    data: {
+                      hotel: { connect: { id: id } },
+                      public: hotelChess.public,
+                      room: hotelChess.room,
+                      place: hotelChess.place,
+                      start: hotelChess.start,
+                      end: hotelChess.end,
+                      client: { connect: { id: hotelChess.clientId } },
+                      reserve: { connect: { id: hotelChess.reserveId } }
+                    }
+                  })
+                } else if (reserveForPerson === false) {
+                  console.log(hotelChess)
+                  try {
+                    newHotelChess = await prisma.hotelChess.create({
+                      data: {
+                        hotel: { connect: { id: id } },
+                        public: hotelChess.public,
+                        room: hotelChess.room,
+                        place: hotelChess.place,
+                        start: hotelChess.start,
+                        end: hotelChess.end,
+                        passenger: { connect: { id: hotelChess.clientId } },
+                        reserve: { connect: { id: hotelChess.reserveId } }
+                      }
+                    })
+                  } catch (e) {
+                    console.error("Error: ", e)
+                    throw new Error(
+                      "Ошибка при создании клиентского бронирования: " +
+                        e.message +
+                        "\n\n :" +
+                        e.stack
+                    )
+                  }
                 }
-              })
+              } else {
+                newHotelChess = await prisma.hotelChess.create({
+                  data: {
+                    hotel: { connect: { id: id } },
+                    public: hotelChess.public,
+                    room: hotelChess.room,
+                    place: hotelChess.place,
+                    start: hotelChess.start,
+                    end: hotelChess.end,
+                    client: { connect: { id: hotelChess.clientId } },
+                    request: hotelChess.requestId
+                      ? { connect: { id: hotelChess.requestId } }
+                      : undefined
+                  }
+                })
+              }
 
               if (hotelChess.requestId) {
                 // Обработка для новой заявки типа "request"
@@ -249,7 +298,12 @@ const hotelResolver = {
                 const departure = `${hotelChess.end}`
                 const hotel = await prisma.hotel.findUnique({
                   where: { id },
-                  select: { breakfast: true, lunch: true, dinner: true }
+                  select: {
+                    breakfast: true,
+                    lunch: true,
+                    dinner: true,
+                    name: true
+                  }
                 })
                 const mealTimes = {
                   breakfast: hotel.breakfast,
@@ -324,28 +378,47 @@ const hotelResolver = {
           for (const room of rooms) {
             const places = calculatePlaces(room.category) // используем отдельную функцию для расчёта мест
             if (room.id) {
+              let imagePaths = []
+              if (roomImages && roomImages.length > 0) {
+                for (const image of roomImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
               const previousRoomData = await prisma.room.findUnique({
                 where: { id: room.id }
               })
+              const updatedData = {
+                name: room.name,
+                category: room.category,
+                reserve: room.reserve,
+                active: room.active,
+                description: room.description,
+                places: places
+              }
+              if (roomImages != null) {
+                updatedData.images = imagePaths
+              }
               await prisma.room.update({
                 where: { id: room.id },
                 data: {
-                  name: room.name,
-                  category: room.category,
-                  reserve: room.reserve,
-                  active: room.active,
-                  places: places
+                  ...updatedData
                 }
               })
               await logAction({
                 context,
-                action: "update room",
-                description: {},
+                action: "update_room",
+                description: `Пользователь ${user.name} изменил данные в комнате ${room.name}`,
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
               })
             } else {
+              let imagePaths = []
+              if (roomImages && roomImages.length > 0) {
+                for (const image of roomImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
               await prisma.room.create({
                 data: {
                   hotelId: id,
@@ -353,18 +426,21 @@ const hotelResolver = {
                   category: room.category,
                   reserve: room.reserve,
                   active: room.active,
+                  description: room.description,
+                  images: imagePaths,
                   places: places
                 }
               })
               await logAction({
                 context,
-                action: "create room",
-                description: {},
+                action: "create_room",
+                description: `Пользователь ${user.name} добавил комнату ${room.name}`,
                 newData: room,
                 hotelId: room.hotelId
               })
             }
           }
+          await updateHotelRoomCounts(id);
         }
         // Получаем обновленный отель с вложенными данными
         const hotelWithRelations = await prisma.hotel.findUnique({
@@ -413,6 +489,7 @@ const hotelResolver = {
       const deletedRoom = await prisma.room.delete({
         where: { id }
       })
+      await updateHotelRoomCounts(roomToDelete.hotelId);
       await logAction({
         context,
         action: "delete room",
@@ -471,6 +548,14 @@ const hotelResolver = {
         where: { id: parent.clientId }
       })
     },
+    passenger: async (parent) => {
+      if (!parent.passengerId) {
+        return null // Если passengerId отсутствует, возвращаем null
+      }
+      return await prisma.passenger.findUnique({
+        where: { id: parent.passengerId }
+      })
+    },
     request: async (parent) => {
       if (!parent.requestId || typeof parent.requestId !== "string") {
         return null // Если requestId отсутствует или некорректный, возвращаем null
@@ -489,5 +574,39 @@ const hotelResolver = {
     }
   }
 }
+
+const updateHotelRoomCounts = async (hotelId) => {
+  // Подсчёт резервных комнат
+  const provisionCount = await prisma.room.count({
+    where: {
+      hotelId,       // Фильтр по отелю
+      reserve: true, // Только резервные комнаты
+    },
+  });
+
+  // Подсчёт квотных комнат
+  const quoteCount = await prisma.room.count({
+    where: {
+      hotelId,        // Фильтр по отелю
+      reserve: false, // Только квотные комнаты
+    },
+  });
+
+  // Обновляем данные отеля
+  const updatedHotel = await prisma.hotel.update({
+    where: { id: hotelId },
+    data: {
+      provision: provisionCount,
+      quote: quoteCount,
+    },
+  });
+
+  console.log(
+    `Обновлены данные для отеля ${hotelId}: provision = ${provisionCount}, quote = ${quoteCount}`
+  );
+
+  return updatedHotel;
+};
+
 
 export default hotelResolver

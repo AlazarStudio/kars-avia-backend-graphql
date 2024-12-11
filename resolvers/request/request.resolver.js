@@ -57,7 +57,6 @@ const requestResolver = {
         totalPages
       }
     },
-
     requestArchive: async (_, { pagination }, context) => {
       // console.log(context)
       const { user } = context
@@ -254,6 +253,7 @@ const requestResolver = {
       return newRequest
     },
     updateRequest: async (_, { id, input }, context) => {
+      const { user } = context
       airlineAdminMiddleware(context)
       const {
         airportId,
@@ -276,23 +276,22 @@ const requestResolver = {
       if (!oldRequest) {
         throw new Error("Request not found")
       }
+
       const isArrivalChanged =
-        arrival?.date && arrival.date !== oldRequest.arrival?.date
+        arrival && new Date(arrival) !== new Date(oldRequest.arrival)
       const isDepartureChanged =
-        departure?.date && departure.date !== oldRequest.departure?.date
+        departure && new Date(departure) !== new Date(oldRequest.departure)
+
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival: arrival
-          ? { date: new Date(arrival.date), flight: arrival.flight }
-          : undefined,
-        departure: departure
-          ? { date: new Date(departure.date), flight: departure.flight }
-          : undefined,
+        arrival: arrival ? new Date(arrival) : undefined, // Прямое присвоение значения arrival
+        departure: departure ? new Date(departure) : undefined, // Прямое присвоение значения departure
         roomCategory,
         roomNumber,
         status,
         mealPlan
       }
+
       if (hotelId) {
         dataToUpdate.hotel = { connect: { id: hotelId } }
       }
@@ -305,10 +304,10 @@ const requestResolver = {
           where: { id: oldRequest.hotelChess.id },
           data: {
             start: isArrivalChanged
-              ? new Date(arrival.date)
+              ? new Date(arrival)
               : oldRequest.hotelChess.start,
             end: isDepartureChanged
-              ? new Date(departure.date)
+              ? new Date(departure)
               : oldRequest.hotelChess.end
           }
         })
@@ -331,8 +330,8 @@ const requestResolver = {
           dinner: hotel.dinner
         }
         const newMealPlan = calculateMeal(
-          isArrivalChanged ? arrival.date : oldRequest.arrival.date,
-          isDepartureChanged ? departure.date : oldRequest.departure.date,
+          isArrivalChanged ? arrival : oldRequest.arrival,
+          isDepartureChanged ? departure : oldRequest.departure,
           mealTimes
         )
 
@@ -376,6 +375,7 @@ const requestResolver = {
 
       // Логирование действия изменения
       try {
+        // <span style='color: #ff60de;'></span>
         await logAction({
           context,
           action: "update_request",
@@ -388,14 +388,7 @@ const requestResolver = {
           } заявку № ${updatedRequest.requestNumber} для ${
             updatedRequest.person.position
           } ${updatedRequest.person.name}`,
-          newData: {
-            requestNumber: newRequest.requestNumber,
-            airportId,
-            personId,
-            status
-          },
-          airlineId,
-          requestId: newRequest.id
+          requestId: updatedRequest.id
         })
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
@@ -445,7 +438,7 @@ const requestResolver = {
         dailyMeals: []
       }
       // const arrivalDateTime = updatedHotelChess.start
-      const arrivalDateTime = request.arrival.date
+      const arrivalDateTime = request.arrival
       const departureDateTime = newEnd
       const hotel = request.hotel
       const mealTimes = {
@@ -485,15 +478,10 @@ const requestResolver = {
       const updatedRequest = await prisma.request.update({
         where: { id: requestId },
         data: {
-          departure: {
-            date: newEnd,
-            flight: newEndName
-          },
+          departure: newEndDate,
           mealPlan: updatedMealPlan
         },
         include: {
-          arrival: true,
-          departure: true,
           hotelChess: true
         }
       })
@@ -508,7 +496,7 @@ const requestResolver = {
       })
       // Проверяем вышел ли срок заявки
       if (
-        new Date(request.departure.date) < new Date(Date.now()) &&
+        new Date(request.departure) < new Date(Date.now()) &&
         request.status !== "archived"
       ) {
         const archiveRequest = await prisma.request.update({

@@ -9,8 +9,8 @@ type Request {
   personId: String
   airportId: String!
   airport: Airport!
-  arrival: Arrival!
-  departure: Departure!
+  arrival: Date!
+  departure: Date!
   roomCategory: String
   mealPlan: MealPlan
   senderId: String!
@@ -42,15 +42,6 @@ type Log {
   createdAt: Date!
 }
 
-type Arrival {
-  flight: String
-  date: Date!
-}
-
-type Departure {
-  flight: String
-  date: Date!
-}
 
 type MealPlan {
   included: Boolean
@@ -77,8 +68,8 @@ type RequestConnection {
 input CreateRequestInput {
   personId: String
   airportId: String
-  arrival: ArrivalInput!
-  departure: DepartureInput!
+  arrival: Date!
+  departure: Date!
   roomCategory: String
   mealPlan: MealPlanInput
   airlineId: String!
@@ -87,22 +78,12 @@ input CreateRequestInput {
 }
 
 input UpdateRequestInput {
-  arrival: ArrivalInput
-  departure: DepartureInput
+  arrival: Date
+  departure: Date
   roomCategory: String
   mealPlan: MealPlanInput
   hotelId: String 
   status: String
-}
-
-input ArrivalInput {
-  flight: String
-  date: Date!
-}
-
-input DepartureInput {
-  flight: String
-  date: Date!
 }
 
 input MealPlanInput {
@@ -132,7 +113,6 @@ input PaginationInput {
 
 input ExtendRequestDatesInput {
   requestId: ID!
-  newEndName: String!
   newEnd: Date!
 }
 

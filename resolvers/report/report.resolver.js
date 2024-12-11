@@ -60,7 +60,7 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            airline: report.airline 
+            airline: report.airline
           }))
         }
       ]
@@ -111,7 +111,7 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            hotel: report.hotel 
+            hotel: report.hotel
           }))
         }
       ]
@@ -127,14 +127,42 @@ const reportResolver = {
         throw new Error("Access denied")
       }
 
+      const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+      const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+
       // Получаем запросы для формирования отчёта
       const requests = await prisma.request.findMany({
-        where: applyFilters(filter),
-        include: { person: true, hotelChess: true, hotel: true, airline: true }
+        where: {
+          ...applyCreateFilters(filter),
+          status: {
+            in: ["done", "transferred", "extended", "archiving", "archived"]
+          }
+        },
+        include: { person: true, hotelChess: true, hotel: true, airline: true },
+        orderBy: { arrival: "asc" }
       })
 
+      let name = ""
+
+      if (type === "airline") {
+        const airline = await prisma.airline.findUnique({
+          where: { id: filter.airlineId },
+          select: { name }
+        })
+        name = airline.name
+      } else if (type === "hotel") {
+        const hotel = await prisma.hotel.findUnique({
+          where: { id: filter.hotelId },
+          select: { name }
+        })
+        name = hotel.name
+      }
+
       const reportData = aggregateReports(requests, type)
-      const reportName = `${type}_report_${Date.now()}.${format}`
+
+      const reportName = `${type}_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
+
+      // const reportName = `${type}_report_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
@@ -185,6 +213,14 @@ const reportResolver = {
       return savedReport
     }
   }
+}
+
+const applyCreateFilters = (filter) => {
+  const { startDate, endDate, archived, personId, hotelId, airlineId } = filter
+  const where = {}
+
+  if (startDate) where.arrival = { gte: new Date(startDate) } // 199
+  if (endDate) where.departure = { lte: new Date(endDate) } // 200
 }
 
 const applyFilters = (filter) => {
@@ -253,24 +289,57 @@ const calculateTotalDays = (start, end) => {
 }
 
 // Расчёт стоимости проживания
+// const calculateLivingCost = (request, type) => {
+//   const startDate = request.hotelChess?.start
+//   const endDate = request.hotelChess?.end
+//   let pricePerDay
+//   if (type === "airline") {
+//     pricePerDay = request.airline?.priceOneCategory || 0
+//   } else if (type === "hotel") {
+//     pricePerDay = request.hotel?.priceOneCategory || 0
+//   }
+//   if (!startDate || !endDate || pricePerDay === 0) {
+//     return 0 // Если данных нет, возвращаем 0
+//   }
+//   // Разница в миллисекундах между началом и концом
+//   const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
+//   // Количество дней (целое значение)
+//   const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
+//   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
+// }
+
 const calculateLivingCost = (request, type) => {
-  const startDate = request.hotelChess?.start
-  const endDate = request.hotelChess?.end
-  let pricePerDay
+  const startDate = request.hotelChess?.start;
+  const endDate = request.hotelChess?.end;
+  const roomCategory = request.roomCategory;
+
+  // Определяем цену за день в зависимости от типа комнаты и типа запроса
+  let pricePerDay = 0;
   if (type === "airline") {
-    pricePerDay = request.airline?.priceOneCategory || 0
+    if (roomCategory === "onePlace") {
+      pricePerDay = request.airline?.priceOneCategory || 0;
+    } else if (roomCategory === "twoPlace") {
+      pricePerDay = request.airline?.priceTwoCategory || 0;
+    }
   } else if (type === "hotel") {
-    pricePerDay = request.hotel?.priceOneCategory || 0
+    if (roomCategory === "onePlace") {
+      pricePerDay = request.hotel?.priceOneCategory || 0;
+    } else if (roomCategory === "twoPlace") {
+      pricePerDay = request.hotel?.priceTwoCategory || 0;
+    }
   }
+
   if (!startDate || !endDate || pricePerDay === 0) {
-    return 0 // Если данных нет, возвращаем 0
+    return 0; // Если данных нет, возвращаем 0
   }
+
   // Разница в миллисекундах между началом и концом
-  const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
+  const differenceInMilliseconds = new Date(endDate) - new Date(startDate);
   // Количество дней (целое значение)
-  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
-  return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
-}
+  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)); // Округляем в большую сторону
+  return days > 0 ? days * pricePerDay : 0; // Убедимся, что дни положительные
+};
+
 
 // Расчёт стоимости питания
 const calculateMealCost = (request, type) => {

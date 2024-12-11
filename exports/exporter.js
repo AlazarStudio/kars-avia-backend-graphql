@@ -167,12 +167,10 @@ export const generateExcel = async (reportData, filePath) => {
     sheet.addRow({
       room: row.room,
       personName: row.personName,
-      arrival: row.arrival
-        ? formatDateWithoutSeconds(row.arrival)
-        : "Не указано",
-      departure: row.departure
-        ? formatDateWithoutSeconds(row.departure)
-        : "Не указано",
+      arrival: row.arrival ? row.arrival : "Не указано",
+      // arrival: row.arrival ? formatDateWithoutSeconds(row.arrival) : "Не указано",
+      departure: row.departure ? row.departure : "Не указано",
+      // departure: row.departure ? formatDateWithoutSeconds(row.departure) : "Не указано",
       totalDays: row.totalDays,
       breakfastCount: row.breakfastCount,
       lunchCount: row.lunchCount,

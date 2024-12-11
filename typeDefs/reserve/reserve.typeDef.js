@@ -9,8 +9,8 @@ type Reserve {
   airport: Airport
   airline: Airline
   senderId: String!
-  arrival: Arrival!
-  departure: Departure!
+  arrival: Date!
+  departure: Date!
   mealPlan: MealPlan!
   status: String
   reserveNumber: String
@@ -64,8 +64,8 @@ type ReserveConnection {
 
 input CreateReserveInput {
   airportId: String!
-  arrival: ArrivalInput!
-  departure: DepartureInput!
+  arrival: Date!
+  departure: Date!
   mealPlan: MealPlanInput!
   airlineId: String!
   senderId: String!
@@ -77,8 +77,8 @@ input CreateReserveInput {
 }
 
 input UpdateReserveInput {
-  arrival: ArrivalInput
-  departure: DepartureInput
+  arrival: Date
+  departure: Date
   mealPlan: MealPlanInput
   status: String
   person: [PersonInput!]

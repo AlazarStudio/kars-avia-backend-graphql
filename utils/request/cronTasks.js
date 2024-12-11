@@ -12,8 +12,9 @@ const checkAndArchiveRequests = async () => {
   // Обновляем статус для каждой заявки, если время выселения прошло
   for (const request of requests) {
     // Создаем объект даты для выселения
-    const departureDate =  request.departure.date
-    // new Date(`${request.departure.date}T${request.departure.time}:00`)
+    const departureDate =  request.departure
+    // console.log(departureDate)
+
     // Преобразуем время в локальное
     const localDepartureDate = new Date(
       departureDate.getTime() - departureDate.getTimezoneOffset() * 60000
@@ -36,4 +37,16 @@ const checkAndArchiveRequests = async () => {
 export const startArchivingJob = () => {
   // Запускаем проверку каждые 6 часов  
   setInterval(checkAndArchiveRequests, 6 * 60 * 60 * 1000)
+  
+  // Запускаем проверку каждую 1 минуту  
+  // setInterval(checkAndArchiveRequests, 1 * 60 * 1000)
+}
+
+
+const updateHotelRooms = async () => {
+  const hotels = await prisma.hotel.findMany({
+    include: {
+      rooms: true
+    }
+  })
 }
