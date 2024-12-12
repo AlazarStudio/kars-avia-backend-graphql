@@ -59,8 +59,7 @@ const server = new ApolloServer({
           }
         }
       }
-    },
-    ApolloServerPluginLandingPageLocalDefault({ embed: true })
+    }
   ]
 })
 
@@ -75,7 +74,15 @@ app.use("/reports", express.static("reports"))
 
 app.use(
   "/",
-  cors(),
+  cors({
+    origin: (origin, callback) => {
+      if (process.env.ALLOWED_ORIGINS.split(",").includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error("Origin not allowed"))
+      }
+    }
+  }),
   express.json(),
   expressMiddleware(server, {
     context: async ({ req, res }) => {
@@ -115,8 +122,8 @@ app.use(
   })
 )
 
-const PORT = 4000
-// const PORT = 443 // HTTPS порт
+// const PORT = 4000
+const PORT = 443 // HTTPS порт
 const HTTP_PORT = 80 // HTTP порт
 
 // Запуск HTTPS сервера

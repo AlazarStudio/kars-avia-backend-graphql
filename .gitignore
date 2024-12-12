@@ -7,5 +7,6 @@ logs/
 cert/
 data.csv
 load-test.yml
+server2.js
 
 # gitignore

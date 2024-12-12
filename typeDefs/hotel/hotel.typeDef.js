@@ -26,7 +26,7 @@ type Hotel {
   bik: String
   link: String
   description: String
-  hotelChesses: [HotelChess!]
+  hotelChesses: [HotelChess]
   images: [String!]
   rooms: [Room!]
   breakfast: MealTime

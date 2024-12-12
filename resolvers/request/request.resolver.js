@@ -299,18 +299,33 @@ const requestResolver = {
         dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
       }
       let updatedHotelChess
-      if (oldRequest.hotelChess && (isArrivalChanged || isDepartureChanged)) {
+      let hotelChessToUpdate
+      if (
+        Array.isArray(oldRequest.hotelChess) &&
+        oldRequest.hotelChess.length > 0
+      ) {
+        hotelChessToUpdate = oldRequest.hotelChess[0]
+      } else if (
+        oldRequest.hotelChess &&
+        typeof oldRequest.hotelChess === "object"
+      ) {
+        hotelChessToUpdate = oldRequest.hotelChess
+      }
+
+      if (hotelChessToUpdate && hotelChessToUpdate.id) {
         updatedHotelChess = await prisma.hotelChess.update({
-          where: { id: oldRequest.hotelChess.id },
+          where: { id: hotelChessToUpdate.id },
           data: {
             start: isArrivalChanged
               ? new Date(arrival)
-              : oldRequest.hotelChess.start,
+              : hotelChessToUpdate.start,
             end: isDepartureChanged
               ? new Date(departure)
-              : oldRequest.hotelChess.end
+              : hotelChessToUpdate.end
           }
         })
+      } else {
+        console.warn("No valid hotelChess found for updating.")
       }
 
       // let updatedMealPlan = oldRequest.mealPlan
@@ -573,8 +588,8 @@ const requestResolver = {
       })
     },
     hotelChess: async (parent) => {
-      if (!parent.hotelChess) return null
-      return await prisma.hotelChess.findUnique({
+      if (!parent.hotelId) return null
+      return await prisma.hotelChess.findFirst({
         where: { requestId: parent.id }
       })
     },
