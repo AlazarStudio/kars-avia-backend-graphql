@@ -74,15 +74,9 @@ app.use("/reports", express.static("reports"))
 
 app.use(
   "/",
-  cors({
-    origin: (origin, callback) => {
-      if (process.env.ALLOWED_ORIGINS.split(",").includes(origin)) {
-        callback(null, true)
-      } else {
-        callback(new Error("Origin not allowed"))
-      }
-    }
-  }),
+  cors(
+    // {origin: (origin, callback) => {if (process.env.ALLOWED_ORIGINS.split(",").includes(origin)) {callback(null, true)} else {callback(new Error("Origin not allowed"))}}}
+),
   express.json(),
   expressMiddleware(server, {
     context: async ({ req, res }) => {
