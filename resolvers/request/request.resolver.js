@@ -177,8 +177,27 @@ const requestResolver = {
         senderId,
         status
       } = input
+
+      // Проверка существования заявки с такими же параметрами
+      const existingRequest = await prisma.request.findFirst({
+        where: {
+          personId,
+          airlineId,
+          airportId,
+          arrival,
+          departure
+        }
+      })
+
+      if (existingRequest) {
+        throw new Error(
+          `Заявка с такими же параметрами уже существует (Заявка № ${existingRequest.requestNumber})`
+        )
+      }
+
       // Получаем количество существующих заявок для порядкового номера
       const requestCount = await prisma.request.count()
+
       // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
@@ -186,6 +205,7 @@ const requestResolver = {
       if (!airport) {
         throw new Error("Airport not found")
       }
+
       // Форматируем текущую дату
       const currentDate = new Date()
       const formattedDate = currentDate
@@ -194,6 +214,7 @@ const requestResolver = {
       const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
         airport.code
       }-${formattedDate}`
+
       // Создание заявки
       const newRequest = await prisma.request.create({
         data: {
@@ -212,17 +233,16 @@ const requestResolver = {
           airline: true,
           airport: true,
           person: true
-          // hotel: true,
-          // hotelChess: true,
-          // logs: true
         }
       })
+
       // Создание чата, связанного с заявкой
       const newChat = await prisma.chat.create({
         data: {
           request: { connect: { id: newRequest.id } }
         }
       })
+
       // Добавление участника в чат через ChatUser
       await prisma.chatUser.create({
         data: {
@@ -230,8 +250,8 @@ const requestResolver = {
           user: { connect: { id: senderId } }
         }
       })
+
       // Логирование действия создания
-      // console.log(newRequest)
       try {
         await logAction({
           context,
@@ -249,6 +269,7 @@ const requestResolver = {
       } catch (error) {
         console.error("Ошибка при логировании действия создания заявки:", error)
       }
+
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },

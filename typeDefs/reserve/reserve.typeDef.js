@@ -21,6 +21,7 @@ type Reserve {
   passengerCount: Int
   reserveForPerson: Boolean!
   archive: Boolean
+  hotelChess: [HotelChess]
 }
 
 type ReserveHotel {

@@ -41,6 +41,7 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
+          hotelChess: true,
           chat: true
         },
         orderBy: { createdAt: "desc" }
@@ -99,6 +100,7 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
+          hotelChess: true,
           chat: true
         }
       })
@@ -488,8 +490,13 @@ const reserveResolver = {
   },
   Reserve: {
     hotel: async (parent) => {
-      if (!parent.hotelId) return null
-      return await prisma.reserveHotel.findUnique({
+      // if (!parent.hotelId) return null
+      return await prisma.reserveHotel.findMany({
+        where: { reserveId: parent.id }
+      })
+    },
+    hotelChess: async (parent) => {
+      return await prisma.hotelChess.findMany({
         where: { reserveId: parent.id }
       })
     },

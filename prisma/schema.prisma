@@ -287,7 +287,7 @@ model Request {
   receiverId    String?          @db.ObjectId
   chat          Chat[]
   status        String           @default("created")
-  hotelChess    HotelChess[]      
+  hotelChess    HotelChess[]
   logs          Log[]
   archive       Boolean          @default(false)
 }

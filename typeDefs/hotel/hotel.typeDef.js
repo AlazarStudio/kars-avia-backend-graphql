@@ -63,6 +63,7 @@ type HotelChess {
   requestId: String
   reserve: Reserve
   reserveId: String
+  status: String
 }
 
 type Room {
@@ -150,6 +151,7 @@ input HotelChessInput {
   passengerId: ID
   requestId: ID
   reserveId: ID
+  status: String
 }
 
 input RoomInput {
