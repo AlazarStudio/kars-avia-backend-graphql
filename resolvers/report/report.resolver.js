@@ -7,6 +7,7 @@ import {
   airlineAdminMiddleware,
   hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
+import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { report } from "process"
 
 const reportResolver = {
@@ -209,8 +210,13 @@ const reportResolver = {
       const savedReport = await prisma.savedReport.create({
         data: reportRecord
       })
-
+      pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
+    }
+  },
+  Subscription: {
+    reportCreated: {
+      subscribe: () => pubsub.asyncIterator([REPORT_CREATED])
     }
   }
 }
@@ -309,37 +315,36 @@ const calculateTotalDays = (start, end) => {
 // }
 
 const calculateLivingCost = (request, type) => {
-  const startDate = request.hotelChess?.start;
-  const endDate = request.hotelChess?.end;
-  const roomCategory = request.roomCategory;
+  const startDate = request.hotelChess?.start
+  const endDate = request.hotelChess?.end
+  const roomCategory = request.roomCategory
 
   // Определяем цену за день в зависимости от типа комнаты и типа запроса
-  let pricePerDay = 0;
+  let pricePerDay = 0
   if (type === "airline") {
     if (roomCategory === "onePlace") {
-      pricePerDay = request.airline?.priceOneCategory || 0;
+      pricePerDay = request.airline?.priceOneCategory || 0
     } else if (roomCategory === "twoPlace") {
-      pricePerDay = request.airline?.priceTwoCategory || 0;
+      pricePerDay = request.airline?.priceTwoCategory || 0
     }
   } else if (type === "hotel") {
     if (roomCategory === "onePlace") {
-      pricePerDay = request.hotel?.priceOneCategory || 0;
+      pricePerDay = request.hotel?.priceOneCategory || 0
     } else if (roomCategory === "twoPlace") {
-      pricePerDay = request.hotel?.priceTwoCategory || 0;
+      pricePerDay = request.hotel?.priceTwoCategory || 0
     }
   }
 
   if (!startDate || !endDate || pricePerDay === 0) {
-    return 0; // Если данных нет, возвращаем 0
+    return 0 // Если данных нет, возвращаем 0
   }
 
   // Разница в миллисекундах между началом и концом
-  const differenceInMilliseconds = new Date(endDate) - new Date(startDate);
+  const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
   // Количество дней (целое значение)
-  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)); // Округляем в большую сторону
-  return days > 0 ? days * pricePerDay : 0; // Убедимся, что дни положительные
-};
-
+  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
+  return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
+}
 
 // Расчёт стоимости питания
 const calculateMealCost = (request, type) => {

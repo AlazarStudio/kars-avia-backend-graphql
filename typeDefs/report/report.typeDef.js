@@ -59,6 +59,9 @@ type SavedReport {
   airline: Airline
 }
 
+type Subscription {
+  reportCreated: SavedReport!
+}
 
 `
 
