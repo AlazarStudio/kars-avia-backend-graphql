@@ -62,6 +62,7 @@ const airlineTypeDef = `#graphql
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
+    priceFourCategory: Float
     MealPrice: MealPriceInput
   }
 
@@ -83,6 +84,7 @@ const airlineTypeDef = `#graphql
     department: [AirlineDepartmentInput!]
     priceOneCategory: Float
     priceTwoCategory: Float
+    priceThreeCategory: Float
     priceFourCategory: Float
     MealPrice: MealPriceInput
   }
