@@ -82,6 +82,7 @@ const reserveResolver = {
           person: true,
           passengers: true,
           hotel: true,
+          hotelChess: true,
           chat: true
         },
         orderBy: { createdAt: "desc" }
@@ -175,7 +176,7 @@ const reserveResolver = {
         include: {
           person: true,
           hotel: true,
-          hotelChess: true,
+          // hotelChess: true,
         }
       })
     }
@@ -539,7 +540,12 @@ const reserveResolver = {
       return await prisma.passenger.findMany({
         where: { reserveHotelId: parent.id }
       })
-    }
+    },
+    hotelChess: async (parent) => {
+      return await prisma.hotelChess.findMany({
+        where: { hotelId: parent.hotelId, reserveId: parent.reserveId }
+      })
+    },
   },
   Passenger: {
     reserve: async (parent) => {

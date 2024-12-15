@@ -134,25 +134,27 @@ type MealTime {
 }
 
 model HotelChess {
-  id          String           @id @default(auto()) @map("_id") @db.ObjectId
-  hotel       Hotel            @relation(fields: [hotelId], references: [id])
-  hotelId     String           @db.ObjectId
-  public      Boolean?
-  room        String?
-  roomN       Room?            @relation(fields: [roomId], references: [id])
-  roomId      String?          @db.ObjectId
-  place       Float?
-  start       DateTime?
-  end         DateTime?
-  client      AirlinePersonal? @relation(fields: [clientId], references: [id])
-  clientId    String?          @db.ObjectId
-  request     Request?         @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId   String?          @db.ObjectId
-  reserve     Reserve?         @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId   String?          @db.ObjectId
-  passenger   Passenger?       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
-  passengerId String?          @db.ObjectId
-  status      String?
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  hotel          Hotel            @relation(fields: [hotelId], references: [id])
+  hotelId        String           @db.ObjectId
+  reserveHotel   ReserveHotel?    @relation(fields: [reserveHotelId], references: [id])
+  reserveHotelId String?          @db.ObjectId
+  public         Boolean?
+  room           String?
+  roomN          Room?            @relation(fields: [roomId], references: [id])
+  roomId         String?          @db.ObjectId
+  place          Float?
+  start          DateTime?
+  end            DateTime?
+  client         AirlinePersonal? @relation(fields: [clientId], references: [id])
+  clientId       String?          @db.ObjectId
+  request        Request?         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId      String?          @db.ObjectId
+  reserve        Reserve?         @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId      String?          @db.ObjectId
+  passenger      Passenger?       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  passengerId    String?          @db.ObjectId
+  status         String?
 }
 
 model Room {
@@ -345,6 +347,7 @@ model ReserveHotel {
   reserveId  String                 @db.ObjectId
   hotel      Hotel                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId    String                 @db.ObjectId
+  hotelChess HotelChess[]
   capacity   Int?
   passengers Passenger[]
   person     ReserveHotelPersonal[]

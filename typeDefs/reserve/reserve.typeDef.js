@@ -31,6 +31,7 @@ type ReserveHotel {
   reserve: Reserve!
   person: [AirlinePersonal]
   passengers: [Passenger]
+  hotelChess: [HotelChess]
 }
 
 type MealPlan {
