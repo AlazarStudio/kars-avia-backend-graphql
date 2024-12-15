@@ -199,7 +199,7 @@ const hotelResolver = {
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
-                  requestId: updatedRequest.id
+                  requestId: updatedRequest.id,
                 })
 
                 pubsub.publish(REQUEST_UPDATED, {
@@ -221,7 +221,8 @@ const hotelResolver = {
                   description: `Заявка № ${hotelChess.reserveId} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
-                  hotelId: hotelChess.hotelId
+                  hotelId: hotelChess.hotelId,
+                  reserveId: hotelChess.reserveId
                 })
               }
             } else {
@@ -350,7 +351,8 @@ const hotelResolver = {
                   oldData: null,
                   newData: newHotelChess,
                   hotelId: hotelChess.hotelId,
-                  requestId: hotelChess.requestId
+                  requestId: hotelChess.requestId,
+                  reserveId: hotelChess.reserveId
                 })
 
                 pubsub.publish(REQUEST_UPDATED, {

@@ -128,10 +128,7 @@ const reserveResolver = {
             await logAction({
               context,
               action: "open_reserve",
-              description: {
-                reserveId: updatedReserve.id,
-                description: `Reserve was opened by user ${user.id}`
-              },
+              description: `Заявка № ${updatedReserve.requestNumber} открыта пользователем ${user.name}`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               reserveId: updatedReserve.id
@@ -155,7 +152,8 @@ const reserveResolver = {
           reserve: true,
           hotel: true,
           person: true,
-          passengers: true
+          passengers: true,
+          hotelChess: true,
         }
       })
     },
@@ -166,7 +164,8 @@ const reserveResolver = {
           reserve: true,
           hotel: true,
           person: true,
-          passengers: true
+          passengers: true,
+          hotelChess: true,
         }
       })
     },
@@ -175,13 +174,15 @@ const reserveResolver = {
         where: { reserveId: reservationId },
         include: {
           person: true,
-          hotel: true
+          hotel: true,
+          hotelChess: true,
         }
       })
     }
   },
   Mutation: {
     createReserve: async (_, { input }, context) => {
+      const { user } = context
       const {
         airportId,
         arrival,
@@ -223,6 +224,15 @@ const reserveResolver = {
           persons,
           passengerCount,
           reserveForPerson
+        },
+        include: {
+          airline: true,
+          airport: true,
+          person: true,
+          passengers: true,
+          hotel: true,
+          hotelChess: true,
+          chat: true
         }
       })
       // Создание чата, связанного с заявкой
@@ -242,10 +252,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "create_reserve",
-        description: {
-          reserveId: newReserve.id,
-          reserveNumber: newReserve.reserveNumber
-        },
+        description: `Пользователь ${user.name} создал заявку № ${newReserve.requestNumber} в аэропорт ${newReserve.airport.name}`,
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
