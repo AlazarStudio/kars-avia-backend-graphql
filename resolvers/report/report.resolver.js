@@ -326,12 +326,20 @@ const calculateLivingCost = (request, type) => {
       pricePerDay = request.airline?.priceOneCategory || 0
     } else if (roomCategory === "twoPlace") {
       pricePerDay = request.airline?.priceTwoCategory || 0
+    } else if (roomCategory === "threePlace") {
+      pricePerDay = request.airline?.priceThreeCategory || 0
+    } else if (roomCategory === "fourPlace") {
+      pricePerDay = request.airline?.priceFourCategory || 0
     }
   } else if (type === "hotel") {
     if (roomCategory === "onePlace") {
       pricePerDay = request.hotel?.priceOneCategory || 0
     } else if (roomCategory === "twoPlace") {
       pricePerDay = request.hotel?.priceTwoCategory || 0
+    } else if (roomCategory === "threePlace") {
+      pricePerDay = request.hotel?.priceThreeCategory || 0
+    } else if (roomCategory === "fourPlace") {
+      pricePerDay = request.hotel?.priceFourCategory || 0
     }
   }
 

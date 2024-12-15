@@ -20,7 +20,9 @@ import { request } from "express"
 
 const categoryToPlaces = {
   onePlace: 1,
-  twoPlace: 2
+  twoPlace: 2,
+  threePlace: 3,
+  fourPlace: 4
 }
 
 const calculatePlaces = (category) => categoryToPlaces[category] || 1

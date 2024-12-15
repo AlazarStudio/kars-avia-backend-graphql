@@ -42,6 +42,8 @@ enum Role {
 enum Category {
   onePlace
   twoPlace
+  threePlace
+  fourPlace
 }
 
 enum TwoFAMethod {
@@ -86,42 +88,44 @@ model User {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id               String         @id @default(auto()) @map("_id") @db.ObjectId
-  name             String
-  country          String?        @default("Россия")
-  city             String?
-  address          String?
-  index            String?
-  quote            Int?
-  provision        Int?
-  email            String?
-  number           String?
-  inn              String?
-  ogrn             String?
-  rs               String?
-  bank             String?
-  bik              String?
-  link             String?
-  description      String?
-  breakfast        MealTime?
+  id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  country            String?        @default("Россия")
+  city               String?
+  address            String?
+  index              String?
+  quote              Int?
+  provision          Int?
+  email              String?
+  number             String?
+  inn                String?
+  ogrn               String?
+  rs                 String?
+  bank               String?
+  bik                String?
+  link               String?
+  description        String?
+  breakfast          MealTime?
   // breakfast    String?        @default("07:00 - 10:00")
-  lunch            MealTime?
+  lunch              MealTime?
   // lunch        String?        @default("12:00 - 16:00")
-  dinner           MealTime?
+  dinner             MealTime?
   // dinner       String?        @default("18:00 - 20:00")
-  images           String[]
-  MealPrice        MealPrice
-  ReserveHotel     ReserveHotel[]
-  hotelChesses     HotelChess[]
-  Request          Request[]
-  priceOneCategory Float?         @default(0)
-  priceTwoCategory Float?         @default(0)
-  rooms            Room[]
-  User             User[]
-  logs             Log[]
-  stars            String?
-  airportDistance  String?
-  SavedReport      SavedReport[]
+  images             String[]
+  MealPrice          MealPrice
+  ReserveHotel       ReserveHotel[]
+  hotelChesses       HotelChess[]
+  Request            Request[]
+  priceOneCategory   Float?         @default(0)
+  priceTwoCategory   Float?         @default(0)
+  priceThreeCategory Float?         @default(0)
+  priceFourCategory  Float?         @default(0)
+  rooms              Room[]
+  User               User[]
+  logs               Log[]
+  stars              String?
+  airportDistance    String?
+  SavedReport        SavedReport[]
 }
 
 type MealTime {
@@ -176,33 +180,35 @@ type MealPrice {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id               String              @id @default(auto()) @map("_id") @db.ObjectId
-  name             String
-  images           String[]
-  country          String?
-  city             String?
-  address          String?
-  index            String?
-  quote            String?
-  email            String?
-  number           String?
-  inn              String?
-  ogrn             String?
-  rs               String?
-  bank             String?
-  bik              String?
-  link             String?
-  description      String?
-  department       AirlineDepartment[]
-  staff            AirlinePersonal[]
-  Request          Request[]
-  User             User[]
-  logs             Log[]
-  Reserve          Reserve[]
-  MealPrice        MealPrice
-  priceOneCategory Float?              @default(0)
-  priceTwoCategory Float?              @default(0)
-  SavedReport      SavedReport[]
+  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  images             String[]
+  country            String?
+  city               String?
+  address            String?
+  index              String?
+  quote              String?
+  email              String?
+  number             String?
+  inn                String?
+  ogrn               String?
+  rs                 String?
+  bank               String?
+  bik                String?
+  link               String?
+  description        String?
+  department         AirlineDepartment[]
+  staff              AirlinePersonal[]
+  Request            Request[]
+  User               User[]
+  logs               Log[]
+  Reserve            Reserve[]
+  MealPrice          MealPrice
+  priceOneCategory   Float?              @default(0)
+  priceTwoCategory   Float?              @default(0)
+  priceThreeCategory Float?              @default(0)
+  priceFourCategory  Float?              @default(0)
+  SavedReport        SavedReport[]
 }
 
 model AirlineDepartment {

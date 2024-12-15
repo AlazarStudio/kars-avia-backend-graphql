@@ -6,6 +6,8 @@ scalar Date
 enum Category {
   onePlace
   twoPlace
+  threePlace
+  fourPlace
 }
 
 type Hotel {
@@ -34,6 +36,8 @@ type Hotel {
   dinner: MealTime
   priceOneCategory: Float
   priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
   MealPrice: MealPrice
   stars: String
   airportDistance: String
@@ -106,6 +110,8 @@ input CreateHotelInput {
   dinner: MealTimeInput
   priceOneCategory: Float
   priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
   airportDistance: String
@@ -134,6 +140,8 @@ input UpdateHotelInput {
   dinner: MealTimeInput
   priceOneCategory: Float
   priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
   airportDistance: String

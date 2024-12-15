@@ -9,6 +9,7 @@ import {
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
+import updateDailyMeals from "../../exports/updateDailyMeals.js"
 
 const reserveResolver = {
   Query: {
