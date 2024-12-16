@@ -42,7 +42,8 @@ const hotelResolver = {
           //     dinner: true
           //   }
           // },
-        }
+        },
+        orderBy: { name: "asc" }
       })
     },
     hotel: async (_, { id }, context) => {
@@ -150,8 +151,6 @@ const hotelResolver = {
         // Needs refinement
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
-            // console.log(hotelChess.requestId)
-
             if (hotelChess.id) {
               const previousHotelChessData = await prisma.hotelChess.findUnique(
                 {
@@ -253,7 +252,6 @@ const hotelResolver = {
                     }
                   })
                 } else if (reserveForPerson === false) {
-                  console.log(hotelChess)
                   try {
                     newHotelChess = await prisma.hotelChess.create({
                       data: {
@@ -608,10 +606,6 @@ const updateHotelRoomCounts = async (hotelId) => {
       quote: quoteCount
     }
   })
-
-  console.log(
-    `Обновлены данные для отеля ${hotelId}: provision = ${provisionCount}, quote = ${quoteCount}`
-  )
 
   return updatedHotel
 }

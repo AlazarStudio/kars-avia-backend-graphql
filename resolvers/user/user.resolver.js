@@ -27,27 +27,30 @@ const userResolver = {
   // need middleware for Query and Mutations
   Query: {
     users: async (_, { __ }, context) => {
-      return prisma.user.findMany()
+      return prisma.user.findMany({orderBy: { name: "asc" }})
     },
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
         where: {
           airlineId: airlineId
-        }
+        },
+        orderBy: { name: "asc" }
       })
     },
     hotelUsers: async (_, { hotelId }, context) => {
       return prisma.user.findMany({
         where: {
           hotelId: hotelId
-        }
+        },
+        orderBy: { name: "asc" }
       })
     },
     dispatcherUsers: async (_, { __ }, context) => {
       return prisma.user.findMany({
         where: {
           dispatcher: true
-        }
+        },
+        orderBy: { name: "asc" }
       })
     },
     user: async (_, { userId }, context) => {

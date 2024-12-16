@@ -3,7 +3,7 @@ import { prisma } from "../../prisma.js"
 const cityResolver = {
   Query: {
     citys: async () => {
-      return prisma.city.findMany({})
+      return prisma.city.findMany({orderBy: { name: "asc" }})
     },
     city: async (_, { city }) => {
       return prisma.city.findMany({

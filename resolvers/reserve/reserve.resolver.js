@@ -261,7 +261,6 @@ const reserveResolver = {
       return newReserve
     },
     updateReserve: async (_, { id, input }, context) => {
-      console.log(context)
       const { arrival, departure, mealPlan, status, persons } = input
 
       const updatedReserve = await prisma.reserve.update({

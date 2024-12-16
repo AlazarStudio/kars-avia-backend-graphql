@@ -17,7 +17,8 @@ const airlineResolver = {
       return await prisma.airline.findMany({
         include: {
           staff: true
-        }
+        },
+        orderBy: { name: "asc" }
       })
     },
     airline: async (_, { id }, context) => {
@@ -31,13 +32,14 @@ const airlineResolver = {
     airlineStaff: async (_, { id }, context) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id },
-        include: { hotelChess: true }
+        include: { hotelChess: true },
       })
     },
     airlineStaffs: async (_, { airlineId }, context) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: airlineId },
-        include: { hotelChess: true }
+        include: { hotelChess: true },
+        orderBy: { name: "asc" }
       })
     }
   },
