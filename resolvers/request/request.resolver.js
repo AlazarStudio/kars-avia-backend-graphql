@@ -561,26 +561,31 @@ const requestResolver = {
       const request = await prisma.request.findUnique({
         where: { id: requestId }
       })
-      if (request.status != "done") {
-        const canceledRequest = await prisma.request.update({
-          where: { id: requestId },
-          data: { status: "canceled" }
+
+      const canceledRequest = await prisma.request.update({
+        where: { id: requestId },
+        data: { status: "canceled" },
+        include: {
+          hotelChess: true
+        }
+      })
+      if (request.hotelChess) {
+        await prisma.hotelChess.delete({
+          where: { requestId: request.id }
         })
-        await logAction({
-          context,
-          action: "cancel_request",
-          description: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
-          // description: { requestId: request.id },
-          oldData: request,
-          newData: { status: "canceled" },
-          hotelId: request.hotelId,
-          requestId: request.id
-        })
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: canceledRequest })
-        return canceledRequest
-      } else {
-        throw new Error("Request is not in the 'created' status")
       }
+      await logAction({
+        context,
+        action: "cancel_request",
+        description: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
+        // description: { requestId: request.id },
+        oldData: request,
+        newData: { status: "canceled" },
+        hotelId: request.hotelId,
+        requestId: request.id
+      })
+      pubsub.publish(REQUEST_UPDATED, { requestUpdated: canceledRequest })
+      return canceledRequest
     }
   },
   Subscription: {
