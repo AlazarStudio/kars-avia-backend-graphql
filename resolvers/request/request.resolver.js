@@ -559,19 +559,19 @@ const requestResolver = {
       const { user } = context
       const requestId = input.id
       const request = await prisma.request.findUnique({
-        where: { id: requestId }
-      })
-
-      const canceledRequest = await prisma.request.update({
         where: { id: requestId },
-        data: { status: "canceled" },
         include: {
           hotelChess: true
         }
       })
+
+      const canceledRequest = await prisma.request.update({
+        where: { id: requestId },
+        data: { status: "canceled" }
+      })
       if (request.hotelChess) {
-        await prisma.hotelChess.delete({
-          where: { requestId: request.id }
+        await prisma.hotelChess.deleteMany({
+          where: { requestId: requestId }
         })
       }
       await logAction({
