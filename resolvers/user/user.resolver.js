@@ -224,6 +224,7 @@ const userResolver = {
         data: updatedData
       })
       // logAction(id, "update", user)
+      pubsub.publish(USER_CREATED, { userCreated: user })
       return user
     },
     // -------------------------------- 2FA -------------------------------- ↓↓↓↓
