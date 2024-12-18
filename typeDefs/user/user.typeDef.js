@@ -124,6 +124,11 @@ const userTypeDef = `#graphql
   type LogoutResponse {
     message: String!
   }
+
+  type Subscription {
+    userCreated: User!
+  }
+
 `
 
 export default userTypeDef

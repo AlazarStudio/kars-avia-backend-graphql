@@ -12,6 +12,8 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
+import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
+import { SubscriptionClient } from "subscriptions-transport-ws"
 
 const transporter = nodemailer.createTransport({
   host: "smtp.mail.ru",
@@ -27,7 +29,7 @@ const userResolver = {
   // need middleware for Query and Mutations
   Query: {
     users: async (_, { __ }, context) => {
-      return prisma.user.findMany({orderBy: { name: "asc" }})
+      return prisma.user.findMany({ orderBy: { name: "asc" } })
     },
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
@@ -99,6 +101,7 @@ const userResolver = {
       const newUser = await prisma.user.create({
         data: createdData
       })
+      pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
     },
     signUp: async (_, { input, images }) => {
@@ -133,6 +136,7 @@ const userResolver = {
         process.env.JWT_SECRET,
         { expiresIn: "24d" }
       )
+      pubsub.publish(USER_CREATED, { userCreated: newUser })
       return {
         ...newUser,
         token
@@ -326,6 +330,11 @@ const userResolver = {
       return await prisma.user.delete({
         where: { id }
       })
+    }
+  },
+  Subscription: {
+    userCreated: {
+      subscribe: () => pubsub.asyncIterator([USER_CREATED])
     }
   }
 }
