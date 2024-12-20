@@ -116,7 +116,7 @@ input PaginationInput {
 }
 
 type Query {
-  airlines: (pagination: PaginationInput): AirlineConnection!
+  airlines(pagination: PaginationInput): AirlineConnection!
   airline(id: ID!): Airline
   airlineStaff(id: ID!): AirlinePersonal
   airlineStaffs(id: ID!): [AirlinePersonal]

@@ -195,7 +195,7 @@ input PaginationInput {
 }
 
 type Query {
-  hotels: (pagination: PaginationInput): HotelConnection!
+  hotels(pagination: PaginationInput): HotelConnection!
   hotel(id: ID!): Hotel
 }
 
