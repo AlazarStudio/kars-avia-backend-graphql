@@ -13,8 +13,11 @@ const airlineResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    airlines: async (_, __, context) => {
+    airlines: async (_, { pagination }, context) => {
+      const { skip, take } = pagination
       return await prisma.airline.findMany({
+        skip: skip * take,
+        take: take,
         include: {
           staff: true
         },

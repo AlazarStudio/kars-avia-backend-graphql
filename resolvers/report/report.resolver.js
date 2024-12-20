@@ -120,9 +120,102 @@ const reportResolver = {
   },
   Mutation: {
     // Мутация для создания нового отчёта
-    createReport: async (_, { input }, context) => {
+    // createReport: async (_, { input }, context) => {
+    //   const { user } = context
+    //   const { filter, type, format } = input
+
+    //   if (!user) {
+    //     throw new Error("Access denied")
+    //   }
+
+    //   const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+    //   const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+
+    //   // Получаем запросы для формирования отчёта
+    //   const requests = await prisma.request.findMany({
+    //     where: {
+    //       ...applyCreateFilters(filter),
+    //       status: {
+    //         in: ["done", "transferred", "extended", "archiving", "archived"]
+    //       }
+    //     },
+    //     include: { person: true, hotelChess: true, hotel: true, airline: true },
+    //     orderBy: { arrival: "asc" }
+    //   })
+
+    //   let name = ""
+
+    //   if (type === "airline") {
+    //     const airline = await prisma.airline.findUnique({
+    //       where: { id: filter.airlineId },
+    //       select: { name }
+    //     })
+    //     name = airline.name
+    //   } else if (type === "hotel") {
+    //     const hotel = await prisma.hotel.findUnique({
+    //       where: { id: filter.hotelId },
+    //       select: { name }
+    //     })
+    //     name = hotel.name
+    //   }
+
+    //   const reportData = aggregateReports(requests, type)
+
+    //   const reportName = `${type}_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
+
+    //   // const reportName = `${type}_report_${Date.now()}.${format}`
+    //   const reportPath = path.resolve(`./reports/${reportName}`)
+    //   fs.mkdirSync(path.dirname(reportPath), { recursive: true })
+
+    //   // Генерация отчёта
+    //   if (format === "pdf") {
+    //     await generatePDF(reportData, reportPath)
+    //   } else if (format === "xlsx") {
+    //     await generateExcel(reportData, reportPath)
+    //   } else {
+    //     throw new Error("Unsupported report format")
+    //   }
+
+    //   // Создание записи отчёта
+    //   const reportRecord = {
+    //     name: reportName,
+    //     url: `/reports/${reportName}`,
+    //     startDate: new Date(filter.startDate), // Добавляем startDate
+    //     endDate: new Date(filter.endDate), // Добавляем endDate
+    //     createdAt: new Date()
+    //   }
+
+    //   // Логика для разных ролей
+    //   if (user.role === "AIRLINEADMIN") {
+    //     reportRecord.airlineId = user.airlineId
+    //   } else if (user.role === "HOTELADMIN") {
+    //     reportRecord.hotelId = user.hotelId
+    //   } else if (
+    //     user.role === "SUPERADMIN" ||
+    //     user.role === "DISPATCHERADMIN"
+    //   ) {
+    //     // Если SUPERADMIN или DISPATCHERADMIN, добавляем данные из фильтра
+    //     if (type === "airline" && filter.airlineId) {
+    //       reportRecord.airlineId = filter.airlineId
+    //     } else if (type === "hotel" && filter.hotelId) {
+    //       reportRecord.hotelId = filter.hotelId
+    //     } else {
+    //       throw new Error(
+    //         "For SUPERADMIN/DISPATCHERADMIN, either airlineId or hotelId must be provided in the filter based on the report type."
+    //       )
+    //     }
+    //   }
+
+    //   // Сохранение отчёта
+    //   const savedReport = await prisma.savedReport.create({
+    //     data: reportRecord
+    //   })
+    //   pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
+    //   return savedReport
+    // },
+    createAirlineReport: async (_, { input }, context) => {
       const { user } = context
-      const { filter, type, format } = input
+      const { filter, format } = input
 
       if (!user) {
         throw new Error("Access denied")
@@ -143,27 +236,19 @@ const reportResolver = {
         orderBy: { arrival: "asc" }
       })
 
-      let name = ""
+      const airline = await prisma.airline.findUnique({
+        where: { id: filter.airlineId },
+        select: { name: true }
+      })
 
-      if (type === "airline") {
-        const airline = await prisma.airline.findUnique({
-          where: { id: filter.airlineId },
-          select: { name }
-        })
-        name = airline.name
-      } else if (type === "hotel") {
-        const hotel = await prisma.hotel.findUnique({
-          where: { id: filter.hotelId },
-          select: { name }
-        })
-        name = hotel.name
+      if (!airline) {
+        throw new Error("Airline not found")
       }
 
-      const reportData = aggregateReports(requests, type)
+      const name = airline.name
+      const reportData = aggregateReports(requests, "airline")
 
-      const reportName = `${type}_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
-
-      // const reportName = `${type}_report_${Date.now()}.${format}`
+      const reportName = `airline_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
@@ -180,33 +265,86 @@ const reportResolver = {
       const reportRecord = {
         name: reportName,
         url: `/reports/${reportName}`,
-        startDate: new Date(filter.startDate), // Добавляем startDate
-        endDate: new Date(filter.endDate), // Добавляем endDate
-        createdAt: new Date()
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        airlineId:
+          user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
       }
 
-      // Логика для разных ролей
-      if (user.role === "AIRLINEADMIN") {
-        reportRecord.airlineId = user.airlineId
-      } else if (user.role === "HOTELADMIN") {
-        reportRecord.hotelId = user.hotelId
-      } else if (
-        user.role === "SUPERADMIN" ||
-        user.role === "DISPATCHERADMIN"
-      ) {
-        // Если SUPERADMIN или DISPATCHERADMIN, добавляем данные из фильтра
-        if (type === "airline" && filter.airlineId) {
-          reportRecord.airlineId = filter.airlineId
-        } else if (type === "hotel" && filter.hotelId) {
-          reportRecord.hotelId = filter.hotelId
-        } else {
-          throw new Error(
-            "For SUPERADMIN/DISPATCHERADMIN, either airlineId or hotelId must be provided in the filter based on the report type."
-          )
-        }
+      if (!reportRecord.airlineId) {
+        throw new Error("Airline ID is required for this report")
       }
 
-      // Сохранение отчёта
+      const savedReport = await prisma.savedReport.create({
+        data: reportRecord
+      })
+      pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
+      return savedReport
+    },
+
+    createHotelReport: async (_, { input }, context) => {
+      const { user } = context
+      const { filter, format } = input
+
+      if (!user) {
+        throw new Error("Access denied")
+      }
+
+      const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+      const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+
+      // Получаем запросы для формирования отчёта
+      const requests = await prisma.request.findMany({
+        where: {
+          ...applyCreateFilters(filter),
+          status: {
+            in: ["done", "transferred", "extended", "archiving", "archived"]
+          }
+        },
+        include: { person: true, hotelChess: true, hotel: true, airline: true },
+        orderBy: { arrival: "asc" }
+      })
+
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: filter.hotelId },
+        select: { name: true }
+      })
+
+      if (!hotel) {
+        throw new Error("Hotel not found")
+      }
+
+      const name = hotel.name
+      const reportData = aggregateReports(requests, "hotel")
+
+      const reportName = `hotel_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
+      const reportPath = path.resolve(`./reports/${reportName}`)
+      fs.mkdirSync(path.dirname(reportPath), { recursive: true })
+
+      // Генерация отчёта
+      if (format === "pdf") {
+        await generatePDF(reportData, reportPath)
+      } else if (format === "xlsx") {
+        await generateExcel(reportData, reportPath)
+      } else {
+        throw new Error("Unsupported report format")
+      }
+
+      // Создание записи отчёта
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
+      }
+
+      if (!reportRecord.hotelId) {
+        throw new Error("Hotel ID is required for this report")
+      }
+
       const savedReport = await prisma.savedReport.create({
         data: reportRecord
       })
@@ -293,26 +431,6 @@ const calculateTotalDays = (start, end) => {
   const differenceInMilliseconds = new Date(end) - new Date(start)
   return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
 }
-
-// Расчёт стоимости проживания
-// const calculateLivingCost = (request, type) => {
-//   const startDate = request.hotelChess?.start
-//   const endDate = request.hotelChess?.end
-//   let pricePerDay
-//   if (type === "airline") {
-//     pricePerDay = request.airline?.priceOneCategory || 0
-//   } else if (type === "hotel") {
-//     pricePerDay = request.hotel?.priceOneCategory || 0
-//   }
-//   if (!startDate || !endDate || pricePerDay === 0) {
-//     return 0 // Если данных нет, возвращаем 0
-//   }
-//   // Разница в миллисекундах между началом и концом
-//   const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
-//   // Количество дней (целое значение)
-//   const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
-//   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
-// }
 
 const calculateLivingCost = (request, type) => {
   const startDate = request.hotelChess?.start

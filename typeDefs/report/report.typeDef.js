@@ -11,7 +11,9 @@ type Query {
 
 type Mutation {
   # Создание и сохранение отчёта
-  createReport(input: CreateReportInput!): SavedReport!
+  # createReport(input: CreateReportInput!): SavedReport!
+  createAirlineReport(input: CreateReportInput!): SavedReport!
+  createHotelReport(input: CreateReportInput!): SavedReport!
 }
 
 # Фильтры для запросов
@@ -27,7 +29,7 @@ input ReportFilterInput {
 # Входные данные для создания отчёта
 input CreateReportInput {
   filter: ReportFilterInput!
-  type: String! # Тип отчёта: "airline" или "hotel"
+  # type: String! # Тип отчёта: "airline" или "hotel"
   format: String! # Формат отчёта: "pdf" или "excel"
 }
 

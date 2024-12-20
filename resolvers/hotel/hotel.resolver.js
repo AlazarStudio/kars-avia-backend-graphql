@@ -30,8 +30,11 @@ const calculatePlaces = (category) => categoryToPlaces[category] || 1
 const hotelResolver = {
   Upload: GraphQLUpload,
   Query: {
-    hotels: async (_, {}, context) => {
+    hotels: async (_, { pagination }, context) => {
+      const { skip, take } = pagination
       return await prisma.hotel.findMany({
+        skip: skip * take,
+        take: take,
         include: {
           rooms: true,
           hotelChesses: true

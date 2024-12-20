@@ -87,6 +87,12 @@ type MealPrice {
   dinner: Float
 }
 
+type HotelConnection {
+  totalPages: Int!
+  totalCount: Int!
+  hotels: [Hotel!]!
+}
+
 input CreateHotelInput {
   name: String!
   country: String
@@ -183,8 +189,13 @@ input MealTimeInput {
   end: String!
 }
 
+input PaginationInput {
+  skip: Int
+  take: Int
+}
+
 type Query {
-  hotels: [Hotel!]!
+  hotels: (pagination: PaginationInput): HotelConnection!
   hotel(id: ID!): Hotel
 }
 
