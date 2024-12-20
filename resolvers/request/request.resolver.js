@@ -190,9 +190,10 @@ const requestResolver = {
       })
 
       if (existingRequest) {
-        throw new Error(
-          `Заявка с такими же параметрами уже существует (Заявка № ${existingRequest.requestNumber})`
-        )
+        return existingRequest
+        // throw new Error(
+        //   `Заявка с такими же параметрами уже существует (Заявка № ${existingRequest.requestNumber})`, `requestId: ${existingRequest.id}`
+        // )
       }
 
       // Получаем количество существующих заявок для порядкового номера
