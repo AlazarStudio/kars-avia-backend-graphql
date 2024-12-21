@@ -113,6 +113,7 @@ input AirlinePersonalInput {
 input AirlinePaginationInput {
   skip: Int
   take: Int
+  all: Boolean
 }
 
 type Query {

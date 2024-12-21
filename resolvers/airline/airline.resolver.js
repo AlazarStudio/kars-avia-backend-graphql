@@ -14,19 +14,29 @@ const airlineResolver = {
 
   Query: {
     airlines: async (_, { pagination }, context) => {
-      const { skip, take } = pagination
+      const { skip, take, all } = pagination || {}
       const totalCount = await prisma.airline.count({})
-      const totalPages = Math.ceil(totalCount / take)
-      const aitlines = await prisma.airline.findMany({
-        skip: skip * take,
-        take: take,
-        include: {
-          staff: true
-        },
-        orderBy: { name: "asc" }
-      })
+
+      const airlines = all
+        ? await prisma.airline.findMany({
+            include: {
+              staff: true
+            },
+            orderBy: { name: "asc" }
+          })
+        : await prisma.airline.findMany({
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            include: {
+              staff: true
+            },
+            orderBy: { name: "asc" }
+          })
+
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+
       return {
-        aitlines,
+        airlines,
         totalCount,
         totalPages
       }
@@ -42,7 +52,7 @@ const airlineResolver = {
     airlineStaff: async (_, { id }, context) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id },
-        include: { hotelChess: true },
+        include: { hotelChess: true }
       })
     },
     airlineStaffs: async (_, { airlineId }, context) => {

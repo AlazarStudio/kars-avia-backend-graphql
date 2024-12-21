@@ -31,25 +31,29 @@ const hotelResolver = {
   Upload: GraphQLUpload,
   Query: {
     hotels: async (_, { pagination }, context) => {
-      const { skip, take } = pagination
-      const totalCount = await prisma.hotel.count({})
-      const totalPages = Math.ceil(totalCount / take)
-      const hotels = await prisma.hotel.findMany({
-        skip: skip * take,
-        take: take,
-        include: {
-          rooms: true,
-          hotelChesses: true
-          // MealPrice: {
-          //   select: {
-          //     breakfast: true,
-          //     lunch: true,
-          //     dinner: true
-          //   }
-          // },
-        },
-        orderBy: { name: "asc" }
-      })
+      const { skip, take, all } = pagination || {} // Если нет pagination, используем undefined
+      const totalCount = await prisma.hotel.count({}) // Общее количество отелей
+
+      const hotels = all
+        ? await prisma.hotel.findMany({
+            include: {
+              rooms: true,
+              hotelChesses: true
+            },
+            orderBy: { name: "asc" }
+          })
+        : await prisma.hotel.findMany({
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            include: {
+              rooms: true,
+              hotelChesses: true
+            },
+            orderBy: { name: "asc" }
+          })
+
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1 // Если нет пагинации, одна страница
+
       return {
         hotels,
         totalCount,
@@ -208,7 +212,7 @@ const hotelResolver = {
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
-                  requestId: updatedRequest.id,
+                  requestId: updatedRequest.id
                 })
 
                 pubsub.publish(REQUEST_UPDATED, {

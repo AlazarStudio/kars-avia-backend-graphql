@@ -192,6 +192,7 @@ input MealTimeInput {
 input HotelPaginationInput {
   skip: Int
   take: Int
+  all: Boolean
 }
 
 type Query {
