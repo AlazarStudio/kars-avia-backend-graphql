@@ -15,7 +15,9 @@ const airlineResolver = {
   Query: {
     airlines: async (_, { pagination }, context) => {
       const { skip, take } = pagination
-      return await prisma.airline.findMany({
+      const totalCount = await prisma.airline.count({})
+      const totalPages = Math.ceil(totalCount / take)
+      const aitlines = await prisma.airline.findMany({
         skip: skip * take,
         take: take,
         include: {
@@ -23,6 +25,11 @@ const airlineResolver = {
         },
         orderBy: { name: "asc" }
       })
+      return {
+        aitlines,
+        totalCount,
+        totalPages
+      }
     },
     airline: async (_, { id }, context) => {
       return await prisma.airline.findUnique({

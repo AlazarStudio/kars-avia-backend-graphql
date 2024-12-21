@@ -32,7 +32,9 @@ const hotelResolver = {
   Query: {
     hotels: async (_, { pagination }, context) => {
       const { skip, take } = pagination
-      return await prisma.hotel.findMany({
+      const totalCount = await prisma.hotel.count({})
+      const totalPages = Math.ceil(totalCount / take)
+      const hotels = await prisma.hotel.findMany({
         skip: skip * take,
         take: take,
         include: {
@@ -48,6 +50,11 @@ const hotelResolver = {
         },
         orderBy: { name: "asc" }
       })
+      return {
+        hotels,
+        totalCount,
+        totalPages
+      }
     },
     hotel: async (_, { id }, context) => {
       return await prisma.hotel.findUnique({
