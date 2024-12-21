@@ -110,13 +110,13 @@ input AirlinePersonalInput {
   departmentId: ID
 }
 
-input PaginationInput {
+input AirlinePaginationInput {
   skip: Int
   take: Int
 }
 
 type Query {
-  airlines(pagination: PaginationInput): AirlineConnection!
+  airlines(pagination: AirlinePaginationInput): AirlineConnection!
   airline(id: ID!): Airline
   airlineStaff(id: ID!): AirlinePersonal
   airlineStaffs(id: ID!): [AirlinePersonal]

@@ -189,13 +189,13 @@ input MealTimeInput {
   end: String!
 }
 
-input PaginationInput {
+input HotelPaginationInput {
   skip: Int
   take: Int
 }
 
 type Query {
-  hotels(pagination: PaginationInput): HotelConnection!
+  hotels(pagination: HotelPaginationInput): HotelConnection!
   hotel(id: ID!): Hotel
 }
 
