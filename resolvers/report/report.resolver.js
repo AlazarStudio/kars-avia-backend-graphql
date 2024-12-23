@@ -1,4 +1,8 @@
-import { generateExcel, generatePDF } from "../../exports/exporter.js"
+import {
+  generatePDF,
+  generateExcelHotel,
+  generateExcelAvia
+} from "../../exports/exporter.js"
 import { prisma } from "../../prisma.js"
 import path from "path"
 import fs from "fs"
@@ -256,7 +260,7 @@ const reportResolver = {
       if (format === "pdf") {
         await generatePDF(reportData, reportPath)
       } else if (format === "xlsx") {
-        await generateExcel(reportData, reportPath)
+        await generateExcelAvia(reportData, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
@@ -294,31 +298,68 @@ const reportResolver = {
       const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
       const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
 
-      // Получаем запросы для формирования отчёта
-      const requests = await prisma.request.findMany({
-        where: {
-          ...applyCreateFilters(filter),
-          status: {
-            in: ["done", "transferred", "extended", "archiving", "archived"]
-          }
-        },
-        include: { person: true, hotelChess: true, hotel: true, airline: true },
-        orderBy: { arrival: "asc" }
-      })
-
+      // Получаем отель
       const hotel = await prisma.hotel.findUnique({
         where: { id: filter.hotelId },
-        select: { name: true }
+        select: {
+          name: true,
+          priceOneCategory: true,
+          priceTwoCategory: true,
+          priceThreeCategory: true,
+          priceFourCategory: true
+        }
       })
-
       if (!hotel) {
         throw new Error("Hotel not found")
       }
 
-      const name = hotel.name
-      const reportData = aggregateReports(requests, "hotel")
+      // Извлекаем комнаты отеля, исключая зарезервированные
+      const rooms = await prisma.room.findMany({
+        where: {
+          hotelId: filter.hotelId,
+          reserve: false // Исключаем зарезервированные комнаты
+        }
+      })
 
-      const reportName = `hotel_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
+      // Расчёт стоимости для каждой комнаты
+      const reportData = rooms
+        .map((room) => {
+          const daysInRange = calculateDaysInRange(startDate, endDate) // Всего дней в диапазоне
+          let dailyPrice = 0
+
+          // Определяем стоимость за день в зависимости от категории комнаты
+          if (room.category === "onePlace")
+            dailyPrice = hotel.priceOneCategory || 0
+          if (room.category === "twoPlace")
+            dailyPrice = hotel.priceTwoCategory || 0
+          if (room.category === "threePlace")
+            dailyPrice = hotel.priceThreeCategory || 0
+          if (room.category === "fourPlace")
+            dailyPrice = hotel.priceFourCategory || 0
+
+          // Если категория не определена, пропускаем комнату
+          if (!dailyPrice) {
+            console.warn(`Цена для категории ${room.category} не найдена`)
+            return null
+          }
+
+          // Половинная стоимость за каждый день
+          const totalCost = daysInRange * (dailyPrice / 2)
+
+          return {
+            roomName: room.name,
+            category: room.category,
+            daysInRange,
+            dailyPrice,
+            totalCost
+          }
+        })
+        .filter(Boolean) // Убираем null значения
+
+      // Создание отчёта
+      const reportName = `hotel_report-${
+        hotel.name
+      }_${startDate}-${endDate}_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
@@ -326,7 +367,7 @@ const reportResolver = {
       if (format === "pdf") {
         await generatePDF(reportData, reportPath)
       } else if (format === "xlsx") {
-        await generateExcel(reportData, reportPath)
+        await generateExcelHotel(reportData, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
@@ -339,10 +380,6 @@ const reportResolver = {
         endDate: new Date(filter.endDate),
         createdAt: new Date(),
         hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
-      }
-
-      if (!reportRecord.hotelId) {
-        throw new Error("Hotel ID is required for this report")
       }
 
       const savedReport = await prisma.savedReport.create({
@@ -470,6 +507,13 @@ const calculateLivingCost = (request, type) => {
   // Количество дней (целое значение)
   const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
+}
+
+const calculateDaysInRange = (startDate, endDate) => {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const differenceInMilliseconds = end - start
+  return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) + 1 // Включая последний день
 }
 
 // Расчёт стоимости питания

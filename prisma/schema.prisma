@@ -77,6 +77,7 @@ model User {
   messageReceiver     Message[]          @relation(name: "messageReceiver")
   logs                Log[]
   dispatcher          Boolean?           @default(false)
+  support             Boolean?           @default(false)
   refreshToken        String?
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
