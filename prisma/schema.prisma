@@ -107,11 +107,8 @@ model Hotel {
   link               String?
   description        String?
   breakfast          MealTime?
-  // breakfast    String?        @default("07:00 - 10:00")
   lunch              MealTime?
-  // lunch        String?        @default("12:00 - 16:00")
   dinner             MealTime?
-  // dinner       String?        @default("18:00 - 20:00")
   images             String[]
   MealPrice          MealPrice
   ReserveHotel       ReserveHotel[]
@@ -393,6 +390,7 @@ model Message {
   chat       Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId     String?  @db.ObjectId
   createdAt  DateTime @default(now())
+  isRead     Boolean  @default(false)
 }
 
 model ChatUser {
@@ -414,6 +412,7 @@ model Chat {
   createdAt    DateTime   @default(now())
   reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?    @db.ObjectId
+  isSupport    Boolean    @default(false)
 }
 
 // Логи  ---------------- ↓↓↓↓

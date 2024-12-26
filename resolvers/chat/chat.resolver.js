@@ -11,6 +11,15 @@ const chatResolver = {
       })
       return chats
     },
+    unreadMessages: async (_, { receiverId }, context) => {
+      return await prisma.message.findMany({
+        where: {
+          receiverId,
+          isRead: false,
+        },
+        include: { sender: true },
+      });
+    },
     messages: async (_, { chatId }, context) => {
       return await prisma.message.findMany({
         where: { chatId },
@@ -30,6 +39,12 @@ const chatResolver = {
       })
       pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
       return message
+    },
+    markMessageAsRead: async (_, { messageId }, context) => {
+      return await prisma.message.update({
+        where: { id: messageId },
+        data: { isRead: true },
+      });
     },
     createChat: async (_, { requestId, userIds }, context) => {
       const chat = await prisma.chat.create({
@@ -53,7 +68,14 @@ const chatResolver = {
     messageSent: {
       subscribe: (_, { chatId }) =>
         pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`)
-    }
+    },
+    messageReceived: {
+      subscribe: (_, { senderId, receiverId }) =>
+        pubsub.asyncIterator(`MESSAGE_RECEIVED_${receiverId}`),
+      resolve: (payload) => {
+        return payload.messageReceived;
+      },
+    },
   },
   Chat: {
     participants: async (parent) => {

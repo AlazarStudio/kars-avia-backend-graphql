@@ -10,6 +10,7 @@ import airportResolver from "./airport/airport.resolver.js"
 import cityResolver from "./city/city.resolver.js"
 import reserveResolver from "./reserve/reserve.resolver.js"
 import reportResolver from "./report/report.resolver.js"
+import supportResolver from "./support/support.resolver.js"
 
 const mergedResolvers = mergeResolvers([
   airlineResolver,
@@ -22,7 +23,7 @@ const mergedResolvers = mergeResolvers([
   requestResolver,
   reserveResolver,
   userResolver,
-  
+  supportResolver,
 ])
 
 export default mergedResolvers

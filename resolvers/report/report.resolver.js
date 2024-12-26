@@ -123,6 +123,7 @@ const reportResolver = {
     }
   },
   Mutation: {
+    
     // Мутация для создания нового отчёта
     // createReport: async (_, { input }, context) => {
     //   const { user } = context
@@ -217,6 +218,9 @@ const reportResolver = {
     //   pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
     //   return savedReport
     // },
+    
+    // Мутация для создания нового отчёта для авиакомпаний
+    
     createAirlineReport: async (_, { input }, context) => {
       const { user } = context
       const { filter, format } = input
@@ -287,6 +291,7 @@ const reportResolver = {
       return savedReport
     },
 
+    // Мутация для создания нового отчёта для отелей
     createHotelReport: async (_, { input }, context) => {
       const { user } = context
       const { filter, format } = input

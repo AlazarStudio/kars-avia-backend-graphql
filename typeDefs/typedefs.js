@@ -10,6 +10,7 @@ import airportTypeDef from "./airport/airport.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
 import reserveTypeDef from "./reserve/reserve.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
+import supportTypeDef from "./support/support.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
   airlineTypeDef,
@@ -22,7 +23,7 @@ const mergedTypeDefs = mergeTypeDefs([
   requestTypeDef,
   reserveTypeDef,
   userTypeDef,
-  
+  supportTypeDef,
 ])
 
 export default mergedTypeDefs

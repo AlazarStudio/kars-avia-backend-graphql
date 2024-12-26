@@ -8,6 +8,7 @@ scalar Date
     sender: User!
     chat: Chat!
     createdAt: Date!
+    isRead: Boolean!
   }
 
   type Chat {
@@ -30,11 +31,13 @@ scalar Date
     messages(chatId: ID!): [Message!]!
     messagesFrom(senderId: ID!): [Message!]!
     messagesTo(receiverId: ID!): [Message!]!
+    unreadMessages(receiverId: ID!): [Message!]!
   }
 
   type Mutation {
     sendMessage(chatId: ID, senderId: ID!, text: String!): Message!
     createChat(requestId: ID!, userIds: [ID!]!): Chat!
+    markMessageAsRead(messageId: ID!): Message!
   }
 
   type Subscription {
