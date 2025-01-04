@@ -458,12 +458,12 @@ const requestResolver = {
     },
     extendRequestDates: async (_, { input }, context) => {
       const { requestId, newEnd, newEndName } = input
-      console.log("input: ", input)
+      // console.log("input: ", input)
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true, hotel: true }
       })
-      console.log("request: ", request)
+      // console.log("request: ", request)
       if (!request) {
         throw new Error("Request not found")
       }
@@ -471,7 +471,7 @@ const requestResolver = {
         throw new Error("Request has not been placed in a hotel")
       }
       const updatedHotelChess = await prisma.hotelChess.update({
-        where: { id: request.hotelChess.id },
+        where: { id: request.hotelChess[0].id },
         data: {
           end: newEnd
         }
