@@ -191,7 +191,7 @@ const userResolver = {
       }
     },
     updateUser: async (_, { input, images }, context) => {
-      const { id, name, email, login, password, position } = input
+      const { id, name, email, login, password, position, airlineDepartmentId } = input
 
       if (context.user.id !== id && adminMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
@@ -211,7 +211,8 @@ const userResolver = {
         name,
         email,
         login,
-        position
+        position,
+        airlineDepartmentId: airlineDepartmentId || null
       }
       if (images != null) {
         updatedData.images = imagePaths

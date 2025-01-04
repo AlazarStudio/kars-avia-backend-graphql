@@ -458,10 +458,12 @@ const requestResolver = {
     },
     extendRequestDates: async (_, { input }, context) => {
       const { requestId, newEnd, newEndName } = input
+      console.log("input: ", input)
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true, hotel: true }
       })
+      console.log("request: ", request)
       if (!request) {
         throw new Error("Request not found")
       }
