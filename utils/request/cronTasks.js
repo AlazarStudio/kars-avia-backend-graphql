@@ -29,7 +29,7 @@ const checkAndArchiveRequests = async () => {
       pubsub.publish(REQUEST_UPDATED, {
         requestUpdated: request
       })
-      console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
+      // console.log(`Заявка: ${request.requestNumber} готова к архивированию`)
     }
   }
 }
