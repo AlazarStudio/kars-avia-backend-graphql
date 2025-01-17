@@ -35,6 +35,7 @@ const userTypeDef = `#graphql
     twoFASecret: String
     twoFAMethod: TwoFAMethod
     airlineDepartmentId: String
+    support: Boolean
   }
 
   type Query {
