@@ -23,7 +23,13 @@ const requestResolver = {
           ? { status: { in: status } }
           : {}
       // Добавляем airlineId в фильтр только если он существует
-      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
+
+      // const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
+
+      // const airlineFilter = user.airlineId ?? false ? { airlineId: user.airlineId } : {};
+
+      const airlineFilter = user.airlineId !== null ? { airlineId: user.airlineId } : {}
+
       // Подсчитываем записи с учетом фильтрации по статусу, архиву и airlineId
       const totalCount = await prisma.request.count({
         where: {
