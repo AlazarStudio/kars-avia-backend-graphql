@@ -122,6 +122,7 @@ model Hotel {
   User               User[]
   logs               Log[]
   stars              String?
+  usStars            String?
   airportDistance    String?
   SavedReport        SavedReport[]
 }
@@ -434,7 +435,7 @@ model Log {
   description String
   oldData     String?
   newData     String?
-  createdAt   DateTime @default(now())
+  // createdAt   DateTime @default(now())
 }
 
 // Логи  ---------------- ↑↑↑↑

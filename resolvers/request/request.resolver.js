@@ -179,8 +179,8 @@ const requestResolver = {
       } = input
 
       // Преобразование дат в формат "YYYY-MM-DD"
-      const arrivalDate = arrival.split("T")[0] 
-      const departureDate = departure.split("T")[0] 
+      const arrivalDate = arrival.split("T")[0]
+      const departureDate = departure.split("T")[0]
 
       // Проверка существования заявки с такими же параметрами
       const existingRequest = await prisma.request.findFirst({
@@ -190,11 +190,11 @@ const requestResolver = {
           airportId,
           arrival: {
             gte: new Date(`${arrivalDate}T00:00:00Z`),
-            lt: new Date(`${arrivalDate}T23:59:59Z`)
+            lte: new Date(`${arrivalDate}T23:59:59Z`)
           },
           departure: {
             gte: new Date(`${departureDate}T00:00:00Z`),
-            lt: new Date(`${departureDate}T23:59:59Z`)
+            lte: new Date(`${departureDate}T23:59:59Z`)
           }
         }
       })

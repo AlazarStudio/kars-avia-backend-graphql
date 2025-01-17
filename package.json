@@ -49,6 +49,7 @@
     "pdfmake": "^0.2.15",
     "pm2": "^5.4.2",
     "qrcode": "^1.5.4",
+    "sharp": "^0.33.5",
     "speakeasy": "^2.0.0",
     "stream-promise": "^3.2.0",
     "subscriptions-transport-ws": "^0.11.0",

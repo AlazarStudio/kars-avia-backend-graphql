@@ -1,13 +1,13 @@
-import { generateExcel, generatePDF } from "../../exports/exporter.js"
-import { prisma } from "../../prisma.js"
+import { generateExcel, generatePDF } from "../exports/exporter.js"
+import { prisma } from "../prisma.js"
 import path from "path"
 import fs from "fs"
 import {
   adminMiddleware,
   airlineAdminMiddleware,
   hotelAdminMiddleware
-} from "../../middlewares/authMiddleware.js"
-import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
+} from "../middlewares/authMiddleware.js"
+import { pubsub, REPORT_CREATED } from "../exports/pubsub.js"
 import { report } from "process"
 
 const reportResolver = {

@@ -22,8 +22,6 @@ const createLog = async ({
   newData = null
 }) => {
   try {
-    const currentTimeUTC = new Date().toISOString() // Время в формате UTC
-
     await prisma.log.create({
       data: {
         userId,
@@ -36,7 +34,6 @@ const createLog = async ({
         reserveId: reserveId ? reserveId : null,
         oldData: oldData ? safeStringify(oldData) : null,
         newData: newData ? safeStringify(newData) : null,
-        createdAt: currentTimeUTC // Добавляем явно время в UTC
       }
     })
   } catch (error) {
@@ -54,7 +51,7 @@ const logAction = async ({
   hotelId = null,
   airlineId = null,
   requestId = null,
-  reserveId = null
+  reserveId = null,
 }) => {
   await createLog({
     userId: context.user.id,
@@ -66,7 +63,7 @@ const logAction = async ({
     requestId,
     reserveId,
     oldData,
-    newData
+    newData,
   })
 }
 

@@ -40,6 +40,7 @@ type Hotel {
   priceFourCategory: Float
   MealPrice: MealPrice
   stars: String
+  usStars: String
   airportDistance: String
 }
 
@@ -120,6 +121,7 @@ input CreateHotelInput {
   priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
+  usStars: String
   airportDistance: String
 }
 
@@ -150,6 +152,7 @@ input UpdateHotelInput {
   priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
+  usStars: String
   airportDistance: String
 }
 
