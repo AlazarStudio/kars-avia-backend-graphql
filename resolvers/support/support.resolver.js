@@ -4,6 +4,8 @@ import { pubsub } from "../../exports/pubsub.js"
 const supportResolver = {
   Query: {
     supportChats: async (_, __, { user }) => {
+      // user.support !== null ? { support: user.support } : {}
+      // console.log(user)
       if (!user.support) {
         throw new Error("Access denied")
       }
