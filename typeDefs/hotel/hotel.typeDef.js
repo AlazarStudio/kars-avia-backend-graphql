@@ -42,6 +42,7 @@ type Hotel {
   stars: String
   usStars: String
   airportDistance: String
+  logs: [Log]
 }
 
 type MealTime {

@@ -63,6 +63,7 @@ const userResolver = {
   },
   Mutation: {
     registerUser: async (_, { input, images }, context) => {
+      const { user } = context
       adminHotelAirMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0 && images !== null) {
@@ -100,6 +101,11 @@ const userResolver = {
       }
       const newUser = await prisma.user.create({
         data: createdData
+      })
+      await logAction({
+        context,
+        action: "create_user",
+        description: `Пользователь ${user.name} добавил нового пользователя ${createdData.name}`,
       })
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser

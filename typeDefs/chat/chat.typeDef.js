@@ -18,6 +18,7 @@ scalar Date
     messages: [Message]
     participants: [User!]
     createdAt: Date!
+    separator: String
   }
 
   type ChatUser {

@@ -43,7 +43,8 @@ const reserveResolver = {
           passengers: true,
           hotel: true,
           hotelChess: true,
-          chat: true
+          chat: true,
+          logs: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -54,7 +55,7 @@ const reserveResolver = {
       }
     },
     reserveArchive: async (_, { pagination }, context) => {
-      airlineAdminMiddleware(context) // Проверка прав доступа
+      airlineAdminMiddleware(context) 
       const { skip, take, status } = pagination
       // Определяем фильтр статусов
       const statusFilter =
@@ -83,7 +84,8 @@ const reserveResolver = {
           passengers: true,
           hotel: true,
           hotelChess: true,
-          chat: true
+          chat: true,
+          logs: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -103,7 +105,8 @@ const reserveResolver = {
           passengers: true,
           hotel: true,
           hotelChess: true,
-          chat: true
+          chat: true,
+          logs: true
         }
       })
       if (!reserve) {
@@ -154,7 +157,7 @@ const reserveResolver = {
           hotel: true,
           person: true,
           passengers: true,
-          hotelChess: true,
+          hotelChess: true
         }
       })
     },
@@ -166,7 +169,7 @@ const reserveResolver = {
           hotel: true,
           person: true,
           passengers: true,
-          hotelChess: true,
+          hotelChess: true
         }
       })
     },
@@ -175,7 +178,7 @@ const reserveResolver = {
         where: { reserveId: reservationId },
         include: {
           person: true,
-          hotel: true,
+          hotel: true
           // hotelChess: true,
         }
       })
@@ -261,6 +264,8 @@ const reserveResolver = {
       return newReserve
     },
     updateReserve: async (_, { id, input }, context) => {
+      const { user } = context
+
       const { arrival, departure, mealPlan, status, persons } = input
 
       const updatedReserve = await prisma.reserve.update({
@@ -288,11 +293,9 @@ const reserveResolver = {
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },
-    addHotelToReserve: async (
-      _,
-      { reservationId, hotelId, capacity },
-      context
-    ) => {
+    addHotelToReserve: async ( _,{ reservationId, hotelId, capacity }, context ) => {
+      const { user } = context
+
       try {
         const reserveHotel = await prisma.reserveHotel.create({
           data: {
@@ -301,6 +304,15 @@ const reserveResolver = {
             capacity
           }
         })
+        // Логирование действия и публикация события
+        await logAction({
+          context,
+          action: "update_reserve",
+          description: `Добавлен отель ${reserveHotel.hotel.name} в заявку № ${reserveHotel.reserve.reserveNumber}`,
+          reserveId: reserveHotel.reservationId,
+          hotelId: reserveHotel.hotelId
+        })
+
         pubsub.publish(RESERVE_HOTEL, { reserveHotel: reserveHotel })
         return reserveHotel
       } catch (error) {
@@ -313,11 +325,9 @@ const reserveResolver = {
         throw error
       }
     },
-    addPassengerToReserve: async (
-      _,
-      { reservationId, input, hotelId, capacity },
-      context
-    ) => {
+    addPassengerToReserve: async ( _, { reservationId, input, hotelId, capacity }, context ) => {
+      const { user } = context
+
       const { name, number, gender, child, animal } = input
       // Проверка на существование заявки
       const reserve = await prisma.reserve.findUnique({
@@ -358,11 +368,21 @@ const reserveResolver = {
           ReserveHotel: { connect: { id: reserveHotel.id } }
         }
       })
-      // Обновление информации о заявке
+      // Логирование действия и публикация события
+      await logAction({
+        context,
+        action: "update_reserve",
+        description: `Добавлен пассажир ${newPassenger.name} в отель ${reserveHotel.hotel.name} по заявке № ${reserve.reserveNumber}`,
+        reserveId: reserveHotel.reservationId,
+        hotelId: reserveHotel.hotelId
+      })
+
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
       return newPassenger
     },
     deletePassengerFromReserve: async (_, { id }, context) => {
+      const { user } = context
+
       const deletedPassenger = await prisma.passenger.delete({
         where: { id }
       })
@@ -374,6 +394,8 @@ const reserveResolver = {
       return reserveHotel
     },
     assignPersonToHotel: async (_, { input }, context) => {
+      const { user } = context
+
       const { reservationId, personId, hotelId, capacity } = input
       // Проверка на существование заявки, персонала и отеля
       const [reserve, person, hotel] = await Promise.all([
@@ -428,6 +450,8 @@ const reserveResolver = {
       { reserveHotelId, airlinePersonalId },
       context
     ) => {
+      const { user } = context
+
       const reserveHotelPersonal = await prisma.reserveHotelPersonal.findUnique(
         {
           where: {
@@ -454,6 +478,7 @@ const reserveResolver = {
       return reserveHotel
     },
     archivingReserve: async (_, input, context) => {
+      const { user } = context
       const reserveId = input.id
       const reserve = await prisma.reserve.findUnique({
         where: { id: reserveId }
@@ -467,14 +492,16 @@ const reserveResolver = {
           where: { id: reserveId },
           data: { status: "archived", archive: true }
         })
+
         await logAction({
           context,
           action: "archive_reserve",
-          description: { reserveId: reserve.id },
+          description: `Пользователь ${user.name} отправил заявку № ${archiveReserve.reserveNumber} в архив`,
           oldData: reserve,
           newData: { status: "archived" },
           reserveId: reserve.id
         })
+
         pubsub.publish(RESERVE_UPDATED, { reserveUpdated: archiveReserve })
         return archiveReserve
       } else {
@@ -544,7 +571,7 @@ const reserveResolver = {
       return await prisma.hotelChess.findMany({
         where: { hotelId: parent.hotelId, reserveId: parent.reserveId }
       })
-    },
+    }
   },
   Passenger: {
     reserve: async (parent) => {

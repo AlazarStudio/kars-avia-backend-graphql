@@ -414,6 +414,7 @@ model Chat {
   reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?    @db.ObjectId
   isSupport    Boolean    @default(false)
+  separator    String?    // новое поле для разделения
 }
 
 // Логи  ---------------- ↓↓↓↓
@@ -435,8 +436,7 @@ model Log {
   description String
   oldData     String?
   newData     String?
-  // createdAt   DateTime @default(now())
-  createdAt   DateTime
+  createdAt   DateTime @default(now())
 }
 
 // Логи  ---------------- ↑↑↑↑

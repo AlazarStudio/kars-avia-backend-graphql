@@ -65,7 +65,8 @@ const hotelResolver = {
         where: { id },
         include: {
           rooms: true,
-          hotelChesses: true
+          hotelChesses: true,
+          logs: true
           // MealPrice: {
           //   select: {
           //     breakfast: true,
@@ -121,8 +122,6 @@ const hotelResolver = {
         action: `create_hotel`,
         description: `Пользователь ${user.name} создал отель ${createdHotel.name}`,
         hotelName: createdHotel.name,
-        hotelId: createdHotel.id,
-        input: data,
         hotelId: createdHotel.id
       })
       pubsub.publish(HOTEL_CREATED, { hotelCreated: createdHotel })
@@ -355,6 +354,28 @@ const hotelResolver = {
                     // logs: true
                   }
                 })
+
+                const oldChat = await prisma.chat.findFirst({
+                  where: {
+                    request: { id: updatedRequest.id },
+                    separator: "hotel"
+                  }
+                })
+
+                if (!oldChat) {
+                  const newChat = await prisma.chat.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      separator: "hotel"
+                    }
+                  })
+                  await prisma.chatUser.create({
+                    data: {
+                      chat: { connect: { id: newChat.id } },
+                      user: { connect: { id: user.id } }
+                    }
+                  })
+                }
 
                 await logAction({
                   context,

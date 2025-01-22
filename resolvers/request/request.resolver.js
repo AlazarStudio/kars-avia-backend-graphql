@@ -28,7 +28,8 @@ const requestResolver = {
 
       // const airlineFilter = user.airlineId ?? false ? { airlineId: user.airlineId } : {};
 
-      const airlineFilter = user.airlineId !== null ? { airlineId: user.airlineId } : {}
+      const airlineFilter =
+        user.airlineId !== null ? { airlineId: user.airlineId } : {}
 
       // Подсчитываем записи с учетом фильтрации по статусу, архиву и airlineId
       const totalCount = await prisma.request.count({
@@ -253,7 +254,8 @@ const requestResolver = {
       // Создание чата, связанного с заявкой
       const newChat = await prisma.chat.create({
         data: {
-          request: { connect: { id: newRequest.id } }
+          request: { connect: { id: newRequest.id } },
+          separator: "airline"
         }
       })
 
@@ -448,6 +450,7 @@ const requestResolver = {
       return updatedRequest
     },
     modifyDailyMeals: async (_, { input }, context) => {
+      const { user } = context
       const { requestId, dailyMeals } = input
       // Проверяем существование заявки
       const request = await prisma.request.findUnique({
@@ -459,6 +462,14 @@ const requestResolver = {
       }
       // Вызываем функцию обновления питания
       const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals)
+
+      await logAction({
+        context,
+        action: `update_request`,
+        description: `Пользователь ${user.name} изменил питание для заявки № ${request.requestNumber}`,
+        requestId: request.id
+      })
+
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedMealPlan })
       return updatedMealPlan
     },
@@ -641,7 +652,7 @@ const requestResolver = {
       })
     },
     chat: async (parent) => {
-      return await prisma.chat.findUnique({
+      return await prisma.chat.findMany({
         where: { requestId: parent.requestId }
       })
     },

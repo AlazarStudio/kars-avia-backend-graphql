@@ -15,7 +15,7 @@ const supportResolver = {
       })
     },
     userSupportChat: async (_, { userId }, { user }) => {
-      const chat = await prisma.chat.findFirst({
+      let chat = await prisma.chat.findFirst({
         where: {
           isSupport: true,
           participants: { some: { userId } }
@@ -23,7 +23,26 @@ const supportResolver = {
         include: { participants: { include: { user: true } }, messages: true }
       })
       if (!chat) {
-        throw new Error("Support chat not found")
+        const supportUsers = await prisma.user.findMany({
+          where: { support: true }
+        })
+        if (supportUsers.length === 0) {
+          throw new Error("No support agents available")
+        }
+        chat = await prisma.chat.create({
+          data: {
+            isSupport: true,
+            participants: {
+              create: [
+                { user: { connect: { id: userId } } },
+                ...supportUsers.map((support) => ({
+                  user: { connect: { id: support.id } }
+                }))
+              ]
+            }
+          },
+          include: { participants: { include: { user: true } }, messages: true }
+        })
       }
       return chat
     }
@@ -36,7 +55,7 @@ const supportResolver = {
           participants: { some: { userId } }
         }
       })
- 
+
       if (existingChat) {
         return existingChat
       }

@@ -22,6 +22,7 @@ type Reserve {
   reserveForPerson: Boolean!
   archive: Boolean
   hotelChess: [HotelChess]
+  logs: [Log]
 }
 
 type ReserveHotel {

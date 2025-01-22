@@ -25,6 +25,7 @@ type Airline {
   priceThreeCategory: Float
   priceFourCategory: Float
   MealPrice: MealPrice
+  logs: [Log]
 }
 
 type AirlineDepartment {

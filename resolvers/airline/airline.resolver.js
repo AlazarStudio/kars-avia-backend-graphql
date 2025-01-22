@@ -45,7 +45,8 @@ const airlineResolver = {
       return await prisma.airline.findUnique({
         where: { id },
         include: {
-          staff: true
+          staff: true,
+          logs: true,
         }
       })
     },
@@ -65,6 +66,7 @@ const airlineResolver = {
   },
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
+      const { user } = context
       airlineAdminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
@@ -91,10 +93,18 @@ const airlineResolver = {
           department: true
         }
       })
+      await logAction({
+        context,
+        action: `create_airline`,
+        description: `Пользователь ${user.name} добавил авиакомпанию ${createdAirline.name}`,
+        airlineName: createdAirline.name,
+        airlineId: createdAirline.id,
+      })
       pubsub.publish(AIRLINE_CREATED, { airlineCreated: createdAirline })
       return createdAirline
     },
     updateAirline: async (_, { id, input, images }, context) => {
+      const { user } = context
       airlineAdminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
@@ -125,6 +135,12 @@ const airlineResolver = {
                   }
                 }
               })
+              await logAction({
+                context,
+                action: `update_airline`,
+                description: `Пользователь ${user.name} изменил данные в департаменте ${depart.name}`,
+                airlineId: id
+              })
             } else {
               await prisma.airlineDepartment.create({
                 data: {
@@ -136,6 +152,12 @@ const airlineResolver = {
                       : []
                   }
                 }
+              })
+              await logAction({
+                context,
+                action: `update_airline`,
+                description: `Пользователь ${user.name} добавил департамент ${depart.name}`,
+                airlineId: id,
               })
             }
           }
@@ -153,6 +175,12 @@ const airlineResolver = {
                   gender: person.gender
                 }
               })
+              await logAction({
+                context,
+                action: `update_airline`,
+                description: `Пользователь ${user.name} обновил данные пользователя ${person.name}`,
+                airlineId: id,
+              })
             } else {
               await prisma.airlinePersonal.create({
                 data: {
@@ -164,6 +192,12 @@ const airlineResolver = {
                   gender: person.gender
                 }
               })
+              await logAction({
+                context,
+                action: `update_airline`,
+                description: `Пользователь ${user.name} добавил пользователя ${person.name}`,
+                airlineId: id,
+              })
             }
           }
         }
@@ -173,6 +207,12 @@ const airlineResolver = {
             department: true,
             staff: true
           }
+        })
+        await logAction({
+          context,
+          action: `update_airline`,
+          description: `Пользователь ${user.name} обновил данные авиакомпании ${person.name}`,
+          airlineId: id,
         })
         pubsub.publish(AIRLINE_UPDATED, {
           airlineUpdated: airlineWithRelations
