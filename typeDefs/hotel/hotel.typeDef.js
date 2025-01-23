@@ -8,6 +8,22 @@ enum Category {
   twoPlace
   threePlace
   fourPlace
+  fivePlace
+  sixPlace
+  sevenPlace
+  eightPlace
+  ninePlace
+  tenPlace
+  # elevenPlace
+  # twelvePlace
+  # thirteenPlace
+  # fourteenPlace
+  # fifteenPlace
+  # sixteenPlace
+  # seventeenPlace
+  # eighteenPlace
+  # nineteenPlace
+  # twentyPlace
 }
 
 type Hotel {
