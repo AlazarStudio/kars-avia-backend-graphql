@@ -22,7 +22,13 @@ const categoryToPlaces = {
   onePlace: 1,
   twoPlace: 2,
   threePlace: 3,
-  fourPlace: 4
+  fourPlace: 4,
+  fivePlace: 5,
+  sixPlace: 6,
+  sevenPlace: 7,
+  eightPlace: 8,
+  ninePlace: 9,
+  tenPlace: 10
 }
 
 const calculatePlaces = (category) => categoryToPlaces[category] || 1

@@ -20,12 +20,18 @@ type Airline {
   images: [String]
   department: [AirlineDepartment!]!
   staff: [AirlinePersonal!]!
+  MealPrice: MealPrice
+  logs: [Log]
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
   priceFourCategory: Float
-  MealPrice: MealPrice
-  logs: [Log]
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 type AirlineDepartment {
@@ -66,11 +72,17 @@ input CreateAirlineInput {
   rs: String
   bank: String
   bik: String
+  MealPrice: MealPriceInput
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
   priceFourCategory: Float
-  MealPrice: MealPriceInput
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 input UpdateAirlineInput {
@@ -89,11 +101,17 @@ input UpdateAirlineInput {
   bik: String
   staff: [AirlinePersonalInput!]
   department: [AirlineDepartmentInput!]
+  MealPrice: MealPriceInput
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
   priceFourCategory: Float
-  MealPrice: MealPriceInput
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 input AirlineDepartmentInput {

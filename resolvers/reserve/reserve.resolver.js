@@ -132,7 +132,7 @@ const reserveResolver = {
             await logAction({
               context,
               action: "open_reserve",
-              description: `Заявка № ${updatedReserve.requestNumber} открыта пользователем ${user.name}`,
+              description: `Заявка № ${updatedReserve.reserveNumber} открыта пользователем ${user.name}`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               reserveId: updatedReserve.id
@@ -256,7 +256,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "create_reserve",
-        description: `Пользователь ${user.name} создал заявку № ${newReserve.requestNumber} в аэропорт ${newReserve.airport.name}`,
+        description: `Пользователь ${user.name} создал заявку № ${newReserve.reserveNumber} в аэропорт ${newReserve.airport.name}`,
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
@@ -365,7 +365,7 @@ const reserveResolver = {
           child: child || false,
           animal: animal || false,
           reserve: { connect: { id: reservationId } },
-          ReserveHotel: { connect: { id: reserveHotel.id } }
+          reserveHotel: { connect: { id: reserveHotel.id } }
         }
       })
       // Логирование действия и публикация события
@@ -559,7 +559,7 @@ const reserveResolver = {
     },
     person: async (parent) => {
       return await prisma.airlinePersonal.findMany({
-        where: { ReserveHotel: { some: { reserveHotelId: parent.id } } }
+        where: { reserveHotel: { some: { reserveHotelId: parent.id } } }
       })
     },
     passengers: async (parent) => {
@@ -584,7 +584,7 @@ const reserveResolver = {
     person: async (parent) => {
       return await prisma.airlinePersonal.findMany({
         where: {
-          ReserveHotel: {
+          reserveHotel: {
             some: {
               reserveHotelId: parent.reserveHotelId
             }

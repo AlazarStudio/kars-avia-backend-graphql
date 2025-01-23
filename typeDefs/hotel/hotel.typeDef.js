@@ -34,15 +34,21 @@ type Hotel {
   breakfast: MealTime
   lunch: MealTime
   dinner: MealTime
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
   MealPrice: MealPrice
   stars: String
   usStars: String
   airportDistance: String
   logs: [Log]
+  priceOneCategory: Float
+  priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 type MealTime {
@@ -116,14 +122,20 @@ input CreateHotelInput {
   breakfast: MealTimeInput
   lunch: MealTimeInput
   dinner: MealTimeInput
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
   usStars: String
   airportDistance: String
+  priceOneCategory: Float
+  priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 input UpdateHotelInput {
@@ -147,14 +159,20 @@ input UpdateHotelInput {
   breakfast: MealTimeInput
   lunch: MealTimeInput
   dinner: MealTimeInput
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
   MealPrice: MealPriceInput
   stars: String
   usStars: String
   airportDistance: String
+  priceOneCategory: Float
+  priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
 }
 
 input HotelChessInput {

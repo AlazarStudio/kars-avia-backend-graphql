@@ -44,6 +44,22 @@ enum Category {
   twoPlace
   threePlace
   fourPlace
+  fivePlace
+  sixPlace
+  sevenPlace
+  eightPlace
+  ninePlace
+  tenPlace
+  // elevenPlace
+  // twelvePlace
+  // thirteenPlace
+  // fourteenPlace
+  // fifteenPlace
+  // sixteenPlace
+  // seventeenPlace
+  // eighteenPlace
+  // nineteenPlace
+  // twentyPlace
 }
 
 enum TwoFAMethod {
@@ -114,10 +130,6 @@ model Hotel {
   ReserveHotel       ReserveHotel[]
   hotelChesses       HotelChess[]
   Request            Request[]
-  priceOneCategory   Float?         @default(0)
-  priceTwoCategory   Float?         @default(0)
-  priceThreeCategory Float?         @default(0)
-  priceFourCategory  Float?         @default(0)
   rooms              Room[]
   User               User[]
   logs               Log[]
@@ -125,6 +137,17 @@ model Hotel {
   usStars            String?
   airportDistance    String?
   SavedReport        SavedReport[]
+  // ----------------------------------------------------------------
+  priceOneCategory   Float?         @default(0)
+  priceTwoCategory   Float?         @default(0)
+  priceThreeCategory Float?         @default(0)
+  priceFourCategory  Float?         @default(0)
+  priceFiveCategory  Float?         @default(0)
+  priceSixCategory   Float?         @default(0)
+  priceSevenCategory Float?         @default(0)
+  priceEightCategory Float?         @default(0)
+  priceNineCategory  Float?         @default(0)
+  priceTenCategory   Float?         @default(0)
 }
 
 type MealTime {
@@ -205,11 +228,18 @@ model Airline {
   logs               Log[]
   Reserve            Reserve[]
   MealPrice          MealPrice
+  SavedReport        SavedReport[]
+  // ----------------------------------------------------------------
   priceOneCategory   Float?              @default(0)
   priceTwoCategory   Float?              @default(0)
   priceThreeCategory Float?              @default(0)
   priceFourCategory  Float?              @default(0)
-  SavedReport        SavedReport[]
+  priceFiveCategory  Float?              @default(0)
+  priceSixCategory   Float?              @default(0)
+  priceSevenCategory Float?              @default(0)
+  priceEightCategory Float?              @default(0)
+  priceNineCategory  Float?              @default(0)
+  priceTenCategory   Float?              @default(0)
 }
 
 model AirlineDepartment {
@@ -414,7 +444,7 @@ model Chat {
   reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?    @db.ObjectId
   isSupport    Boolean    @default(false)
-  separator    String?    // новое поле для разделения
+  separator    String? // новое поле для разделения
 }
 
 // Логи  ---------------- ↓↓↓↓
