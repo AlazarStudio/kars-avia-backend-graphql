@@ -55,7 +55,7 @@ const reserveResolver = {
       }
     },
     reserveArchive: async (_, { pagination }, context) => {
-      airlineAdminMiddleware(context) 
+      airlineAdminMiddleware(context)
       const { skip, take, status } = pagination
       // Определяем фильтр статусов
       const statusFilter =
@@ -293,7 +293,11 @@ const reserveResolver = {
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },
-    addHotelToReserve: async ( _,{ reservationId, hotelId, capacity }, context ) => {
+    addHotelToReserve: async (
+      _,
+      { reservationId, hotelId, capacity },
+      context
+    ) => {
       const { user } = context
 
       try {
@@ -302,6 +306,10 @@ const reserveResolver = {
             reserve: { connect: { id: reservationId } },
             hotel: { connect: { id: hotelId } },
             capacity
+          },
+          include: {
+            reserve: true,
+            hotel: true
           }
         })
         // Логирование действия и публикация события
@@ -325,7 +333,11 @@ const reserveResolver = {
         throw error
       }
     },
-    addPassengerToReserve: async ( _, { reservationId, input, hotelId, capacity }, context ) => {
+    addPassengerToReserve: async (
+      _,
+      { reservationId, input, hotelId, capacity },
+      context
+    ) => {
       const { user } = context
 
       const { name, number, gender, child, animal } = input
@@ -344,6 +356,9 @@ const reserveResolver = {
         where: {
           reserveId: reservationId,
           hotelId: hotelId
+        },
+        include: {
+          hotel: true
         }
       })
       // Если связь не найдена, создаем её
@@ -353,6 +368,9 @@ const reserveResolver = {
             reserve: { connect: { id: reservationId } },
             hotel: { connect: { id: hotelId } },
             capacity: capacity || 1 // Можно изменить на нужное значение вместимости, если оно должно быть по умолчанию
+          },
+          include: {
+            hotel: true
           }
         })
       }
