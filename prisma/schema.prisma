@@ -127,7 +127,7 @@ model Hotel {
   dinner             MealTime?
   images             String[]
   MealPrice          MealPrice
-  ReserveHotel       ReserveHotel[]
+  reserveHotel       ReserveHotel[]
   hotelChesses       HotelChess[]
   Request            Request[]
   rooms              Room[]
@@ -268,7 +268,7 @@ model AirlinePersonal {
   Request      Request[]
   hotelChess   HotelChess[]
   Reserve      AirlinePersonalOnReserve[]
-  ReserveHotel ReserveHotelPersonal[]
+  reserveHotel ReserveHotelPersonal[]
 }
 
 model AirlinePersonalOnReserve {
@@ -365,7 +365,7 @@ model Passenger {
   reserve        Reserve?      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId      String?       @db.ObjectId
   temporary      Boolean       @default(true)
-  ReserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
+  reserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
   reserveHotelId String?       @db.ObjectId
   hotelChess     HotelChess[]
 }
