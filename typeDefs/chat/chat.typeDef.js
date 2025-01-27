@@ -2,49 +2,54 @@ const chatTypeDef = `#graphql
 
 scalar Date
 
-  type Message {
-    id: ID!
-    text: String!
-    sender: User!
-    chat: Chat!
-    createdAt: Date!
-    isRead: Boolean!
-  }
+type Message {
+  id: ID!
+  text: String!
+  sender: User!
+  chat: Chat!
+  createdAt: Date!
+  isRead: Boolean! # Используется только для приватных чатов
+  readBy: [MessageRead!]! # Список пользователей, которые прочитали сообщение
+}
 
-  type Chat {
-    id: ID!
-    requestId: ID
-    reserveId: ID
-    messages: [Message]
-    participants: [User!]
-    createdAt: Date!
-    separator: String
-  }
+type MessageRead {
+  id: ID!
+  message: Message!
+  user: User!
+  readAt: Date!
+}
 
-  type ChatUser {
-    id: ID!
-    chat: Chat!
-    user: User!
-  }
+type Chat {
+  id: ID!
+  requestId: ID
+  reserveId: ID
+  messages: [Message]
+  participants: [User!]
+  createdAt: Date!
+  unreadMessagesCount(userId: ID!): Int! # Непрочитанные сообщения для конкретного пользователя
+  separator: String
+}
 
-  type Query {
-    chats(requestId: ID, reserveId: ID): [Chat!]!
-    messages(chatId: ID!): [Message!]!
-    messagesFrom(senderId: ID!): [Message!]!
-    messagesTo(receiverId: ID!): [Message!]!
-    unreadMessages(receiverId: ID!): [Message!]!
-  }
+type Query {
+  chats(requestId: ID, reserveId: ID): [Chat!]!
+  messages(chatId: ID!): [Message!]!
+  unreadMessages(receiverId: ID!): [Message!]!
+  unreadMessagesInChat(chatId: ID!, userId: ID!): Int! # Непрочитанные сообщения в конкретном чате
+  readMessages(chatId: ID!, userId: ID!): [Message!]! # Сообщения, которые пользователь прочитал
+}
 
-  type Mutation {
-    sendMessage(chatId: ID, senderId: ID!, text: String!): Message!
-    createChat(requestId: ID!, userIds: [ID!]!): Chat!
-    markMessageAsRead(messageId: ID!): Message!
-  }
+type Mutation {
+  sendMessage(chatId: ID, senderId: ID!, text: String!): Message!
+  createChat(requestId: ID!, userIds: [ID!]!): Chat!
+  markMessageAsRead(messageId: ID!, userId: ID!): MessageRead! # Индивидуальная пометка сообщения
+  markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean! # Пометка всех сообщений как прочитанных
+}
 
-  type Subscription {
-    messageSent(chatId: ID!): Message
-    messageReceived(senderId: ID!, receiverId: ID!): Message!
-  }
+type Subscription {
+  messageSent(chatId: ID!): Message
+  newUnreadMessage(chatId: ID!, userId: ID!): Message! # Подписка на новые непрочитанные сообщения
+  messageRead(chatId: ID!): MessageRead! # Подписка на событие прочтения сообщения
+}
 
 `
 

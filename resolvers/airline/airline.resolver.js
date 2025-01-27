@@ -2,7 +2,10 @@ import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import uploadImage from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
-import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  adminMiddleware,
+  airlineAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 import {
   pubsub,
   AIRLINE_CREATED,
@@ -46,7 +49,7 @@ const airlineResolver = {
         where: { id },
         include: {
           staff: true,
-          logs: true,
+          logs: true
         }
       })
     },
@@ -67,7 +70,7 @@ const airlineResolver = {
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      adminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -98,7 +101,7 @@ const airlineResolver = {
         action: `create_airline`,
         description: `Пользователь ${user.name} добавил авиакомпанию ${createdAirline.name}`,
         airlineName: createdAirline.name,
-        airlineId: createdAirline.id,
+        airlineId: createdAirline.id
       })
       pubsub.publish(AIRLINE_CREATED, { airlineCreated: createdAirline })
       return createdAirline
@@ -157,7 +160,7 @@ const airlineResolver = {
                 context,
                 action: `update_airline`,
                 description: `Пользователь ${user.name} добавил департамент ${depart.name}`,
-                airlineId: id,
+                airlineId: id
               })
             }
           }
@@ -179,7 +182,7 @@ const airlineResolver = {
                 context,
                 action: `update_airline`,
                 description: `Пользователь ${user.name} обновил данные пользователя ${person.name}`,
-                airlineId: id,
+                airlineId: id
               })
             } else {
               await prisma.airlinePersonal.create({
@@ -196,7 +199,7 @@ const airlineResolver = {
                 context,
                 action: `update_airline`,
                 description: `Пользователь ${user.name} добавил пользователя ${person.name}`,
-                airlineId: id,
+                airlineId: id
               })
             }
           }
@@ -212,7 +215,7 @@ const airlineResolver = {
           context,
           action: `update_airline`,
           description: `Пользователь ${user.name} обновил данные авиакомпании ${person.name}`,
-          airlineId: id,
+          airlineId: id
         })
         pubsub.publish(AIRLINE_UPDATED, {
           airlineUpdated: airlineWithRelations

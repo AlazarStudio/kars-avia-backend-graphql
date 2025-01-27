@@ -105,7 +105,7 @@ const userResolver = {
       await logAction({
         context,
         action: "create_user",
-        description: `Пользователь ${user.name} добавил нового пользователя ${createdData.name}`,
+        description: `Пользователь ${user.name} добавил нового пользователя ${createdData.name}`
       })
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
@@ -197,7 +197,15 @@ const userResolver = {
       }
     },
     updateUser: async (_, { input, images }, context) => {
-      const { id, name, email, login, password, position, airlineDepartmentId } = input
+      const {
+        id,
+        name,
+        email,
+        login,
+        password,
+        position,
+        airlineDepartmentId
+      } = input
 
       if (context.user.id !== id && adminMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")

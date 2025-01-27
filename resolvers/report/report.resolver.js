@@ -123,9 +123,10 @@ const reportResolver = {
     }
   },
   Mutation: {
-    // Мутация для создания нового отчёта для авиакомпании 
+    // Мутация для создания нового отчёта для авиакомпании
     createAirlineReport: async (_, { input }, context) => {
       const { user } = context
+      airlineAdminMiddleware(context)
       const { filter, format } = input
 
       if (!user) {
@@ -197,6 +198,7 @@ const reportResolver = {
     // Мутация для создания нового отчёта для отелей
     createHotelReport: async (_, { input }, context) => {
       const { user } = context
+      hotelAdminMiddleware(context)
       const { filter, format } = input
 
       if (!user) {

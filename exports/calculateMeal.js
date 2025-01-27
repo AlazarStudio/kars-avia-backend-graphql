@@ -1,4 +1,3 @@
-
 const calculateMeal = (arrivalTime, departureTime, mealTimes) => {
   const mealPlan = {
     totalBreakfast: 0,

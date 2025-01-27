@@ -23,7 +23,7 @@ const mergedResolvers = mergeResolvers([
   requestResolver,
   reserveResolver,
   userResolver,
-  supportResolver,
+  supportResolver
 ])
 
 export default mergedResolvers

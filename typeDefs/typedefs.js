@@ -23,7 +23,7 @@ const mergedTypeDefs = mergeTypeDefs([
   requestTypeDef,
   reserveTypeDef,
   userTypeDef,
-  supportTypeDef,
+  supportTypeDef
 ])
 
 export default mergedTypeDefs

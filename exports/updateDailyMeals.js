@@ -15,7 +15,7 @@ const updateDailyMeals = async (requestId, dailyMealsUpdates, newEndDate) => {
   // Удаление дней после новой конечной даты
   const filteredDailyMeals = (dailyMeals || []).filter(
     (day) => new Date(day.date) <= newEndDate
-  );  
+  )
 
   // Обновление или добавление данных на определенные даты
   const updatedDailyMeals = filteredDailyMeals.map((day) => {

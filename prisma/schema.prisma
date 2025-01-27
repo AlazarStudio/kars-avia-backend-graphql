@@ -98,6 +98,7 @@ model User {
   is2FAEnabled        Boolean            @default(false)
   twoFASecret         String?
   twoFAMethod         TwoFAMethod?
+  MessageRead         MessageRead[]
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -412,24 +413,37 @@ type DailyMeal {
 // Заявка  ---------------- ↑↑↑↑
 
 model Message {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
   text       String
-  sender     User     @relation(name: "messageSender", fields: [senderId], references: [id])
-  senderId   String   @db.ObjectId
-  receiver   User?    @relation(name: "messageReceiver", fields: [receiverId], references: [id])
-  receiverId String?  @db.ObjectId
-  chat       Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId     String?  @db.ObjectId
-  createdAt  DateTime @default(now())
-  isRead     Boolean  @default(false)
+  sender     User          @relation(name: "messageSender", fields: [senderId], references: [id])
+  senderId   String        @db.ObjectId
+  receiver   User?         @relation(name: "messageReceiver", fields: [receiverId], references: [id])
+  receiverId String?       @db.ObjectId
+  chat       Chat?         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId     String?       @db.ObjectId
+  createdAt  DateTime      @default(now())
+  isRead     Boolean       @default(false)
+  readBy     MessageRead[]
+}
+
+model MessageRead {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId]) // Один пользователь может прочитать сообщение только один раз
 }
 
 model ChatUser {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @db.ObjectId
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  chat              Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId            String    @db.ObjectId
+  user              User      @relation(fields: [userId], references: [id])
+  userId            String    @db.ObjectId
+  lastReadMessageAt DateTime?
 
   @@unique([chatId, userId])
 }
