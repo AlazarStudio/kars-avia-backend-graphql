@@ -1,13 +1,17 @@
-import { generateExcel, generatePDF } from "../exports/exporter.js"
-import { prisma } from "../prisma.js"
+import {
+  generatePDF,
+  generateExcelHotel,
+  generateExcelAvia
+} from "../../exports/exporter.js"
+import { prisma } from "../../prisma.js"
 import path from "path"
 import fs from "fs"
 import {
   adminMiddleware,
   airlineAdminMiddleware,
   hotelAdminMiddleware
-} from "../middlewares/authMiddleware.js"
-import { pubsub, REPORT_CREATED } from "../exports/pubsub.js"
+} from "../../middlewares/authMiddleware.js"
+import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { report } from "process"
 
 const reportResolver = {
@@ -119,10 +123,11 @@ const reportResolver = {
     }
   },
   Mutation: {
-    // Мутация для создания нового отчёта
-    createReport: async (_, { input }, context) => {
+    // Мутация для создания нового отчёта для авиакомпании
+    createAirlineReport: async (_, { input }, context) => {
       const { user } = context
-      const { filter, type, format } = input
+      airlineAdminMiddleware(context)
+      const { filter, format } = input
 
       if (!user) {
         throw new Error("Access denied")
@@ -143,27 +148,19 @@ const reportResolver = {
         orderBy: { arrival: "asc" }
       })
 
-      let name = ""
+      const airline = await prisma.airline.findUnique({
+        where: { id: filter.airlineId },
+        select: { name: true }
+      })
 
-      if (type === "airline") {
-        const airline = await prisma.airline.findUnique({
-          where: { id: filter.airlineId },
-          select: { name }
-        })
-        name = airline.name
-      } else if (type === "hotel") {
-        const hotel = await prisma.hotel.findUnique({
-          where: { id: filter.hotelId },
-          select: { name }
-        })
-        name = hotel.name
+      if (!airline) {
+        throw new Error("Airline not found")
       }
 
-      const reportData = aggregateReports(requests, type)
+      const name = airline.name
+      const reportData = aggregateReports(requests, "airline")
 
-      const reportName = `${type}_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
-
-      // const reportName = `${type}_report_${Date.now()}.${format}`
+      const reportName = `airline_report-${name}_${startDate}-${endDate}_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
@@ -171,7 +168,7 @@ const reportResolver = {
       if (format === "pdf") {
         await generatePDF(reportData, reportPath)
       } else if (format === "xlsx") {
-        await generateExcel(reportData, reportPath)
+        await generateExcelAvia(reportData, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
@@ -180,36 +177,157 @@ const reportResolver = {
       const reportRecord = {
         name: reportName,
         url: `/reports/${reportName}`,
-        startDate: new Date(filter.startDate), // Добавляем startDate
-        endDate: new Date(filter.endDate), // Добавляем endDate
-        createdAt: new Date()
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        airlineId:
+          user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
       }
 
-      // Логика для разных ролей
-      if (user.role === "AIRLINEADMIN") {
-        reportRecord.airlineId = user.airlineId
-      } else if (user.role === "HOTELADMIN") {
-        reportRecord.hotelId = user.hotelId
-      } else if (
-        user.role === "SUPERADMIN" ||
-        user.role === "DISPATCHERADMIN"
-      ) {
-        // Если SUPERADMIN или DISPATCHERADMIN, добавляем данные из фильтра
-        if (type === "airline" && filter.airlineId) {
-          reportRecord.airlineId = filter.airlineId
-        } else if (type === "hotel" && filter.hotelId) {
-          reportRecord.hotelId = filter.hotelId
-        } else {
-          throw new Error(
-            "For SUPERADMIN/DISPATCHERADMIN, either airlineId or hotelId must be provided in the filter based on the report type."
-          )
-        }
+      if (!reportRecord.airlineId) {
+        throw new Error("Airline ID is required for this report")
       }
 
-      // Сохранение отчёта
       const savedReport = await prisma.savedReport.create({
         data: reportRecord
       })
+      pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
+      return savedReport
+    },
+
+    // Мутация для создания нового отчёта для отелей
+    createHotelReport: async (_, { input }, context) => {
+      const { user } = context
+      hotelAdminMiddleware(context)
+      const { filter, format } = input
+
+      if (!user) {
+        throw new Error("Access denied")
+      }
+
+      const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+      const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+
+      // Получаем данные отеля
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: filter.hotelId },
+        select: {
+          name: true,
+          priceOneCategory: true,
+          priceTwoCategory: true,
+          priceThreeCategory: true,
+          priceFourCategory: true,
+          priceFiveCategory: true,
+          priceSixCategory: true,
+          priceSevenCategory: true,
+          priceEightCategory: true,
+          priceNineCategory: true,
+          priceTenCategory: true,
+          hotelChesses: {
+            select: {
+              room: true,
+              start: true,
+              end: true
+            }
+          }
+        }
+      })
+
+      if (!hotel) {
+        throw new Error("Hotel not found")
+      }
+
+      // Получаем список комнат отеля
+      const rooms = await prisma.room.findMany({
+        where: {
+          hotelId: filter.hotelId,
+          reserve: false // Исключаем комнаты, у которых reserve = true
+        }
+      })
+
+      // Создаём развёрнутый отчёт по каждому дню
+      const reportData = []
+
+      rooms.forEach((room) => {
+        const roomChesses = hotel.hotelChesses.filter(
+          (chess) => chess.room === room.name
+        )
+
+        const categoryPrices = {
+          onePlace: hotel.priceOneCategory || 0,
+          twoPlace: hotel.priceTwoCategory || 0,
+          threePlace: hotel.priceThreeCategory || 0,
+          fourPlace: hotel.priceFourCategory || 0,
+          fivePlace: hotel.priceFiveCategory || 0,
+          sixPlace: hotel.priceSixCategory || 0,
+          sevenPlace: hotel.priceSevenCategory || 0,
+          eightPlace: hotel.priceEightCategory || 0,
+          ninePlace: hotel.priceNineCategory || 0,
+          tenPlace: hotel.priceTenCategory || 0
+        }
+
+        const dailyPrice = categoryPrices[room.category] || 0
+
+        // Генерация данных по каждому дню
+        let currentDate = new Date(startDate)
+        const endDateObj = new Date(endDate)
+
+        while (currentDate <= endDateObj) {
+          const currentDateString = currentDate.toISOString().slice(0, 10)
+
+          // Проверяем, занята ли комната в текущий день
+          const isOccupied = roomChesses.some((chess) => {
+            const chessStart = new Date(chess.start).toISOString().slice(0, 10)
+            const chessEnd = new Date(chess.end).toISOString().slice(0, 10)
+            return (
+              chessStart <= currentDateString && chessEnd >= currentDateString
+            )
+          })
+
+          const cost = isOccupied ? dailyPrice : dailyPrice / 2
+
+          reportData.push({
+            date: currentDateString,
+            roomName: room.name,
+            category: room.category,
+            isOccupied,
+            dailyPrice: cost
+          })
+
+          currentDate.setDate(currentDate.getDate() + 1) // Переход к следующему дню
+        }
+      })
+
+      // Генерация имени и пути отчёта
+      const reportName = `hotel_report-${
+        hotel.name
+      }_${startDate}-${endDate}_${Date.now()}.${format}`
+      const reportPath = path.resolve(`./reports/${reportName}`)
+      fs.mkdirSync(path.dirname(reportPath), { recursive: true })
+
+      // Генерация отчёта в зависимости от формата
+      if (format === "pdf") {
+        await generatePDF(reportData, reportPath)
+      } else if (format === "xlsx") {
+        await generateExcelHotel(reportData, reportPath)
+      } else {
+        throw new Error("Unsupported report format")
+      }
+
+      // Сохраняем запись отчёта в базе данных
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
+      }
+
+      const savedReport = await prisma.savedReport.create({
+        data: reportRecord
+      })
+
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
     }
@@ -294,64 +412,60 @@ const calculateTotalDays = (start, end) => {
   return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
 }
 
-// Расчёт стоимости проживания
-// const calculateLivingCost = (request, type) => {
-//   const startDate = request.hotelChess?.start
-//   const endDate = request.hotelChess?.end
-//   let pricePerDay
-//   if (type === "airline") {
-//     pricePerDay = request.airline?.priceOneCategory || 0
-//   } else if (type === "hotel") {
-//     pricePerDay = request.hotel?.priceOneCategory || 0
-//   }
-//   if (!startDate || !endDate || pricePerDay === 0) {
-//     return 0 // Если данных нет, возвращаем 0
-//   }
-//   // Разница в миллисекундах между началом и концом
-//   const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
-//   // Количество дней (целое значение)
-//   const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
-//   return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
-// }
-
 const calculateLivingCost = (request, type) => {
   const startDate = request.hotelChess?.start
   const endDate = request.hotelChess?.end
   const roomCategory = request.roomCategory
 
-  // Определяем цену за день в зависимости от типа комнаты и типа запроса
-  let pricePerDay = 0
-  if (type === "airline") {
-    if (roomCategory === "onePlace") {
-      pricePerDay = request.airline?.priceOneCategory || 0
-    } else if (roomCategory === "twoPlace") {
-      pricePerDay = request.airline?.priceTwoCategory || 0
-    } else if (roomCategory === "threePlace") {
-      pricePerDay = request.airline?.priceThreeCategory || 0
-    } else if (roomCategory === "fourPlace") {
-      pricePerDay = request.airline?.priceFourCategory || 0
-    }
-  } else if (type === "hotel") {
-    if (roomCategory === "onePlace") {
-      pricePerDay = request.hotel?.priceOneCategory || 0
-    } else if (roomCategory === "twoPlace") {
-      pricePerDay = request.hotel?.priceTwoCategory || 0
-    } else if (roomCategory === "threePlace") {
-      pricePerDay = request.hotel?.priceThreeCategory || 0
-    } else if (roomCategory === "fourPlace") {
-      pricePerDay = request.hotel?.priceFourCategory || 0
+  // Маппинг цен по категориям для каждого типа
+  const priceMapping = {
+    airline: {
+      onePlace: request.airline?.priceOneCategory || 0,
+      twoPlace: request.airline?.priceTwoCategory || 0,
+      threePlace: request.airline?.priceThreeCategory || 0,
+      fourPlace: request.airline?.priceFourCategory || 0,
+      fivePlace: request.airline?.priceFiveCategory || 0,
+      sixPlace: request.airline?.priceSixCategory || 0,
+      sevenPlace: request.airline?.priceSevenCategory || 0,
+      eightPlace: request.airline?.priceEightCategory || 0,
+      ninePlace: request.airline?.priceNineCategory || 0,
+      tenPlace: request.airline?.priceTenCategory || 0
+    },
+    hotel: {
+      onePlace: request.hotel?.priceOneCategory || 0,
+      twoPlace: request.hotel?.priceTwoCategory || 0,
+      threePlace: request.hotel?.priceThreeCategory || 0,
+      fourPlace: request.hotel?.priceFourCategory || 0,
+      fivePlace: request.hotel?.priceFiveCategory || 0,
+      sixPlace: request.hotel?.priceSixCategory || 0,
+      sevenPlace: request.hotel?.priceSevenCategory || 0,
+      eightPlace: request.hotel?.priceEightCategory || 0,
+      ninePlace: request.hotel?.priceNineCategory || 0,
+      tenPlace: request.hotel?.priceTenCategory || 0
     }
   }
 
+  // Получаем цену за день
+  const pricePerDay = priceMapping[type]?.[roomCategory] || 0
+
+  // Проверяем наличие данных
   if (!startDate || !endDate || pricePerDay === 0) {
     return 0 // Если данных нет, возвращаем 0
   }
 
-  // Разница в миллисекундах между началом и концом
+  // Вычисляем разницу в днях
   const differenceInMilliseconds = new Date(endDate) - new Date(startDate)
-  // Количество дней (целое значение)
-  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем в большую сторону
-  return days > 0 ? days * pricePerDay : 0 // Убедимся, что дни положительные
+  const days = Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) // Округляем вверх до целого числа
+
+  // Возвращаем итоговую стоимость проживания
+  return days > 0 ? days * pricePerDay : 0 // Убеждаемся, что дни положительные
+}
+
+const calculateDaysInRange = (startDate, endDate) => {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const differenceInMilliseconds = end - start
+  return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24)) + 1 // Включая последний день
 }
 
 // Расчёт стоимости питания

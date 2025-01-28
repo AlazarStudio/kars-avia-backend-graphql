@@ -198,6 +198,31 @@ export const generateExcelAvia = async (reportData, filePath) => {
   await workbook.xlsx.writeFile(filePath)
 }
 
+// export const generateExcelHotel = async (reportData, filePath) => {
+//   const workbook = new ExcelJS.Workbook()
+//   const sheet = workbook.addWorksheet("Отчёт по комнатам")
+
+//   sheet.columns = [
+//     { header: "Комната", key: "roomName", width: 20 },
+//     { header: "Категория", key: "category", width: 15 },
+//     { header: "Кол-во дней", key: "daysInRange", width: 15 },
+//     { header: "Цена за день", key: "dailyPrice", width: 15 },
+//     { header: "Итоговая стоимость", key: "totalCost", width: 20 }
+//   ]
+
+//   reportData.forEach((row) => {
+//     sheet.addRow({
+//       roomName: row.roomName,
+//       category: row.category,
+//       daysInRange: row.daysInRange,
+//       dailyPrice: row.dailyPrice,
+//       totalCost: row.totalCost
+//     })
+//   })
+
+//   await workbook.xlsx.writeFile(filePath)
+// }
+
 export const generateExcelHotel = async (reportData, filePath) => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet("Развёрнутый отчёт")
