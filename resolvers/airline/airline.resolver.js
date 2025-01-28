@@ -214,7 +214,7 @@ const airlineResolver = {
         await logAction({
           context,
           action: `update_airline`,
-          description: `Пользователь ${user.name} обновил данные авиакомпании ${person.name}`,
+          description: `Пользователь ${user.name} обновил данные авиакомпании ${airlineWithRelations.name}`,
           airlineId: id
         })
         pubsub.publish(AIRLINE_UPDATED, {
