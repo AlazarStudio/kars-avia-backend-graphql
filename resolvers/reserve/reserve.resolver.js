@@ -242,7 +242,8 @@ const reserveResolver = {
       // Создание чата, связанного с заявкой
       const newChat = await prisma.chat.create({
         data: {
-          reserve: { connect: { id: newReserve.id } }
+          reserve: { connect: { id: newReserve.id } },
+          separator: "airline"
         }
       })
       // Добавление участника в чат через ChatUser
@@ -312,6 +313,29 @@ const reserveResolver = {
             hotel: true
           }
         })
+
+        const oldChat = await prisma.chat.findFirst({
+          where: {
+            reserve: { id: reservationId },
+            separator: "hotel"
+          }
+        })
+
+        if (!oldChat) {
+          const newChat = await prisma.chat.create({
+            data: {
+              reserve: { connect: { id: reservationId } },
+              separator: "hotel"
+            }
+          })
+          await prisma.chatUser.create({
+            data: {
+              chat: { connect: { id: newChat.id } },
+              user: { connect: { id: user.id } }
+            }
+          })
+        }
+
         // Логирование действия и публикация события
         await logAction({
           context,
