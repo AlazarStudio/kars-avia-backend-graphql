@@ -1,5 +1,5 @@
 import {
-  generatePDF,
+  // generatePDF,
   generateExcelHotel,
   generateExcelAvia
 } from "../../exports/exporter.js"
@@ -13,6 +13,7 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { report } from "process"
+import { console } from "inspector"
 
 const reportResolver = {
   Query: {
@@ -205,14 +206,15 @@ const reportResolver = {
         throw new Error("Access denied")
       }
 
-      const startDate = new Date(filter.startDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
-      const endDate = new Date(filter.endDate).toISOString().slice(0, 10) // Преобразуем в YYYY-MM-DD
+      const startDate = new Date(filter.startDate).toISOString().slice(0, 10)
+      const endDate = new Date(filter.endDate).toISOString().slice(0, 10)
 
       // Получаем данные отеля
       const hotel = await prisma.hotel.findUnique({
         where: { id: filter.hotelId },
         select: {
           name: true,
+          MealPrice: true,
           priceOneCategory: true,
           priceTwoCategory: true,
           priceThreeCategory: true,
@@ -222,14 +224,7 @@ const reportResolver = {
           priceSevenCategory: true,
           priceEightCategory: true,
           priceNineCategory: true,
-          priceTenCategory: true,
-          hotelChesses: {
-            select: {
-              room: true,
-              start: true,
-              end: true
-            }
-          }
+          priceTenCategory: true
         }
       })
 
@@ -237,66 +232,212 @@ const reportResolver = {
         throw new Error("Hotel not found")
       }
 
-      // Получаем список комнат отеля
-      const rooms = await prisma.room.findMany({
+      // Получаем все заявки для отеля в заданном диапазоне дат
+      // const requestsWithout = await prisma.request.findMany({
+      //   where: {
+      //     hotelId: filter.hotelId,
+      //     status: {
+      //       in: ["done", "transferred", "extended", "archiving", "archived"]
+      //     }
+      //   },
+      //   include: {
+      //     person: true,
+      //     hotelChess: true,
+      //     hotel: true
+      //   },
+      //   orderBy: { arrival: "asc" }
+      // });
+      
+      // // Теперь добавляем mealPlan вручную
+      // const requests = await Promise.all(
+      //   requestsWithout.map(async (request) => {
+      //     const mealPlan = await prisma.request.findUnique({
+      //       where: { id: request.id },
+      //       select: { mealPlan: true }
+      //     });
+      
+      //     return { ...request, mealPlan: mealPlan?.mealPlan || {} };
+      //   })
+      // );
+      
+      // const reportData = requests.map((request) => {
+      //   const room = request.roomNumber || "Не указано"
+      //   const category = request.roomCategory || "Не указано"
+      //   const startDate = new Date(request.arrival)
+      //   const endDate = new Date(request.departure)
+      //   const totalDays = Math.ceil(
+      //     (endDate - startDate) / (1000 * 60 * 60 * 24)
+      //   )
+
+      //   // Определение цен
+      //   const categoryPrices = {
+      //     onePlace: hotel.priceOneCategory || 0,
+      //     twoPlace: hotel.priceTwoCategory || 0,
+      //     threePlace: hotel.priceThreeCategory || 0,
+      //     fourPlace: hotel.priceFourCategory || 0,
+      //     fivePlace: hotel.priceFiveCategory || 0,
+      //     sixPlace: hotel.priceSixCategory || 0,
+      //     sevenPlace: hotel.priceSevenCategory || 0,
+      //     eightPlace: hotel.priceEightCategory || 0,
+      //     ninePlace: hotel.priceNineCategory || 0,
+      //     tenPlace: hotel.priceTenCategory || 0
+      //   }
+
+      //   const dailyPrice = categoryPrices[category] || 0
+      //   const totalLivingCost = dailyPrice * totalDays
+
+      //   // Подсчёт стоимости питания
+      //   const mealPlan = request.mealPlan || {}
+      //   let totalMealCost = 0
+      //   if (mealPlan.dailyMeals) {
+      //     mealPlan.dailyMeals.forEach((meal) => {
+      //       totalMealCost +=
+      //         (meal.breakfast || 0) * (hotel.MealPrice.breakfast || 0) +
+      //         (meal.lunch || 0) * (hotel.MealPrice.lunch || 0) +
+      //         (meal.dinner || 0) * (hotel.MealPrice.dinner || 0)
+      //     })
+      //   }
+
+      //   return {
+      //     date: startDate.toISOString().slice(0, 10),
+      //     roomName: room,
+      //     category: category,
+      //     isOccupied: "Занято",
+      //     totalDays,
+      //     dailyPrice,
+      //     totalMealCost,
+      //     totalLivingCost,
+      //     totalDebt: totalLivingCost + totalMealCost
+      //   }
+      // })
+
+      const requests = await prisma.request.findMany({
         where: {
           hotelId: filter.hotelId,
-          reserve: false // Исключаем комнаты, у которых reserve = true
-        }
-      })
-
-      // Создаём развёрнутый отчёт по каждому дню
-      const reportData = []
-
-      rooms.forEach((room) => {
-        const roomChesses = hotel.hotelChesses.filter(
-          (chess) => chess.room === room.name
-        )
-
+          status: {
+            in: ["done", "transferred", "extended", "archiving", "archived"]
+          }
+        },
+        include: {
+          person: true,
+          hotelChess: true,
+          hotel: true
+        },
+        orderBy: { arrival: "asc" }
+      });
+      
+      // Добавляем mealPlan отдельно, так как это JSON
+      const requestsWithMealPlan = await Promise.all(
+        requests.map(async (request) => {
+          const mealPlan = await prisma.request.findUnique({
+            where: { id: request.id },
+            select: { mealPlan: true }
+          });
+      
+          return { ...request, mealPlan: mealPlan?.mealPlan || {} };
+        })
+      );
+      
+      const reportData = requestsWithMealPlan.map((request) => {
+        const room = request.roomNumber || "Не указано";
+        const category = request.roomCategory || "Не указано";
+        const startDate = new Date(request.arrival);
+        const endDate = new Date(request.departure);
+      
+        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+      
+        // Цены на категории номеров
         const categoryPrices = {
-          onePlace: hotel.priceOneCategory || 0,
-          twoPlace: hotel.priceTwoCategory || 0,
-          threePlace: hotel.priceThreeCategory || 0,
-          fourPlace: hotel.priceFourCategory || 0,
-          fivePlace: hotel.priceFiveCategory || 0,
-          sixPlace: hotel.priceSixCategory || 0,
-          sevenPlace: hotel.priceSevenCategory || 0,
-          eightPlace: hotel.priceEightCategory || 0,
-          ninePlace: hotel.priceNineCategory || 0,
-          tenPlace: hotel.priceTenCategory || 0
-        }
-
-        const dailyPrice = categoryPrices[room.category] || 0
-
-        // Генерация данных по каждому дню
-        let currentDate = new Date(startDate)
-        const endDateObj = new Date(endDate)
-
-        while (currentDate <= endDateObj) {
-          const currentDateString = currentDate.toISOString().slice(0, 10)
-
-          // Проверяем, занята ли комната в текущий день
-          const isOccupied = roomChesses.some((chess) => {
-            const chessStart = new Date(chess.start).toISOString().slice(0, 10)
-            const chessEnd = new Date(chess.end).toISOString().slice(0, 10)
-            return (
-              chessStart <= currentDateString && chessEnd >= currentDateString
-            )
-          })
-
-          const cost = isOccupied ? dailyPrice : dailyPrice / 2
-
+          onePlace: request.hotel.priceOneCategory || 0,
+          twoPlace: request.hotel.priceTwoCategory || 0,
+          threePlace: request.hotel.priceThreeCategory || 0,
+          fourPlace: request.hotel.priceFourCategory || 0,
+          fivePlace: request.hotel.priceFiveCategory || 0,
+          sixPlace: request.hotel.priceSixCategory || 0,
+          sevenPlace: request.hotel.priceSevenCategory || 0,
+          eightPlace: request.hotel.priceEightCategory || 0,
+          ninePlace: request.hotel.priceNineCategory || 0,
+          tenPlace: request.hotel.priceTenCategory || 0
+        };
+      
+        const dailyPrice = categoryPrices[category] || 0;
+        const totalLivingCost = dailyPrice * totalDays;
+      
+        // Подсчёт питания
+        const mealPlan = request.mealPlan || {};
+        const mealPrices = request.hotel.MealPrice || {};
+      
+        let totalMealCost = 0;
+        let breakfastCount = 0;
+        let lunchCount = 0;
+        let dinnerCount = 0;
+      
+        (mealPlan.dailyMeals || []).forEach((meal) => {
+          breakfastCount += meal.breakfast || 0;
+          lunchCount += meal.lunch || 0;
+          dinnerCount += meal.dinner || 0;
+          totalMealCost += (meal.breakfast || 0) * (mealPrices.breakfast || 0);
+          totalMealCost += (meal.lunch || 0) * (mealPrices.lunch || 0);
+          totalMealCost += (meal.dinner || 0) * (mealPrices.dinner || 0);
+        });
+      
+        return {
+          date: startDate.toISOString().slice(0, 10),
+          roomName: room,
+          category: category,
+          isOccupied: "Занято",
+          totalDays,
+          breakfastCount,
+          lunchCount,
+          dinnerCount,
+          dailyPrice,
+          totalMealCost,
+          totalLivingCost,
+          totalDebt: totalLivingCost + totalMealCost
+        };
+      });
+      
+      // Добавляем пустые комнаты
+      const rooms = await prisma.room.findMany({
+        where: { hotelId: filter.hotelId, reserve: false }
+      });
+      
+      rooms.forEach((room) => {
+        const alreadyOccupied = reportData.some((r) => r.roomName === room.name);
+        if (!alreadyOccupied) {
+          const categoryPrices = {
+            onePlace: hotel.priceOneCategory || 0,
+            twoPlace: hotel.priceTwoCategory || 0,
+            threePlace: hotel.priceThreeCategory || 0,
+            fourPlace: hotel.priceFourCategory || 0,
+            fivePlace: hotel.priceFiveCategory || 0,
+            sixPlace: hotel.priceSixCategory || 0,
+            sevenPlace: hotel.priceSevenCategory || 0,
+            eightPlace: hotel.priceEightCategory || 0,
+            ninePlace: hotel.priceNineCategory || 0,
+            tenPlace: hotel.priceTenCategory || 0
+          };
+      
+          const category = room.category || "Не указано";
+          const dailyPrice = categoryPrices[category] || 0;
+      
           reportData.push({
-            date: currentDateString,
+            date: "Не указано",
             roomName: room.name,
-            category: room.category,
-            isOccupied,
-            dailyPrice: cost
-          })
-
-          currentDate.setDate(currentDate.getDate() + 1) // Переход к следующему дню
+            category: category,
+            isOccupied: "Свободно",
+            totalDays: 0,
+            breakfastCount: 0,
+            lunchCount: 0,
+            dinnerCount: 0,
+            dailyPrice: dailyPrice / 2,
+            totalMealCost: 0,
+            totalLivingCost: dailyPrice / 2,
+            totalDebt: dailyPrice / 2
+          });
         }
-      })
+      });
+      
 
       // Генерация имени и пути отчёта
       const reportName = `hotel_report-${
@@ -305,27 +446,23 @@ const reportResolver = {
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
-      // Генерация отчёта в зависимости от формата
-      if (format === "pdf") {
-        await generatePDF(reportData, reportPath)
-      } else if (format === "xlsx") {
+      // Генерация отчёта
+      if (format === "xlsx") {
         await generateExcelHotel(reportData, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
 
-      // Сохраняем запись отчёта в базе данных
-      const reportRecord = {
-        name: reportName,
-        url: `/reports/${reportName}`,
-        startDate: new Date(filter.startDate),
-        endDate: new Date(filter.endDate),
-        createdAt: new Date(),
-        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
-      }
-
+      // Сохранение отчёта в базе
       const savedReport = await prisma.savedReport.create({
-        data: reportRecord
+        data: {
+          name: reportName,
+          url: `/reports/${reportName}`,
+          startDate: new Date(filter.startDate),
+          endDate: new Date(filter.endDate),
+          createdAt: new Date(),
+          hotelId: user.hotelId
+        }
       })
 
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
@@ -402,9 +539,9 @@ const aggregateReports = (requests, reportType) => {
       breakfastCost,
       lunchCost,
       dinnerCost,
-      totalMealCost,
-      totalLivingCost,
-      totalDebt: totalLivingCost + totalMealCost
+      totalMealCost: totalMealCost || 0, // Добавляем проверку
+      totalLivingCost: totalLivingCost || 0, // Добавляем проверку
+      totalDebt: (totalLivingCost || 0) + (totalMealCost || 0)
     }
   })
 }
@@ -416,8 +553,8 @@ const calculateTotalDays = (start, end) => {
 }
 
 const calculateLivingCost = (request, type) => {
-  const startDate = request.hotelChess?.start
-  const endDate = request.hotelChess?.end
+  const startDate = request.arrival
+  const endDate = request.departure
   const roomCategory = request.roomCategory
 
   // Маппинг цен по категориям для каждого типа

@@ -13,6 +13,7 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { report } from "process"
+import { console } from "inspector"
 
 const reportResolver = {
   Query: {
@@ -364,8 +365,17 @@ const applyFilters = (filter) => {
 // Агрегация данных
 const aggregateReports = (requests, reportType) => {
   return requests.map((request) => {
-    const room = request.hotelChess?.room || "Не указано"
-    const totalLivingCost = calculateLivingCost(request, reportType)
+    const hotelChess = request.hotelChess?.[0] || {} // Берем первый объект из массива
+    const room = hotelChess.room || "Не указано"
+    const startDate = hotelChess.start ? new Date(hotelChess.start) : null
+    const endDate = hotelChess.end ? new Date(hotelChess.end) : null
+
+    const arrival = startDate ? startDate.toLocaleString("ru-RU") : "Не указано"
+    const departure = endDate ? endDate.toLocaleString("ru-RU") : "Не указано"
+
+    const totalDays =
+      startDate && endDate ? calculateTotalDays(startDate, endDate) : 0
+
     const mealPlan = request.mealPlan || {}
     const mealPrices =
       request.airline?.MealPrice || request.hotel?.MealPrice || {}
@@ -379,20 +389,14 @@ const aggregateReports = (requests, reportType) => {
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
 
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
+    const totalLivingCost = calculateLivingCost(request, reportType)
 
     return {
       room,
       personName: request.person?.name || "Не указано",
-      arrival: request.hotelChess?.start
-        ? new Date(request.hotelChess.start).toLocaleString()
-        : "Не указано",
-      departure: request.hotelChess?.end
-        ? new Date(request.hotelChess.end).toLocaleString()
-        : "Не указано",
-      totalDays: calculateTotalDays(
-        request.hotelChess?.start,
-        request.hotelChess?.end
-      ),
+      arrival,
+      departure,
+      totalDays,
       breakfastCount,
       lunchCount,
       dinnerCount,
@@ -413,8 +417,8 @@ const calculateTotalDays = (start, end) => {
 }
 
 const calculateLivingCost = (request, type) => {
-  const startDate = request.hotelChess?.start
-  const endDate = request.hotelChess?.end
+  const startDate = request.arrival
+  const endDate = request.departure
   const roomCategory = request.roomCategory
 
   // Маппинг цен по категориям для каждого типа

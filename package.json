@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "main": "server.js",
   "scripts": {
     "backup": "node utils/cron/backup.js",
