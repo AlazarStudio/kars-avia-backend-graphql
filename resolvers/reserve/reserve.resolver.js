@@ -317,7 +317,7 @@ const reserveResolver = {
         const oldChat = await prisma.chat.findFirst({
           where: {
             reserve: { id: reservationId },
-            hotelId: { id: hotelId },
+            hotel: { id: hotelId },
             separator: "hotel"
           }
         })
