@@ -28,7 +28,8 @@ type Chat {
   createdAt: Date!
   unreadMessagesCount(userId: ID!): Int! # Непрочитанные сообщения для конкретного пользователя
   separator: String
-  
+  airlineId: ID
+  hotelId: ID
 }
 
 type Query {

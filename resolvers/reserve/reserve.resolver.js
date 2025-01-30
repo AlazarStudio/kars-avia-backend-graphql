@@ -317,6 +317,7 @@ const reserveResolver = {
         const oldChat = await prisma.chat.findFirst({
           where: {
             reserve: { id: reservationId },
+            hotelId: { id: hotelId },
             separator: "hotel"
           }
         })
@@ -325,6 +326,7 @@ const reserveResolver = {
           const newChat = await prisma.chat.create({
             data: {
               reserve: { connect: { id: reservationId } },
+              hotel: { connect: { id: hotelId } },
               separator: "hotel"
             }
           })
