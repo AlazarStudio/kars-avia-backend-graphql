@@ -138,6 +138,7 @@ model Hotel {
   usStars            String?
   airportDistance    String?
   SavedReport        SavedReport[]
+  Chat               Chat[]
   // ----------------------------------------------------------------
   priceOneCategory   Float?         @default(0)
   priceTwoCategory   Float?         @default(0)
@@ -230,6 +231,7 @@ model Airline {
   Reserve            Reserve[]
   MealPrice          MealPrice
   SavedReport        SavedReport[]
+  Chat               Chat[]
   // ----------------------------------------------------------------
   priceOneCategory   Float?              @default(0)
   priceTwoCategory   Float?              @default(0)
@@ -459,6 +461,10 @@ model Chat {
   reserveId    String?    @db.ObjectId
   isSupport    Boolean    @default(false)
   separator    String? // новое поле для разделения
+  airline      Airline?   @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId    String?    @db.ObjectId
+  hotel        Hotel?     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId      String?    @db.ObjectId
 }
 
 // Логи  ---------------- ↓↓↓↓

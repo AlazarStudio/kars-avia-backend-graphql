@@ -28,13 +28,14 @@ type Chat {
   createdAt: Date!
   unreadMessagesCount(userId: ID!): Int! # Непрочитанные сообщения для конкретного пользователя
   separator: String
+  
 }
 
 type Query {
   chats(requestId: ID, reserveId: ID): [Chat!]!
   messages(chatId: ID!): [Message!]!
   unreadMessages(receiverId: ID!): [Message!]!
-  unreadMessagesInChat(chatId: ID!, userId: ID!): Int! # Непрочитанные сообщения в конкретном чате
+  unreadMessagesInChat(chatId: ID!, userId: ID!): [Message!]! # Непрочитанные сообщения в конкретном чате
   readMessages(chatId: ID!, userId: ID!): [Message!]! # Сообщения, которые пользователь прочитал
 }
 

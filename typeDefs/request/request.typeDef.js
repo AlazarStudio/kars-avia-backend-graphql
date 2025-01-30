@@ -114,6 +114,7 @@ input PaginationInput {
 input ExtendRequestDatesInput {
   requestId: ID!
   newEnd: Date!
+  status: String!
 }
 
 # queries
