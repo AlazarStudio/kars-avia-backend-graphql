@@ -321,7 +321,7 @@ const reserveResolver = {
             separator: "hotel"
           }
         })
-
+        console.log("oldChat: ", oldChat)
         if (!oldChat) {
           const newChat = await prisma.chat.create({
             data: {
@@ -337,6 +337,7 @@ const reserveResolver = {
             }
           })
         }
+        console.log("newChat: ", newChat)
 
         // Логирование действия и публикация события
         await logAction({
