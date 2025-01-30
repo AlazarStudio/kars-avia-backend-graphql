@@ -247,7 +247,7 @@ const reportResolver = {
       //   },
       //   orderBy: { arrival: "asc" }
       // });
-      
+
       // // Теперь добавляем mealPlan вручную
       // const requests = await Promise.all(
       //   requestsWithout.map(async (request) => {
@@ -255,11 +255,11 @@ const reportResolver = {
       //       where: { id: request.id },
       //       select: { mealPlan: true }
       //     });
-      
+
       //     return { ...request, mealPlan: mealPlan?.mealPlan || {} };
       //   })
       // );
-      
+
       // const reportData = requests.map((request) => {
       //   const room = request.roomNumber || "Не указано"
       //   const category = request.roomCategory || "Не указано"
@@ -324,28 +324,30 @@ const reportResolver = {
           hotel: true
         },
         orderBy: { arrival: "asc" }
-      });
-      
+      })
+
       // Добавляем mealPlan отдельно, так как это JSON
       const requestsWithMealPlan = await Promise.all(
         requests.map(async (request) => {
           const mealPlan = await prisma.request.findUnique({
             where: { id: request.id },
             select: { mealPlan: true }
-          });
-      
-          return { ...request, mealPlan: mealPlan?.mealPlan || {} };
+          })
+
+          return { ...request, mealPlan: mealPlan?.mealPlan || {} }
         })
-      );
-      
+      )
+
       const reportData = requestsWithMealPlan.map((request) => {
-        const room = request.roomNumber || "Не указано";
-        const category = request.roomCategory || "Не указано";
-        const startDate = new Date(request.arrival);
-        const endDate = new Date(request.departure);
-      
-        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-      
+        const room = request.roomNumber || "Не указано"
+        const category = request.roomCategory || "Не указано"
+        const startDate = new Date(request.arrival)
+        const endDate = new Date(request.departure)
+
+        const totalDays = Math.ceil(
+          (endDate - startDate) / (1000 * 60 * 60 * 24)
+        )
+
         // Цены на категории номеров
         const categoryPrices = {
           onePlace: request.hotel.priceOneCategory || 0,
@@ -358,29 +360,29 @@ const reportResolver = {
           eightPlace: request.hotel.priceEightCategory || 0,
           ninePlace: request.hotel.priceNineCategory || 0,
           tenPlace: request.hotel.priceTenCategory || 0
-        };
-      
-        const dailyPrice = categoryPrices[category] || 0;
-        const totalLivingCost = dailyPrice * totalDays;
-      
+        }
+
+        const dailyPrice = categoryPrices[category] || 0
+        const totalLivingCost = dailyPrice * totalDays
+
         // Подсчёт питания
-        const mealPlan = request.mealPlan || {};
-        const mealPrices = request.hotel.MealPrice || {};
-      
-        let totalMealCost = 0;
-        let breakfastCount = 0;
-        let lunchCount = 0;
-        let dinnerCount = 0;
-      
-        (mealPlan.dailyMeals || []).forEach((meal) => {
-          breakfastCount += meal.breakfast || 0;
-          lunchCount += meal.lunch || 0;
-          dinnerCount += meal.dinner || 0;
-          totalMealCost += (meal.breakfast || 0) * (mealPrices.breakfast || 0);
-          totalMealCost += (meal.lunch || 0) * (mealPrices.lunch || 0);
-          totalMealCost += (meal.dinner || 0) * (mealPrices.dinner || 0);
-        });
-      
+        const mealPlan = request.mealPlan || {}
+        const mealPrices = request.hotel.MealPrice || {}
+
+        let totalMealCost = 0
+        let breakfastCount = 0
+        let lunchCount = 0
+        let dinnerCount = 0
+
+        ;(mealPlan.dailyMeals || []).forEach((meal) => {
+          breakfastCount += meal.breakfast || 0
+          lunchCount += meal.lunch || 0
+          dinnerCount += meal.dinner || 0
+          totalMealCost += (meal.breakfast || 0) * (mealPrices.breakfast || 0)
+          totalMealCost += (meal.lunch || 0) * (mealPrices.lunch || 0)
+          totalMealCost += (meal.dinner || 0) * (mealPrices.dinner || 0)
+        })
+
         return {
           date: startDate.toISOString().slice(0, 10),
           roomName: room,
@@ -394,16 +396,16 @@ const reportResolver = {
           totalMealCost,
           totalLivingCost,
           totalDebt: totalLivingCost + totalMealCost
-        };
-      });
-      
+        }
+      })
+
       // Добавляем пустые комнаты
       const rooms = await prisma.room.findMany({
         where: { hotelId: filter.hotelId, reserve: false }
-      });
-      
+      })
+
       rooms.forEach((room) => {
-        const alreadyOccupied = reportData.some((r) => r.roomName === room.name);
+        const alreadyOccupied = reportData.some((r) => r.roomName === room.name)
         if (!alreadyOccupied) {
           const categoryPrices = {
             onePlace: hotel.priceOneCategory || 0,
@@ -416,11 +418,11 @@ const reportResolver = {
             eightPlace: hotel.priceEightCategory || 0,
             ninePlace: hotel.priceNineCategory || 0,
             tenPlace: hotel.priceTenCategory || 0
-          };
-      
-          const category = room.category || "Не указано";
-          const dailyPrice = categoryPrices[category] || 0;
-      
+          }
+
+          const category = room.category || "Не указано"
+          const dailyPrice = categoryPrices[category] || 0
+
           reportData.push({
             date: "Не указано",
             roomName: room.name,
@@ -434,10 +436,9 @@ const reportResolver = {
             totalMealCost: 0,
             totalLivingCost: dailyPrice / 2,
             totalDebt: dailyPrice / 2
-          });
+          })
         }
-      });
-      
+      })
 
       // Генерация имени и пути отчёта
       const reportName = `hotel_report-${
@@ -453,18 +454,23 @@ const reportResolver = {
         throw new Error("Unsupported report format")
       }
 
-      // Сохранение отчёта в базе
-      const savedReport = await prisma.savedReport.create({
-        data: {
-          name: reportName,
-          url: `/reports/${reportName}`,
-          startDate: new Date(filter.startDate),
-          endDate: new Date(filter.endDate),
-          createdAt: new Date(),
-          hotelId: user.hotelId
-        }
-      })
+      // Создание записи отчёта
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
+      }
 
+      if (!reportRecord.hotelId) {
+        throw new Error("Hotel ID is required for this report")
+      }
+
+      const savedReport = await prisma.savedReport.create({
+        data: reportRecord
+      })
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
     }
