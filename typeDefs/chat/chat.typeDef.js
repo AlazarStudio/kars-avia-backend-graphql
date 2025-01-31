@@ -30,6 +30,7 @@ type Chat {
   separator: String
   airlineId: ID
   hotelId: ID
+  hotel: Hotel
 }
 
 type Query {
