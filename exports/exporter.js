@@ -29,7 +29,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
     { header: "Дата/время выезда", key: "departure", width: 20 },
     { header: "кол-во суток", key: "totalDays", width: 10 },
     { header: "Категория номера", key: "category", width: 15 },
-    { header: "Вид разн", key: "roomType", width: 10 },
+    { header: "Тип комнаты", key: "roomType", width: 10 },
     { header: "Питание", key: "meals", width: 15 },
     { header: "Стоимость питания", key: "totalMealCost", width: 15 },
     { header: "Стоимость проживания", key: "totalLivingCost", width: 15 },
