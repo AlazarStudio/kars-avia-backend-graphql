@@ -179,6 +179,8 @@ model HotelChess {
   passenger      Passenger?       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
   passengerId    String?          @db.ObjectId
   status         String?
+  // 
+  mealPlan       Json
 }
 
 model Room {

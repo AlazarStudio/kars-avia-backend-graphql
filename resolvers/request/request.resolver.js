@@ -376,11 +376,13 @@ const requestResolver = {
             dinner: true
           }
         })
+        
         const mealTimes = {
           breakfast: hotel.breakfast,
           lunch: hotel.lunch,
           dinner: hotel.dinner
         }
+
         const newMealPlan = calculateMeal(
           isArrivalChanged ? arrival : oldRequest.arrival,
           isDepartureChanged ? departure : oldRequest.departure,

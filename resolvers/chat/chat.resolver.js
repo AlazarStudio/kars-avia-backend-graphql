@@ -7,7 +7,8 @@ const chatResolver = {
       const chats = await prisma.chat.findMany({
         where: {
           OR: [requestId ? { requestId } : {}, reserveId ? { reserveId } : {}]
-        }
+        },
+        include: { hotel: true }
       })
       return chats
     },

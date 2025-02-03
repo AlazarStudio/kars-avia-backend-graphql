@@ -399,6 +399,24 @@ const hotelResolver = {
                 })
               } else if (hotelChess.reserveId) {
                 // Обработка для новой заявки типа "reserve"
+
+                // const mealTimes = {
+                //   breakfast: hotel.breakfast,
+                //   lunch: hotel.lunch,
+                //   dinner: hotel.dinner
+                // }
+
+                // const mealPlan = calculateMeal(arrival, departure, mealTimes)
+
+                
+                // mealPlan: {
+                //   included: true,
+                //   breakfast: mealPlan.totalBreakfast,
+                //   lunch: mealPlan.totalLunch,
+                //   dinner: mealPlan.totalDinner,
+                //   dailyMeals: mealPlan.dailyMeals
+                // },
+                
                 await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {

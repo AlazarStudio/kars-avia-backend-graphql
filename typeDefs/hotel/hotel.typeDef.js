@@ -92,6 +92,7 @@ type HotelChess {
   reserve: Reserve
   reserveId: String
   status: String
+  mealPlan: MealPlan
 }
 
 type Room {

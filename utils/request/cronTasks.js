@@ -6,7 +6,7 @@ const checkAndArchiveRequests = async () => {
   const currentDateTime = new Date()
   const requests = await prisma.request.findMany({
     where: {
-      status: { not: "archived" } // Исключаем уже архивированные заявки
+      status: { notIn: ["archived", "canceled"] } // Исключаем статусы "archived" и "canceled"
     }
   })
   // Обновляем статус для каждой заявки, если время выселения прошло
