@@ -180,7 +180,7 @@ model HotelChess {
   passengerId    String?          @db.ObjectId
   status         String?
   // 
-  mealPlan       Json
+  mealPlan       Json?
 }
 
 model Room {
