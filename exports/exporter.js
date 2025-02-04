@@ -6,17 +6,11 @@ import fs from "fs";
 // Настройка шрифтов для pdfMake
 pdfMake.vfs = pdfFonts.default?.pdfMake?.vfs || pdfFonts.pdfMake?.vfs;
 
-// Функция для форматирования чисел в рубли
-
-// const formatCurrency = (value) => {
-//   return `${value.toLocaleString("ru-RU")} ₽`;
-// };
-
+// Функция для форматирования числа в рубли
 const formatCurrency = (value) => {
-  if (!value || isNaN(value)) return "0 ₽"; // Проверяем, что value не undefined
+  if (!value || isNaN(value)) return "0 ₽";
   return `${Number(value).toLocaleString("ru-RU")} ₽`;
 };
-
 
 export const generateExcelAvia = async (reportData, filePath) => {
   const workbook = new ExcelJS.Workbook();
@@ -52,7 +46,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
     });
   });
 
-  // Добавляем итоговую строку
+  // Итоговая строка
   sheet.addRow({});
   sheet.addRow({
     personName: "ИТОГО",
@@ -98,7 +92,7 @@ export const generateExcelHotel = async (reportData, filePath) => {
     });
   });
 
-  // Итоговая строка с суммами
+  // Итоговая строка
   sheet.addRow({});
   sheet.addRow({
     date: "ИТОГО",
@@ -112,4 +106,3 @@ export const generateExcelHotel = async (reportData, filePath) => {
 
   await workbook.xlsx.writeFile(filePath);
 };
-
