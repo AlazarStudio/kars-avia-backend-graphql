@@ -24,34 +24,29 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD
   }
 })
+
 const userResolver = {
   Upload: GraphQLUpload,
-  // need middleware for Query and Mutations
+
   Query: {
-    users: async (_, { __ }, context) => {
+    users: async (_, __, context) => {
       return prisma.user.findMany({ orderBy: { name: "asc" } })
     },
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
-        where: {
-          airlineId: airlineId
-        },
+        where: { airlineId },
         orderBy: { name: "asc" }
       })
     },
     hotelUsers: async (_, { hotelId }, context) => {
       return prisma.user.findMany({
-        where: {
-          hotelId: hotelId
-        },
+        where: { hotelId },
         orderBy: { name: "asc" }
       })
     },
-    dispatcherUsers: async (_, { __ }, context) => {
+    dispatcherUsers: async (_, __, context) => {
       return prisma.user.findMany({
-        where: {
-          dispatcher: true
-        },
+        where: { dispatcher: true },
         orderBy: { name: "asc" }
       })
     },
@@ -61,12 +56,14 @@ const userResolver = {
       })
     }
   },
+
   Mutation: {
     registerUser: async (_, { input, images }, context) => {
-      const { user } = context
+      // Проверяем права: разрешено только администраторам по отелям/авиакомпаниям
       adminHotelAirMiddleware(context)
+
       let imagePaths = []
-      if (images && images.length > 0 && images !== null) {
+      if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
@@ -92,7 +89,7 @@ const userResolver = {
         hotelId: hotelId ? hotelId : undefined,
         airlineId: airlineId ? airlineId : undefined,
         role: role || "USER",
-        position: position,
+        position,
         dispatcher: dispatcher || false,
         airlineDepartmentId: airlineDepartmentId || null
       }
@@ -105,11 +102,12 @@ const userResolver = {
       await logAction({
         context,
         action: "create_user",
-        description: `Пользователь ${user.name} добавил нового пользователя ${createdData.name}`
+        description: `Пользователь ${context.user.name} добавил нового пользователя ${createdData.name}`
       })
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
     },
+
     signUp: async (_, { input, images }) => {
       let imagePaths = []
       if (images && images.length > 0) {
@@ -117,7 +115,7 @@ const userResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
-      // -------- 2FA key generation -------- ↓↓↓↓
+      // Генерация 2FA-секрета
       const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role } = input
       const hashedPassword = await argon2.hash(password)
@@ -127,17 +125,17 @@ const userResolver = {
           email,
           login,
           password: hashedPassword,
-          role: role ? role : "USER",
+          role: role || "USER",
           images: imagePaths,
-          twoFASecret // ---- 2FA key ----
+          twoFASecret
         }
       })
       const token = jwt.sign(
         {
           userId: newUser.id,
           role: newUser.role,
-          hotelId: newUser.hotelId && newUser.hotelId,
-          airlineId: newUser.airlineId && newUser.airlineId
+          hotelId: newUser.hotelId,
+          airlineId: newUser.airlineId
         },
         process.env.JWT_SECRET,
         { expiresIn: "24d" }
@@ -148,13 +146,14 @@ const userResolver = {
         token
       }
     },
+
     signIn: async (_, { input }) => {
       const { login, password, token2FA } = input
       const user = await prisma.user.findUnique({ where: { login } })
       if (!user || !(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
-      // ---------------- 2FA ---------------- ↓↓↓↓
+      // Если включена двухфакторная аутентификация, проверяем токен
       if (user.is2FAEnabled) {
         let verified
         if (user.twoFAMethod === "TOTP") {
@@ -175,18 +174,12 @@ const userResolver = {
           throw new Error("Invalid 2FA token")
         }
       }
-      // ---------------- 2FA ---------------- ↑↑↑↑
-      // const refreshToken = uuidv4()
-      // await prisma.user.update({
-      //   where: { id: user.id },
-      //   data: { refreshToken }
-      // })
       const token = jwt.sign(
         {
           userId: user.id,
           role: user.role,
-          hotelId: user.hotelId && user.hotelId,
-          airlineId: user.airlineId && user.airlineId
+          hotelId: user.hotelId,
+          airlineId: user.airlineId
         },
         process.env.JWT_SECRET,
         { expiresIn: "24d" }
@@ -196,6 +189,7 @@ const userResolver = {
         token
       }
     },
+
     updateUser: async (_, { input, images }, context) => {
       const {
         id,
@@ -203,16 +197,18 @@ const userResolver = {
         email,
         login,
         password,
+        role,
         position,
+        hotelId,
+        airlineId,
         airlineDepartmentId
       } = input
-
+      // Разрешаем обновление либо админам, либо самому пользователю
       if (context.user.id !== id && adminMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
-
       let imagePaths = []
-      if (images && images.length > 0 && images !== null) {
+      if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
@@ -225,7 +221,10 @@ const userResolver = {
         name,
         email,
         login,
+        role,
         position,
+        hotelId: hotelId ? hotelId : undefined,
+        airlineId: airlineId ? airlineId : undefined,
         airlineDepartmentId: airlineDepartmentId || null
       }
       if (images != null) {
@@ -234,15 +233,14 @@ const userResolver = {
       if (hashedPassword) {
         updatedData.password = hashedPassword
       }
-      const user = await prisma.user.update({
-        where: { id: id },
+      const updatedUser = await prisma.user.update({
+        where: { id },
         data: updatedData
       })
-      // logAction(id, "update", user)
-      pubsub.publish(USER_CREATED, { userCreated: user })
-      return user
+      pubsub.publish(USER_CREATED, { userCreated: updatedUser })
+      return updatedUser
     },
-    // -------------------------------- 2FA -------------------------------- ↓↓↓↓
+
     enable2FA: async (_, { input }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       let method = input.method
@@ -279,6 +277,7 @@ const userResolver = {
       }
       return { qrCodeUrlL: null }
     },
+
     verify2FA: async (_, { token }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       const user = await prisma.user.findUnique({
@@ -289,37 +288,33 @@ const userResolver = {
         verified = speakeasy.totp.verify({
           secret: user.twoFASecret,
           encoding: "base32",
-          token: token
+          token
         })
       } else if (user.twoFAMethod === "HOTP") {
         verified = speakeasy.hotp.verify({
           secret: user.twoFASecret,
           encoding: "base32",
-          token: token,
+          token,
           counter: 0
         })
       }
       if (!verified) throw new Error("Invalid 2FA token")
       return { success: true }
     },
-    // -------------------------------- 2FA -------------------------------- ↑↑↑↑
 
-    // ---------------------------------------------------------------- need changes
     refreshToken: async (_, { refreshToken }) => {
       const user = await prisma.user.findUnique({ where: { refreshToken } })
       if (!user) {
         throw new Error("Invalid refresh token")
       }
-      // Генерируем новый access токен
       const newAccessToken = jwt.sign(
         {
           userId: user.id,
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24d" } // Новый access токен
+        { expiresIn: "24d" }
       )
-      // Генерируем новый refresh токен для безопасности
       const newRefreshToken = uuidv4()
       await prisma.user.update({
         where: { id: user.id },
@@ -330,7 +325,7 @@ const userResolver = {
         refreshToken: newRefreshToken
       }
     },
-    // ---------------------------------------------------------------- need changes
+
     logout: async (_, __, context) => {
       if (!context.user) throw new Error("Not authenticated")
       await prisma.user.update({
@@ -339,6 +334,7 @@ const userResolver = {
       })
       return { message: "Logged out successfully" }
     },
+
     deleteUser: async (_, { id }, context) => {
       if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
         throw new Error("Access forbidden: Admins only or self-delete allowed")

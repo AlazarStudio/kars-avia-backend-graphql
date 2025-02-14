@@ -1,27 +1,26 @@
 const requestTypeDef = `#graphql
-
 scalar Date
 
-# types
+# Основные типы
 type Request {
   id: ID!
   person: AirlinePersonal
-  personId: String
-  airportId: String!
+  personId: ID
+  airportId: ID!
   airport: Airport!
   arrival: Date!
   departure: Date!
   roomCategory: String
   mealPlan: MealPlan
-  senderId: String!
-  receiverId: String
+  senderId: ID!
+  receiverId: ID
   createdAt: Date
   updatedAt: Date
-  hotelId: String
+  hotelId: ID
   hotel: Hotel
   hotelChess: HotelChess
   roomNumber: String
-  airlineId: String
+  airlineId: ID
   airline: Airline!
   status: String
   requestNumber: String
@@ -42,21 +41,20 @@ type Log {
   createdAt: Date!
 }
 
+# type MealPlan {
+#   included: Boolean
+#   breakfast: Int
+#   lunch: Int
+#   dinner: Int
+#   dailyMeals: [DailyMeal]
+# }
 
-type MealPlan {
-  included: Boolean
-  breakfast: Int
-  lunch: Int
-  dinner: Int
-  dailyMeals: [DailyMeal]
-}
-
-type DailyMeal {
-  date: Date!
-  breakfast: Int!
-  lunch: Int!
-  dinner: Int!
-}
+# type DailyMeal {
+#   date: Date!
+#   breakfast: Int!
+#   lunch: Int!
+#   dinner: Int!
+# }
 
 type RequestConnection {
   totalPages: Int!
@@ -64,16 +62,16 @@ type RequestConnection {
   requests: [Request!]!
 }
 
-# inputs
+# Входные типы
 input CreateRequestInput {
-  personId: String
-  airportId: String
+  personId: ID
+  airportId: ID!
   arrival: Date!
   departure: Date!
   roomCategory: String
   mealPlan: MealPlanInput
-  airlineId: String!
-  senderId: String!
+  airlineId: ID!
+  senderId: ID!
   status: String
 }
 
@@ -82,7 +80,7 @@ input UpdateRequestInput {
   departure: Date
   roomCategory: String
   mealPlan: MealPlanInput
-  hotelId: String 
+  hotelId: ID
   status: String
 }
 
@@ -117,13 +115,14 @@ input ExtendRequestDatesInput {
   status: String!
 }
 
-# queries
+# Запросы
 type Query {
   requests(pagination: PaginationInput): RequestConnection!
-  request(id:ID): Request
+  request(id: ID): Request
   requestArchive(pagination: PaginationInput): RequestConnection!
 }
 
+# Мутации
 type Mutation {
   createRequest(input: CreateRequestInput!): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
@@ -133,9 +132,10 @@ type Mutation {
 
 extend type Mutation {
   extendRequestDates(input: ExtendRequestDatesInput!): Request!
-  archivingRequst(id: ID!): Request!
+  archivingRequest(id: ID!): Request!  
 }
 
+# Подписки
 type Subscription {
   requestCreated: Request!
   requestUpdated: Request!

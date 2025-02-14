@@ -17,21 +17,13 @@ const requestResolver = {
     requests: async (_, { pagination }, context) => {
       const { user } = context
       const { skip, take, status } = pagination
-      // Определяем фильтр статусов, если статус не передан (пустой массив), показываем все неархивные
       const statusFilter =
         status && status.length > 0 && !status.includes("all")
           ? { status: { in: status } }
           : {}
-      // Добавляем airlineId в фильтр только если он существует
+      // Если у пользователя задан airlineId – фильтруем по нему
+      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
 
-      // const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
-
-      // const airlineFilter = user.airlineId ?? false ? { airlineId: user.airlineId } : {};
-
-      const airlineFilter =
-        user.airlineId !== null ? { airlineId: user.airlineId } : {}
-
-      // Подсчитываем записи с учетом фильтрации по статусу, архиву и airlineId
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
@@ -40,7 +32,6 @@ const requestResolver = {
         }
       })
       const totalPages = Math.ceil(totalCount / take)
-      // Получаем записи
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
@@ -64,15 +55,13 @@ const requestResolver = {
         totalPages
       }
     },
+
     requestArchive: async (_, { pagination }, context) => {
-      // console.log(context)
       const { user } = context
       airlineAdminMiddleware(context)
       const { skip, take, status } = pagination
-      // Определяем фильтр статусов
       const statusFilter =
         status && status.includes("all") ? {} : { status: { in: status } }
-      // Добавляем airlineId в фильтр только если он существует
       const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
       const totalCount = await prisma.request.count({
         where: {
@@ -105,10 +94,11 @@ const requestResolver = {
         totalPages
       }
     },
+
     request: async (_, { id }, context) => {
       const { user } = context
       const request = await prisma.request.findUnique({
-        where: { id: id },
+        where: { id },
         include: {
           airline: true,
           airport: true,
@@ -123,17 +113,15 @@ const requestResolver = {
       if (request.archive === true) {
         airlineAdminMiddleware(context)
       }
+      // Если пользователь является диспетчером, при первом открытии заявки (status === "created") обновляем статус
       if (!user || !user.dispatcher) {
         return request
       }
-      // Проверка, что статус заявки "created" (т.е. заявка открывается впервые)
       if (request.status === "created") {
-        // Обновляем статус на "opened"
         const updatedRequest = await prisma.request.update({
           where: { id },
           data: { status: "opened", receiverId: user.id }
         })
-        // Проверка, существует ли уже лог о первом открытии заявки
         const existingLog = await prisma.log.findFirst({
           where: {
             action: "open_request",
@@ -141,27 +129,17 @@ const requestResolver = {
           }
         })
         if (!existingLog) {
-          // Логируем только если ещё не было записи об открытии
           try {
             await logAction({
               context,
               action: "open_request",
-              description: `
-                Заявка № ${updatedRequest.requestNumber} открыта пользователем ${user.name}
-              `,
-              // {
-              //   requestId: updatedRequest.id,
-              //   requestNumber: updatedRequest.requestNumber
-              // },
+              description: `Заявка № ${updatedRequest.requestNumber} открыта пользователем ${user.name}`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               requestId: updatedRequest.id
             })
           } catch (error) {
-            console.error(
-              "Ошибка при логировании первого открытия заявки:",
-              error
-            )
+            console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
         pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
@@ -170,6 +148,7 @@ const requestResolver = {
       return request
     }
   },
+
   Mutation: {
     createRequest: async (_, { input }, context) => {
       const { user } = context
@@ -185,11 +164,11 @@ const requestResolver = {
         status
       } = input
 
-      // Преобразование дат в формат "YYYY-MM-DD"
+      // Приведение дат к формату YYYY-MM-DD
       const arrivalDate = arrival.split("T")[0]
       const departureDate = departure.split("T")[0]
 
-      // Проверка существования заявки с такими же параметрами
+      // Проверяем наличие заявки с такими же параметрами
       const existingRequest = await prisma.request.findFirst({
         where: {
           personId,
@@ -202,26 +181,25 @@ const requestResolver = {
           departure: {
             gte: new Date(`${departureDate}T00:00:00Z`),
             lte: new Date(`${departureDate}T23:59:59Z`)
+          },
+          status: {
+            not: "canceled"
           }
         }
       })
 
       if (existingRequest) {
-        throw new Error(`requestId: ${existingRequest.id}`)
+        throw new Error(`Request already exists with id: ${existingRequest.id}`)
       }
 
-      // Получаем количество существующих заявок для порядкового номера
+      // Генерируем порядковый номер заявки
       const requestCount = await prisma.request.count()
-
-      // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
       if (!airport) {
         throw new Error("Airport not found")
       }
-
-      // Форматируем текущую дату
       const currentDate = new Date()
       const formattedDate = currentDate
         .toLocaleDateString("ru-RU")
@@ -251,15 +229,13 @@ const requestResolver = {
         }
       })
 
-      // Создание чата, связанного с заявкой
+      // Создаём чат, связанный с заявкой
       const newChat = await prisma.chat.create({
         data: {
           request: { connect: { id: newRequest.id } },
           separator: "airline"
         }
       })
-
-      // Добавление участника в чат через ChatUser
       await prisma.chatUser.create({
         data: {
           chat: { connect: { id: newChat.id } },
@@ -267,7 +243,6 @@ const requestResolver = {
         }
       })
 
-      // Логирование действия создания
       try {
         await logAction({
           context,
@@ -283,12 +258,13 @@ const requestResolver = {
           requestId: newRequest.id
         })
       } catch (error) {
-        console.error("Ошибка при логировании действия создания заявки:", error)
+        console.error("Ошибка при логировании создания заявки:", error)
       }
 
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
+
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
       airlineAdminMiddleware(context)
@@ -307,36 +283,39 @@ const requestResolver = {
         where: { id },
         include: {
           hotelChess: true,
-          hotel: true
+          hotel: true,
+          person: true
         }
       })
       if (!oldRequest) {
         throw new Error("Request not found")
       }
-
       const isArrivalChanged =
-        arrival && new Date(arrival) !== new Date(oldRequest.arrival)
+        arrival &&
+        new Date(arrival).getTime() !== new Date(oldRequest.arrival).getTime()
       const isDepartureChanged =
-        departure && new Date(departure) !== new Date(oldRequest.departure)
+        departure &&
+        new Date(departure).getTime() !==
+          new Date(oldRequest.departure).getTime()
 
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival: arrival ? new Date(arrival) : undefined, // Прямое присвоение значения arrival
-        departure: departure ? new Date(departure) : undefined, // Прямое присвоение значения departure
+        arrival: arrival ? new Date(arrival) : undefined,
+        departure: departure ? new Date(departure) : undefined,
         roomCategory,
         roomNumber,
         status,
         mealPlan
       }
-
       if (hotelId) {
         dataToUpdate.hotel = { connect: { id: hotelId } }
       }
       if (hotelChessId) {
         dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
       }
-      let updatedHotelChess
-      let hotelChessToUpdate
+
+      // Обработка hotelChess: если заявка уже привязана к номеру, обновляем его даты
+      let hotelChessToUpdate = null
       if (
         Array.isArray(oldRequest.hotelChess) &&
         oldRequest.hotelChess.length > 0
@@ -348,9 +327,8 @@ const requestResolver = {
       ) {
         hotelChessToUpdate = oldRequest.hotelChess
       }
-
       if (hotelChessToUpdate && hotelChessToUpdate.id) {
-        updatedHotelChess = await prisma.hotelChess.update({
+        await prisma.hotelChess.update({
           where: { id: hotelChessToUpdate.id },
           data: {
             start: isArrivalChanged
@@ -365,8 +343,7 @@ const requestResolver = {
         console.warn("No valid hotelChess found for updating.")
       }
 
-      // let updatedMealPlan = oldRequest.mealPlan
-
+      // Если даты изменились, пересчитываем mealPlan на основе настроек отеля
       if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
         const hotel = await prisma.hotel.findUnique({
           where: { id: oldRequest.hotel.id },
@@ -376,19 +353,16 @@ const requestResolver = {
             dinner: true
           }
         })
-        
         const mealTimes = {
           breakfast: hotel.breakfast,
           lunch: hotel.lunch,
           dinner: hotel.dinner
         }
-
         const newMealPlan = calculateMeal(
           isArrivalChanged ? arrival : oldRequest.arrival,
           isDepartureChanged ? departure : oldRequest.departure,
           mealTimes
         )
-
         dataToUpdate.mealPlan = {
           included: true,
           breakfast: newMealPlan.totalBreakfast,
@@ -396,28 +370,8 @@ const requestResolver = {
           dinner: newMealPlan.totalDinner,
           dailyMeals: newMealPlan.dailyMeals
         }
-
-        // const adjustedDailyMeals = (
-        //   oldRequest.mealPlan?.dailyMeals || []
-        // ).filter((day) => new Date(day.date) <= new Date(departure.date))
-        // newMealPlan.dailyMeals.forEach((newDay) => {
-        //   if (
-        //     !adjustedDailyMeals.some(
-        //       (existingDay) => existingDay.date === newDay.date
-        //     )
-        //   ) {
-        //     adjustedDailyMeals.push(newDay)
-        //   }
-        // })
-        // updatedMealPlan = await updateDailyMeals(
-        //   id,
-        //   adjustedDailyMeals,
-        //   departure.date
-        // )
       }
-      // if (updatedMealPlan) {
-      //   dataToUpdate.mealPlan = updatedMealPlan
-      // }
+
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: dataToUpdate,
@@ -427,9 +381,7 @@ const requestResolver = {
         }
       })
 
-      // Логирование действия изменения
       try {
-        // <span style='color: #ff60de;'></span>
         await logAction({
           context,
           action: "update_request",
@@ -445,55 +397,52 @@ const requestResolver = {
           requestId: updatedRequest.id
         })
       } catch (error) {
-        console.error("Ошибка при логировании действия создания заявки:", error)
+        console.error("Ошибка при логировании изменения заявки:", error)
       }
-
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
+
     modifyDailyMeals: async (_, { input }, context) => {
       const { user } = context
       const { requestId, dailyMeals } = input
-      // Проверяем существование заявки
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        select: { id: true }
+        select: { id: true, requestNumber: true }
       })
       if (!request) {
         throw new Error("Request not found")
       }
-      // Вызываем функцию обновления питания
       const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals)
-
-      await logAction({
-        context,
-        action: `update_request`,
-        description: `Пользователь ${user.name} изменил питание для заявки № ${request.requestNumber}`,
-        requestId: request.id
-      })
-
+      try {
+        await logAction({
+          context,
+          action: "update_request",
+          description: `Пользователь ${user.name} изменил питание для заявки № ${request.requestNumber}`,
+          requestId: request.id
+        })
+      } catch (error) {
+        console.error("Ошибка при логировании изменения питания заявки:", error)
+      }
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedMealPlan })
       return updatedMealPlan
     },
+
     extendRequestDates: async (_, { input }, context) => {
       const { requestId, newEnd, status } = input
-      // console.log("input: ", input)
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true, hotel: true }
       })
-      // console.log("request: ", request)
       if (!request) {
         throw new Error("Request not found")
       }
-      if (!request.hotelChess) {
+      if (!request.hotelChess || request.hotelChess.length === 0) {
         throw new Error("Request has not been placed in a hotel")
       }
       const updatedHotelChess = await prisma.hotelChess.update({
         where: { id: request.hotelChess[0].id },
-        data: {
-          end: newEnd
-        }
+        data: { end: newEnd }
       })
       const existingMealPlan = request.mealPlan || {
         included: true,
@@ -502,7 +451,6 @@ const requestResolver = {
         dinner: 0,
         dailyMeals: []
       }
-      // const arrivalDateTime = updatedHotelChess.start
       const arrivalDateTime = request.arrival
       const departureDateTime = newEnd
       const hotel = request.hotel
@@ -516,16 +464,10 @@ const requestResolver = {
         departureDateTime,
         mealTimes
       )
-
-      // console.log("newMealPlan: " + JSON.stringify(newMealPlan))
-
-      // const newEndDate = new Date(newEnd)
       const newEndDate = newEnd
-      // Фильтруем существующие dailyMeals, чтобы оставить только даты до нового конца
       const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
-        (day) => new Date(day.date) <= newEndDate
+        (day) => new Date(day.date) <= new Date(newEndDate)
       )
-
       newMealPlan.dailyMeals.forEach((newDay) => {
         if (
           !adjustedDailyMeals.some(
@@ -554,15 +496,15 @@ const requestResolver = {
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
-    archivingRequst: async (_, input, context) => {
+
+    archivingRequest: async (_, input, context) => {
       const { user } = context
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
       })
-      // Проверяем вышел ли срок заявки
       if (
-        new Date(request.departure) < new Date(Date.now()) &&
+        new Date(request.departure) < new Date() &&
         request.status !== "archived"
       ) {
         const archiveRequest = await prisma.request.update({
@@ -573,7 +515,6 @@ const requestResolver = {
           context,
           action: "archive_request",
           description: `Пользователь ${user.name} отправил заявку № ${archiveRequest.requestNumber} в архив`,
-          // description: { requestId: request.id },
           oldData: request,
           newData: { status: "archived" },
           hotelId: request.hotelId,
@@ -585,16 +526,14 @@ const requestResolver = {
         throw new Error("Request is not expired or already archived")
       }
     },
+
     cancelRequest: async (_, input, context) => {
       const { user } = context
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        include: {
-          hotelChess: true
-        }
+        include: { hotelChess: true }
       })
-
       const canceledRequest = await prisma.request.update({
         where: { id: requestId },
         data: { status: "canceled" }
@@ -608,7 +547,6 @@ const requestResolver = {
         context,
         action: "cancel_request",
         description: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
-        // description: { requestId: request.id },
         oldData: request,
         newData: { status: "canceled" },
         hotelId: request.hotelId,
@@ -618,6 +556,7 @@ const requestResolver = {
       return canceledRequest
     }
   },
+
   Subscription: {
     requestCreated: {
       subscribe: () => pubsub.asyncIterator([REQUEST_CREATED])
@@ -626,6 +565,7 @@ const requestResolver = {
       subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
     }
   },
+
   Request: {
     airport: async (parent) => {
       return await prisma.airport.findUnique({
@@ -644,7 +584,7 @@ const requestResolver = {
       })
     },
     hotelChess: async (parent) => {
-      if (!parent.hotelId) return null
+      // Используем parent.id (идентификатор заявки), а не parent.requestId
       return await prisma.hotelChess.findFirst({
         where: { requestId: parent.id }
       })
@@ -656,7 +596,7 @@ const requestResolver = {
     },
     chat: async (parent) => {
       return await prisma.chat.findMany({
-        where: { requestId: parent.requestId }
+        where: { requestId: parent.id }
       })
     },
     logs: async (parent) => {

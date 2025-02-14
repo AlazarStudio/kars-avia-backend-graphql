@@ -6,7 +6,7 @@ import fs from "fs";
 // Настройка шрифтов для pdfMake
 pdfMake.vfs = pdfFonts.default?.pdfMake?.vfs || pdfFonts.pdfMake?.vfs;
 
-// Функция для форматирования числа в рубли
+// Функция форматирования валюты
 const formatCurrency = (value) => {
   if (!value || isNaN(value)) return "0 ₽";
   return `${Number(value).toLocaleString("ru-RU")} ₽`;
@@ -37,7 +37,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
       arrival: row.arrival || "Не указано",
       departure: row.departure || "Не указано",
       totalDays: row.totalDays,
-      category: "Одноместный", // Дефолтное значение
+      category: "Одноместный",
       roomType: "Номер",
       meals: `${row.breakfastCount}-${row.lunchCount}-${row.dinnerCount}`,
       totalMealCost: formatCurrency(row.totalMealCost),

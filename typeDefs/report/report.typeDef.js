@@ -1,48 +1,53 @@
 const reportTypeDef = `#graphql
 scalar Date
 
+enum ReportFormat {
+  pdf
+  xlsx
+}
+
 type Query {
   # Получение отчётов для авиакомпаний
   getAirlineReport(filter: ReportFilterInput): [AirlineReport!]!
-
   # Получение отчётов для отелей
   getHotelReport(filter: ReportFilterInput): [HotelReport!]!
 }
 
 type Mutation {
-  # Создание и сохранение отчёта
-  # createReport(input: CreateReportInput!): SavedReport!
+  # Создание и сохранение отчёта для авиакомпании
   createAirlineReport(input: CreateReportInput!): SavedReport!
+  # Создание и сохранение отчёта для отеля
   createHotelReport(input: CreateReportInput!): SavedReport!
 }
 
-# Фильтры для запросов
+# Фильтры для запросов отчётов
 input ReportFilterInput {
-  startDate: String
-  endDate: String
+  startDate: Date
+  endDate: Date
   archived: Boolean
-  personId: String
-  hotelId: String
-  airlineId: String
+  hotelId: ID
+  airlineId: ID
+  personId: ID
+  position: String
+  region: String
 }
 
 # Входные данные для создания отчёта
 input CreateReportInput {
   filter: ReportFilterInput!
-  # type: String! # Тип отчёта: "airline" или "hotel"
-  format: String! # Формат отчёта: "pdf" или "excel"
+  format: ReportFormat!   # Формат отчёта: PDF или EXCEL
 }
 
 # Отчёт для авиакомпании
 type AirlineReport {
-  airlineId: String
+  airlineId: ID
   airline: Airline
   reports: [SavedReport]
 }
 
 # Отчёт для отеля
 type HotelReport {
-  hotelId: String
+  hotelId: ID
   hotel: Hotel
   reports: [SavedReport]
 }
@@ -51,20 +56,20 @@ type HotelReport {
 type SavedReport {
   id: ID!
   name: String!
-  url: String! # Ссылка для загрузки отчёта
-  startDate: Date! # Начальная дата
-  endDate: Date!   # Конечная дата
+  url: String!         # Ссылка для загрузки отчёта
+  startDate: Date!     # Начальная дата
+  endDate: Date!       # Конечная дата
   createdAt: Date!
-  hotelId: String
+  hotelId: ID
   hotel: Hotel
-  airlineId: String
+  airlineId: ID
   airline: Airline
+  archived: Boolean
 }
 
 type Subscription {
   reportCreated: SavedReport!
 }
-
 `
 
 export default reportTypeDef

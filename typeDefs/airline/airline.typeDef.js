@@ -1,14 +1,11 @@
 const airlineTypeDef = `#graphql
-
 scalar Upload
 
-type Airline {
-  id: ID!
-  name: String!
+# Общие составные типы (если ещё не определены, их можно вынести в общий файл)
+type Information {
   country: String
   city: String
   address: String
-  quote: String
   index: String
   email: String
   number: String
@@ -17,11 +14,39 @@ type Airline {
   rs: String
   bank: String
   bik: String
-  images: [String]
-  department: [AirlineDepartment!]!
-  staff: [AirlinePersonal!]!
-  MealPrice: MealPrice
-  logs: [Log]
+  link: String
+  description: String
+}
+
+input InformationInput {
+  country: String
+  city: String
+  address: String
+  index: String
+  email: String
+  number: String
+  inn: String
+  ogrn: String
+  rs: String
+  bank: String
+  bik: String
+  link: String
+  description: String
+}
+
+type MealPrice {
+  breakfast: Float
+  lunch: Float
+  dinner: Float
+}
+
+input MealPriceInput {
+  breakfast: Float
+  lunch: Float
+  dinner: Float
+}
+
+type Price {
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
@@ -32,6 +57,32 @@ type Airline {
   priceEightCategory: Float
   priceNineCategory: Float
   priceTenCategory: Float
+}
+
+input PriceInput {
+  priceOneCategory: Float
+  priceTwoCategory: Float
+  priceThreeCategory: Float
+  priceFourCategory: Float
+  priceFiveCategory: Float
+  priceSixCategory: Float
+  priceSevenCategory: Float
+  priceEightCategory: Float
+  priceNineCategory: Float
+  priceTenCategory: Float
+}
+
+# Основной тип Airline
+type Airline {
+  id: ID!
+  name: String!
+  images: [String!]!
+  information: Information
+  department: [AirlineDepartment!]!
+  staff: [AirlinePersonal!]!
+  mealPrice: MealPrice
+  logs: [Log]
+  prices: Price
 }
 
 type AirlineDepartment {
@@ -58,60 +109,21 @@ type AirlineConnection {
   airlines: [Airline!]!
 }
 
+# Входные типы для создания и обновления
 input CreateAirlineInput {
   name: String!
-  country: String
-  city: String
-  address: String
-  quote: String
-  index: String
-  email: String
-  number: String
-  inn: String
-  ogrn: String
-  rs: String
-  bank: String
-  bik: String
-  MealPrice: MealPriceInput
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
-  priceFiveCategory: Float
-  priceSixCategory: Float
-  priceSevenCategory: Float
-  priceEightCategory: Float
-  priceNineCategory: Float
-  priceTenCategory: Float
+  information: InformationInput
+  mealPrice: MealPriceInput
+  prices: PriceInput
 }
 
 input UpdateAirlineInput {
   name: String
-  country: String
-  city: String
-  address: String
-  quote: String
-  index: String
-  email: String
-  number: String
-  inn: String
-  ogrn: String
-  rs: String
-  bank: String
-  bik: String
+  information: InformationInput
   staff: [AirlinePersonalInput!]
   department: [AirlineDepartmentInput!]
-  MealPrice: MealPriceInput
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
-  priceFiveCategory: Float
-  priceSixCategory: Float
-  priceSevenCategory: Float
-  priceEightCategory: Float
-  priceNineCategory: Float
-  priceTenCategory: Float
+  mealPrice: MealPriceInput
+  prices: PriceInput
 }
 
 input AirlineDepartmentInput {
@@ -154,7 +166,6 @@ type Subscription {
   airlineCreated: Airline!
   airlineUpdated: Airline!
 }
-
 `
 
 export default airlineTypeDef

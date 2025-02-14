@@ -1,14 +1,14 @@
 const reserveTypeDef = `#graphql
-
 scalar Date
 
+# Основной тип резерва
 type Reserve {
   id: ID!
   createdAt: Date
   updatedAt: Date
   airport: Airport
   airline: Airline
-  senderId: String!
+  senderId: ID!
   arrival: Date!
   departure: Date!
   mealPlan: MealPlan!
@@ -16,25 +16,27 @@ type Reserve {
   reserveNumber: String
   chat: [Chat]
   hotel: [ReserveHotel]
-  person: [AirlinePersonal]
+  # person: [AirlinePersonal]
   passengers: [Passenger]
   passengerCount: Int
-  reserveForPerson: Boolean!
+  # reserveForPerson: Boolean!
   archive: Boolean
   hotelChess: [HotelChess]
   logs: [Log]
 }
 
+# Тип для отелей, привязанных к резерву
 type ReserveHotel {
   id: ID!
   capacity: Int!
   hotel: Hotel!
   reserve: Reserve!
-  person: [AirlinePersonal]
+  # person: [AirlinePersonal]
   passengers: [Passenger]
   hotelChess: [HotelChess]
 }
 
+# Тип плана питания для резерва
 type MealPlan {
   included: Boolean!
   breakfast: Int
@@ -42,12 +44,14 @@ type MealPlan {
   dinner: Int
 }
 
+# Тип для группировки персон и пассажиров в рамках отеля резерва
 type ReserveHotelPersonal {
   reserveHotel: ReserveHotel
   passengers: [Passenger]
-  person: [AirlinePersonal]
+  # person: [AirlinePersonal]
 }
 
+# Тип пассажира
 type Passenger {
   id: ID!
   name: String
@@ -59,24 +63,27 @@ type Passenger {
   hotel: Hotel
 }
 
+# Объединяющий тип для постраничного вывода резервов
 type ReserveConnection {
   totalPages: Int!
   totalCount: Int!
   reserves: [Reserve!]!
 }
 
+# Входные типы
+
 input CreateReserveInput {
-  airportId: String!
+  airportId: ID!
   arrival: Date!
   departure: Date!
   mealPlan: MealPlanInput!
-  airlineId: String!
-  senderId: String!
+  airlineId: ID!
+  senderId: ID!
   status: String
-  person: [PersonInput!]
+  # person: [PersonInput!]
   passengers: [PassengerInput!]
   passengerCount: Int!
-  reserveForPerson: Boolean!
+  # reserveForPerson: Boolean!
 }
 
 input UpdateReserveInput {
@@ -84,13 +91,20 @@ input UpdateReserveInput {
   departure: Date
   mealPlan: MealPlanInput
   status: String
-  person: [PersonInput!]
+  # person: [PersonInput!]
   passengers: [PassengerInput!]
 }
 
-input PersonInput {
-  id: String
+input MealPlanInput {
+  included: Boolean
+  breakfast: Int
+  lunch: Int
+  dinner: Int
 }
+
+# input PersonInput {
+#   id: ID
+# }
 
 input PassengerInput {
   name: String
@@ -100,9 +114,11 @@ input PassengerInput {
   animal: Boolean
 }
 
-input assignPersonInput {
-  reservationId: ID! personId: ID! hotelId: ID!
-}
+# input assignPersonInput {
+#   reservationId: ID!
+#   personId: ID!
+#   hotelId: ID!
+# }
 
 input PaginationInput {
   skip: Int
@@ -110,19 +126,30 @@ input PaginationInput {
   status: [String]
 }
 
+input ExtendReserveDatesInput {
+  reserveId: ID!
+  newEnd: Date!
+  status: String!
+}
+
+# Мутации
+
 type Mutation {
   createReserve(input: CreateReserveInput!): Reserve!
   updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
 }
 
 extend type Mutation {
-  addHotelToReserve(reservationId: ID! hotelId: ID! capacity: Int!): ReserveHotel!                                
-  addPassengerToReserve(reservationId: ID! input: PassengerInput! hotelId: ID!): Passenger!
+  addHotelToReserve(reservationId: ID!, hotelId: ID!, capacity: Int!): ReserveHotel!                                 
+  addPassengerToReserve(reservationId: ID!, input: PassengerInput!, hotelId: ID!): Passenger!
   deletePassengerFromReserve(id: ID!): ReserveHotel!
-  assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
-  dissociatePersonFromHotel(reserveHotelId: ID!, airlinePersonalId: ID!): ReserveHotel!
+  # assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
+  # dissociatePersonFromHotel(reserveHotelId: ID!, airlinePersonalId: ID!): ReserveHotel!
   archivingReserve(id: ID!): Reserve!
+  extendReserveDates(input: ExtendReserveDatesInput!): Reserve!
 }
+
+# Запросы
 
 type Query {
   reservationPassengers(reservationId: ID!): [Passenger!]!
@@ -136,13 +163,14 @@ extend type Query {
   reservationHotel(id: ID!): ReserveHotel!
 }
 
+# Подписки
+
 type Subscription {
   reserveCreated: Reserve!
   reserveUpdated: Reserve!
   reserveHotel: ReserveHotel!
   reservePersons: ReserveHotelPersonal!
 }
-
 `
 
 export default reserveTypeDef
