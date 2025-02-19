@@ -92,17 +92,17 @@ const userResolver = {
 
       if (existingUser) {
         if (existingUser.email === email && existingUser.login === login) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
           )
         } else if (existingUser.email === email) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
         } else if (existingUser.login === login) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
           )
@@ -161,17 +161,17 @@ const userResolver = {
 
       if (existingUser) {
         if (existingUser.email === email && existingUser.login === login) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
           )
         } else if (existingUser.email === email) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
         } else if (existingUser.login === login) {
-          throw new ApolloError(
+          throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
           )
