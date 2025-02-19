@@ -68,6 +68,7 @@ const userResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
+
       const {
         name,
         email,
@@ -81,29 +82,59 @@ const userResolver = {
         airlineDepartmentId
       } = input
       const hashedPassword = await argon2.hash(password)
+
+      // Проверка существующего пользователя с таким email или login
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [{ email }, { login }]
+        }
+      })
+
+      if (existingUser) {
+        if (existingUser.email === email && existingUser.login === login) {
+          throw new ApolloError(
+            "Пользователь с таким email и логином уже существует",
+            "USER_EXISTS"
+          )
+        } else if (existingUser.email === email) {
+          throw new ApolloError(
+            "Пользователь с таким email уже существует",
+            "EMAIL_EXISTS"
+          )
+        } else if (existingUser.login === login) {
+          throw new ApolloError(
+            "Пользователь с таким логином уже существует",
+            "LOGIN_EXISTS"
+          )
+        }
+      }
+
+      // Данные для создания пользователя
       const createdData = {
         name,
         email,
         login,
         password: hashedPassword,
-        hotelId: hotelId ? hotelId : undefined,
-        airlineId: airlineId ? airlineId : undefined,
+        hotelId: hotelId || undefined,
+        airlineId: airlineId || undefined,
         role: role || "USER",
         position,
         dispatcher: dispatcher || false,
-        airlineDepartmentId: airlineDepartmentId || null
+        airlineDepartmentId: airlineDepartmentId || null,
+        images: imagePaths
       }
-      if (images != null) {
-        createdData.images = imagePaths
-      }
+
+      // Создаём пользователя
       const newUser = await prisma.user.create({
         data: createdData
       })
+
       await logAction({
         context,
         action: "create_user",
         description: `Пользователь ${context.user.name} добавил нового пользователя ${createdData.name}`
       })
+
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
     },
@@ -115,10 +146,39 @@ const userResolver = {
           imagePaths.push(await uploadImage(image))
         }
       }
+
       // Генерация 2FA-секрета
       const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role } = input
       const hashedPassword = await argon2.hash(password)
+
+      // Проверяем, существует ли уже пользователь с таким email или login
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [{ email }, { login }]
+        }
+      })
+
+      if (existingUser) {
+        if (existingUser.email === email && existingUser.login === login) {
+          throw new ApolloError(
+            "Пользователь с таким email и логином уже существует",
+            "USER_EXISTS"
+          )
+        } else if (existingUser.email === email) {
+          throw new ApolloError(
+            "Пользователь с таким email уже существует",
+            "EMAIL_EXISTS"
+          )
+        } else if (existingUser.login === login) {
+          throw new ApolloError(
+            "Пользователь с таким логином уже существует",
+            "LOGIN_EXISTS"
+          )
+        }
+      }
+
+      // Создаём пользователя
       const newUser = await prisma.user.create({
         data: {
           name,
@@ -130,6 +190,8 @@ const userResolver = {
           twoFASecret
         }
       })
+
+      // Генерация токена
       const token = jwt.sign(
         {
           userId: newUser.id,
@@ -140,7 +202,9 @@ const userResolver = {
         process.env.JWT_SECRET,
         { expiresIn: "24d" }
       )
+
       pubsub.publish(USER_CREATED, { userCreated: newUser })
+
       return {
         ...newUser,
         token

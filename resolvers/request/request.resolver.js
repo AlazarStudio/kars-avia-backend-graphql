@@ -585,7 +585,6 @@ const requestResolver = {
       })
     },
     hotelChess: async (parent) => {
-      // Используем parent.id (идентификатор заявки), а не parent.requestId
       return await prisma.hotelChess.findFirst({
         where: { requestId: parent.id }
       })
