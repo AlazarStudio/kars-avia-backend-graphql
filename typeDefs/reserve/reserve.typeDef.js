@@ -11,7 +11,7 @@ type Reserve {
   senderId: ID!
   arrival: Date!
   departure: Date!
-  mealPlan: MealPlan!
+  mealPlan: MealPlan
   status: String
   reserveNumber: String
   chat: [Chat]
@@ -37,12 +37,12 @@ type ReserveHotel {
 }
 
 # Тип плана питания для резерва
-type MealPlan {
-  included: Boolean!
-  breakfast: Int
-  lunch: Int
-  dinner: Int
-}
+# type MealPlan {
+#   included: Boolean!
+#   breakfast: Int
+#   lunch: Int
+#   dinner: Int
+# }
 
 # Тип для группировки персон и пассажиров в рамках отеля резерва
 type ReserveHotelPersonal {

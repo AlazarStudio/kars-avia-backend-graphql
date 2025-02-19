@@ -311,20 +311,20 @@ const reserveResolver = {
           airport: { connect: { id: airportId } },
           arrival,
           departure,
-          mealPlan, // можно задать первоначальный план, либо рассчитывать позже
+          mealPlan, 
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
           status,
           reserveNumber,
-          // persons не передаем,
           passengers,
           passengerCount,
+          // persons,
           // reserveForPerson
         },
         include: {
           airline: true,
           airport: true,
-          // person не включаем,
+          // person,
           passengers: true,
           hotel: true,
           hotelChess: true,
@@ -349,7 +349,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "create_reserve",
-        description: `User ${user.name} created reserve № ${newReserve.reserveNumber} for airport ${newReserve.airport.name}`,
+        description: `Пользователь ${user.name} создал заявку № ${newReserve.reserveNumber} в аэропорт ${newReserve.airport.name}`,
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
@@ -470,20 +470,21 @@ const reserveResolver = {
         await logAction({
           context,
           action: "update_reserve",
-          description: `Added hotel ${reserveHotel.hotel.name} to reserve № ${reserveHotel.reserve.reserveNumber}`,
+          description: `К заявке добавлен отель ${reserveHotel.hotel.name}`,
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
         pubsub.publish(RESERVE_HOTEL, { reserveHotel })
         return reserveHotel
       } catch (error) {
-        if (
-          error.code === "P2002" &&
-          error.meta?.target?.includes("reserveId_hotelId")
-        ) {
-          throw new Error("This reserve and hotel combination already exists.")
-        }
-        throw error
+        console.error(error)
+        // if (
+        //   error.code === "P2002" &&
+        //   error.meta?.target?.includes("reserveId_hotelId")
+        // ) {
+        //   throw new Error("This reserve and hotel combination already exists.")
+        // }
+        // throw error
       }
     },
 

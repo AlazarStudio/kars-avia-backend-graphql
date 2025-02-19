@@ -458,6 +458,7 @@ const hotelResolver = {
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
             let mealPlanData = null
+            // Вычисляем mealPlanData, если заданы даты заезда и выезда
             if (hotelChess.start && hotelChess.end) {
               const arrival = hotelChess.start.toString()
               const departure = hotelChess.end.toString()
@@ -499,22 +500,31 @@ const hotelResolver = {
                   where: { id: hotelChess.id }
                 }
               )
+              let clientConnectData = undefined
+              if (hotelChess.clientId) {
+                const clientRecord = await prisma.airlinePersonal.findUnique({
+                  where: { id: hotelChess.clientId }
+                })
+                if (clientRecord) {
+                  clientConnectData = { connect: { id: hotelChess.clientId } }
+                }
+              }
+
               await prisma.hotelChess.update({
                 where: { id: hotelChess.id },
                 data: {
                   public: hotelChess.public,
-                  // Вместо roomId: hotelChess.roomId, используем nested connect:
                   room: { connect: { id: hotelChess.roomId } },
                   place: hotelChess.place,
                   start: hotelChess.start,
                   end: hotelChess.end,
-                  // clientId: hotelChess.clientId,
-                  client: { connect: { id: hotelChess.clientId } },
-                  // requestId: hotelChess.requestId,
+                  client: clientConnectData,
+                  passenger: hotelChess.passengerId
+                    ? { connect: { id: hotelChess.passengerId } }
+                    : undefined,
                   request: hotelChess.requestId
                     ? { connect: { id: hotelChess.requestId } }
                     : undefined,
-                  // reserveId: hotelChess.reserveId,
                   reserve: hotelChess.reserveId
                     ? { connect: { id: hotelChess.reserveId } }
                     : undefined,
@@ -574,52 +584,29 @@ const hotelResolver = {
               // Создание новой записи для HotelChess
               let newHotelChess
               if (hotelChess.reserveId) {
-                const reserve = await prisma.reserve.findUnique({
-                  where: { id: hotelChess.reserveId },
-                  select: { reserveForPerson: true }
-                })
-                const reserveForPerson = reserve?.reserveForPerson
-                if (reserveForPerson === true) {
+                try {
                   newHotelChess = await prisma.hotelChess.create({
                     data: {
                       hotel: { connect: { id } },
                       public: hotelChess.public,
-                      // Используем nested connect для связи с комнатой:
                       room: { connect: { id: hotelChess.roomId } },
                       place: hotelChess.place,
                       start: hotelChess.start,
                       end: hotelChess.end,
-                      client: { connect: { id: hotelChess.clientId } },
+                      passenger: { connect: { id: hotelChess.clientId } },
                       reserve: { connect: { id: hotelChess.reserveId } },
                       status: hotelChess.status,
                       mealPlan: mealPlanData
                     }
                   })
-                } else if (reserveForPerson === false) {
-                  try {
-                    newHotelChess = await prisma.hotelChess.create({
-                      data: {
-                        hotel: { connect: { id } },
-                        public: hotelChess.public,
-                        room: { connect: { id: hotelChess.roomId } },
-                        place: hotelChess.place,
-                        start: hotelChess.start,
-                        end: hotelChess.end,
-                        passenger: { connect: { id: hotelChess.clientId } },
-                        reserve: { connect: { id: hotelChess.reserveId } },
-                        status: hotelChess.status,
-                        mealPlan: mealPlanData
-                      }
-                    })
-                  } catch (e) {
-                    console.error("Error: ", e)
-                    throw new Error(
-                      "Ошибка при создании клиентского бронирования: " +
-                        e.message +
-                        "\n\n :" +
-                        e.stack
-                    )
-                  }
+                } catch (e) {
+                  console.error("Error: ", e)
+                  throw new Error(
+                    "Ошибка при создании клиентского бронирования: " +
+                      e.message +
+                      "\n\n :" +
+                      e.stack
+                  )
                 }
               } else {
                 newHotelChess = await prisma.hotelChess.create({
@@ -676,7 +663,13 @@ const hotelResolver = {
                       breakfast: calculatedMealPlan.totalBreakfast,
                       lunch: calculatedMealPlan.totalLunch,
                       dinner: calculatedMealPlan.totalDinner,
-                      dailyMeals: calculatedMealPlan.dailyMeals
+                      dailyMeals: calculatedMealPlan.dailyMeals.map((dm) => ({
+                        date: new Date(dm.date),
+                        breakfast: dm.breakfast,
+                        lunch: dm.lunch,
+                        dinner: dm.dinner
+                      }))
+                      
                     },
                     roomCategory: room?.category,
                     roomNumber: room?.name
@@ -735,7 +728,8 @@ const hotelResolver = {
                 await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {
-                    hotelChess: { connect: { id: newHotelChess.id } }
+                    hotelChess: { connect: { id: newHotelChess.id } },
+                    mealPlan: mealPlanData
                   }
                 })
                 await logAction({
@@ -902,12 +896,12 @@ const hotelResolver = {
   },
 
   HotelChess: {
-    client: async (parent) => {
-      if (!parent.clientId) return null
-      return await prisma.airlinePersonal.findUnique({
-        where: { id: parent.clientId }
-      })
-    },
+    // client: async (parent) => {
+    //   if (!parent.clientId) return null
+    //   return await prisma.airlinePersonal.findUnique({
+    //     where: { id: parent.clientId }
+    //   })
+    // },
     passenger: async (parent) => {
       if (!parent.passengerId) return null
       return await prisma.passenger.findUnique({

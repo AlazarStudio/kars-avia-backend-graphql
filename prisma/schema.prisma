@@ -87,7 +87,7 @@ type MealPlan {
   breakfast  Int?
   lunch      Int?
   dinner     Int?
-  dailyMeals DailyMeal?
+  dailyMeals DailyMeal[]
 }
 
 type DailyMeal {
@@ -224,7 +224,7 @@ model HotelChess {
   passenger      Passenger?       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
   passengerId    String?          @db.ObjectId
   status         String?
-  mealPlan       Json?
+  mealPlan       MealPlan?
 }
 
 model Room {
@@ -325,7 +325,7 @@ model Request {
   requestNumber String           @unique
   roomCategory  String?
   roomNumber    String?
-  mealPlan      Json?
+  mealPlan      MealPlan?
   hotel         Hotel?           @relation(fields: [hotelId], references: [id])
   hotelId       String?          @db.ObjectId
   receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
@@ -352,7 +352,7 @@ model Reserve {
   departure      DateTime
   reserveNumber  String         @unique
   passengerCount Int?
-  mealPlan       Json
+  mealPlan       MealPlan?
   status         String         @default("created")
   hotel          ReserveHotel[]
   passengers     Passenger[]

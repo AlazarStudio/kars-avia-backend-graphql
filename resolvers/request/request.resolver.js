@@ -9,7 +9,7 @@ import {
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateHotelChess from "../../exports/updateHotelChess.js"
 import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
-import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import { adminHotelAirMiddleware, airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 
 const requestResolver = {
@@ -267,7 +267,8 @@ const requestResolver = {
 
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      // airlineAdminMiddleware(context)
+      adminHotelAirMiddleware(context)
       const {
         airportId,
         arrival,
