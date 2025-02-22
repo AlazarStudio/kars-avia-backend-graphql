@@ -91,6 +91,7 @@ input UpdateUserInput {
   email: String
   login: String
   password: String
+  oldPassword: String
   role: Role
   position: String
   hotelId: ID

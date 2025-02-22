@@ -22,7 +22,9 @@ const createLog = async ({
   newData = null
 }) => {
   try {
-    const currentTimeUTC = new Date().toISOString() // Время в формате UTC
+    const currentTime = new Date()
+    const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+    const formattedTime = adjustedTime.toISOString() // формат UTC, но с учётом прибавленных 3 часов
 
     await prisma.log.create({
       data: {
@@ -36,7 +38,7 @@ const createLog = async ({
         reserveId: reserveId ? reserveId : null,
         oldData: oldData ? safeStringify(oldData) : null,
         newData: newData ? safeStringify(newData) : null,
-        createdAt: currentTimeUTC // Добавляем явно время в UTC
+        createdAt: formattedTime
       }
     })
   } catch (error) {

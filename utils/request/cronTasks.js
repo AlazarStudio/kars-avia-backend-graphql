@@ -1,12 +1,12 @@
 // cronTasks.js
 import { prisma } from "../../prisma.js"
-import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js" // Импортируйте необходимые модули
+import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
 
 const checkAndArchiveRequests = async () => {
   const currentDateTime = new Date()
   const requests = await prisma.request.findMany({
     where: {
-      status: { notIn: ["archived", "canceled"] } // Исключаем статусы "archived" и "canceled"
+      status: { notIn: ["archived", "canceled", "created", "opened"] }
     }
   })
   // Обновляем статус для каждой заявки, если время выселения прошло

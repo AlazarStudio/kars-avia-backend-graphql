@@ -10,24 +10,17 @@ import {
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
-// Предполагается, что middleware для airlineAdmin уже подключён там, где необходимо:
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
-
-// ===================
-// QUERY RESOLVERS
-// ===================
 
 const reserveResolver = {
   Query: {
     reserves: async (_, { pagination }, context) => {
       const { skip, take, status } = pagination
-      // Фильтрация по статусу: если status отсутствует или содержит "all", не фильтруем по статусу
       const statusFilter =
         !status || status.length === 0 || status.includes("all")
           ? {}
           : { status: { in: status } }
 
-      // Подсчет общего количества записей (архив можно исключать по необходимости)
       const totalCount = await prisma.reserve.count({
         where: {
           ...statusFilter
@@ -271,7 +264,6 @@ const reserveResolver = {
     //   return newReserve
     // },
 
-   
     // Создание резерва (remove person from input)
     createReserve: async (_, { input }, context) => {
       const { user } = context
@@ -279,52 +271,76 @@ const reserveResolver = {
         airportId,
         arrival,
         departure,
-        mealPlan, // Можно оставить, если требуется, но лучше рассчитывать отдельно
+        mealPlan,
         airlineId,
         senderId,
         status,
-        // persons удалено,
         passengers,
-        passengerCount,
-        // reserveForPerson
+        passengerCount
       } = input
 
       // Генерация номера резерва
-      const reserveCount = await prisma.reserve.count()
+      // const reserveCount = await prisma.reserve.count()
+      // const currentDate = new Date()
+      // const formattedDate = currentDate
+      //   .toLocaleDateString("ru-RU")
+      //   .replace(/\./g, ".")
+      // const reserveNumber = `${String(reserveCount + 1).padStart(4, "0")}-${
+      //   airport.code
+      // }-${formattedDate}`
+
+      const currentDate = new Date()
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0")
+      const year = String(currentDate.getFullYear()).slice(-2)
+
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      )
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      )
+      const reserveCount = await prisma.reserve.count({
+        where: {
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth
+          }
+        }
+      })
+
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
       if (!airport) {
         throw new Error("Airport not found")
       }
-      const currentDate = new Date()
-      const formattedDate = currentDate
-        .toLocaleDateString("ru-RU")
-        .replace(/\./g, ".")
-      const reserveNumber = `${String(reserveCount + 1).padStart(4, "0")}-${
-        airport.code
-      }-${formattedDate}`
 
-      // Создание резерва без поля person
+      const sequenceNumber = String(reserveCount + 1).padStart(4, "0")
+      const reserveNumber = `${sequenceNumber}-${airport.code}-${month}${year}-p`
+
       const newReserve = await prisma.reserve.create({
         data: {
           airport: { connect: { id: airportId } },
           arrival,
           departure,
-          mealPlan, 
+          mealPlan,
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
           status,
           reserveNumber,
           passengers,
-          passengerCount,
-          // persons,
-          // reserveForPerson
+          passengerCount
         },
         include: {
           airline: true,
           airport: true,
-          // person,
           passengers: true,
           hotel: true,
           hotelChess: true,
@@ -332,7 +348,6 @@ const reserveResolver = {
         }
       })
 
-      // Создание чата, связанного с резервацией
       const newChat = await prisma.chat.create({
         data: {
           reserve: { connect: { id: newReserve.id } },
@@ -357,10 +372,8 @@ const reserveResolver = {
       return newReserve
     },
 
-    // Обновление резерва с автоматическим обновлением плана питания в hotelChess
     updateReserve: async (_, { id, input }, context) => {
       const { user } = context
-      // Из входного объекта убираем поле persons (теперь его нет)
       const { arrival, departure, mealPlan, status } = input
 
       // Обновляем резерв
@@ -369,16 +382,14 @@ const reserveResolver = {
         data: {
           arrival,
           departure,
-          mealPlan, // резерв может содержать план питания, но мы обновляем и hotelChess
+          mealPlan, 
           status
         },
         include: { hotelChess: true }
       })
 
-      // Если у резерва уже есть связанные записи в hotelChess, обновляем для каждой план питания
       if (updatedReserve.hotelChess && updatedReserve.hotelChess.length > 0) {
         for (const hc of updatedReserve.hotelChess) {
-          // Получаем настройки питания от отеля, к которому привязана hotelChess
           const hotelInfo = await prisma.hotel.findUnique({
             where: { id: hc.hotelId },
             select: { breakfast: true, lunch: true, dinner: true }
@@ -413,22 +424,22 @@ const reserveResolver = {
       return updatedReserve
     },
 
-    updateReserve: async (_, { id, input }, context) => {
-      const { user } = context
-      const { arrival, departure, mealPlan, status } = input
-      const updatedReserve = await prisma.reserve.update({
-        where: { id },
-        data: {
-          arrival,
-          departure,
-          mealPlan,
-          status,
-          // persons
-        }
-      })
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
-      return updatedReserve
-    },
+    // updateReserve: async (_, { id, input }, context) => {
+    //   const { user } = context
+    //   const { arrival, departure, mealPlan, status } = input
+    //   const updatedReserve = await prisma.reserve.update({
+    //     where: { id },
+    //     data: {
+    //       arrival,
+    //       departure,
+    //       mealPlan,
+    //       status
+    //       // persons
+    //     }
+    //   })
+    //   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+    //   return updatedReserve
+    // },
 
     addHotelToReserve: async (
       _,
@@ -467,6 +478,12 @@ const reserveResolver = {
             }
           })
         }
+        const updatedReserve = await prisma.reserve.findUnique({
+          where: { id: reservationId },
+          include: {
+            chat: true
+          }
+        })
         await logAction({
           context,
           action: "update_reserve",
@@ -474,6 +491,7 @@ const reserveResolver = {
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
+        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
         pubsub.publish(RESERVE_HOTEL, { reserveHotel })
         return reserveHotel
       } catch (error) {
@@ -532,6 +550,10 @@ const reserveResolver = {
           reserveHotel: { connect: { id: reserveHotel.id } }
         }
       })
+      const updatedReserveHotel = await prisma.reserveHotel.findUnique({
+        where: { id: reserveHotel.id },
+        include: { passengers: true }
+      })
       await logAction({
         context,
         action: "update_reserve",
@@ -539,7 +561,8 @@ const reserveResolver = {
         reserveId: reserveHotel.reservationId,
         hotelId: reserveHotel.hotelId
       })
-      pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
+
+      pubsub.publish(RESERVE_PERSONS, { reservePersons: updatedReserveHotel })
       return newPassenger
     },
 

@@ -48,7 +48,6 @@ type ReserveHotel {
 type ReserveHotelPersonal {
   reserveHotel: ReserveHotel
   passengers: [Passenger]
-  # person: [AirlinePersonal]
 }
 
 # Тип пассажира

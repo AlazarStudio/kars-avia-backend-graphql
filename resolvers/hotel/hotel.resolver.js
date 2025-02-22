@@ -186,283 +186,12 @@ const hotelResolver = {
           hotelId: updatedHotel.id
         })
 
-        // if (hotelChesses) {
-        //   for (const hotelChess of hotelChesses) {
-        //     if (hotelChess.id) {
-        //       const previousHotelChessData = await prisma.hotelChess.findUnique(
-        //         {
-        //           where: { id: hotelChess.id }
-        //         }
-        //       )
-
-        //       // Обновление существующей записи
-        //       await prisma.hotelChess.update({
-        //         where: { id: hotelChess.id },
-        //         data: {
-        //           public: hotelChess.public,
-        //           room: { connect: { id: hotelChess.roomId } },
-        //           place: hotelChess.place,
-        //           start: hotelChess.start,
-        //           end: hotelChess.end,
-        //           clientId: hotelChess.clientId,
-        //           requestId: hotelChess.requestId,
-        //           reserveId: hotelChess.reserveId,
-        //           status: hotelChess.status
-        //         }
-        //       })
-
-        //       if (hotelChess.requestId) {
-        //         // Обработка для заявки типа "request"
-        //         const room = await prisma.room.findFirst({
-        //           where: { hotelId: hotelChess.hotelId, name: hotelChess.room }
-        //         })
-
-        //         const updatedRequest = await prisma.request.update({
-        //           where: { id: hotelChess.requestId },
-        //           data: {
-        //             status: "transferred",
-        //             hotel: { connect: { id: id } },
-        //             hotelChess: { connect: { id: hotelChess.id } },
-        //             roomCategory: room.category,
-        //             roomNumber: room.name
-        //           }
-        //         })
-
-        //         await logAction({
-        //           context,
-        //           action: "update_hotel_chess",
-        //           description: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
-        //           oldData: previousHotelChessData,
-        //           newData: hotelChess,
-        //           hotelId: hotelChess.hotelId,
-        //           requestId: updatedRequest.id
-        //         })
-
-        //         pubsub.publish(REQUEST_UPDATED, {
-        //           requestUpdated: updatedRequest
-        //         })
-        //       } else if (hotelChess.reserveId) {
-        //         // Обработка для заявки типа "reserve"
-        //         await prisma.reserve.update({
-        //           where: { id: hotelChess.reserveId },
-        //           data: {
-        //             // status: "transferred",
-        //             hotelChess: { connect: { id: hotelChess.id } }
-        //           }
-        //         })
-
-        //         await logAction({
-        //           context,
-        //           action: "update_hotel_chess",
-        //           description: `Заявка № ${hotelChess.reserveId} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
-        //           oldData: previousHotelChessData,
-        //           newData: hotelChess,
-        //           hotelId: hotelChess.hotelId,
-        //           reserveId: hotelChess.reserveId
-        //         })
-        //       }
-        //     } else {
-        //       // Создание новой записи
-        //       let reserveForPerson
-        //       let newHotelChess // Объявляем переменную вне блоков if/else
-
-        //       if (hotelChess.reserveId) {
-        //         const reserve = await prisma.reserve.findUnique({
-        //           where: { id: hotelChess.reserveId },
-        //           select: { reserveForPerson: true }
-        //         })
-
-        //         reserveForPerson = reserve?.reserveForPerson
-
-        //         if (reserveForPerson === true) {
-        //           newHotelChess = await prisma.hotelChess.create({
-        //             data: {
-        //               hotel: { connect: { id: id } },
-        //               public: hotelChess.public,
-        //               room: { connect: { id: hotelChess.roomId } },
-        //               place: hotelChess.place,
-        //               start: hotelChess.start,
-        //               end: hotelChess.end,
-        //               client: { connect: { id: hotelChess.clientId } },
-        //               reserve: { connect: { id: hotelChess.reserveId } },
-        //               status: hotelChess.status
-        //             }
-        //           })
-        //         } else if (reserveForPerson === false) {
-        //           try {
-        //             newHotelChess = await prisma.hotelChess.create({
-        //               data: {
-        //                 hotel: { connect: { id: id } },
-        //                 public: hotelChess.public,
-        //                 room: { connect: { id: hotelChess.roomId } },
-        //                 place: hotelChess.place,
-        //                 start: hotelChess.start,
-        //                 end: hotelChess.end,
-        //                 passenger: { connect: { id: hotelChess.clientId } },
-        //                 reserve: { connect: { id: hotelChess.reserveId } },
-        //                 status: hotelChess.status
-        //               }
-        //             })
-        //           } catch (e) {
-        //             console.error("Error: ", e)
-        //             throw new Error(
-        //               "Ошибка при создании клиентского бронирования: " +
-        //                 e.message +
-        //                 "\n\n :" +
-        //                 e.stack
-        //             )
-        //           }
-        //         }
-        //       } else {
-        //         newHotelChess = await prisma.hotelChess.create({
-        //           data: {
-        //             hotel: { connect: { id: id } },
-        //             public: hotelChess.public,
-        //             room: { connect: { id: hotelChess.roomId } },
-        //             place: hotelChess.place,
-        //             start: hotelChess.start,
-        //             end: hotelChess.end,
-        //             client: { connect: { id: hotelChess.clientId } },
-        //             request: hotelChess.requestId
-        //               ? { connect: { id: hotelChess.requestId } }
-        //               : undefined,
-        //             status: hotelChess.status
-        //           }
-        //         })
-        //       }
-
-        //       if (hotelChess.requestId) {
-        //         // Обработка для новой заявки типа "request"
-        //         const room = await prisma.room.findFirst({
-        //           where: { hotelId: hotelChess.hotelId, name: hotelChess.room }
-        //         })
-        //         const arrival = `${hotelChess.start}`
-        //         const departure = `${hotelChess.end}`
-        //         const hotel = await prisma.hotel.findUnique({
-        //           where: { id },
-        //           select: {
-        //             breakfast: true,
-        //             lunch: true,
-        //             dinner: true,
-        //             name: true
-        //           }
-        //         })
-        //         const mealTimes = {
-        //           breakfast: hotel.breakfast,
-        //           lunch: hotel.lunch,
-        //           dinner: hotel.dinner
-        //         }
-        //         const mealPlan = calculateMeal(arrival, departure, mealTimes)
-
-        //         const updatedRequest = await prisma.request.update({
-        //           where: { id: hotelChess.requestId },
-        //           data: {
-        //             status: "done",
-        //             hotel: { connect: { id } },
-        //             mealPlan: {
-        //               included: true,
-        //               breakfast: mealPlan.totalBreakfast,
-        //               lunch: mealPlan.totalLunch,
-        //               dinner: mealPlan.totalDinner,
-        //               dailyMeals: mealPlan.dailyMeals
-        //             },
-        //             roomCategory: room.category,
-        //             roomNumber: room.name
-        //           },
-        //           include: {
-        //             // airline: true,
-        //             // airport: true,
-        //             hotel: true,
-        //             person: true,
-        //             hotelChess: true
-        //             // logs: true
-        //           }
-        //         })
-
-        //         const oldChat = await prisma.chat.findFirst({
-        //           where: {
-        //             request: { id: updatedRequest.id },
-        //             separator: "hotel"
-        //           }
-        //         })
-
-        //         if (!oldChat) {
-        //           const newChat = await prisma.chat.create({
-        //             data: {
-        //               request: { connect: { id: updatedRequest.id } },
-        //               separator: "hotel"
-        //             }
-        //           })
-        //           await prisma.chatUser.create({
-        //             data: {
-        //               chat: { connect: { id: newChat.id } },
-        //               user: { connect: { id: user.id } }
-        //             }
-        //           })
-        //         }
-
-        //         await logAction({
-        //           context,
-        //           action: "update_hotel_chess",
-        //           description: `${updatedRequest.person.name} был размещён в отеле ${hotel.name} в номер ${hotelChess.room} по заявке № ${updatedRequest.requestNumber} пользователем ${user.name}`,
-        //           oldData: null,
-        //           newData: newHotelChess,
-        //           hotelId: hotelChess.hotelId,
-        //           requestId: hotelChess.requestId,
-        //           reserveId: hotelChess.reserveId
-        //         })
-
-        //         pubsub.publish(REQUEST_UPDATED, {
-        //           requestUpdated: updatedRequest
-        //         })
-        //       } else if (hotelChess.reserveId) {
-        //         // Обработка для новой заявки типа "reserve"
-
-        //         // const mealTimes = {
-        //         //   breakfast: hotel.breakfast,
-        //         //   lunch: hotel.lunch,
-        //         //   dinner: hotel.dinner
-        //         // }
-
-        //         // const mealPlan = calculateMeal(arrival, departure, mealTimes)
-
-        //         // mealPlan: {
-        //         //   included: true,
-        //         //   breakfast: mealPlan.totalBreakfast,
-        //         //   lunch: mealPlan.totalLunch,
-        //         //   dinner: mealPlan.totalDinner,
-        //         //   dailyMeals: mealPlan.dailyMeals
-        //         // },
-
-        //         await prisma.reserve.update({
-        //           where: { id: hotelChess.reserveId },
-        //           data: {
-        //             // status: "done",
-        //             hotelChess: { connect: { id: newHotelChess.id } }
-        //           }
-        //         })
-
-        //         await logAction({
-        //           context,
-        //           action: "update_hotel_chess",
-        //           description: `Бронь № ${hotelChess.reserveId} была создана пользователем ${user.name}`,
-        //           oldData: null,
-        //           newData: newHotelChess,
-        //           hotelId: hotelChess.hotelId
-        //         })
-        //       }
-        //     }
-        //   }
-        // }
-
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
             let mealPlanData = null
-            // Вычисляем mealPlanData, если заданы даты заезда и выезда
             if (hotelChess.start && hotelChess.end) {
               const arrival = hotelChess.start.toString()
               const departure = hotelChess.end.toString()
-              // Получаем настройки питания от отеля (используем hotelChess.hotelId или текущий id)
               const hotelInfo = await prisma.hotel.findUnique({
                 where: { id: hotelChess.hotelId || id },
                 select: {
@@ -528,8 +257,8 @@ const hotelResolver = {
                   reserve: hotelChess.reserveId
                     ? { connect: { id: hotelChess.reserveId } }
                     : undefined,
-                  status: hotelChess.status,
-                  mealPlan: mealPlanData
+                  status: hotelChess.status
+                  // mealPlan: mealPlanData
                 }
               })
 
@@ -545,14 +274,14 @@ const hotelResolver = {
                     hotel: { connect: { id } },
                     hotelChess: { connect: { id: hotelChess.id } },
                     roomCategory: room?.category,
-                    roomNumber: room?.name,
-                    mealPlan: mealPlanData
+                    roomNumber: room?.name
+                    // mealPlan: mealPlanData
                   }
                 })
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
+                  description: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
@@ -562,18 +291,21 @@ const hotelResolver = {
                   requestUpdated: updatedRequest
                 })
               } else if (hotelChess.reserveId) {
+                const room = await prisma.room.findUnique({
+                  where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
+                })
                 // Обработка для заявки типа "reserve"
                 await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {
-                    hotelChess: { connect: { id: hotelChess.id } },
-                    mealPlan: mealPlanData
+                    hotelChess: { connect: { id: hotelChess.id } }
+                    // mealPlan: mealPlanData
                   }
                 })
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Бронь № ${hotelChess.reserveId} была перенесена в номер ${hotelChess.room} пользователем ${user.name}`,
+                  description: `Бронь № ${hotelChess.reserveId} была перенесена в номер ${room.name} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
@@ -669,7 +401,6 @@ const hotelResolver = {
                         lunch: dm.lunch,
                         dinner: dm.dinner
                       }))
-                      
                     },
                     roomCategory: room?.category,
                     roomNumber: room?.name
@@ -709,7 +440,7 @@ const hotelResolver = {
                   description: `${
                     updatedRequest.person.name
                   } был размещён в отеле ${hotel?.name || ""} в номер ${
-                    hotelChess.room
+                    room.name
                   } по заявке № ${updatedRequest.requestNumber} пользователем ${
                     user.name
                   }`,

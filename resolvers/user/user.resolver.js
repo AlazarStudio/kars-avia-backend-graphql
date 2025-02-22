@@ -129,6 +129,17 @@ const userResolver = {
         data: createdData
       })
 
+      // try {
+      //   const info = await transporter.sendMail({
+      //     from: `${process.env.EMAIL_USER}`,
+      //     to: `${createdData.email}`,
+      //     subject: "Данные вашего аккаунта",
+      //     text: `Ваш логин: ${createdData.login} \n Ваша почта: ${createdData.email} \n Ваш пароль: ${password}`
+      //   })
+      // } catch (error) {
+      //   console.error("Ошибка при отправке письма:", error)
+      // }
+
       await logAction({
         context,
         action: "create_user",
@@ -254,6 +265,57 @@ const userResolver = {
       }
     },
 
+    // updateUser: async (_, { input, images }, context) => {
+    //   const {
+    //     id,
+    //     name,
+    //     email,
+    //     login,
+    //     password,
+    //     role,
+    //     position,
+    //     hotelId,
+    //     airlineId,
+    //     airlineDepartmentId
+    //   } = input
+    //   // Разрешаем обновление либо админам, либо самому пользователю
+    //   if (context.user.id !== id && adminMiddleware(context)) {
+    //     throw new Error("Access forbidden: Admins only or self-update allowed.")
+    //   }
+    //   let imagePaths = []
+    //   if (images && images.length > 0) {
+    //     for (const image of images) {
+    //       imagePaths.push(await uploadImage(image))
+    //     }
+    //   }
+    //   let hashedPassword
+    //   if (password) {
+    //     hashedPassword = await argon2.hash(password)
+    //   }
+    //   const updatedData = {
+    //     name,
+    //     email,
+    //     login,
+    //     role,
+    //     position,
+    //     hotelId: hotelId ? hotelId : undefined,
+    //     airlineId: airlineId ? airlineId : undefined,
+    //     airlineDepartmentId: airlineDepartmentId || null
+    //   }
+    //   if (images != null) {
+    //     updatedData.images = imagePaths
+    //   }
+    //   if (hashedPassword) {
+    //     updatedData.password = hashedPassword
+    //   }
+    //   const updatedUser = await prisma.user.update({
+    //     where: { id },
+    //     data: updatedData
+    //   })
+    //   pubsub.publish(USER_CREATED, { userCreated: updatedUser })
+    //   return updatedUser
+    // },
+
     updateUser: async (_, { input, images }, context) => {
       const {
         id,
@@ -261,46 +323,63 @@ const userResolver = {
         email,
         login,
         password,
+        oldPassword, // предыдущее значение пароля
         role,
         position,
         hotelId,
         airlineId,
         airlineDepartmentId
       } = input
+
       // Разрешаем обновление либо админам, либо самому пользователю
       if (context.user.id !== id && adminMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
-      let imagePaths = []
+
+      // Формируем объект обновления, добавляя только те поля, которые заданы
+      const updatedData = {}
+      if (name !== undefined) updatedData.name = name
+      if (email !== undefined) updatedData.email = email
+      if (login !== undefined) updatedData.login = login
+      if (role !== undefined) updatedData.role = role
+      if (position !== undefined) updatedData.position = position
+      if (hotelId !== undefined) updatedData.hotelId = hotelId
+      if (airlineId !== undefined) updatedData.airlineId = airlineId
+      if (airlineDepartmentId !== undefined)
+        updatedData.airlineDepartmentId = airlineDepartmentId
+
+      // Обработка загрузки изображений
       if (images && images.length > 0) {
+        let imagePaths = []
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
-      }
-      let hashedPassword
-      if (password) {
-        hashedPassword = await argon2.hash(password)
-      }
-      const updatedData = {
-        name,
-        email,
-        login,
-        role,
-        position,
-        hotelId: hotelId ? hotelId : undefined,
-        airlineId: airlineId ? airlineId : undefined,
-        airlineDepartmentId: airlineDepartmentId || null
-      }
-      if (images != null) {
         updatedData.images = imagePaths
       }
-      if (hashedPassword) {
+
+      // Обработка обновления пароля: если новый пароль передан, то требуется oldPassword
+      if (password) {
+        if (!oldPassword) {
+          throw new Error(
+            "Для обновления пароля необходимо указать предыдущий пароль."
+          )
+        }
+        // Получаем текущего пользователя из базы
+        const currentUser = await prisma.user.findUnique({ where: { id } })
+        const valid = await argon2.verify(currentUser.password, oldPassword)
+        if (!valid) {
+          throw new Error("Указан неверный пароль.")
+        }
+        // Хэшируем новый пароль
+        const hashedPassword = await argon2.hash(password)
         updatedData.password = hashedPassword
       }
+
       const updatedUser = await prisma.user.update({
         where: { id },
         data: updatedData
       })
+
       pubsub.publish(USER_CREATED, { userCreated: updatedUser })
       return updatedUser
     },

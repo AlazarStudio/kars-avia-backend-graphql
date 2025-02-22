@@ -4,12 +4,16 @@ import logAction from "../../exports/logaction.js"
 import {
   pubsub,
   REQUEST_CREATED,
-  REQUEST_UPDATED
+  REQUEST_UPDATED,
+  NOTIFICATION
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateHotelChess from "../../exports/updateHotelChess.js"
 import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
-import { adminHotelAirMiddleware, airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  adminHotelAirMiddleware,
+  airlineAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 
 const requestResolver = {
@@ -193,22 +197,48 @@ const requestResolver = {
       }
 
       // Генерируем порядковый номер заявки
-      const requestCount = await prisma.request.count()
+      // const requestCount = await prisma.request.count()
+      const currentDate = new Date()
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
+      const year = String(currentDate.getFullYear()).slice(-2)
+
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      )
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      )
+      const requestCount = await prisma.request.count({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } }
+      })
+
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
       if (!airport) {
         throw new Error("Airport not found")
       }
-      const currentDate = new Date()
-      const formattedDate = currentDate
-        .toLocaleDateString("ru-RU")
-        .replace(/\./g, ".")
-      const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
-        airport.code
-      }-${formattedDate}`
+
+      const sequenceNumber = String(requestCount + 1).padStart(4, "0")
+      const requestNumber = `${sequenceNumber}-${airport.code}-${month}${year}-e`
+
+      // const currentDate = new Date()
+      // const formattedDate = currentDate
+      //   .toLocaleDateString("ru-RU")
+      //   .replace(/\./g, ".")
+      // const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
+      //   airport.code
+      // }-${formattedDate}`
 
       // Создание заявки
+
       const newRequest = await prisma.request.create({
         data: {
           person: { connect: { id: personId } },
@@ -388,9 +418,23 @@ const requestResolver = {
           action: "update_request",
           description: `Пользователь ${user.name} ${
             updatedRequest.status === "extended"
-              ? "продлил"
+              ? ("продлил c ",
+                oldRequest.arrival,
+                " - ",
+                oldRequest.departure,
+                " до ",
+                arrival,
+                " - ",
+                departure)
               : updatedRequest.status === "reduced"
-              ? "сократил"
+              ? ("сократил c ",
+                oldRequest.arrival,
+                " - ",
+                oldRequest.departure,
+                " до ",
+                arrival,
+                " - ",
+                departure)
               : "изменил"
           } заявку № ${updatedRequest.requestNumber} для ${
             updatedRequest.person.position
@@ -430,10 +474,12 @@ const requestResolver = {
     },
 
     extendRequestDates: async (_, { input }, context) => {
-      const { requestId, newEnd, status } = input
+      const { user } = context
+      const { requestId, newStart, newEnd, status } = input
+
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        include: { hotelChess: true, hotel: true }
+        include: { hotelChess: true, hotel: true, mealPlan: true }
       })
       if (!request) {
         throw new Error("Request not found")
@@ -441,10 +487,46 @@ const requestResolver = {
       if (!request.hotelChess || request.hotelChess.length === 0) {
         throw new Error("Request has not been placed in a hotel")
       }
+
+      // Если пользователь не диспетчер, отправляем уведомление диспетчеру
+      if (!user.dispatcher) {
+        let dispatcherId = request.receiverId
+        if (!dispatcherId) {
+          const dispatcher = await prisma.user.findFirst({
+            where: { dispatcher: true }
+          })
+          if (dispatcher) {
+            dispatcherId = dispatcher.id
+          } else {
+            throw new Error("Диспетчер не найден")
+          }
+        }
+        const extendRequest = {
+          requestId,
+          newStart,
+          newEnd,
+          dispatcherId
+        }
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ExtendRequestNotification",
+            ...extendRequest
+          }
+        })
+        const message = `Запрос на продление заявки ${request.requestNumber} отправлен диспетчеру.`
+        return message
+      }
+
+      // Если новые значения не пришли, используем существующие данные
+      const updatedStart = newStart ? newStart : request.arrival
+      const updatedEnd = newEnd ? newEnd : request.departure
+
+      // Обновляем hotelChess с новыми (или старыми) датами
       const updatedHotelChess = await prisma.hotelChess.update({
         where: { id: request.hotelChess[0].id },
-        data: { end: newEnd }
+        data: { start: updatedStart, end: updatedEnd }
       })
+
       const existingMealPlan = request.mealPlan || {
         included: true,
         breakfast: 0,
@@ -452,8 +534,11 @@ const requestResolver = {
         dinner: 0,
         dailyMeals: []
       }
-      const arrivalDateTime = request.arrival
-      const departureDateTime = newEnd
+
+      // Используем обновлённые даты для расчёта плана питания
+      const arrivalDateTime = updatedStart
+      const departureDateTime = updatedEnd
+
       const hotel = request.hotel
       const mealTimes = {
         breakfast: hotel.breakfast,
@@ -465,7 +550,7 @@ const requestResolver = {
         departureDateTime,
         mealTimes
       )
-      const newEndDate = newEnd
+      const newEndDate = updatedEnd
       const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
         (day) => new Date(day.date) <= new Date(newEndDate)
       )
@@ -491,9 +576,30 @@ const requestResolver = {
           status: status
         },
         include: {
-          hotelChess: true
+          hotelChess: true,
+          person: true
         }
       })
+
+      try {
+        await logAction({
+          context,
+          action: "update_request",
+          description: `Пользователь ${user.name} ${
+            updatedRequest.status === "extended"
+              ? `продлил c ${request.arrival} - ${request.departure} до ${updatedStart} - ${updatedEnd}`
+              : updatedRequest.status === "reduced"
+              ? `сократил c ${request.arrival} - ${request.departure} до ${updatedStart} - ${updatedEnd}`
+              : "изменил"
+          } заявку № ${updatedRequest.requestNumber} для ${
+            updatedRequest.person.position
+          } ${updatedRequest.person.name}`,
+          requestId: updatedRequest.id
+        })
+      } catch (error) {
+        console.error("Ошибка при логировании изменения заявки:", error)
+      }
+
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
@@ -564,6 +670,9 @@ const requestResolver = {
     },
     requestUpdated: {
       subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
+    },
+    notification: {
+      subscribe: () => pubsub.asyncIterator([NOTIFICATION])
     }
   },
 

@@ -30,7 +30,9 @@ input ReportFilterInput {
   personId: ID
   position: String
   region: String
+  passengersReport: Boolean 
 }
+
 
 # Входные данные для создания отчёта
 input CreateReportInput {
