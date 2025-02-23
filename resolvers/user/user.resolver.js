@@ -62,13 +62,6 @@ const userResolver = {
       // Проверяем права: разрешено только администраторам по отелям/авиакомпаниям
       adminHotelAirMiddleware(context)
 
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          imagePaths.push(await uploadImage(image))
-        }
-      }
-
       const {
         name,
         email,
@@ -106,6 +99,13 @@ const userResolver = {
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
           )
+        }
+      }
+
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
         }
       }
 

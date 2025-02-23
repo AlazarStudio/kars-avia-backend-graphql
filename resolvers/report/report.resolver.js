@@ -585,36 +585,8 @@ const aggregateRequestReports = (
   filterStart,
   filterEnd
 ) => {
-  let earliestArrival = null
-  let latestDeparture = null
-
-  // Находим самый ранний заезд и самый поздний выезд
-  requests.forEach((request) => {
-    const hotelChess = request.hotelChess?.[0] || {}
-    const checkIn = hotelChess.start
-      ? new Date(hotelChess.start)
-      : new Date(request.arrival)
-    const checkOut = hotelChess.end
-      ? new Date(hotelChess.end)
-      : new Date(request.departure)
-
-    if (!earliestArrival || checkIn < earliestArrival) {
-      earliestArrival = checkIn
-    }
-    if (!latestDeparture || checkOut > latestDeparture) {
-      latestDeparture = checkOut
-    }
-  })
-
-  // Теперь мы знаем самую раннюю дату заезда и самый поздний день выезда
-  const fullDays = calculateTotalDays(earliestArrival, latestDeparture)
-
-  // Используем эти значения для расчета дня в каждую заявку
-  const usedRooms = new Set()
   return requests.map((request, index) => {
     const hotelChess = request.hotelChess?.[0] || {}
-    const roomId = hotelChess.room ? hotelChess.room.id : null
-
     const checkIn = hotelChess.start
       ? new Date(hotelChess.start)
       : new Date(request.arrival)
@@ -632,46 +604,46 @@ const aggregateRequestReports = (
       return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
     }
 
+    const categoryMapping = {
+      onePlace: "Одноместный",
+      twoPlace: "Двухместный",
+      threePlace: "Трёхместный",
+      fourPlace: "Четырёхместный"
+    }
+
     const arrivalFormatted = formatLocalDate(checkIn)
     const departureFormatted = formatLocalDate(checkOut)
 
-    const effectiveDays = calculateEffectiveCostDaysWithPartial(
-      earliestArrival,
-      latestDeparture,
-      filterStart,
-      filterEnd
-    )
+    const fullDays =
+      checkIn && checkOut ? calculateTotalDays(checkIn, checkOut) : 0
+    const effectiveDays =
+      checkIn && checkOut
+        ? calculateEffectiveCostDaysWithPartial(
+            checkIn,
+            checkOut,
+            filterStart,
+            filterEnd
+          )
+        : 0
 
     const totalLivingCost = calculateLivingCost(
       request,
       reportType,
       effectiveDays
     )
-    let splitLivingCost = totalLivingCost
-    if (roomId) {
-      if (usedRooms.has(roomId)) {
-        splitLivingCost = 0
-      } else {
-        usedRooms.add(roomId)
-      }
-    }
 
     const mealPlan = request.mealPlan || {}
     let breakfastCount = mealPlan.breakfast || 0
     let lunchCount = mealPlan.lunch || 0
     let dinnerCount = mealPlan.dinner || 0
-
     if (fullDays > 0 && effectiveDays < fullDays) {
       const ratio = effectiveDays / fullDays
       breakfastCount = Math.round(breakfastCount * ratio)
       lunchCount = Math.round(lunchCount * ratio)
       dinnerCount = Math.round(dinnerCount * ratio)
     }
-
     const mealPrices =
-      (request.airline && request.airline.mealPrice) ||
-      (request.hotel && request.hotel.mealPrice) ||
-      {}
+      request.airline?.mealPrice || request.hotel?.mealPrice || {}
     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
     const lunchCost = lunchCount * (mealPrices.lunch || 0)
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
@@ -682,15 +654,8 @@ const aggregateRequestReports = (
       ? request.person.position
       : "Не указано"
 
-    const roomName = hotelChess.room ? hotelChess.room.name : "Не указано"
-
-    const categoryMapping = {
-      onePlace: "Одноместный",
-      twoPlace: "Двухместный",
-      threePlace: "Трёхместный",
-      fourPlace: "Четырёхместный"
-    }
-
+    const roomName = hotelChess.room?.name
+    console.log(roomName)
     return {
       index: index + 1,
       arrival: arrivalFormatted,
@@ -703,19 +668,148 @@ const aggregateRequestReports = (
       personName,
       personPosition,
       roomName,
-      roomType:
-        hotelChess.room && hotelChess.room.type
-          ? hotelChess.room.type
-          : "Номер",
+      // Для питания отдельные колонки
       breakfastCount,
       lunchCount,
       dinnerCount,
       totalMealCost,
-      totalLivingCost: splitLivingCost,
-      totalDebt: splitLivingCost + totalMealCost
+      totalLivingCost,
+      totalDebt: totalLivingCost + totalMealCost
     }
   })
 }
+
+// const aggregateRequestReports = (
+//   requests,
+//   reportType,
+//   filterStart,
+//   filterEnd
+// ) => {
+//   // Используем Set для отслеживания комнат, за которые уже начислена стоимость проживания
+//   const usedRooms = new Set()
+//   return requests.map((request, index) => {
+//     // Берем первый hotelChess (предполагается, что у заявки один человек)
+//     const hotelChess = request.hotelChess?.[0] || {}
+//     // Получаем roomId, если есть
+//     const roomId = hotelChess.room ? hotelChess.room.id : null
+
+//     // Определяем дату заезда и выезда (если hotelChess не заполнен, берем из request)
+//     const checkIn = hotelChess.start
+//       ? new Date(hotelChess.start)
+//       : new Date(request.arrival)
+//     const checkOut = hotelChess.end
+//       ? new Date(hotelChess.end)
+//       : new Date(request.departure)
+
+//     // Форматируем дату в виде DD.MM.YYYY HH:mm:ss (локальное время)
+//     const formatLocalDate = (date) => {
+//       const dd = String(date.getDate()).padStart(2, "0")
+//       const mm = String(date.getMonth() + 1).padStart(2, "0")
+//       const yyyy = date.getFullYear()
+//       const hh = String(date.getHours()).padStart(2, "0")
+//       const min = String(date.getMinutes()).padStart(2, "0")
+//       const ss = String(date.getSeconds()).padStart(2, "0")
+//       return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
+//     }
+
+//     const arrivalFormatted = formatLocalDate(checkIn)
+//     const departureFormatted = formatLocalDate(checkOut)
+
+//     // Расчет полного количества дней и эффективного количества (с учетом сокращённых дней)
+//     const fullDays =
+//       checkIn && checkOut ? calculateTotalDays(checkIn, checkOut) : 0
+//     const effectiveDays =
+//       checkIn && checkOut
+//         ? calculateEffectiveCostDaysWithPartial(
+//             checkIn,
+//             checkOut,
+//             filterStart,
+//             filterEnd
+//           )
+//         : 0
+
+//     // Стоимость проживания для заявки рассчитывается для всего периода
+//     const totalLivingCost = calculateLivingCost(
+//       request,
+//       reportType,
+//       effectiveDays
+//     )
+//     // Если эта комната уже учтена в другом запросе, то living cost для данного человека = 0,
+//     // иначе, добавляем roomId в usedRooms и берем full значение.
+//     let splitLivingCost = totalLivingCost
+//     if (roomId) {
+//       if (usedRooms.has(roomId)) {
+//         splitLivingCost = 0
+//       } else {
+//         usedRooms.add(roomId)
+//       }
+//     }
+
+//     // Расчет питания – данные из mealPlan
+//     const mealPlan = request.mealPlan || {}
+//     let breakfastCount = mealPlan.breakfast || 0
+//     let lunchCount = mealPlan.lunch || 0
+//     let dinnerCount = mealPlan.dinner || 0
+//     if (fullDays > 0 && effectiveDays < fullDays) {
+//       const ratio = effectiveDays / fullDays
+//       breakfastCount = Math.round(breakfastCount * ratio)
+//       lunchCount = Math.round(lunchCount * ratio)
+//       dinnerCount = Math.round(dinnerCount * ratio)
+//     }
+
+//     // Определяем цены питания: сначала берем у airline, потом у hotel
+//     const mealPrices =
+//       (request.airline && request.airline.mealPrice) ||
+//       (request.hotel && request.hotel.mealPrice) ||
+//       {}
+//     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
+//     const lunchCost = lunchCount * (mealPrices.lunch || 0)
+//     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
+//     const totalMealCost = breakfastCost + lunchCost + dinnerCost
+
+//     // Получаем данные о сотруднике (AirlinePersonal) из request.person
+//     const personName = request.person ? request.person.name : "Не указано"
+//     const personPosition = request.person
+//       ? request.person.position
+//       : "Не указано"
+
+//     // Название комнаты
+//     const roomName = hotelChess.room ? hotelChess.room.name : "Не указано"
+
+//     // Маппинг для категории номера
+//     const categoryMapping = {
+//       onePlace: "Одноместный",
+//       twoPlace: "Двухместный",
+//       threePlace: "Трёхместный",
+//       fourPlace: "Четырёхместный"
+//     }
+
+//     return {
+//       index: index + 1,
+//       arrival: arrivalFormatted,
+//       departure: departureFormatted,
+//       totalDays: effectiveDays,
+//       category:
+//         categoryMapping[request.roomCategory] ||
+//         request.roomCategory ||
+//         "Не указано",
+//       personName,
+//       personPosition,
+//       roomName,
+//       // Здесь можно добавить поле "Тип" (например, тип комнаты) — если оно хранится в hotelChess.room.type или другое
+//       roomType:
+//         hotelChess.room && hotelChess.room.type
+//           ? hotelChess.room.type
+//           : "Номер",
+//       breakfastCount,
+//       lunchCount,
+//       dinnerCount,
+//       totalMealCost,
+//       totalLivingCost: splitLivingCost,
+//       totalDebt: splitLivingCost + totalMealCost
+//     }
+//   })
+// }
 
 const aggregatePassengerReports = (reserves, filterStart, filterEnd) => {
   return reserves.map((reserve) => {

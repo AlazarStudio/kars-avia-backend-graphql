@@ -2,39 +2,54 @@ const dispatcherTypeDef = `#graphql
 scalar Date
 
 # union NotificationPayload = AirlineCreated | AirlineUpdated | MessageSent | HotelCreated | HotelUpdated | ReportCreated | RequestCreated | RequestUpdated | ReserveCreated | ReserveHotel | ReserveUpdated | ReservePersons | UserCreated | ExtendRequestNotification
-union NotificationPayload =  ExtendRequestNotification
+union NotificationPayload =  ExtendRequestNotification | RequestCreatedNotification | ReserveCreatedNotification | ReserveUpdatedNotification
 
-# type AirlineCreated { }
+# type AirlineCreated {  }
 
-# type AirlineUpdated { }
+# type AirlineUpdated {  }
 
-# type MessageSent { }
+# type MessageSent {  }
 
-# type HotelCreated { }
+# type HotelCreated {  }
 
-# type HotelUpdated { }
+# type HotelUpdated {  }
 
-# type ReportCreated { }
+# type ReportCreated {  }
 
-# type RequestCreated { }
+type RequestCreatedNotification { 
+  requestId: ID
+  arrival: Date
+  departure: Date
+  airline: Airline
+ }
 
-# type RequestUpdated { }
+# type RequestUpdated {  }
 
-# type ReserveCreated { }
+type ReserveCreatedNotification { 
+  reserveId: ID
+  arrival: Date
+  departure: Date
+  airline: Airline
+ }
 
-# type ReserveHotel { }
+# type ReserveHotel {  }
 
-# type ReserveUpdated { }
+type ReserveUpdatedNotification { 
+  reserveId: ID
+  arrival: Date
+  departure: Date
+  airline: Airline
+ }
 
-# type ReservePersons { }
+# type ReservePersons {  }
 
-# type UserCreated { }
+# type UserCreated {  }
 
 type ExtendRequestNotification {
-  requestId: ID!
+  requestId: ID
   newStart: Date
   newEnd: Date
-  dispatcherId: ID
+  airline: Airline
 }
 
 type Subscription {

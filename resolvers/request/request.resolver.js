@@ -1,22 +1,30 @@
 import { prisma } from "../../prisma.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import isEqual from "lodash.isequal"
 import logAction from "../../exports/logaction.js"
 import {
   pubsub,
   REQUEST_CREATED,
   REQUEST_UPDATED,
-  NOTIFICATION
+  NOTIFICATION,
+  MESSAGE_SENT
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateHotelChess from "../../exports/updateHotelChess.js"
-import { reverseDateTimeFormatter } from "../../exports/dateTimeFormater.js"
+import {
+  formatDate,
+  reverseDateTimeFormatter
+} from "../../exports/dateTimeFormater.js"
 import {
   adminHotelAirMiddleware,
-  airlineAdminMiddleware
+  airlineAdminMiddleware,
+  airlineModerMiddleware
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
+import uploadFiles from "../../exports/uploadFiles.js"
 
 const requestResolver = {
+  Upload: GraphQLUpload,
   Query: {
     requests: async (_, { pagination }, context) => {
       const { user } = context
@@ -137,7 +145,7 @@ const requestResolver = {
             await logAction({
               context,
               action: "open_request",
-              description: `Заявка № ${updatedRequest.requestNumber} открыта пользователем ${user.name}`,
+              description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> открыта пользователем <span style='color:#545873'>${user.name}</span>`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               requestId: updatedRequest.id
@@ -154,8 +162,9 @@ const requestResolver = {
   },
 
   Mutation: {
-    createRequest: async (_, { input }, context) => {
+    createRequest: async (_, { input, files }, context) => {
       const { user } = context
+      airlineModerMiddleware(context)
       const {
         personId,
         airportId,
@@ -165,7 +174,8 @@ const requestResolver = {
         mealPlan,
         airlineId,
         senderId,
-        status
+        status,
+        reserve
       } = input
 
       // Приведение дат к формату YYYY-MM-DD
@@ -227,7 +237,8 @@ const requestResolver = {
       }
 
       const sequenceNumber = String(requestCount + 1).padStart(4, "0")
-      const requestNumber = `${sequenceNumber}-${airport.code}-${month}${year}-e`
+      const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
+      // const requestNumber = `${sequenceNumber}-${airport.code}-${month}${year}-e`
 
       // const currentDate = new Date()
       // const formattedDate = currentDate
@@ -238,6 +249,14 @@ const requestResolver = {
       // }-${formattedDate}`
 
       // Создание заявки
+
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
 
       const newRequest = await prisma.request.create({
         data: {
@@ -250,6 +269,8 @@ const requestResolver = {
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
           status,
+          reserve,
+          files: filesPath,
           requestNumber
         },
         include: {
@@ -277,7 +298,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "create_request",
-          description: `Пользователь ${user.name} создал заявку № ${newRequest.requestNumber} для ${newRequest.person.position} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`,
           newData: {
             requestNumber: newRequest.requestNumber,
             airportId,
@@ -290,7 +311,12 @@ const requestResolver = {
       } catch (error) {
         console.error("Ошибка при логировании создания заявки:", error)
       }
-
+      pubsub.publish(NOTIFICATION, {
+        notification: {
+          __typename: "RequestCreatedNotification",
+          ...newRequest
+        }
+      })
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
@@ -298,7 +324,7 @@ const requestResolver = {
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
       // airlineAdminMiddleware(context)
-      adminHotelAirMiddleware(context)
+      airlineModerMiddleware(context)
       const {
         airportId,
         arrival,
@@ -416,29 +442,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь ${user.name} ${
-            updatedRequest.status === "extended"
-              ? ("продлил c ",
-                oldRequest.arrival,
-                " - ",
-                oldRequest.departure,
-                " до ",
-                arrival,
-                " - ",
-                departure)
-              : updatedRequest.status === "reduced"
-              ? ("сократил c ",
-                oldRequest.arrival,
-                " - ",
-                oldRequest.departure,
-                " до ",
-                arrival,
-                " - ",
-                departure)
-              : "изменил"
-          } заявку № ${updatedRequest.requestNumber} для ${
-            updatedRequest.person.position
-          } ${updatedRequest.person.name}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'>${updatedRequest.person.position} ${updatedRequest.person.name}</span> c <span style='color:#545873'>${request.arrival} - ${request.departure}</span> до <span style='color:#545873'>${updatedStart} - ${updatedEnd}</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
@@ -463,7 +467,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь ${user.name} изменил питание для заявки № ${request.requestNumber}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил питание для заявки<span style='color:#545873'> № ${request.requestNumber}</span>`,
           requestId: request.id
         })
       } catch (error) {
@@ -475,11 +479,22 @@ const requestResolver = {
 
     extendRequestDates: async (_, { input }, context) => {
       const { user } = context
-      const { requestId, newStart, newEnd, status } = input
+      airlineModerMiddleware(context)
+      const currentTime = new Date()
+      const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+      const formattedTime = adjustedTime.toISOString()
 
+      const { requestId, newStart, newEnd, status } = input
+      // console.log(newStart, newEnd)
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        include: { hotelChess: true, hotel: true, mealPlan: true }
+        include: {
+          hotelChess: true,
+          hotel: true,
+          mealPlan: true,
+          chat: true,
+          airline: true
+        }
       })
       if (!request) {
         throw new Error("Request not found")
@@ -489,32 +504,43 @@ const requestResolver = {
       }
 
       // Если пользователь не диспетчер, отправляем уведомление диспетчеру
-      if (!user.dispatcher) {
-        let dispatcherId = request.receiverId
-        if (!dispatcherId) {
-          const dispatcher = await prisma.user.findFirst({
-            where: { dispatcher: true }
-          })
-          if (dispatcher) {
-            dispatcherId = dispatcher.id
-          } else {
-            throw new Error("Диспетчер не найден")
-          }
-        }
+      // if (!user.dispatcher) {
+      if (user.airlineId) {
         const extendRequest = {
           requestId,
           newStart,
-          newEnd,
-          dispatcherId
+          newEnd
         }
+        const updatedStart = newStart ? newStart : request.arrival
+        const updatedEnd = newEnd ? newEnd : request.departure
+        const chat = await prisma.chat.findFirst({
+          where: { requestId: requestId, separator: "airline" }
+        })
+        const message = await prisma.message.create({
+          data: {
+            text: `Запрос на изменение дат заявки ${
+              request.requestNumber
+            } с ${formatDate(request.arrival)} - ${formatDate(
+              request.departure
+            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+            sender: { connect: { id: user.id } },
+            chat: { connect: { id: chat.id } },
+            separator: "important",
+            createdAt: formattedTime
+          },
+          include: {
+            sender: true
+          }
+        })
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
             ...extendRequest
           }
         })
-        const message = `Запрос на продление заявки ${request.requestNumber} отправлен диспетчеру.`
-        return message
+        pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+        // const message = `Запрос на продление заявки ${request.requestNumber} отправлен диспетчеру.`
+        return request
       }
 
       // Если новые значения не пришли, используем существующие данные
@@ -536,43 +562,34 @@ const requestResolver = {
       }
 
       // Используем обновлённые даты для расчёта плана питания
-      const arrivalDateTime = updatedStart
-      const departureDateTime = updatedEnd
 
-      const hotel = request.hotel
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: request.hotelId },
+        select: {
+          breakfast: true,
+          lunch: true,
+          dinner: true
+        }
+      })
       const mealTimes = {
         breakfast: hotel.breakfast,
         lunch: hotel.lunch,
         dinner: hotel.dinner
       }
-      const newMealPlan = calculateMeal(
-        arrivalDateTime,
-        departureDateTime,
-        mealTimes
-      )
-      const newEndDate = updatedEnd
-      const adjustedDailyMeals = (existingMealPlan.dailyMeals || []).filter(
-        (day) => new Date(day.date) <= new Date(newEndDate)
-      )
-      newMealPlan.dailyMeals.forEach((newDay) => {
-        if (
-          !adjustedDailyMeals.some(
-            (existingDay) => existingDay.date === newDay.date
-          )
-        ) {
-          adjustedDailyMeals.push(newDay)
-        }
-      })
-      const updatedMealPlan = await updateDailyMeals(
-        requestId,
-        adjustedDailyMeals,
-        newEndDate
-      )
+      const newMealPlan = calculateMeal(updatedStart, updatedEnd, mealTimes)
+
       const updatedRequest = await prisma.request.update({
         where: { id: requestId },
         data: {
-          departure: newEndDate,
-          mealPlan: updatedMealPlan,
+          arrival: updatedStart,
+          departure: updatedEnd,
+          mealPlan: {
+            included: true,
+            breakfast: newMealPlan.totalBreakfast,
+            lunch: newMealPlan.totalLunch,
+            dinner: newMealPlan.totalDinner,
+            dailyMeals: newMealPlan.dailyMeals
+          },
           status: status
         },
         include: {
@@ -585,15 +602,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь ${user.name} ${
-            updatedRequest.status === "extended"
-              ? `продлил c ${request.arrival} - ${request.departure} до ${updatedStart} - ${updatedEnd}`
-              : updatedRequest.status === "reduced"
-              ? `сократил c ${request.arrival} - ${request.departure} до ${updatedStart} - ${updatedEnd}`
-              : "изменил"
-          } заявку № ${updatedRequest.requestNumber} для ${
-            updatedRequest.person.position
-          } ${updatedRequest.person.name}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'>${updatedRequest.person.position} ${updatedRequest.person.name}</span> c <span style='color:#545873'>${request.arrival} - ${request.departure}</span> до <span style='color:#545873'>${updatedStart} - ${updatedEnd}</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
@@ -621,7 +630,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "archive_request",
-          description: `Пользователь ${user.name} отправил заявку № ${archiveRequest.requestNumber} в архив`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил заявку <span style='color:#545873'>№ ${archiveRequest.requestNumber}</span> в архив`,
           oldData: request,
           newData: { status: "archived" },
           hotelId: request.hotelId,
@@ -653,7 +662,7 @@ const requestResolver = {
       await logAction({
         context,
         action: "cancel_request",
-        description: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку № <span style='color:#545873'>${canceledRequest.requestNumber}</span>`,
         oldData: request,
         newData: { status: "canceled" },
         hotelId: request.hotelId,

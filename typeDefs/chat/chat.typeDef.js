@@ -9,6 +9,7 @@ type Message {
   createdAt: Date!
   isRead: Boolean!            # Используется только для приватных чатов
   readBy: [MessageRead!]!     # Список пользователей, которые прочитали сообщение
+  separator: String
 }
 
 type MessageRead {

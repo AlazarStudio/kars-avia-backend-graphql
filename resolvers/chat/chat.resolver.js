@@ -67,11 +67,15 @@ const chatResolver = {
   Mutation: {
     // Создание нового сообщения в чате
     sendMessage: async (_, { chatId, senderId, text }, context) => {
+      const currentTime = new Date()
+      const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+      const formattedTime = adjustedTime.toISOString()
       const message = await prisma.message.create({
         data: {
           text,
           sender: { connect: { id: senderId } },
-          chat: { connect: { id: chatId } }
+          chat: { connect: { id: chatId } },
+          createdAt: formattedTime
         },
         include: { sender: true, chat: true }
       })

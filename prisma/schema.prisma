@@ -336,6 +336,7 @@ model Request {
   logs          Log[]
   archive       Boolean          @default(false)
   files         String[]
+  reserve       Boolean          @default(false)
 }
 
 model Reserve {
@@ -407,6 +408,7 @@ model Message {
   createdAt  DateTime      @default(now())
   isRead     Boolean       @default(false)
   readBy     MessageRead[]
+  separator  String?
 }
 
 model MessageRead {

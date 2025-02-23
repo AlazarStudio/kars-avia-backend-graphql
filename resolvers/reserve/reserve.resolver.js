@@ -1,7 +1,10 @@
 import { prisma } from "../../prisma.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import isEqual from "lodash.isequal"
 import logAction from "../../exports/logaction.js"
 import {
+  MESSAGE_SENT,
+  NOTIFICATION,
   pubsub,
   RESERVE_CREATED,
   RESERVE_HOTEL,
@@ -11,8 +14,11 @@ import {
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import uploadFiles from "../../exports/uploadFiles.js"
+import { formatDate } from "../../exports/dateTimeFormater.js"
 
 const reserveResolver = {
+  Upload: GraphQLUpload,
   Query: {
     reserves: async (_, { pagination }, context) => {
       const { skip, take, status } = pagination
@@ -265,7 +271,7 @@ const reserveResolver = {
     // },
 
     // Создание резерва (remove person from input)
-    createReserve: async (_, { input }, context) => {
+    createReserve: async (_, { input, files }, context) => {
       const { user } = context
       const {
         airportId,
@@ -323,7 +329,16 @@ const reserveResolver = {
       }
 
       const sequenceNumber = String(reserveCount + 1).padStart(4, "0")
-      const reserveNumber = `${sequenceNumber}-${airport.code}-${month}${year}-p`
+      const reserveNumber = `${sequenceNumber}${airport.code}${month}${year}p`
+      // const reserveNumber = `${sequenceNumber}-${airport.code}-${month}${year}-p`
+
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
 
       const newReserve = await prisma.reserve.create({
         data: {
@@ -336,7 +351,8 @@ const reserveResolver = {
           status,
           reserveNumber,
           passengers,
-          passengerCount
+          passengerCount,
+          files: filesPath
         },
         include: {
           airline: true,
@@ -368,13 +384,90 @@ const reserveResolver = {
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
+
+      pubsub.publish(NOTIFICATION, {
+        notification: {
+          __typename: "ReserveCreatedNotification",
+          ...newReserve
+        }
+      })
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
       return newReserve
     },
 
-    updateReserve: async (_, { id, input }, context) => {
+    updateReserve: async (_, { id, input, files }, context) => {
       const { user } = context
       const { arrival, departure, mealPlan, status } = input
+
+      const currentTime = new Date()
+      const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+      const formattedTime = adjustedTime.toISOString()
+
+      const reserve = await prisma.reserve.findUnique({
+        where: { id },
+        include: {
+          airline: true,
+          airport: true,
+          passengers: true,
+          hotel: true,
+          hotelChess: true,
+          chat: true
+        }
+      })
+
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
+
+      if (user.airlineId) {
+        const extendRequest = {
+          id,
+          arrival,
+          departure
+        }
+        const updatedStart = arrival ? arrival : reserve.arrival
+        const updatedEnd = departure ? departure : reserve.departure
+        const chat = await prisma.chat.findFirst({
+          where: { reserveId: id, separator: "airline" }
+        })
+        const message = await prisma.message.create({
+          data: {
+            text: `Запрос на изменение дат заявки ${
+              reserve.reserveNumber
+            } с ${formatDate(reserve.arrival)} - ${formatDate(
+              reserve.departure
+            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+            sender: { connect: { id: user.id } },
+            chat: { connect: { id: chat.id } },
+            separator: "important",
+            createdAt: formattedTime
+          },
+          include: {
+            sender: true
+          }
+        })
+        if (filesPath.length > 0) {
+          await prisma.reserve.update({
+            where: { id },
+            data: {
+              files: filesPath
+            }
+          })
+        }
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ReserveUpdatedNotification",
+            ...extendRequest
+          }
+        })
+        pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+        // const message = `Запрос на продление заявки ${request.requestNumber} отправлен диспетчеру.`
+        return extendRequest
+      }
 
       // Обновляем резерв
       const updatedReserve = await prisma.reserve.update({
@@ -382,8 +475,9 @@ const reserveResolver = {
         data: {
           arrival,
           departure,
-          mealPlan, 
-          status
+          mealPlan,
+          status,
+          files: filesPath
         },
         include: { hotelChess: true }
       })
@@ -407,6 +501,8 @@ const reserveResolver = {
             await prisma.hotelChess.update({
               where: { id: hc.id },
               data: {
+                start: updatedReserve.arrival,
+                end: updatedReserve.departure,
                 mealPlan: {
                   included: true,
                   breakfast: calculatedMealPlan.totalBreakfast,
@@ -557,9 +653,9 @@ const reserveResolver = {
       await logAction({
         context,
         action: "update_reserve",
-        description: `Added passenger ${newPassenger.name} to hotel ${reserveHotel.hotel.name} for reserve № ${reserve.reserveNumber}`,
-        reserveId: reserveHotel.reservationId,
-        hotelId: reserveHotel.hotelId
+        description: `Пассажир ${newPassenger.name} в отель ${reserveHotel.hotel.name} для резерва № ${reserve.reserveNumber}`,
+        reserveId: reservationId,
+        hotelId: hotelId
       })
 
       pubsub.publish(RESERVE_PERSONS, { reservePersons: updatedReserveHotel })

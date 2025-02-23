@@ -76,15 +76,6 @@ const airlineResolver = {
       const { user } = context
       adminMiddleware(context)
 
-      // Загружаем изображения и собираем пути
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          const uploadedPath = await uploadImage(image)
-          imagePaths.push(uploadedPath)
-        }
-      }
-
       const defaultMealPrice = {
         breakfast: 0,
         lunch: 0,
@@ -102,6 +93,15 @@ const airlineResolver = {
         priceEightCategory: 0,
         priceNineCategory: 0,
         priceTenCategory: 0
+      }
+
+      // Загружаем изображения и собираем пути
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image)
+          imagePaths.push(uploadedPath)
+        }
       }
 
       // Используем поле "mealPrice" согласно новой схеме

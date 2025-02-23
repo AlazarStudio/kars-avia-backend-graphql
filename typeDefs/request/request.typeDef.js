@@ -1,5 +1,6 @@
 const requestTypeDef = `#graphql
 scalar Date
+scalar Upload
 
 # Основные типы
 type Request {
@@ -27,6 +28,8 @@ type Request {
   archive: Boolean
   chat: Chat
   logs: [Log]
+  reserve: Boolean
+  files: [String]
 }
 
 type Log {
@@ -73,6 +76,7 @@ input CreateRequestInput {
   airlineId: ID!
   senderId: ID!
   status: String
+  reserve: Boolean
 }
 
 input UpdateRequestInput {
@@ -111,8 +115,9 @@ input PaginationInput {
 
 input ExtendRequestDatesInput {
   requestId: ID!
-  newEnd: Date!
-  status: String!
+  newStart: Date
+  newEnd: Date
+  status: String
 }
 
 # Запросы
@@ -124,7 +129,7 @@ type Query {
 
 # Мутации
 type Mutation {
-  createRequest(input: CreateRequestInput!): Request!
+  createRequest(input: CreateRequestInput!, files: [Upload!]): Request!
   updateRequest(id: ID!, input: UpdateRequestInput!): Request!
   modifyDailyMeals(input: ModifyDailyMealsInput!): MealPlan!
   cancelRequest(id: ID!): Request!

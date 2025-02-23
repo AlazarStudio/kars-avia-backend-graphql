@@ -83,14 +83,6 @@ const hotelResolver = {
       const { user } = context
       adminMiddleware(context)
 
-      // Обработка загрузки изображений
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          imagePaths.push(await uploadImage(image))
-        }
-      }
-
       const defaultMealPrice = {
         breakfast: 0,
         lunch: 0,
@@ -114,6 +106,14 @@ const hotelResolver = {
         breakfast: { start: "07:00", end: "10:00" },
         lunch: { start: "12:00", end: "16:00" },
         dinner: { start: "18:00", end: "20:00" }
+      }
+
+      // Обработка загрузки изображений
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
       }
 
       // Используем единообразные имена (mealPrice, breakfast, lunch, dinner)
@@ -180,7 +180,7 @@ const hotelResolver = {
         await logAction({
           context,
           action: "update_hotel",
-          description: `Пользователь ${user.name} изменил данные в отеле ${updatedHotel.name}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в отеле <span style='color:#545873'>${updatedHotel.name}</span>`,
           oldData: previousHotelData,
           newData: updatedData,
           hotelId: updatedHotel.id
@@ -281,7 +281,7 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
+                  description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
@@ -305,7 +305,7 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Бронь № ${hotelChess.reserveId} была перенесена в номер ${room.name} пользователем ${user.name}`,
+                  description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
@@ -437,13 +437,13 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `${
+                  description: `<span style='color:#545873'>${
                     updatedRequest.person.name
-                  } был размещён в отеле ${hotel?.name || ""} в номер ${
+                  }</span> был размещён в отеле <span style='color:#545873'>${hotel?.name || ""}</span> в номер <span style='color:#545873'>${
                     room.name
-                  } по заявке № ${updatedRequest.requestNumber} пользователем ${
+                  }</span> по заявке <span style='color:#545873'>№ ${updatedRequest.requestNumber}</span> пользователем <span style='color:#545873'>${
                     user.name
-                  }`,
+                  }</span>`,
                   oldData: null,
                   newData: newHotelChess,
                   hotelId: hotelChess.hotelId,
@@ -466,7 +466,7 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Бронь № ${hotelChess.reserveId} была создана пользователем ${user.name}`,
+                  description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была создана пользователем <span style='color:#545873'>${user.name}</span>`,
                   oldData: null,
                   newData: newHotelChess,
                   hotelId: hotelChess.hotelId

@@ -1,5 +1,6 @@
 const reserveTypeDef = `#graphql
 scalar Date
+scalar Upload
 
 # Основной тип резерва
 type Reserve {
@@ -23,6 +24,7 @@ type Reserve {
   archive: Boolean
   hotelChess: [HotelChess]
   logs: [Log]
+  files: [String]
 }
 
 # Тип для отелей, привязанных к резерву
@@ -125,17 +127,17 @@ input PaginationInput {
   status: [String]
 }
 
-input ExtendReserveDatesInput {
-  reserveId: ID!
-  newEnd: Date!
-  status: String!
-}
+# input ExtendReserveDatesInput {
+#   reserveId: ID!
+#   newEnd: Date!
+#   status: String!
+# }
 
 # Мутации
 
 type Mutation {
-  createReserve(input: CreateReserveInput!): Reserve!
-  updateReserve(id: ID!, input: UpdateReserveInput!): Reserve!
+  createReserve(input: CreateReserveInput!, files: [Upload!]): Reserve!
+  updateReserve(id: ID!, input: UpdateReserveInput!, files: [Upload!]): Reserve!
 }
 
 extend type Mutation {
@@ -145,7 +147,7 @@ extend type Mutation {
   # assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
   # dissociatePersonFromHotel(reserveHotelId: ID!, airlinePersonalId: ID!): ReserveHotel!
   archivingReserve(id: ID!): Reserve!
-  extendReserveDates(input: ExtendReserveDatesInput!): Reserve!
+  # extendReserveDates(input: ExtendReserveDatesInput!): Reserve!
 }
 
 # Запросы
