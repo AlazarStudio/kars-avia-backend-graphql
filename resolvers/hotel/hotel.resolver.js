@@ -1,6 +1,6 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import uploadImage from "../../exports/uploadImage.js"
+import { uploadImage } from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import {
   superAdminMiddleware,
@@ -439,9 +439,13 @@ const hotelResolver = {
                   action: "update_hotel_chess",
                   description: `<span style='color:#545873'>${
                     updatedRequest.person.name
-                  }</span> был размещён в отеле <span style='color:#545873'>${hotel?.name || ""}</span> в номер <span style='color:#545873'>${
+                  }</span> был размещён в отеле <span style='color:#545873'>${
+                    hotel?.name || ""
+                  }</span> в номер <span style='color:#545873'>${
                     room.name
-                  }</span> по заявке <span style='color:#545873'>№ ${updatedRequest.requestNumber}</span> пользователем <span style='color:#545873'>${
+                  }</span> по заявке <span style='color:#545873'>№ ${
+                    updatedRequest.requestNumber
+                  }</span> пользователем <span style='color:#545873'>${
                     user.name
                   }</span>`,
                   oldData: null,
@@ -576,6 +580,11 @@ const hotelResolver = {
         newData: hotelToDelete,
         hotelId: id
       })
+      if (deletedHotel.images && deletedHotel.images.length > 0) {
+        for (const imagePath of deletedHotel.images) {
+          await deleteImage(imagePath)
+        }
+      }
       return deletedHotel
     },
 
@@ -599,6 +608,11 @@ const hotelResolver = {
         newData: roomToDelete,
         hotelId: roomToDelete.hotelId
       })
+      if (deletedRoom.images && deletedRoom.images.length > 0) {
+        for (const imagePath of deletedRoom.images) {
+          await deleteImage(imagePath)
+        }
+      }
       return deletedRoom
     }
   },

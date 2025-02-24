@@ -2,11 +2,13 @@ import { prisma } from "../../prisma.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import uploadImage from "../../exports/uploadImage.js"
+import { uploadImage, deleteImage } from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import {
   adminHotelAirMiddleware,
-  adminMiddleware
+  adminMiddleware,
+  airlineAdminMiddleware,
+  hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
@@ -330,18 +332,23 @@ const userResolver = {
         airlineId,
         airlineDepartmentId
       } = input
-
+      console.log(input)
       // Разрешаем обновление либо админам, либо самому пользователю
-      if (context.user.id !== id && adminMiddleware(context)) {
+      if (context.user.id !== id && adminHotelAirMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
-
+      const currentUser = await prisma.user.findUnique({ where: { id } })
       // Формируем объект обновления, добавляя только те поля, которые заданы
       const updatedData = {}
       if (name !== undefined) updatedData.name = name
       if (email !== undefined) updatedData.email = email
       if (login !== undefined) updatedData.login = login
-      if (role !== undefined) updatedData.role = role
+      if (role !== undefined) {
+        if (role !== currentUser.role) {
+          adminHotelAirMiddleware(context)
+          updatedData.role = role
+        }
+      }
       if (position !== undefined) updatedData.position = position
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
@@ -365,7 +372,7 @@ const userResolver = {
           )
         }
         // Получаем текущего пользователя из базы
-        const currentUser = await prisma.user.findUnique({ where: { id } })
+
         const valid = await argon2.verify(currentUser.password, oldPassword)
         if (!valid) {
           throw new Error("Указан неверный пароль.")
@@ -479,12 +486,60 @@ const userResolver = {
     },
 
     deleteUser: async (_, { id }, context) => {
-      if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
-        throw new Error("Access forbidden: Admins only or self-delete allowed")
-      }
-      return await prisma.user.delete({
+      const { user } = context
+      const userForDelete = await prisma.user.findUnique({
         where: { id }
       })
+      if (!userForDelete) {
+        throw new Error("User not found")
+      }
+
+      if (userForDelete.role === "SUPERADMIN") {
+        throw new Error("Access forbidden")
+      }
+
+      if (userForDelete.airlineId) {
+        airlineAdminMiddleware(context)
+        if (userForDelete.images && userForDelete.images.length > 0) {
+          for (const imagePath of userForDelete.images) {
+            await deleteImage(imagePath)
+          }
+        }
+        return await prisma.user.delete({
+          where: { id }
+        })
+      }
+
+      if (userForDelete.hotelId) {
+        hotelAdminMiddleware(context)
+        if (userForDelete.images && userForDelete.images.length > 0) {
+          for (const imagePath of userForDelete.images) {
+            await deleteImage(imagePath)
+          }
+        }
+        return await prisma.user.delete({
+          where: { id }
+        })
+      }
+
+      if (userForDelete.dispatcher) {
+        adminMiddleware(context)
+        if (userForDelete.images && userForDelete.images.length > 0) {
+          for (const imagePath of userForDelete.images) {
+            await deleteImage(imagePath)
+          }
+        }
+        return await prisma.user.delete({
+          where: { id }
+        })
+      }
+
+      // if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
+      //   throw new Error("Access forbidden: Admins only or self-delete allowed")
+      // }
+      // return await prisma.user.delete({
+      //   where: { id }
+      // })
     }
   },
   Subscription: {

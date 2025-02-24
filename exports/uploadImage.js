@@ -1,10 +1,10 @@
-// import { finished } from "stream/promises";
-// import { createWriteStream, existsSync, mkdirSync } from "fs";
-// import { promises as fsPromises } from "fs";
-// import path from "path";
-// import sharp from "sharp";
+import { finished } from "stream/promises"
+import { createWriteStream, existsSync, mkdirSync } from "fs"
+import { promises as fsPromises } from "fs"
+import path from "path"
+import sharp from "sharp"
 
-// const uploadImage = async (image) => {
+// export const uploadImage = async (image) => {
 //   const { createReadStream, filename } = await image;
 //   const stream = createReadStream();
 //   const uploadsDir = path.join(process.cwd(), "uploads");
@@ -31,12 +31,6 @@
 //   return `/uploads/${uniqueFilename}`;
 // };
 
-// export default uploadImage;
-
-import { createWriteStream, existsSync, mkdirSync } from "fs"
-import path from "path"
-import sharp from "sharp"
-
 // Вспомогательная функция для преобразования потока в буфер
 const streamToBuffer = (stream) =>
   new Promise((resolve, reject) => {
@@ -46,7 +40,7 @@ const streamToBuffer = (stream) =>
     stream.on("end", () => resolve(Buffer.concat(chunks)))
   })
 
-const uploadImage = async (image) => {
+export const uploadImage = async (image) => {
   const { createReadStream, filename } = await image
   const stream = createReadStream()
   const uploadsDir = path.join(process.cwd(), "uploads")
@@ -68,4 +62,14 @@ const uploadImage = async (image) => {
   return `/uploads/${uniqueFilename}`
 }
 
-export default uploadImage
+export const deleteImage = async (imagePath) => {
+  // Преобразуем относительный путь в абсолютный
+  const absolutePath = path.join(process.cwd(), imagePath)
+  try {
+    await fsPromises.unlink(absolutePath)
+    console.log(`Файл ${absolutePath} успешно удалён.`)
+  } catch (error) {
+    console.error(`Ошибка при удалении файла ${absolutePath}:`, error)
+    // При необходимости можно пробросить ошибку или проигнорировать её
+  }
+}

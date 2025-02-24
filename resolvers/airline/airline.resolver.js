@@ -1,6 +1,6 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import uploadImage from "../../exports/uploadImage.js"
+import { uploadImage } from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import {
   adminMiddleware,
@@ -263,27 +263,47 @@ const airlineResolver = {
     },
     deleteAirline: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
-      return await prisma.airline.delete({
+      const deletedAirline = await prisma.airline.delete({
         where: { id },
         include: {
           staff: true
         }
       })
+      if (deletedAirline.images && deletedAirline.images.length > 0) {
+        for (const imagePath of deletedAirline.images) {
+          await deleteImage(imagePath)
+        }
+      }
+      return deletedAirline
     },
     deleteAirlineDepartment: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
-      return await prisma.airlineDepartment.delete({
+      const department = await prisma.airlineDepartment.delete({
         where: { id },
         include: {
           staff: true
         }
       })
+      const airlineWithRelations = await prisma.airline.findUnique({
+        where: { id: department.airlineId }
+      })
+      pubsub.publish(AIRLINE_UPDATED, {
+        airlineUpdated: airlineWithRelations
+      })
+      return airlineWithRelations
     },
     deleteAirlineStaff: async (_, { id }, context) => {
       airlineAdminMiddleware(context)
-      return await prisma.airlinePersonal.delete({
+      const person = await prisma.airlinePersonal.delete({
         where: { id }
       })
+      const airlineWithRelations = await prisma.airline.findUnique({
+        where: { id: person.airlineId }
+      })
+      pubsub.publish(AIRLINE_UPDATED, {
+        airlineUpdated: airlineWithRelations
+      })
+      return airlineWithRelations
     }
   },
 
