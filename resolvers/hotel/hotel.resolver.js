@@ -440,7 +440,7 @@ const hotelResolver = {
                   description: `<span style='color:#545873'>${
                     updatedRequest.person.name
                   }</span> был размещён в отеле <span style='color:#545873'>${
-                    hotel?.name || ""
+                    hotel?.name 
                   }</span> в номер <span style='color:#545873'>${
                     room.name
                   }</span> по заявке <span style='color:#545873'>№ ${

@@ -5,12 +5,31 @@ const chatResolver = {
   Query: {
     // Возвращает чаты по requestId или reserveId
     chats: async (_, { requestId, reserveId }, context) => {
+      const hotelId = context.user.hotelId
+      const whereCondition = {
+        OR: []
+      }
+
+      // Если есть requestId, добавляем условие
+      if (requestId) {
+        whereCondition.OR.push({ requestId })
+      }
+
+      // Если есть reserveId, проверяем также hotelId
+      if (reserveId) {
+        if (hotelId) {
+          whereCondition.OR.push({ reserveId, hotelId })
+        } else {
+          whereCondition.OR.push({ reserveId })
+        }
+      }
+
+      // Выполняем запрос к БД
       const chats = await prisma.chat.findMany({
-        where: {
-          OR: [requestId ? { requestId } : {}, reserveId ? { reserveId } : {}]
-        },
+        where: whereCondition.OR.length > 0 ? whereCondition : {}, // Если OR пустой, передаем пустой объект
         include: { hotel: true }
       })
+
       return chats
     },
 

@@ -1,7 +1,10 @@
+import { finished } from "stream/promises"
 import { createWriteStream, existsSync, mkdirSync } from "fs"
+import { promises as fsPromises } from "fs"
 import path from "path"
+import sharp from "sharp"
 
-const uploadFiles = async (file) => {
+export const uploadFiles = async (file) => {
   const { createReadStream, filename } = await file
   const stream = createReadStream()
   const uploadsDir = path.join(process.cwd(), "uploads")
@@ -26,4 +29,14 @@ const uploadFiles = async (file) => {
   })
 }
 
-export default uploadFiles
+export const deleteFiles = async (filePath) => {
+  // Преобразуем относительный путь в абсолютный
+  const absolutePath = path.join(process.cwd(), filePath)
+  try {
+    await fsPromises.unlink(absolutePath)
+    console.log(`Файл ${absolutePath} успешно удалён.`)
+  } catch (error) {
+    console.error(`Ошибка при удалении файла ${absolutePath}:`, error)
+    // При необходимости можно пробросить ошибку или проигнорировать её
+  }
+}

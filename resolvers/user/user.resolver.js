@@ -14,6 +14,7 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
+import bcrypt from "bcrypt"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { SubscriptionClient } from "subscriptions-transport-ws"
 
@@ -391,6 +392,70 @@ const userResolver = {
       return updatedUser
     },
 
+    // Мутация для запроса восстановления пароля
+    requestResetPassword: async (_, { email }, context) => {
+      // Ищем пользователя по email
+      const user = await prisma.user.findUnique({ where: { email } })
+      // Для безопасности возвращаем одно и то же сообщение независимо от того, найден пользователь или нет
+      const message =
+        "Инструкции отправлены на указанный email."
+      if (!user) {
+        return message
+      }
+
+      // Генерируем токен и срок действия (например, 1 час)
+      const token = uuidv4()
+      const expires = new Date(Date.now() + 60 * 60 * 1000)
+
+      // Обновляем запись пользователя: сохраняем токен и срок действия
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetPasswordToken: token,
+          resetPasswordExpires: expires
+        }
+      })
+
+      // Отправляем письмо с инструкциями
+      await sendResetPasswordEmail(user.email, token)
+
+      return message
+    },
+
+    // Мутация для сброса пароля
+    resetPassword: async (_, { token, newPassword }, context) => {
+      if (!token || !newPassword) {
+        throw new Error("Неверные данные")
+      }
+
+      // Ищем пользователя по токену, проверяя, что токен не просрочен
+      const user = await prisma.user.findFirst({
+        where: {
+          resetPasswordToken: token,
+          resetPasswordExpires: { gte: new Date() }
+        }
+      })
+
+      if (!user) {
+        throw new Error("Неверный или просроченный токен")
+      }
+
+      // Захешируем новый пароль
+      const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+      // Обновляем пароль и очищаем поля токена
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetPasswordToken: null,
+          resetPasswordExpires: null
+        }
+      })
+
+      return "Пароль успешно обновлен."
+    },
+
     enable2FA: async (_, { input }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       let method = input.method
@@ -547,6 +612,33 @@ const userResolver = {
       subscribe: () => pubsub.asyncIterator([USER_CREATED])
     }
   }
+}
+
+// Функция для отправки письма восстановления пароля
+const sendResetPasswordEmail = async (userEmail, token) => {
+  // const transporter = nodemailer.createTransport({
+  //   host: "smtp.example.com", // замените на настройки вашего SMTP-сервера
+  //   port: 587,
+  //   secure: false,
+  //   auth: {
+  //     user: "your-email@example.com",
+  //     pass: "your-email-password"
+  //   }
+  // })
+
+  // Ссылка для сброса пароля (замените домен)
+  // const resetLink = `https://karsavia.ru/reset-password?token=${token}`
+  const resetLink = `https://192.168.0.14/reset-password?token=${token}`
+
+  const mailOptions = {
+    from: `${process.env.EMAIL_USER}`,
+    to: userEmail,
+    subject: "Восстановление пароля",
+    html: `<p>Чтобы сбросить пароль, перейдите по ссылке: <a href="${resetLink}">${resetLink}</a></p>
+           <p>Ссылка действительна в течение 1 часа.</p>`
+  }
+
+  await transporter.sendMail(mailOptions)
 }
 
 export default userResolver

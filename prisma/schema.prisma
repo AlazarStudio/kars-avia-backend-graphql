@@ -141,37 +141,49 @@ type Information {
 // Пользователи  ---------------- ↓↓↓↓
 
 model User {
-  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
-  name                String
-  email               String             @unique
-  number              String?
-  login               String             @unique
-  password            String
-  images              String[]
-  role                Role
-  position            String?
-  sender              Request[]          @relation(name: "sender")
-  receiver            Request[]          @relation(name: "receiver")
-  reserve             Reserve[]
-  airline             Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId           String?            @db.ObjectId
-  airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
-  airlineDepartmentId String?            @db.ObjectId
-  hotel               Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  hotelId             String?            @db.ObjectId
-  chats               ChatUser[]
-  messageSender       Message[]          @relation(name: "messageSender")
-  messageReceiver     Message[]          @relation(name: "messageReceiver")
-  logs                Log[]
-  dispatcher          Boolean?           @default(false)
-  support             Boolean?           @default(false)
-  refreshToken        String?
-  is2FAEnabled        Boolean            @default(false)
-  twoFASecret         String?
-  twoFAMethod         TwoFAMethod?
-  messageRead         MessageRead[]
+  id                   String             @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  name                 String
+  email                String             @unique
+  number               String?
+  login                String             @unique
+  password             String
+  images               String[]
+  role                 Role
+  position             String?
+  sender               Request[]          @relation(name: "sender")
+  receiver             Request[]          @relation(name: "receiver")
+  reserve              Reserve[]
+  airline              Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId            String?            @db.ObjectId
+  airlineDepartment    AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
+  airlineDepartmentId  String?            @db.ObjectId
+  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hotelId              String?            @db.ObjectId
+  chats                ChatUser[]
+  messageSender        Message[]          @relation(name: "messageSender")
+  messageReceiver      Message[]          @relation(name: "messageReceiver")
+  logs                 Log[]
+  dispatcher           Boolean?           @default(false)
+  support              Boolean?           @default(false)
+  refreshToken         String?
+  is2FAEnabled         Boolean            @default(false)
+  twoFASecret          String?
+  twoFAMethod          TwoFAMethod?
+  messageRead          MessageRead[]
+  resetPasswordToken   String? // для хранения токена восстановления
+  resetPasswordExpires DateTime? // срок действия токена
+}
+
+model Positions {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  airline    Airline? @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId  String?  @db.ObjectId
+  hotel      Hotel?   @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hotelId    String?  @db.ObjectId
+  dispatcher Boolean
+  name       String
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -201,6 +213,7 @@ model Hotel {
   savedReport     SavedReport[]
   chat            Chat[]
   prices          Price?
+  Positions       Positions[]
 }
 
 model HotelChess {
@@ -260,6 +273,7 @@ model Airline {
   savedReport SavedReport[]
   chat        Chat[]
   prices      Price?
+  Positions   Positions[]
 }
 
 model AirlineDepartment {

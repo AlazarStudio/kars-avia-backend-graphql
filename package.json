@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "main": "server.js",
   "scripts": {
     "backup": "node utils/cron/backup.js",
@@ -23,6 +23,7 @@
     "apollo-server-express": "^3.13.0",
     "archetype": "^0.13.1",
     "argon2": "^0.40.3",
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "child_process": "^1.0.2",
     "connect-mongodb-session": "^5.0.0",
@@ -32,6 +33,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
+    "file-saver": "^2.0.5",
     "graphql": "^16.9.0",
     "graphql-passport": "^0.6.8",
     "graphql-subscriptions": "^2.0.0",
@@ -46,7 +48,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",
-    "pdfmake": "^0.2.15",
+    "pdfmake": "^0.2.18",
     "pm2": "^5.4.2",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",

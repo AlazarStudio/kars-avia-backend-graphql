@@ -14,8 +14,14 @@ import {
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
-import uploadFiles from "../../exports/uploadFiles.js"
+import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 import { formatDate } from "../../exports/dateTimeFormater.js"
+import {
+  generateReserveExcel,
+  generateReservePdf
+} from "../../exports/generateReservePas.js"
+import path from "path"
+import fs from "fs"
 
 const reserveResolver = {
   Upload: GraphQLUpload,
@@ -295,10 +301,48 @@ const reserveResolver = {
       //   airport.code
       // }-${formattedDate}`
 
+      // const currentDate = new Date()
+      // const month = String(currentDate.getMonth() + 1).padStart(2, "0")
+      // const year = String(currentDate.getFullYear()).slice(-2)
+
+      // const startOfMonth = new Date(
+      //   currentDate.getFullYear(),
+      //   currentDate.getMonth(),
+      //   1
+      // )
+      // const endOfMonth = new Date(
+      //   currentDate.getFullYear(),
+      //   currentDate.getMonth() + 1,
+      //   0,
+      //   23,
+      //   59,
+      //   59
+      // )
+      // const reserveCount = await prisma.reserve.count({
+      //   where: {
+      //     createdAt: {
+      //       gte: startOfMonth,
+      //       lte: endOfMonth
+      //     }
+      //   }
+      // })
+
+      // const airport = await prisma.airport.findUnique({
+      //   where: { id: airportId }
+      // })
+      // if (!airport) {
+      //   throw new Error("Airport not found")
+      // }
+
+      // const sequenceNumber = String(reserveCount + 1).padStart(4, "0")
+      // const reserveNumber = `${sequenceNumber}${airport.code}${month}${year}p`
+
+      // Определяем текущий месяц и год
       const currentDate = new Date()
-      const month = String(currentDate.getMonth() + 1).padStart(2, "0")
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
       const year = String(currentDate.getFullYear()).slice(-2)
 
+      // Определяем границы месяца
       const startOfMonth = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -312,15 +356,25 @@ const reserveResolver = {
         59,
         59
       )
-      const reserveCount = await prisma.reserve.count({
-        where: {
-          createdAt: {
-            gte: startOfMonth,
-            lte: endOfMonth
-          }
-        }
+
+      // Ищем последнюю созданную заявку в этом месяце
+      const lastreserve = await prisma.reserve.findFirst({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        orderBy: { createdAt: "desc" } // Последняя заявка
       })
 
+      // Определяем номер
+      let sequenceNumber
+      if (lastreserve) {
+        // Если заявки есть, увеличиваем номер
+        const lastNumber = parseInt(lastreserve.reserveNumber.slice(0, 4), 10)
+        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+      } else {
+        // Если заявок еще не было в этом месяце, начинаем с 0001
+        sequenceNumber = "0001"
+      }
+
+      // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
@@ -328,9 +382,8 @@ const reserveResolver = {
         throw new Error("Airport not found")
       }
 
-      const sequenceNumber = String(reserveCount + 1).padStart(4, "0")
+      // Формируем номер заявки
       const reserveNumber = `${sequenceNumber}${airport.code}${month}${year}p`
-      // const reserveNumber = `${sequenceNumber}-${airport.code}-${month}${year}-p`
 
       let filesPath = []
       if (files && files.length > 0) {
@@ -367,7 +420,8 @@ const reserveResolver = {
       const newChat = await prisma.chat.create({
         data: {
           reserve: { connect: { id: newReserve.id } },
-          separator: "airline"
+          separator: "airline",
+          airline: { connect: { id: airlineId } }
         }
       })
       await prisma.chatUser.create({
@@ -398,7 +452,7 @@ const reserveResolver = {
     updateReserve: async (_, { id, input, files }, context) => {
       const { user } = context
       const { arrival, departure, mealPlan, status } = input
-
+      airlineAdminMiddleware(context)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -421,6 +475,20 @@ const reserveResolver = {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
         }
+      }
+
+      if (filesPath.length > 0) {
+        if (reserve.files && reserve.files.length > 0) {
+          for (const filePath of reserve.files) {
+            await deleteFiles(filePath)
+          }
+        }
+        await prisma.reserve.update({
+          where: { id },
+          data: {
+            files: filesPath
+          }
+        })
       }
 
       if (user.airlineId) {
@@ -450,14 +518,7 @@ const reserveResolver = {
             sender: true
           }
         })
-        if (filesPath.length > 0) {
-          await prisma.reserve.update({
-            where: { id },
-            data: {
-              files: filesPath
-            }
-          })
-        }
+
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ReserveUpdatedNotification",
@@ -573,6 +634,7 @@ const reserveResolver = {
               user: { connect: { id: user.id } }
             }
           })
+          console.log("newChat", newChat)
         }
         const updatedReserve = await prisma.reserve.findUnique({
           where: { id: reservationId },
@@ -748,6 +810,54 @@ const reserveResolver = {
     //   pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
     //   return reserveHotel
     // },
+
+    generateReservePassengerFile: async (_, { reserveId, format }, context) => {
+      // **Получаем данные о резерве из Prisma**
+      const reserve = await prisma.reserve.findUnique({
+        where: { id: reserveId },
+        include: {
+          hotel: {
+            include: {
+              hotel: {
+                select: {
+                  name: true,
+                  information: {
+                    select: { address: true }
+                  }
+                }
+              },
+              passengers: {
+                select: {
+                  name: true,
+                  number: true,
+                  gender: true
+                }
+              }
+            }
+          }
+        }
+      })
+
+      // **Если данных нет, выбрасываем ошибку**
+      if (!reserve || !reserve.hotel || reserve.hotel.length === 0) {
+        throw new Error("Резерв с таким ID не найден или в нем нет отелей.")
+      }
+
+      const listName = `reserve_${reserveId}_${Date.now()}.${format}`
+      const listPath = path.resolve(`./reserve/${listName}`)
+      fs.mkdirSync(path.dirname(listPath), { recursive: true })
+
+      if (format === "xlsx") {
+        await generateReserveExcel(reserve, listPath)
+      } else {
+        throw new Error("Unsupported format")
+      }
+
+      return {
+        name: listName,
+        url: `/reserve/${listName}`
+      }
+    },
 
     archivingReserve: async (_, input, context) => {
       const { user } = context

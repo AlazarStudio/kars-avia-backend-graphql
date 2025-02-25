@@ -21,7 +21,7 @@ import {
   airlineModerMiddleware
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
-import uploadFiles from "../../exports/uploadFiles.js"
+import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 
 const requestResolver = {
   Upload: GraphQLUpload,
@@ -206,12 +206,12 @@ const requestResolver = {
         throw new Error(`Request already exists with id: ${existingRequest.id}`)
       }
 
-      // Генерируем порядковый номер заявки
-      // const requestCount = await prisma.request.count()
+      // Определяем текущий месяц и год
       const currentDate = new Date()
       const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
       const year = String(currentDate.getFullYear()).slice(-2)
 
+      // Определяем границы месяца
       const startOfMonth = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -225,10 +225,25 @@ const requestResolver = {
         59,
         59
       )
-      const requestCount = await prisma.request.count({
-        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } }
+
+      // Ищем последнюю созданную заявку в этом месяце
+      const lastRequest = await prisma.request.findFirst({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        orderBy: { createdAt: "desc" } // Последняя заявка
       })
 
+      // Определяем номер
+      let sequenceNumber
+      if (lastRequest) {
+        // Если заявки есть, увеличиваем номер
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+      } else {
+        // Если заявок еще не было в этом месяце, начинаем с 0001
+        sequenceNumber = "0001"
+      }
+
+      // Получаем код аэропорта
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
@@ -236,20 +251,10 @@ const requestResolver = {
         throw new Error("Airport not found")
       }
 
-      const sequenceNumber = String(requestCount + 1).padStart(4, "0")
+      // Формируем номер заявки
       const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
-      // const requestNumber = `${sequenceNumber}-${airport.code}-${month}${year}-e`
-
-      // const currentDate = new Date()
-      // const formattedDate = currentDate
-      //   .toLocaleDateString("ru-RU")
-      //   .replace(/\./g, ".")
-      // const requestNumber = `${String(requestCount + 1).padStart(4, "0")}-${
-      //   airport.code
-      // }-${formattedDate}`
 
       // Создание заявки
-
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -505,7 +510,7 @@ const requestResolver = {
 
       // Если пользователь не диспетчер, отправляем уведомление диспетчеру
       // if (!user.dispatcher) {
-      if (user.airlineId) {
+      if (user.airlineId && request.status != "created") {
         const extendRequest = {
           requestId,
           newStart,

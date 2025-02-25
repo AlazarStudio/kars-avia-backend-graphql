@@ -57,6 +57,8 @@ type Mutation {
   refreshToken(refreshToken: String!): AuthPayload
   enable2FA(input: TwoFAMethodInput): QRCodeResponse
   verify2FA(token: String!): SuccessResponse
+  requestResetPassword(email: String!): String!
+  resetPassword(token: String!, newPassword: String!): String!
 }
 
 input SignUpInput {
