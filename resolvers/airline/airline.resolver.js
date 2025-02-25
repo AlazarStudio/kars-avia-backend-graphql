@@ -1,3 +1,4 @@
+// Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { uploadImage } from "../../exports/uploadImage.js"
@@ -12,14 +13,22 @@ import {
   AIRLINE_UPDATED
 } from "../../exports/pubsub.js"
 
+// Основной объект-резольвер для работы с авиакомпаниями
 const airlineResolver = {
+  // Подключение типа Upload для работы с загрузкой файлов через GraphQL
   Upload: GraphQLUpload,
 
+  // Query-резольверы для получения данных
   Query: {
+    // Получение списка авиакомпаний с возможностью пагинации
     airlines: async (_, { pagination }, context) => {
+      // Извлекаем параметры пагинации: skip, take и флаг all
       const { skip, take, all } = pagination || {}
+      // Получаем общее количество авиакомпаний
       const totalCount = await prisma.airline.count({})
 
+      // Если запрошено получение всех записей, то выполняем запрос без пагинации,
+      // иначе - с использованием skip и take
       const airlines = all
         ? await prisma.airline.findMany({
             include: {
@@ -38,14 +47,18 @@ const airlineResolver = {
             orderBy: { name: "asc" }
           })
 
+      // Расчет общего количества страниц при наличии пагинации
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
+      // Возвращаем список авиакомпаний вместе с дополнительными данными
       return {
         airlines,
         totalCount,
         totalPages
       }
     },
+
+    // Получение данных одной авиакомпании по id с дополнительной информацией
     airline: async (_, { id }, context) => {
       return await prisma.airline.findUnique({
         where: { id },
@@ -56,12 +69,16 @@ const airlineResolver = {
         }
       })
     },
+
+    // Получение данных о конкретном сотруднике авиакомпании по его id
     airlineStaff: async (_, { id }, context) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id },
         include: { hotelChess: true }
       })
     },
+
+    // Получение списка сотрудников для заданной авиакомпании по airlineId
     airlineStaffs: async (_, { airlineId }, context) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId },
@@ -71,17 +88,22 @@ const airlineResolver = {
     }
   },
 
+  // Mutation-резольверы для изменения данных
   Mutation: {
+    // Создание новой авиакомпании
     createAirline: async (_, { input, images }, context) => {
       const { user } = context
+      // Проверка прав администратора
       adminMiddleware(context)
 
+      // Значения по умолчанию для mealPrice (цены на питание)
       const defaultMealPrice = {
         breakfast: 0,
         lunch: 0,
         dinner: 0
       }
 
+      // Значения по умолчанию для различных категорий цен
       const defaultPrices = {
         priceOneCategory: 0,
         priceTwoCategory: 0,
@@ -95,7 +117,7 @@ const airlineResolver = {
         priceTenCategory: 0
       }
 
-      // Загружаем изображения и собираем пути
+      // Загружаем изображения (если есть) и собираем пути к ним
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -104,7 +126,8 @@ const airlineResolver = {
         }
       }
 
-      // Используем поле "mealPrice" согласно новой схеме
+      // Формируем объект данных для создания авиакомпании,
+      // используя дефолтные значения при отсутствии их в input
       const data = {
         ...input,
         mealPrice: input.mealPrice || defaultMealPrice,
@@ -112,6 +135,7 @@ const airlineResolver = {
         images: imagePaths
       }
 
+      // Создаем новую авиакомпанию с включением данных о персонале и департаментах
       const createdAirline = await prisma.airline.create({
         data,
         include: {
@@ -120,6 +144,7 @@ const airlineResolver = {
         }
       })
 
+      // Логирование действия создания авиакомпании
       await logAction({
         context,
         action: "create_airline",
@@ -128,22 +153,29 @@ const airlineResolver = {
         airlineId: createdAirline.id
       })
 
+      // Публикация события создания авиакомпании через PubSub
       pubsub.publish(AIRLINE_CREATED, { airlineCreated: createdAirline })
       return createdAirline
     },
+
+    // Обновление информации об авиакомпании
     updateAirline: async (_, { id, input, images }, context) => {
       const { user } = context
+      // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
 
+      // Загружаем новые изображения (если предоставлены) и собираем пути к ним
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(await uploadImage(image))
         }
       }
+      // Извлекаем из input данные для обновления, отделяя департаменты и персонал
       const { department, staff, ...restInput } = input
       try {
-        // Обновляем основную информацию об авиакомпании, включая mealPrice (из поля restInput)
+        // Обновляем основную информацию об авиакомпании,
+        // включая обновление поля mealPrice и изображений (если новые были загружены)
         const updatedAirline = await prisma.airline.update({
           where: { id },
           data: {
@@ -152,10 +184,11 @@ const airlineResolver = {
           }
         })
 
-        // Обработка департаментов
+        // Обработка департаментов авиакомпании
         if (department) {
           for (const depart of department) {
             if (depart.id) {
+              // Если департамент уже существует, обновляем его данные
               await prisma.airlineDepartment.update({
                 where: { id: depart.id },
                 data: {
@@ -174,6 +207,7 @@ const airlineResolver = {
                 airlineId: id
               })
             } else {
+              // Если департамента не существует, создаем новый
               await prisma.airlineDepartment.create({
                 data: {
                   airlineId: id,
@@ -195,10 +229,11 @@ const airlineResolver = {
           }
         }
 
-        // Обработка персонала
+        // Обработка информации о персонале авиакомпании
         if (staff) {
           for (const person of staff) {
             if (person.id) {
+              // Обновляем данные существующего сотрудника
               await prisma.airlinePersonal.update({
                 where: { id: person.id },
                 data: {
@@ -216,6 +251,7 @@ const airlineResolver = {
                 airlineId: id
               })
             } else {
+              // Создаем нового сотрудника
               await prisma.airlinePersonal.create({
                 data: {
                   airlineId: id,
@@ -236,6 +272,7 @@ const airlineResolver = {
           }
         }
 
+        // Получаем обновленную информацию об авиакомпании вместе с департаментами и персоналом
         const airlineWithRelations = await prisma.airline.findUnique({
           where: { id },
           include: {
@@ -244,6 +281,7 @@ const airlineResolver = {
           }
         })
 
+        // Логирование общего обновления данных авиакомпании
         await logAction({
           context,
           action: "update_airline",
@@ -251,6 +289,7 @@ const airlineResolver = {
           airlineId: id
         })
 
+        // Публикация события обновления авиакомпании через PubSub
         pubsub.publish(AIRLINE_UPDATED, {
           airlineUpdated: airlineWithRelations
         })
@@ -261,14 +300,19 @@ const airlineResolver = {
         throw new Error("Не удалось обновить авиакомпанию")
       }
     },
+
+    // Удаление авиакомпании
     deleteAirline: async (_, { id }, context) => {
+      // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
+      // Удаляем авиакомпанию и возвращаем связанные с ней данные (например, персонал)
       const deletedAirline = await prisma.airline.delete({
         where: { id },
         include: {
           staff: true
         }
       })
+      // Если у авиакомпании есть изображения, удаляем их (функция deleteImage предполагается определённой в другом месте)
       if (deletedAirline.images && deletedAirline.images.length > 0) {
         for (const imagePath of deletedAirline.images) {
           await deleteImage(imagePath)
@@ -276,30 +320,42 @@ const airlineResolver = {
       }
       return deletedAirline
     },
+
+    // Удаление департамента авиакомпании
     deleteAirlineDepartment: async (_, { id }, context) => {
+      // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
+      // Удаляем департамент и возвращаем связанные с ним данные (например, персонал)
       const department = await prisma.airlineDepartment.delete({
         where: { id },
         include: {
           staff: true
         }
       })
+      // Получаем обновленную информацию об авиакомпании, к которой относится удалённый департамент
       const airlineWithRelations = await prisma.airline.findUnique({
         where: { id: department.airlineId }
       })
+      // Публикация события обновления авиакомпании
       pubsub.publish(AIRLINE_UPDATED, {
         airlineUpdated: airlineWithRelations
       })
       return airlineWithRelations
     },
+
+    // Удаление сотрудника авиакомпании
     deleteAirlineStaff: async (_, { id }, context) => {
+      // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
+      // Удаляем данные о сотруднике
       const person = await prisma.airlinePersonal.delete({
         where: { id }
       })
+      // Получаем обновленную информацию об авиакомпании, к которой относился сотрудник
       const airlineWithRelations = await prisma.airline.findUnique({
         where: { id: person.airlineId }
       })
+      // Публикация события обновления авиакомпании
       pubsub.publish(AIRLINE_UPDATED, {
         airlineUpdated: airlineWithRelations
       })
@@ -307,22 +363,27 @@ const airlineResolver = {
     }
   },
 
+  // Subscription-резольверы для получения обновлений в реальном времени через PubSub
   Subscription: {
+    // Подписка на событие создания авиакомпании
     airlineCreated: {
       subscribe: () => pubsub.asyncIterator([AIRLINE_CREATED])
     },
+    // Подписка на событие обновления авиакомпании
     airlineUpdated: {
       subscribe: () => pubsub.asyncIterator([AIRLINE_UPDATED])
     }
   },
 
-  // Поля типа Airline
+  // Резольверы для полей типа Airline (авиакомпания)
   Airline: {
+    // Получение списка департаментов, связанных с авиакомпанией
     department: async (parent) => {
       return await prisma.airlineDepartment.findMany({
         where: { airlineId: parent.id }
       })
     },
+    // Получение списка сотрудников, привязанных к авиакомпании
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id }
@@ -330,13 +391,15 @@ const airlineResolver = {
     }
   },
 
-  // Поля типа AirlineDepartment
+  // Резольверы для полей типа AirlineDepartment (департамент авиакомпании)
   AirlineDepartment: {
+    // Получение списка пользователей, привязанных к департаменту
     users: async (parent) => {
       return await prisma.user.findMany({
         where: { airlineDepartmentId: parent.id }
       })
     },
+    // Получение списка сотрудников, связанных с департаментом (проверить логику при необходимости)
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id }
@@ -344,8 +407,9 @@ const airlineResolver = {
     }
   },
 
-  // Поля типа AirlinePersonal
+  // Резольверы для полей типа AirlinePersonal (сотрудник авиакомпании)
   AirlinePersonal: {
+    // Получение записей hotelChess, связанных с сотрудником, с включением информации об отеле
     hotelChess: async (parent) => {
       const hotelChessEntries = await prisma.hotelChess.findMany({
         where: { clientId: parent.id },

@@ -1,9 +1,10 @@
+// Импорт необходимых модулей и утилит
+import { prisma } from "../../prisma.js"
 import {
   // generatePDF,
   generateExcelHotel,
   generateExcelAvia
 } from "../../exports/exporter.js"
-import { prisma } from "../../prisma.js"
 import path from "path"
 import fs from "fs"
 import {

@@ -1,3 +1,4 @@
+// Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import isEqual from "lodash.isequal"
@@ -23,19 +24,27 @@ import {
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 
+// Основной объект-резольвер для работы с заявками (request)
 const requestResolver = {
+  // Подключаем тип Upload для обработки загрузки файлов через GraphQL
   Upload: GraphQLUpload,
+
   Query: {
+    // Получение списка заявок с пагинацией и фильтрацией по статусу.
+    // Если у пользователя задан airlineId, добавляется фильтр по нему.
+    // Исключаются архивные заявки (archive: true).
     requests: async (_, { pagination }, context) => {
       const { user } = context
       const { skip, take, status } = pagination
+      // Формирование фильтра по статусу: если статус указан и не содержит "all" – фильтруем по нему.
       const statusFilter =
         status && status.length > 0 && !status.includes("all")
           ? { status: { in: status } }
           : {}
-      // Если у пользователя задан airlineId – фильтруем по нему
+      // Если у пользователя есть airlineId, добавляем соответствующий фильтр.
       const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
 
+      // Подсчёт общего количества заявок с учетом фильтров и исключения архивных.
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
@@ -44,6 +53,7 @@ const requestResolver = {
         }
       })
       const totalPages = Math.ceil(totalCount / take)
+      // Получаем список заявок с указанными фильтрами, пагинацией и сортировкой (по убыванию даты создания).
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
@@ -68,13 +78,17 @@ const requestResolver = {
       }
     },
 
+    // Получение архивных заявок.
+    // Доступно только для администраторов авиалиний (airlineAdminMiddleware).
     requestArchive: async (_, { pagination }, context) => {
       const { user } = context
       airlineAdminMiddleware(context)
       const { skip, take, status } = pagination
+      // Если статус содержит "all" – фильтр не применяется, иначе фильтруем по указанным статусам.
       const statusFilter =
         status && status.includes("all") ? {} : { status: { in: status } }
       const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
+      // Подсчёт количества архивных заявок.
       const totalCount = await prisma.request.count({
         where: {
           ...statusFilter,
@@ -83,6 +97,7 @@ const requestResolver = {
         }
       })
       const totalPages = Math.ceil(totalCount / take)
+      // Получение архивных заявок с пагинацией и сортировкой.
       const requests = await prisma.request.findMany({
         where: {
           ...statusFilter,
@@ -107,6 +122,9 @@ const requestResolver = {
       }
     },
 
+    // Получение одной заявки по ID.
+    // Включает связанные данные: airline, airport, hotel, hotelChess, logs.
+    // Если заявка имеет статус "created" и пользователь является диспетчером, статус обновляется на "opened".
     request: async (_, { id }, context) => {
       const { user } = context
       const request = await prisma.request.findUnique({
@@ -122,10 +140,12 @@ const requestResolver = {
       if (!request) {
         throw new Error("Request not found")
       }
+      // Если заявка находится в архиве, для доступа требуется проверка прав администратора.
       if (request.archive === true) {
         airlineAdminMiddleware(context)
       }
-      // Если пользователь является диспетчером, при первом открытии заявки (status === "created") обновляем статус
+      // Если пользователь является диспетчером, при первом открытии заявки (status === "created")
+      // обновляем статус на "opened", записываем лог и публикуем событие.
       if (!user || !user.dispatcher) {
         return request
       }
@@ -162,6 +182,9 @@ const requestResolver = {
   },
 
   Mutation: {
+    // Создание новой заявки.
+    // Здесь происходит проверка мидлвара (airlineModerMiddleware), формирование уникального номера заявки,
+    // загрузка файлов, создание записи в базе, создание чата для заявки и логирование действия.
     createRequest: async (_, { input, files }, context) => {
       const { user } = context
       airlineModerMiddleware(context)
@@ -178,11 +201,11 @@ const requestResolver = {
         reserve
       } = input
 
-      // Приведение дат к формату YYYY-MM-DD
+      // Приведение дат к формату YYYY-MM-DD (отсекаем время)
       const arrivalDate = arrival.split("T")[0]
       const departureDate = departure.split("T")[0]
 
-      // Проверяем наличие заявки с такими же параметрами
+      // Проверяем, существует ли уже заявка с такими же параметрами (исключая отмененные).
       const existingRequest = await prisma.request.findFirst({
         where: {
           personId,
@@ -206,12 +229,12 @@ const requestResolver = {
         throw new Error(`Request already exists with id: ${existingRequest.id}`)
       }
 
-      // Определяем текущий месяц и год
+      // Определение текущего месяца и года для формирования номера заявки
       const currentDate = new Date()
       const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
       const year = String(currentDate.getFullYear()).slice(-2)
 
-      // Определяем границы месяца
+      // Определение границ месяца для поиска последней заявки
       const startOfMonth = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -226,24 +249,22 @@ const requestResolver = {
         59
       )
 
-      // Ищем последнюю созданную заявку в этом месяце
+      // Поиск последней созданной заявки в текущем месяце
       const lastRequest = await prisma.request.findFirst({
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
-        orderBy: { createdAt: "desc" } // Последняя заявка
+        orderBy: { createdAt: "desc" }
       })
 
-      // Определяем номер
+      // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
-        // Если заявки есть, увеличиваем номер
         const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
         sequenceNumber = String(lastNumber + 1).padStart(4, "0")
       } else {
-        // Если заявок еще не было в этом месяце, начинаем с 0001
         sequenceNumber = "0001"
       }
 
-      // Получаем код аэропорта
+      // Получение данных об аэропорте для формирования кода заявки
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
       })
@@ -251,10 +272,10 @@ const requestResolver = {
         throw new Error("Airport not found")
       }
 
-      // Формируем номер заявки
+      // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
       const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
 
-      // Создание заявки
+      // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -263,6 +284,7 @@ const requestResolver = {
         }
       }
 
+      // Создание заявки в базе данных с подключением связанных сущностей
       const newRequest = await prisma.request.create({
         data: {
           person: { connect: { id: personId } },
@@ -285,13 +307,14 @@ const requestResolver = {
         }
       })
 
-      // Создаём чат, связанный с заявкой
+      // Создание чата для заявки, связанного с авиалинией
       const newChat = await prisma.chat.create({
         data: {
           request: { connect: { id: newRequest.id } },
           separator: "airline"
         }
       })
+      // Добавление отправителя в созданный чат
       await prisma.chatUser.create({
         data: {
           chat: { connect: { id: newChat.id } },
@@ -299,6 +322,7 @@ const requestResolver = {
         }
       })
 
+      // Логирование создания заявки
       try {
         await logAction({
           context,
@@ -316,6 +340,7 @@ const requestResolver = {
       } catch (error) {
         console.error("Ошибка при логировании создания заявки:", error)
       }
+      // Публикация уведомления и события о создании заявки
       pubsub.publish(NOTIFICATION, {
         notification: {
           __typename: "RequestCreatedNotification",
@@ -326,9 +351,12 @@ const requestResolver = {
       return newRequest
     },
 
+    // Обновление существующей заявки.
+    // Производится сравнение новых дат с текущими, обновление связанных сущностей (например, hotelChess)
+    // и пересчёт плана питания, если даты изменились.
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
-      // airlineAdminMiddleware(context)
+      // Проверка прав: airlineModerMiddleware для модераторов авиалиний
       airlineModerMiddleware(context)
       const {
         airportId,
@@ -341,6 +369,7 @@ const requestResolver = {
         roomNumber,
         status
       } = input
+      // Получаем старую заявку для сравнения
       const oldRequest = await prisma.request.findUnique({
         where: { id },
         include: {
@@ -352,6 +381,7 @@ const requestResolver = {
       if (!oldRequest) {
         throw new Error("Request not found")
       }
+      // Определяем, изменились ли даты прибытия или отбытия
       const isArrivalChanged =
         arrival &&
         new Date(arrival).getTime() !== new Date(oldRequest.arrival).getTime()
@@ -360,6 +390,7 @@ const requestResolver = {
         new Date(departure).getTime() !==
           new Date(oldRequest.departure).getTime()
 
+      // Формируем объект с данными для обновления заявки
       const dataToUpdate = {
         airport: airportId ? { connect: { id: airportId } } : undefined,
         arrival: arrival ? new Date(arrival) : undefined,
@@ -376,7 +407,7 @@ const requestResolver = {
         dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
       }
 
-      // Обработка hotelChess: если заявка уже привязана к номеру, обновляем его даты
+      // Обработка hotelChess: если заявка уже привязана к номеру, обновляем даты
       let hotelChessToUpdate = null
       if (
         Array.isArray(oldRequest.hotelChess) &&
@@ -405,7 +436,7 @@ const requestResolver = {
         console.warn("No valid hotelChess found for updating.")
       }
 
-      // Если даты изменились, пересчитываем mealPlan на основе настроек отеля
+      // Если даты изменились и у заявки привязан отель, пересчитываем план питания
       if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
         const hotel = await prisma.hotel.findUnique({
           where: { id: oldRequest.hotel.id },
@@ -434,6 +465,7 @@ const requestResolver = {
         }
       }
 
+      // Обновление заявки в базе данных
       const updatedRequest = await prisma.request.update({
         where: { id },
         data: dataToUpdate,
@@ -443,20 +475,36 @@ const requestResolver = {
         }
       })
 
+      // Логирование изменения заявки
       try {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'>${updatedRequest.person.position} ${updatedRequest.person.name}</span> c <span style='color:#545873'>${request.arrival} - ${request.departure}</span> до <span style='color:#545873'>${updatedStart} - ${updatedEnd}</span>`,
+          description: `Пользователь <span style='color:#545873'>${
+            user.name
+          }</span> изменил заявку <span style='color:#545873'> № ${
+            updatedRequest.requestNumber
+          }</span> для <span style='color:#545873'>${
+            updatedRequest.person.position
+          } ${
+            updatedRequest.person.name
+          }</span> c <span style='color:#545873'>${oldRequest.arrival} - ${
+            oldRequest.departure
+          }</span> до <span style='color:#545873'>${
+            arrival || oldRequest.arrival
+          } - ${departure || oldRequest.departure}</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
         console.error("Ошибка при логировании изменения заявки:", error)
       }
+      // Публикация события обновления заявки
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
 
+    // Изменение ежедневного плана питания заявки.
+    // Вызывает функцию updateDailyMeals для обновления плана питания и логирует действие.
     modifyDailyMeals: async (_, { input }, context) => {
       const { user } = context
       const { requestId, dailyMeals } = input
@@ -482,6 +530,9 @@ const requestResolver = {
       return updatedMealPlan
     },
 
+    // Продление дат заявки.
+    // Если пользователь не диспетчер и связан с авиалинией, отправляется уведомление диспетчеру через чат.
+    // Если диспетчер, обновляются даты в hotelChess, пересчитывается план питания и обновляется заявка.
     extendRequestDates: async (_, { input }, context) => {
       const { user } = context
       airlineModerMiddleware(context)
@@ -490,7 +541,6 @@ const requestResolver = {
       const formattedTime = adjustedTime.toISOString()
 
       const { requestId, newStart, newEnd, status } = input
-      // console.log(newStart, newEnd)
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: {
@@ -508,8 +558,8 @@ const requestResolver = {
         throw new Error("Request has not been placed in a hotel")
       }
 
-      // Если пользователь не диспетчер, отправляем уведомление диспетчеру
-      // if (!user.dispatcher) {
+      // Если пользователь связан с авиалинией и статус заявки не "created",
+      // создаётся запрос на изменение дат через чат для уведомления диспетчера.
       if (user.airlineId && request.status != "created") {
         const extendRequest = {
           requestId,
@@ -544,20 +594,20 @@ const requestResolver = {
           }
         })
         pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
-        // const message = `Запрос на продление заявки ${request.requestNumber} отправлен диспетчеру.`
         return request
       }
 
-      // Если новые значения не пришли, используем существующие данные
+      // Если пользователь диспетчер, обновляем даты и план питания.
       const updatedStart = newStart ? newStart : request.arrival
       const updatedEnd = newEnd ? newEnd : request.departure
 
-      // Обновляем hotelChess с новыми (или старыми) датами
+      // Обновляем связанные данные hotelChess с новыми датами.
       const updatedHotelChess = await prisma.hotelChess.update({
         where: { id: request.hotelChess[0].id },
         data: { start: updatedStart, end: updatedEnd }
       })
 
+      // Если у заявки имеется существующий план питания, используем его как основу.
       const existingMealPlan = request.mealPlan || {
         included: true,
         breakfast: 0,
@@ -566,8 +616,7 @@ const requestResolver = {
         dailyMeals: []
       }
 
-      // Используем обновлённые даты для расчёта плана питания
-
+      // Получаем настройки приема пищи от отеля для расчета нового плана питания.
       const hotel = await prisma.hotel.findUnique({
         where: { id: request.hotelId },
         select: {
@@ -583,6 +632,7 @@ const requestResolver = {
       }
       const newMealPlan = calculateMeal(updatedStart, updatedEnd, mealTimes)
 
+      // Обновляем заявку с новыми датами, пересчитанным планом питания и измененным статусом.
       const updatedRequest = await prisma.request.update({
         where: { id: requestId },
         data: {
@@ -618,6 +668,8 @@ const requestResolver = {
       return updatedRequest
     },
 
+    // Архивация заявки.
+    // Если дата отбытия меньше текущей и статус заявки не "archived", меняем статус на "archived".
     archivingRequest: async (_, input, context) => {
       const { user } = context
       const requestId = input.id
@@ -648,6 +700,8 @@ const requestResolver = {
       }
     },
 
+    // Отмена заявки.
+    // Обновляем статус заявки на "canceled", удаляем связанные hotelChess и логируем действие.
     cancelRequest: async (_, input, context) => {
       const { user } = context
       const requestId = input.id
@@ -679,49 +733,61 @@ const requestResolver = {
   },
 
   Subscription: {
+    // Подписка на событие создания заявки
     requestCreated: {
       subscribe: () => pubsub.asyncIterator([REQUEST_CREATED])
     },
+    // Подписка на событие обновления заявки
     requestUpdated: {
       subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
     },
+    // Подписка на уведомления
     notification: {
       subscribe: () => pubsub.asyncIterator([NOTIFICATION])
     }
   },
 
+  // Резольверы для полей типа Request,
+  // обеспечивающие получение связанных сущностей: аэропорт, авиалиния, отель, hotelChess, сотрудник и чат.
   Request: {
+    // Получение аэропорта по ID, указанному в заявке.
     airport: async (parent) => {
       return await prisma.airport.findUnique({
         where: { id: parent.airportId }
       })
     },
+    // Получение авиалинии по ID, указанному в заявке.
     airline: async (parent) => {
       return await prisma.airline.findUnique({
         where: { id: parent.airlineId }
       })
     },
+    // Получение отеля, связанного с заявкой (если задан).
     hotel: async (parent) => {
       if (!parent.hotelId) return null
       return await prisma.hotel.findUnique({
         where: { id: parent.hotelId }
       })
     },
+    // Получение первой записи hotelChess, связанной с данной заявкой.
     hotelChess: async (parent) => {
       return await prisma.hotelChess.findFirst({
         where: { requestId: parent.id }
       })
     },
+    // Получение данных сотрудника авиакомпании, к которому привязана заявка.
     person: async (parent) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id: parent.personId }
       })
     },
+    // Получение чатов, связанных с данной заявкой.
     chat: async (parent) => {
       return await prisma.chat.findMany({
         where: { requestId: parent.id }
       })
     },
+    // Получение логов по заявке с информацией о пользователе, выполнившем действие.
     logs: async (parent) => {
       return await prisma.log.findMany({
         where: { requestId: parent.id },

@@ -88,7 +88,7 @@ app.use(
               airlineDepartmentId: true,
               hotelId: true,
               dispatcher: true,
-              support: true,
+              support: true
             }
           })
         } catch (e) {

@@ -1,3 +1,4 @@
+// Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
@@ -18,6 +19,7 @@ import bcrypt from "bcrypt"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { SubscriptionClient } from "subscriptions-transport-ws"
 
+// Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
   host: "smtp.mail.ru",
   port: 465,
@@ -28,31 +30,38 @@ const transporter = nodemailer.createTransport({
   }
 })
 
+// Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
+  // Подключаем тип Upload для поддержки загрузки файлов через GraphQL
   Upload: GraphQLUpload,
 
   Query: {
+    // Получение всех пользователей, сортированных по имени (возвращает всех)
     users: async (_, __, context) => {
       return prisma.user.findMany({ orderBy: { name: "asc" } })
     },
+    // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
         where: { airlineId },
         orderBy: { name: "asc" }
       })
     },
+    // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId }, context) => {
       return prisma.user.findMany({
         where: { hotelId },
         orderBy: { name: "asc" }
       })
     },
+    // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, __, context) => {
       return prisma.user.findMany({
         where: { dispatcher: true },
         orderBy: { name: "asc" }
       })
     },
+    // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
       return prisma.user.findUnique({
         where: { id: userId }
@@ -61,8 +70,9 @@ const userResolver = {
   },
 
   Mutation: {
+    // Регистрация пользователя (используется админами отелей/авиакомпаний)
     registerUser: async (_, { input, images }, context) => {
-      // Проверяем права: разрешено только администраторам по отелям/авиакомпаниям
+      // Проверка прав: доступ разрешен только администраторам отелей/авиакомпаний
       adminHotelAirMiddleware(context)
 
       const {
@@ -77,9 +87,10 @@ const userResolver = {
         dispatcher,
         airlineDepartmentId
       } = input
+      // Хэширование пароля с помощью argon2
       const hashedPassword = await argon2.hash(password)
 
-      // Проверка существующего пользователя с таким email или login
+      // Проверяем, существует ли пользователь с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [{ email }, { login }]
@@ -105,6 +116,7 @@ const userResolver = {
         }
       }
 
+      // Обработка загрузки изображений: загружаем каждое изображение и сохраняем пути
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -112,7 +124,7 @@ const userResolver = {
         }
       }
 
-      // Данные для создания пользователя
+      // Формирование данных для создания нового пользователя
       const createdData = {
         name,
         email,
@@ -127,11 +139,12 @@ const userResolver = {
         images: imagePaths
       }
 
-      // Создаём пользователя
+      // Создаем пользователя в базе данных
       const newUser = await prisma.user.create({
         data: createdData
       })
 
+      // (Опционально) Отправка email с данными аккаунта (закомментировано)
       // try {
       //   const info = await transporter.sendMail({
       //     from: `${process.env.EMAIL_USER}`,
@@ -143,17 +156,21 @@ const userResolver = {
       //   console.error("Ошибка при отправке письма:", error)
       // }
 
+      // Логирование действия создания пользователя
       await logAction({
         context,
         action: "create_user",
         description: `Пользователь ${context.user.name} добавил нового пользователя ${createdData.name}`
       })
 
+      // Публикация события о создании пользователя для подписок
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
     },
 
+    // Регистрация (signUp) нового пользователя самостоятельно
     signUp: async (_, { input, images }) => {
+      // Обработка загрузки изображений
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -161,12 +178,12 @@ const userResolver = {
         }
       }
 
-      // Генерация 2FA-секрета
+      // Генерация секрета для двухфакторной аутентификации (2FA)
       const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role } = input
       const hashedPassword = await argon2.hash(password)
 
-      // Проверяем, существует ли уже пользователь с таким email или login
+      // Проверка на существование пользователя с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [{ email }, { login }]
@@ -192,7 +209,7 @@ const userResolver = {
         }
       }
 
-      // Создаём пользователя
+      // Создание нового пользователя с сохранением 2FA-секрета
       const newUser = await prisma.user.create({
         data: {
           name,
@@ -205,7 +222,7 @@ const userResolver = {
         }
       })
 
-      // Генерация токена
+      // Генерация токена доступа с помощью jwt
       const token = jwt.sign(
         {
           userId: newUser.id,
@@ -219,19 +236,23 @@ const userResolver = {
 
       pubsub.publish(USER_CREATED, { userCreated: newUser })
 
+      // Возвращаем пользователя вместе с токеном
       return {
         ...newUser,
         token
       }
     },
 
+    // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
       const { login, password, token2FA } = input
+      // Ищем пользователя по логину
       const user = await prisma.user.findUnique({ where: { login } })
+      // Проверка корректности пароля с помощью argon2.verify
       if (!user || !(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
-      // Если включена двухфакторная аутентификация, проверяем токен
+      // Если у пользователя включена двухфакторная аутентификация, проверяем токен 2FA
       if (user.is2FAEnabled) {
         let verified
         if (user.twoFAMethod === "TOTP") {
@@ -252,6 +273,7 @@ const userResolver = {
           throw new Error("Invalid 2FA token")
         }
       }
+      // Генерация токена доступа
       const token = jwt.sign(
         {
           userId: user.id,
@@ -268,57 +290,7 @@ const userResolver = {
       }
     },
 
-    // updateUser: async (_, { input, images }, context) => {
-    //   const {
-    //     id,
-    //     name,
-    //     email,
-    //     login,
-    //     password,
-    //     role,
-    //     position,
-    //     hotelId,
-    //     airlineId,
-    //     airlineDepartmentId
-    //   } = input
-    //   // Разрешаем обновление либо админам, либо самому пользователю
-    //   if (context.user.id !== id && adminMiddleware(context)) {
-    //     throw new Error("Access forbidden: Admins only or self-update allowed.")
-    //   }
-    //   let imagePaths = []
-    //   if (images && images.length > 0) {
-    //     for (const image of images) {
-    //       imagePaths.push(await uploadImage(image))
-    //     }
-    //   }
-    //   let hashedPassword
-    //   if (password) {
-    //     hashedPassword = await argon2.hash(password)
-    //   }
-    //   const updatedData = {
-    //     name,
-    //     email,
-    //     login,
-    //     role,
-    //     position,
-    //     hotelId: hotelId ? hotelId : undefined,
-    //     airlineId: airlineId ? airlineId : undefined,
-    //     airlineDepartmentId: airlineDepartmentId || null
-    //   }
-    //   if (images != null) {
-    //     updatedData.images = imagePaths
-    //   }
-    //   if (hashedPassword) {
-    //     updatedData.password = hashedPassword
-    //   }
-    //   const updatedUser = await prisma.user.update({
-    //     where: { id },
-    //     data: updatedData
-    //   })
-    //   pubsub.publish(USER_CREATED, { userCreated: updatedUser })
-    //   return updatedUser
-    // },
-
+    // Обновление данных пользователя. Разрешено либо админам, либо самому пользователю.
     updateUser: async (_, { input, images }, context) => {
       const {
         id,
@@ -326,7 +298,7 @@ const userResolver = {
         email,
         login,
         password,
-        oldPassword, // предыдущее значение пароля
+        oldPassword, // Предыдущее значение пароля (для проверки при смене)
         role,
         position,
         hotelId,
@@ -334,10 +306,11 @@ const userResolver = {
         airlineDepartmentId
       } = input
       console.log(input)
-      // Разрешаем обновление либо админам, либо самому пользователю
+      // Если обновляет не сам пользователь, разрешено только админам
       if (context.user.id !== id && adminHotelAirMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
+      // Получаем текущие данные пользователя из базы
       const currentUser = await prisma.user.findUnique({ where: { id } })
       // Формируем объект обновления, добавляя только те поля, которые заданы
       const updatedData = {}
@@ -345,6 +318,7 @@ const userResolver = {
       if (email !== undefined) updatedData.email = email
       if (login !== undefined) updatedData.login = login
       if (role !== undefined) {
+        // Разрешаем изменение роли только администраторам
         if (role !== currentUser.role) {
           adminHotelAirMiddleware(context)
           updatedData.role = role
@@ -356,7 +330,7 @@ const userResolver = {
       if (airlineDepartmentId !== undefined)
         updatedData.airlineDepartmentId = airlineDepartmentId
 
-      // Обработка загрузки изображений
+      // Обработка загрузки новых изображений
       if (images && images.length > 0) {
         let imagePaths = []
         for (const image of images) {
@@ -365,49 +339,50 @@ const userResolver = {
         updatedData.images = imagePaths
       }
 
-      // Обработка обновления пароля: если новый пароль передан, то требуется oldPassword
+      // Обработка смены пароля: если передан новый пароль, требуется проверить старый
       if (password) {
         if (!oldPassword) {
           throw new Error(
             "Для обновления пароля необходимо указать предыдущий пароль."
           )
         }
-        // Получаем текущего пользователя из базы
-
+        // Проверяем, что oldPassword совпадает с текущим паролем
         const valid = await argon2.verify(currentUser.password, oldPassword)
         if (!valid) {
           throw new Error("Указан неверный пароль.")
         }
-        // Хэшируем новый пароль
+        // Хэшируем новый пароль и добавляем в объект обновления
         const hashedPassword = await argon2.hash(password)
         updatedData.password = hashedPassword
       }
 
+      // Обновляем пользователя в базе данных
       const updatedUser = await prisma.user.update({
         where: { id },
         data: updatedData
       })
 
+      // Публикуем событие создания/обновления пользователя
       pubsub.publish(USER_CREATED, { userCreated: updatedUser })
       return updatedUser
     },
 
-    // Мутация для запроса восстановления пароля
+    // Мутация для запроса восстановления пароля.
+    // Ищется пользователь по email, генерируется токен сброса, обновляются поля в базе и отправляется email.
     requestResetPassword: async (_, { email }, context) => {
       // Ищем пользователя по email
       const user = await prisma.user.findUnique({ where: { email } })
-      // Для безопасности возвращаем одно и то же сообщение независимо от того, найден пользователь или нет
-      const message =
-        "Инструкции отправлены на указанный email."
+      // Для безопасности возвращаем одно и то же сообщение, независимо от результата
+      const message = "Инструкции отправлены на указанный email."
       if (!user) {
         return message
       }
 
-      // Генерируем токен и срок действия (например, 1 час)
+      // Генерируем уникальный токен и устанавливаем срок действия (1 час)
       const token = uuidv4()
       const expires = new Date(Date.now() + 60 * 60 * 1000)
 
-      // Обновляем запись пользователя: сохраняем токен и срок действия
+      // Обновляем данные пользователя, сохраняя токен и его срок действия
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -416,19 +391,19 @@ const userResolver = {
         }
       })
 
-      // Отправляем письмо с инструкциями
+      // Отправляем письмо с инструкциями по сбросу пароля
       await sendResetPasswordEmail(user.email, token)
 
       return message
     },
 
-    // Мутация для сброса пароля
+    // Мутация для сброса пароля с использованием токена восстановления.
     resetPassword: async (_, { token, newPassword }, context) => {
       if (!token || !newPassword) {
         throw new Error("Неверные данные")
       }
 
-      // Ищем пользователя по токену, проверяя, что токен не просрочен
+      // Ищем пользователя по токену, проверяя, что срок действия не истек
       const user = await prisma.user.findFirst({
         where: {
           resetPasswordToken: token,
@@ -440,10 +415,10 @@ const userResolver = {
         throw new Error("Неверный или просроченный токен")
       }
 
-      // Захешируем новый пароль
+      // Хэшируем новый пароль с использованием bcrypt
       const hashedPassword = await bcrypt.hash(newPassword, 10)
 
-      // Обновляем пароль и очищаем поля токена
+      // Обновляем пароль и очищаем поля токена сброса
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -456,10 +431,14 @@ const userResolver = {
       return "Пароль успешно обновлен."
     },
 
+    // Включение двухфакторной аутентификации (2FA) для текущего пользователя.
+    // Генерируется секрет, сохраняется в базе, а для TOTP возвращается QR-код.
     enable2FA: async (_, { input }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       let method = input.method
+      // Генерация секрета для 2FA
       const twoFASecret = speakeasy.generateSecret().base32
+      // Если выбран метод HOTP, генерируем одноразовый токен и отправляем его на email
       if (method === "HOTP") {
         const token = speakeasy.hotp({
           secret: twoFASecret,
@@ -477,11 +456,13 @@ const userResolver = {
           console.error("Ошибка при отправке письма:", error)
         }
       }
+      // Обновляем данные пользователя: сохраняем секрет, метод 2FA и включаем 2FA
       await prisma.user.update({
         where: { id: context.user.id },
         data: { twoFASecret, twoFAMethod: method, is2FAEnabled: true }
       })
       if (method === "TOTP") {
+        // Генерируем otpauth URL и преобразуем его в QR-код
         const otpauthUrl = speakeasy.otpauthURL({
           secret: twoFASecret,
           label: `KarsAvia (${context.user.email})`,
@@ -493,6 +474,7 @@ const userResolver = {
       return { qrCodeUrlL: null }
     },
 
+    // Верификация 2FA токена для текущего пользователя.
     verify2FA: async (_, { token }, context) => {
       if (!context.user) throw new Error("Unauthorized")
       const user = await prisma.user.findUnique({
@@ -517,6 +499,8 @@ const userResolver = {
       return { success: true }
     },
 
+    // Обновление (refresh) токенов аутентификации.
+    // На основании действующего refreshToken генерируется новый accessToken и новый refreshToken.
     refreshToken: async (_, { refreshToken }) => {
       const user = await prisma.user.findUnique({ where: { refreshToken } })
       if (!user) {
@@ -541,6 +525,7 @@ const userResolver = {
       }
     },
 
+    // Выход (logout) пользователя: очищается refreshToken в базе.
     logout: async (_, __, context) => {
       if (!context.user) throw new Error("Not authenticated")
       await prisma.user.update({
@@ -550,6 +535,9 @@ const userResolver = {
       return { message: "Logged out successfully" }
     },
 
+    // Удаление пользователя.
+    // Производится проверка наличия пользователя, его роли (SUPERADMIN удалять нельзя),
+    // а также дополнительные проверки по принадлежности к авиакомпании или отелю.
     deleteUser: async (_, { id }, context) => {
       const { user } = context
       const userForDelete = await prisma.user.findUnique({
@@ -559,10 +547,12 @@ const userResolver = {
         throw new Error("User not found")
       }
 
+      // Нельзя удалять супер-администратора
       if (userForDelete.role === "SUPERADMIN") {
         throw new Error("Access forbidden")
       }
 
+      // Если пользователь привязан к авиакомпании – проверяем права авиадминистратора
       if (userForDelete.airlineId) {
         airlineAdminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
@@ -575,6 +565,7 @@ const userResolver = {
         })
       }
 
+      // Если пользователь привязан к отелю – проверяем права отельного администратора
       if (userForDelete.hotelId) {
         hotelAdminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
@@ -587,6 +578,7 @@ const userResolver = {
         })
       }
 
+      // Если пользователь является диспетчером, требуется административный доступ
       if (userForDelete.dispatcher) {
         adminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
@@ -598,36 +590,21 @@ const userResolver = {
           where: { id }
         })
       }
-
-      // if (context.user.role !== "SUPERADMIN" && context.user.id !== id) {
-      //   throw new Error("Access forbidden: Admins only or self-delete allowed")
-      // }
-      // return await prisma.user.delete({
-      //   where: { id }
-      // })
     }
   },
+
   Subscription: {
+    // Подписка на событие создания нового пользователя
     userCreated: {
       subscribe: () => pubsub.asyncIterator([USER_CREATED])
     }
   }
 }
 
-// Функция для отправки письма восстановления пароля
+// Функция для отправки письма восстановления пароля.
+// Формируется ссылка для сброса пароля, которая действительна в течение 1 часа.
 const sendResetPasswordEmail = async (userEmail, token) => {
-  // const transporter = nodemailer.createTransport({
-  //   host: "smtp.example.com", // замените на настройки вашего SMTP-сервера
-  //   port: 587,
-  //   secure: false,
-  //   auth: {
-  //     user: "your-email@example.com",
-  //     pass: "your-email-password"
-  //   }
-  // })
-
-  // Ссылка для сброса пароля (замените домен)
-  // const resetLink = `https://karsavia.ru/reset-password?token=${token}`
+  // Ссылка для сброса пароля (замените домен на нужный)
   const resetLink = `https://192.168.0.14/reset-password?token=${token}`
 
   const mailOptions = {
@@ -638,6 +615,7 @@ const sendResetPasswordEmail = async (userEmail, token) => {
            <p>Ссылка действительна в течение 1 часа.</p>`
   }
 
+  // Отправка письма через настроенный транспортёр
   await transporter.sendMail(mailOptions)
 }
 
