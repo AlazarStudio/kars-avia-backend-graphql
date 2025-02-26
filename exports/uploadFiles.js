@@ -25,7 +25,11 @@ export const uploadFiles = async (file) => {
     const out = createWriteStream(uploadPath)
     stream.pipe(out)
     out.on("finish", () => resolve(`/uploads/${uniqueFilename}`))
-    out.on("error", (err) => reject(err))
+    // out.on("error", (err) => reject(err))
+    out.on("error", (err) => {
+      console.error("Error writing file:", err)
+      reject(err) // Отправка ошибки в промис
+    })
   })
 }
 
@@ -34,7 +38,7 @@ export const deleteFiles = async (filePath) => {
   const absolutePath = path.join(process.cwd(), filePath)
   try {
     await fsPromises.unlink(absolutePath)
-    console.log(`Файл ${absolutePath} успешно удалён.`)
+    // console.log(`Файл ${absolutePath} успешно удалён.`)
   } catch (error) {
     console.error(`Ошибка при удалении файла ${absolutePath}:`, error)
     // При необходимости можно пробросить ошибку или проигнорировать её

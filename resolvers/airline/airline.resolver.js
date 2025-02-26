@@ -148,7 +148,7 @@ const airlineResolver = {
       await logAction({
         context,
         action: "create_airline",
-        description: `Пользователь ${user.name} добавил авиакомпанию ${createdAirline.name}`,
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию  <span style='color:#545873'> ${createdAirline.name} </span> `,
         airlineName: createdAirline.name,
         airlineId: createdAirline.id
       })
@@ -176,10 +176,23 @@ const airlineResolver = {
       try {
         // Обновляем основную информацию об авиакомпании,
         // включая обновление поля mealPrice и изображений (если новые были загружены)
+        const previousAirlineData = await prisma.airline.findUnique({
+          where: { id },
+          select: { prices: true, mealPrice: true } // Получаем текущее значение mealPrice
+        })
+
         const updatedAirline = await prisma.airline.update({
           where: { id },
           data: {
             ...restInput,
+            prices: {
+              ...previousAirlineData.prices, // Оставляем старые цены
+              ...input.prices // Обновляем только переданные поля
+            },
+            mealPrice: {
+              ...previousAirlineData.mealPrice, // Оставляем старые значения
+              ...input.mealPrice // Обновляем только переданные поля
+            },
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
@@ -203,7 +216,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь ${user.name} изменил данные в департаменте ${depart.name}`,
+                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  изменил данные в департаменте  <span style='color:#545873'> ${depart.name} </span> `,
                 airlineId: id
               })
             } else {
@@ -222,7 +235,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь ${user.name} добавил департамент ${depart.name}`,
+                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  добавил департамент  <span style='color:#545873'> ${depart.name} </span> `,
                 airlineId: id
               })
             }
@@ -247,7 +260,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь ${user.name} обновил данные пользователя ${person.name}`,
+                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  обновил данные пользователя  <span style='color:#545873'> ${person.name} </span> `,
                 airlineId: id
               })
             } else {
@@ -265,7 +278,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь ${user.name} добавил пользователя ${person.name}`,
+                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  добавил пользователя  <span style='color:#545873'> ${person.name} </span> `,
                 airlineId: id
               })
             }
@@ -285,7 +298,7 @@ const airlineResolver = {
         await logAction({
           context,
           action: "update_airline",
-          description: `Пользователь ${user.name} обновил данные авиакомпании ${airlineWithRelations.name}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> обновил данные авиакомпании <span style='color:#545873'>${airlineWithRelations.name}</span>`,
           airlineId: id
         })
 

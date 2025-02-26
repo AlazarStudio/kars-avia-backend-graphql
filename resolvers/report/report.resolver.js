@@ -656,7 +656,6 @@ const aggregateRequestReports = (
       : "Не указано"
 
     const roomName = hotelChess.room?.name
-    console.log(roomName)
     return {
       index: index + 1,
       arrival: arrivalFormatted,

@@ -67,7 +67,7 @@ export const deleteImage = async (imagePath) => {
   const absolutePath = path.join(process.cwd(), imagePath)
   try {
     await fsPromises.unlink(absolutePath)
-    console.log(`Файл ${absolutePath} успешно удалён.`)
+    // console.log(`Файл ${absolutePath} успешно удалён.`)
   } catch (error) {
     console.error(`Ошибка при удалении файла ${absolutePath}:`, error)
     // При необходимости можно пробросить ошибку или проигнорировать её

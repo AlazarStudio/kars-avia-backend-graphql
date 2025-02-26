@@ -1,7 +1,6 @@
 // migration.js
 import { PrismaClient as OldPrismaClient } from "./oldPrismaClient.js" // Клиент для старой базы (бэкап)
 import { PrismaClient as NewPrismaClient } from "./prisma.js" // Клиент для новой базы
-import _ from "lodash"
 
 const oldPrisma = new OldPrismaClient()
 const newPrisma = new NewPrismaClient()

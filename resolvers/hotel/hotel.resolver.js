@@ -159,7 +159,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "create_hotel",
-        description: `Пользователь ${user.name} создал отель ${createdHotel.name}`,
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> создал отель <span style='color:#545873'>${createdHotel.name}</span> `,
         hotelName: createdHotel.name,
         hotelId: createdHotel.id
       })
@@ -199,14 +199,22 @@ const hotelResolver = {
       try {
         // Сохраняем предыдущие данные отеля для логирования изменений
         const previousHotelData = await prisma.hotel.findUnique({
-          where: { id }
+          where: { id },
+          select: { prices: true, mealPrice: true } // Получаем текущие цены
         })
 
-        // Обновляем основную информацию об отеле, включая изображения (если они были переданы)
         const updatedHotel = await prisma.hotel.update({
           where: { id },
           data: {
             ...restInput,
+            prices: {
+              ...previousHotelData.prices, // Оставляем старые цены
+              ...input.prices // Обновляем только переданные поля
+            },
+            mealPrice: {
+              ...previousHotelData.mealPrice, // Оставляем старые значения
+              ...input.mealPrice // Обновляем только переданные поля
+            },
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })
@@ -549,7 +557,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "update_room",
-                description: `Пользователь ${user.name} изменил данные в комнате ${room.name}`,
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в комнате <span style='color:#545873'>${room.name}</span>`,
                 oldData: previousRoomData,
                 newData: room,
                 hotelId: room.hotelId
@@ -577,7 +585,7 @@ const hotelResolver = {
               await logAction({
                 context,
                 action: "create_room",
-                description: `Пользователь ${user.name} добавил комнату ${room.name}`,
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил комнату <span style='color:#545873'>${room.name}</span>`,
                 newData: room,
                 hotelId: id
               })
@@ -622,7 +630,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete_hotel",
-        description: {},
+        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> удалил отель  <span style='color:#545873'> ${hotelToDelete.name}</span>`,
         oldData: hotelToDelete,
         newData: hotelToDelete,
         hotelId: id
@@ -655,7 +663,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete_room",
-        description: {},
+        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> удалил комнату <span style='color:#545873'> ${roomToDelete.name}</span>`,
         oldData: roomToDelete,
         newData: roomToDelete,
         hotelId: roomToDelete.hotelId

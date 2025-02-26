@@ -1,7 +1,6 @@
 // Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import isEqual from "lodash.isequal"
 import logAction from "../../exports/logaction.js"
 import {
   MESSAGE_SENT,
@@ -23,6 +22,7 @@ import {
 } from "../../exports/generateReservePas.js"
 import path from "path"
 import fs from "fs"
+import { console } from "inspector"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -156,13 +156,13 @@ const reserveResolver = {
             await logAction({
               context,
               action: "open_reserve",
-              description: `Reserve № ${updatedReserve.reserveNumber} opened by ${user.name}`,
+              description: `Заявка № <span style='color:#545873'>${updatedReserve.reserveNumber}</span> открыта пользователем <span style='color:#545873'>${user.name}</span>`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               reserveId: updatedReserve.id
             })
           } catch (error) {
-            console.error("Error logging reserve open:", error)
+            console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
         pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
@@ -331,7 +331,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "create_reserve",
-        description: `Пользователь ${user.name} создал заявку № ${newReserve.reserveNumber} в аэропорт ${newReserve.airport.name}`,
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку № <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span>`,
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
@@ -350,6 +350,7 @@ const reserveResolver = {
     // Обновление существующего резерва.
     // Если пользователь связан с авиалинией, создается запрос на изменение дат через чат.
     updateReserve: async (_, { id, input, files }, context) => {
+
       const { user } = context
       const { arrival, departure, mealPlan, status } = input
       airlineAdminMiddleware(context)
@@ -370,6 +371,8 @@ const reserveResolver = {
           chat: true
         }
       })
+
+      // process.stdout.write(`reserve - ${JSON.stringify(reserve)} \n `)
 
       // Обработка файлов: загрузка новых и удаление старых, если они есть.
       let filesPath = []
@@ -395,6 +398,10 @@ const reserveResolver = {
 
       // Если пользователь связан с авиалинией, формируется запрос на изменение дат через чат.
       if (user.airlineId) {
+        // if (arrival === reserve.arrival && departure === reserve.departure) {
+        if (arrival == undefined && departure == undefined) {
+          return reserve
+        }
         const extendRequest = {
           id,
           arrival,
@@ -421,6 +428,7 @@ const reserveResolver = {
             sender: true
           }
         })
+
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ReserveUpdatedNotification",
@@ -478,7 +486,6 @@ const reserveResolver = {
           }
         }
       }
-
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },
@@ -521,7 +528,6 @@ const reserveResolver = {
               user: { connect: { id: user.id } }
             }
           })
-          console.log("newChat", newChat)
         }
         const updatedReserve = await prisma.reserve.findUnique({
           where: { id: reservationId },
@@ -532,7 +538,7 @@ const reserveResolver = {
         await logAction({
           context,
           action: "update_reserve",
-          description: `К заявке добавлен отель ${reserveHotel.hotel.name}`,
+          description: `К заявке <span style='color:#545873'>${updatedReserve.reserveNumber}</span> добавлен отель <span style='color:#545873'>${reserveHotel.hotel.name}</span>`,
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
@@ -603,7 +609,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "update_reserve",
-        description: `Пассажир ${newPassenger.name} в отель ${reserveHotel.hotel.name} для резерва № ${reserve.reserveNumber}`,
+        description: `Пассажир <span style='color:#545873'>${newPassenger.name}</span> добавлен в отель <span style='color:#545873'>${reserveHotel.hotel.name}</span> для заявки № <span style='color:#545873'>${reserve.reserveNumber}</span>`,
         reserveId: reservationId,
         hotelId: hotelId
       })
@@ -694,7 +700,7 @@ const reserveResolver = {
         await logAction({
           context,
           action: "archive_reserve",
-          description: `User ${user.name} archived reserve № ${archiveReserve.reserveNumber}`,
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил заявку № <span style='color:#545873'>${archiveReserve.reserveNumber}</span> в архив`,
           oldData: reserve,
           newData: { status: "archived" },
           reserveId: reserve.id

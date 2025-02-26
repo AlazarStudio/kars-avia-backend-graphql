@@ -160,7 +160,7 @@ const userResolver = {
       await logAction({
         context,
         action: "create_user",
-        description: `Пользователь ${context.user.name} добавил нового пользователя ${createdData.name}`
+        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> добавил нового пользователя <span style='color:#545873'>${createdData.name}</span>`
       })
 
       // Публикация события о создании пользователя для подписок
@@ -305,7 +305,6 @@ const userResolver = {
         airlineId,
         airlineDepartmentId
       } = input
-      console.log(input)
       // Если обновляет не сам пользователь, разрешено только админам
       if (context.user.id !== id && adminHotelAirMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")

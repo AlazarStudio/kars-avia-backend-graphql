@@ -57,6 +57,7 @@ await server.start()
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
 app.use("/reports", express.static("reports"))
+app.use("/reserve", express.static("reserve"))
 
 app.use(
   "/",
