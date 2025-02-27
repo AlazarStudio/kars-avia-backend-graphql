@@ -213,6 +213,7 @@ const reportResolver = {
         createdAt: new Date(),
         airlineId:
           user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
+          // separator
       }
 
       if (!reportRecord.airlineId) {

@@ -17,7 +17,9 @@ import {
 import {
   adminHotelAirMiddleware,
   airlineAdminMiddleware,
-  airlineModerMiddleware
+  airlineModerMiddleware,
+  dispatcherModerMiddleware,
+  moderatorMiddleware
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
@@ -139,9 +141,11 @@ const requestResolver = {
         throw new Error("Request not found")
       }
       // Если заявка находится в архиве, для доступа требуется проверка прав администратора.
-      if (request.archive === true) {
-        airlineAdminMiddleware(context)
-      }
+
+      // if (request.archive === true) {
+      //   airlineAdminMiddleware(context)
+      // }
+
       // Если пользователь является диспетчером, при первом открытии заявки (status === "created")
       // обновляем статус на "opened", записываем лог и публикуем событие.
       if (!user || !user.dispatcher) {
@@ -355,7 +359,7 @@ const requestResolver = {
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
       // Проверка прав: airlineModerMiddleware для модераторов авиалиний
-      airlineModerMiddleware(context)
+      moderatorMiddleware(context)
       const {
         airportId,
         arrival,
@@ -674,6 +678,7 @@ const requestResolver = {
     // Если дата отбытия меньше текущей и статус заявки не "archived", меняем статус на "archived".
     archivingRequest: async (_, input, context) => {
       const { user } = context
+      dispatcherModerMiddleware(context)
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
@@ -706,6 +711,7 @@ const requestResolver = {
     // Обновляем статус заявки на "canceled", удаляем связанные hotelChess и логируем действие.
     cancelRequest: async (_, input, context) => {
       const { user } = context
+      airlineModerMiddleware(context)
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId },

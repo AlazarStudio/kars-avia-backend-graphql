@@ -34,6 +34,11 @@ export const roleMiddleware = (context, allowedRoles) => {
   }
 }
 
+// 
+export const dispatcherModerMiddleware = (context) => {
+  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "DISPATCHERMODERATOR"])
+}
+
 // Специфичные мидлвары для ролей на основе универсального
 export const superAdminMiddleware = (context) =>
   roleMiddleware(context, ["SUPERADMIN"])
@@ -55,7 +60,7 @@ export const moderatorMiddleware = (context) =>
     "DISPATCHERADMIN",
     "HOTELADMIN",
     "AIRLINEADMIN",
-    "MODERATOR",
+    "DISPATCHERMODERATOR",
     "HOTELMODERATOR",
     "AIRLINEMODERATOR"
   ])
@@ -87,6 +92,7 @@ export const airlineModerMiddleware = (context) =>
   roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
+    "DISPATCHERMODERATOR",
     "AIRLINEADMIN",
     "AIRLINEMODERATOR"
   ])

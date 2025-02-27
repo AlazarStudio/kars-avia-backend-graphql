@@ -13,7 +13,11 @@ import {
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
-import { airlineAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  airlineAdminMiddleware,
+  airlineModerMiddleware,
+  dispatcherModerMiddleware
+} from "../../middlewares/authMiddleware.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 import { formatDate } from "../../exports/dateTimeFormater.js"
 import {
@@ -217,6 +221,7 @@ const reserveResolver = {
     // создается чат для резерва и происходит логирование действия.
     createReserve: async (_, { input, files }, context) => {
       const { user } = context
+      airlineModerMiddleware(context)
       const {
         airportId,
         arrival,
@@ -350,10 +355,9 @@ const reserveResolver = {
     // Обновление существующего резерва.
     // Если пользователь связан с авиалинией, создается запрос на изменение дат через чат.
     updateReserve: async (_, { id, input, files }, context) => {
-
       const { user } = context
       const { arrival, departure, mealPlan, status } = input
-      airlineAdminMiddleware(context)
+      airlineModerMiddleware(context)
       // Корректировка времени (сдвиг на 3 часа)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
@@ -625,7 +629,8 @@ const reserveResolver = {
         where: { id }
       })
       const reserveHotel = await prisma.reserveHotel.findUnique({
-        where: { id: deletedPassenger.reserveHotelId }
+        where: { id: deletedPassenger.reserveHotelId },
+        include: { passengers: true }
       })
       pubsub.publish(RESERVE_PERSONS, { reservePersons: reserveHotel })
       return reserveHotel
@@ -685,6 +690,7 @@ const reserveResolver = {
     // Резерв архивируется, если дата вылета меньше текущей и статус не равен "archived".
     archivingReserve: async (_, input, context) => {
       const { user } = context
+      dispatcherModerMiddleware(context)
       const reserveId = input.id
       const reserve = await prisma.reserve.findUnique({
         where: { id: reserveId }
