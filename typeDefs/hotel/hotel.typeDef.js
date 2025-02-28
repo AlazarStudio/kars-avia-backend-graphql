@@ -75,8 +75,11 @@ input MealPriceInput {
 # Тип плана питания (в случае, если структура фиксирована)
 type MealPlan {
   included: Boolean
+  breakfastEnabled: Boolean
   breakfast: Int
+  lunchEnabled: Boolean
   lunch: Int
+  dinnerEnabled: Boolean 
   dinner: Int
   dailyMeals: [DailyMeal]
 }

@@ -38,14 +38,6 @@ const reserveTypeDef = `#graphql
     hotelChess: [HotelChess]
   }
 
-  # Тип плана питания для резерва
-  # type MealPlan {
-  #   included: Boolean!
-  #   breakfast: Int
-  #   lunch: Int
-  #   dinner: Int
-  # }
-
   type ReportFile {
     name: String!
     url: String!

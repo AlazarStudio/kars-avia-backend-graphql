@@ -44,21 +44,6 @@ type Log {
   createdAt: Date!
 }
 
-# type MealPlan {
-#   included: Boolean
-#   breakfast: Int
-#   lunch: Int
-#   dinner: Int
-#   dailyMeals: [DailyMeal]
-# }
-
-# type DailyMeal {
-#   date: Date!
-#   breakfast: Int!
-#   lunch: Int!
-#   dinner: Int!
-# }
-
 type RequestConnection {
   totalPages: Int!
   totalCount: Int!
@@ -88,11 +73,18 @@ input UpdateRequestInput {
   status: String
 }
 
+# input MealPlanInput {
+#   included: Boolean
+#   breakfast: Int
+#   lunch: Int
+#   dinner: Int
+# }
+
 input MealPlanInput {
   included: Boolean
-  breakfast: Int
-  lunch: Int
-  dinner: Int
+  breakfastEnabled: Boolean
+  lunchEnabled: Boolean
+  dinnerEnabled: Boolean
 }
 
 input DailyMealInput {

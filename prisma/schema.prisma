@@ -83,11 +83,14 @@ type MealPrice {
 }
 
 type MealPlan {
-  included   Boolean
-  breakfast  Int?
-  lunch      Int?
-  dinner     Int?
-  dailyMeals DailyMeal[]
+  included         Boolean     @default(false)
+  breakfastEnabled Boolean     @default(false)
+  breakfast        Int?
+  lunchEnabled     Boolean     @default(false)
+  lunch            Int?
+  dinnerEnabled    Boolean     @default(false)
+  dinner           Int?
+  dailyMeals       DailyMeal[]
 }
 
 type DailyMeal {

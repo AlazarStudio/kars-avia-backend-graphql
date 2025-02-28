@@ -226,7 +226,6 @@ const requestResolver = {
           }
         }
       })
-
       if (existingRequest) {
         throw new Error(`Request already exists with id: ${existingRequest.id}`)
       }
@@ -283,6 +282,22 @@ const requestResolver = {
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
+        }
+      }
+
+      if (mealPlan && mealPlan.included) {
+        // Если требуется, чтобы все приёмы были включены, можно проверять:
+        if (
+          !mealPlan.breakfastEnabled ||
+          !mealPlan.lunchEnabled ||
+          !mealPlan.dinnerEnabled
+        ) {
+          // Например, можно установить соответствующие поля в 0 или вернуть ошибку
+          // throw new Error("При включенном питании необходимо активировать завтрак, обед и ужин");
+          // Либо:
+          mealPlan.breakfastEnabled = mealPlan.breakfastEnabled || false
+          mealPlan.lunchEnabled = mealPlan.lunchEnabled || false
+          mealPlan.dinnerEnabled = mealPlan.dinnerEnabled || false
         }
       }
 
@@ -453,10 +468,16 @@ const requestResolver = {
           lunch: hotel.lunch,
           dinner: hotel.dinner
         }
+        const enabledMeals = {
+          breakfast: mealPlan?.breakfastEnabled || false,
+          lunch: mealPlan?.lunchEnabled || false,
+          dinner: mealPlan?.dinnerEnabled || false
+        }
         const newMealPlan = calculateMeal(
           isArrivalChanged ? arrival : oldRequest.arrival,
           isDepartureChanged ? departure : oldRequest.departure,
-          mealTimes
+          mealTimes,
+          enabledMeals
         )
         dataToUpdate.mealPlan = {
           included: true,

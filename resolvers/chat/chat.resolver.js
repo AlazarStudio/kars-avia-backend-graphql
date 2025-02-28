@@ -59,27 +59,35 @@ const chatResolver = {
     // Сначала извлекаются все сообщения чата, затем – сообщения, которые пользователь уже прочитал,
     // и, наконец, вычисляется разница.
     unreadMessagesInChat: async (_, { chatId, userId }) => {
+      const unreadMessages = await prisma.message.findMany({
+        where: { chatId, readBy: { none: { userId } } },
+      })
+
       // Получаем все сообщения чата, выбираем только их идентификаторы
       const allMessages = await prisma.message.findMany({
-        where: { chatId },
-        select: { id: true }
+        where: { chatId }
+        // select: { id: true }
       })
-
+      // console.log(allMessages)
       // Получаем список записей о прочтении сообщений для данного пользователя
-      const readMessages = await prisma.messageRead.findMany({
-        where: {
-          userId,
-          messageId: { in: allMessages.map((message) => message.id) }
-        },
-        select: { messageId: true }
-      })
+      // const readMessages = await prisma.messageRead.findMany({
+      //   where: {
+      //     userId,
+      //     messageId: { in: allMessages.map((message) => message.id) }
+      //   }
+      //   // select: { messageId: true }
+      // })
+      // console.log(readMessages)
 
       // Определяем идентификаторы непрочитанных сообщений
-      const unreadMessageIds = allMessages
-        .map((message) => message.id)
-        .filter((id) => !readMessages.some((read) => read.messageId === id))
+      // const unreadMessageIds = allMessages
+      //   .map((message) => message.id)
+      //   .filter((id) => !readMessages.some((read) => read.messageId === id))
 
-      return unreadMessageIds.length
+      // console.log(unreadMessageIds)
+      // return unreadMessageIds
+
+      return unreadMessages
     },
 
     // Возвращает все сообщения для указанного чата с включением информации об отправителе.

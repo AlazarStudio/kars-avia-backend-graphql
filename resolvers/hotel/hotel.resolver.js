@@ -253,19 +253,6 @@ const hotelResolver = {
                   lunch: hotelInfo.lunch,
                   dinner: hotelInfo.dinner
                 }
-                // Рассчитываем план питания на основе времени прибытия и отбытия
-                const calculatedMealPlan = calculateMeal(
-                  arrival,
-                  departure,
-                  mealTimes
-                )
-                mealPlanData = {
-                  included: true,
-                  breakfast: calculatedMealPlan.totalBreakfast,
-                  lunch: calculatedMealPlan.totalLunch,
-                  dinner: calculatedMealPlan.totalDinner,
-                  dailyMeals: calculatedMealPlan.dailyMeals
-                }
               }
             }
 
@@ -394,6 +381,32 @@ const hotelResolver = {
                   )
                 }
               } else {
+                // Рассчитываем план питания на основе времени прибытия и отбытия
+                const updatedRequest = await prisma.request.findUnique({
+                  where: { id: hotelChess.requestId }
+                })
+
+                const enabledMeals = {
+                  breakfast: updatedRequest.mealPlan?.breakfastEnabled || false,
+                  lunch: updatedRequest.mealPlan?.lunchEnabled || false,
+                  dinner: updatedRequest.mealPlan?.dinnerEnabled || false
+                }
+
+                const calculatedMealPlan = calculateMeal(
+                  arrival,
+                  departure,
+                  mealTimes,
+                  enabledMeals
+                )
+
+                mealPlanData = {
+                  included: true,
+                  breakfast: calculatedMealPlan.totalBreakfast,
+                  lunch: calculatedMealPlan.totalLunch,
+                  dinner: calculatedMealPlan.totalDinner,
+                  dailyMeals: calculatedMealPlan.dailyMeals
+                }
+
                 newHotelChess = await prisma.hotelChess.create({
                   data: {
                     hotel: { connect: { id } },
@@ -433,12 +446,38 @@ const hotelResolver = {
                   lunch: hotel.lunch,
                   dinner: hotel.dinner
                 }
+                // const calculatedMealPlan = calculateMeal(
+                //   arrival,
+                //   departure,
+                //   mealTimes
+                // )
+                // Рассчитываем план питания на основе времени прибытия и отбытия
+                const updatedRequest = await prisma.request.findUnique({
+                  where: { id: hotelChess.requestId }
+                })
+
+                const enabledMeals = {
+                  breakfast: updatedRequest.mealPlan?.breakfastEnabled || false,
+                  lunch: updatedRequest.mealPlan?.lunchEnabled || false,
+                  dinner: updatedRequest.mealPlan?.dinnerEnabled || false
+                }
+
                 const calculatedMealPlan = calculateMeal(
                   arrival,
                   departure,
-                  mealTimes
+                  mealTimes,
+                  enabledMeals
                 )
-                const updatedRequest = await prisma.request.update({
+
+                mealPlanData = {
+                  included: true,
+                  breakfast: calculatedMealPlan.totalBreakfast,
+                  lunch: calculatedMealPlan.totalLunch,
+                  dinner: calculatedMealPlan.totalDinner,
+                  dailyMeals: calculatedMealPlan.dailyMeals
+                }
+
+                updatedRequest = await prisma.request.update({
                   where: { id: hotelChess.requestId },
                   data: {
                     status: "done",
