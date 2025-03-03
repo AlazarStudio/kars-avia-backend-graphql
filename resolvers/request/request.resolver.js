@@ -300,7 +300,6 @@ const requestResolver = {
           mealPlan.dinnerEnabled = mealPlan.dinnerEnabled || false
         }
       }
-
       // Создание заявки в базе данных с подключением связанных сущностей
       const newRequest = await prisma.request.create({
         data: {
@@ -469,9 +468,9 @@ const requestResolver = {
           dinner: hotel.dinner
         }
         const enabledMeals = {
-          breakfast: mealPlan?.breakfastEnabled || false,
-          lunch: mealPlan?.lunchEnabled || false,
-          dinner: mealPlan?.dinnerEnabled || false
+          breakfast: oldRequest.mealPlan.breakfastEnabled,
+          lunch: oldRequest.mealPlan.lunchEnabled,
+          dinner: oldRequest.mealPlan.dinnerEnabled
         }
         const newMealPlan = calculateMeal(
           isArrivalChanged ? arrival : oldRequest.arrival,
@@ -480,7 +479,6 @@ const requestResolver = {
           enabledMeals
         )
         dataToUpdate.mealPlan = {
-          included: true,
           breakfast: newMealPlan.totalBreakfast,
           lunch: newMealPlan.totalLunch,
           dinner: newMealPlan.totalDinner,
@@ -579,7 +577,7 @@ const requestResolver = {
       }
 
       // Инициализация переменной newMealPlan
-      let newMealPlan = null
+      // let newMealPlan = null
 
       // Если пользователь связан с авиалинией и статус заявки не "created",
       // создаётся запрос на изменение дат через чат для уведомления диспетчера.
@@ -624,22 +622,13 @@ const requestResolver = {
       const updatedStart = newStart ? newStart : request.arrival
       const updatedEnd = newEnd ? newEnd : request.departure
 
+      const enabledMeals = {
+        breakfast: request.mealPlan?.breakfastEnabled,
+        lunch: request.mealPlan?.lunchEnabled,
+        dinner: request.mealPlan?.dinnerEnabled
+      }
+      let mealPlanData = request.mealPlan
       if (request.hotelChess && request.hotelChess.length != 0) {
-        // Обновляем связанные данные hotelChess с новыми датами.
-        const updatedHotelChess = await prisma.hotelChess.update({
-          where: { id: request.hotelChess[0].id },
-          data: { start: updatedStart, end: updatedEnd }
-        })
-
-        // Если у заявки имеется существующий план питания, используем его как основу.
-        const existingMealPlan = request.mealPlan || {
-          included: true,
-          breakfast: 0,
-          lunch: 0,
-          dinner: 0,
-          dailyMeals: []
-        }
-
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
           where: { id: request.hotelId },
@@ -654,24 +643,37 @@ const requestResolver = {
           lunch: hotel.lunch,
           dinner: hotel.dinner
         }
-        newMealPlan = calculateMeal(updatedStart, updatedEnd, mealTimes)
-      }
+        const calculatedMealPlan = calculateMeal(
+          updatedStart,
+          updatedEnd,
+          mealTimes,
+          enabledMeals
+        )
+        mealPlanData = {
+          included: request.mealPlan.included,
+          breakfast: calculatedMealPlan.totalBreakfast,
+          breakfastEnabled: enabledMeals.breakfast,
+          lunch: calculatedMealPlan.totalLunch,
+          lunchEnabled: enabledMeals.lunch,
+          dinner: calculatedMealPlan.totalDinner,
+          dinnerEnabled: enabledMeals.dinner,
+          dailyMeals: calculatedMealPlan.dailyMeals
+        }
 
+        // Обновляем связанные данные hotelChess с новыми датами.
+
+        const updatedHotelChess = await prisma.hotelChess.update({
+          where: { id: request.hotelChess[0].id },
+          data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
+        })
+      }
       // Обновляем заявку с новыми датами, пересчитанным планом питания и измененным статусом.
       const updatedRequest = await prisma.request.update({
         where: { id: requestId },
         data: {
           arrival: updatedStart,
           departure: updatedEnd,
-          mealPlan: newMealPlan
-            ? {
-                included: true,
-                breakfast: newMealPlan.totalBreakfast,
-                lunch: newMealPlan.totalLunch,
-                dinner: newMealPlan.totalDinner,
-                dailyMeals: newMealPlan.dailyMeals
-              }
-            : request.mealPlan,
+          mealPlan: mealPlanData,
           status: status
         },
         include: {

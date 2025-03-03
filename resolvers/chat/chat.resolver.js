@@ -68,7 +68,6 @@ const chatResolver = {
         where: { chatId }
         // select: { id: true }
       })
-      // console.log(allMessages)
       // Получаем список записей о прочтении сообщений для данного пользователя
       // const readMessages = await prisma.messageRead.findMany({
       //   where: {
@@ -77,14 +76,12 @@ const chatResolver = {
       //   }
       //   // select: { messageId: true }
       // })
-      // console.log(readMessages)
 
       // Определяем идентификаторы непрочитанных сообщений
       // const unreadMessageIds = allMessages
       //   .map((message) => message.id)
       //   .filter((id) => !readMessages.some((read) => read.messageId === id))
 
-      // console.log(unreadMessageIds)
       // return unreadMessageIds
 
       return unreadMessages

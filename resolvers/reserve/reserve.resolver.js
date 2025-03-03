@@ -356,7 +356,7 @@ const reserveResolver = {
     // Если пользователь связан с авиалинией, создается запрос на изменение дат через чат.
     updateReserve: async (_, { id, input, files }, context) => {
       const { user } = context
-      const { arrival, departure, mealPlan, status } = input
+      const { arrival, departure, status } = input
       airlineModerMiddleware(context)
       // Корректировка времени (сдвиг на 3 часа)
       const currentTime = new Date()
@@ -449,7 +449,6 @@ const reserveResolver = {
         data: {
           arrival,
           departure,
-          mealPlan,
           status,
           files: filesPath
         },
@@ -459,32 +458,47 @@ const reserveResolver = {
       // Если у резерва есть связанные hotelChess, обновляем для них план питания.
       if (updatedReserve.hotelChess && updatedReserve.hotelChess.length > 0) {
         for (const hc of updatedReserve.hotelChess) {
-          const hotelInfo = await prisma.hotel.findUnique({
+          const hotel = await prisma.hotel.findUnique({
             where: { id: hc.hotelId },
             select: { breakfast: true, lunch: true, dinner: true }
           })
-          if (hotelInfo) {
+          if (hotel) {
+            const enabledMeals = {
+              breakfast: updatedReserve.mealPlan?.breakfastEnabled,
+              lunch: updatedReserve.mealPlan?.lunchEnabled,
+              dinner: updatedReserve.mealPlan?.dinnerEnabled
+            }
+
+            const mealTimes = {
+              breakfast: hotel.breakfast,
+              lunch: hotel.lunch,
+              dinner: hotel.dinner
+            }
+
             const calculatedMealPlan = calculateMeal(
-              updatedReserve.arrival.toString(),
-              updatedReserve.departure.toString(),
-              {
-                breakfast: hotelInfo.breakfast,
-                lunch: hotelInfo.lunch,
-                dinner: hotelInfo.dinner
-              }
+              arrival,
+              departure,
+              mealTimes,
+              enabledMeals
             )
+
+            const mealPlanData = {
+              included: request.mealPlan.included,
+              breakfast: calculatedMealPlan.totalBreakfast,
+              breakfastEnabled: request.mealPlan.breakfastEnabled,
+              lunch: calculatedMealPlan.totalLunch,
+              lunchEnabled: request.mealPlan.lunchEnabled,
+              dinner: calculatedMealPlan.totalDinner,
+              dinnerEnabled: request.mealPlan.dinnerEnabled,
+              dailyMeals: calculatedMealPlan.dailyMeals
+            }
+
             await prisma.hotelChess.update({
               where: { id: hc.id },
               data: {
                 start: updatedReserve.arrival,
                 end: updatedReserve.departure,
-                mealPlan: {
-                  included: true,
-                  breakfast: calculatedMealPlan.totalBreakfast,
-                  lunch: calculatedMealPlan.totalLunch,
-                  dinner: calculatedMealPlan.totalDinner,
-                  dailyMeals: calculatedMealPlan.dailyMeals
-                }
+                mealPlan: mealPlanData
               }
             })
           }

@@ -24,8 +24,11 @@ const reportResolver = {
         throw new Error("Cannot fetch hotel reports in getAirlineReport")
       }
 
+      const separator = user.airlineId ? "airline" : "dispatcher"
+
       const reports = await prisma.savedReport.findMany({
         where: {
+          separator,
           ...applyFilters(filter),
           airlineId: { not: null },
           ...(filter.airlineId
@@ -73,8 +76,11 @@ const reportResolver = {
       const { user } = context
       hotelAdminMiddleware(context)
 
+      const separator = user.hotelId ? "hotel" : "dispatcher"
+
       const reports = await prisma.savedReport.findMany({
         where: {
+          separator,
           ...applyFilters(filter),
           hotelId: { not: null },
           ...(filter.hotelId
@@ -124,6 +130,7 @@ const reportResolver = {
       const { user } = context
       airlineAdminMiddleware(context)
       const { filter, format } = input
+      const separator = user.airlineId ? "airline" : "dispatcher"
 
       if (!user) {
         throw new Error("Access denied")
@@ -212,8 +219,8 @@ const reportResolver = {
         endDate: new Date(filter.endDate),
         createdAt: new Date(),
         airlineId:
-          user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
-          // separator
+          user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId,
+        separator: separator
       }
 
       if (!reportRecord.airlineId) {
@@ -231,6 +238,8 @@ const reportResolver = {
       const { user } = context
       hotelAdminMiddleware(context)
       const { filter, format } = input
+
+      const separator = user.hotelId ? "hotel" : "dispatcher"
 
       if (!user) {
         throw new Error("Access denied")
@@ -310,7 +319,8 @@ const reportResolver = {
         startDate: new Date(filter.startDate),
         endDate: new Date(filter.endDate),
         createdAt: new Date(),
-        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId
+        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId,
+        separator: separator
       }
 
       if (!reportRecord.hotelId) {
