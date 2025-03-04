@@ -5,6 +5,29 @@ const chatResolver = {
   Query: {
     // Возвращает чаты по указанным параметрам: requestId или reserveId.
     // Если передан reserveId, дополнительно проверяется наличие hotelId у пользователя.
+    chat: async (_, { chatId }, context) => {
+      const chat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        include: {
+          messages: {
+            include: {
+              sender: true,
+              readBy: {
+                include: {
+                  user: true
+                }
+              }
+            }
+          },
+          participants: {
+            include: {
+              user: true
+            }
+          }
+        }
+      })
+      return chat
+    },
     chats: async (_, { requestId, reserveId }, context) => {
       // Извлекаем идентификатор отеля из контекста пользователя
       const hotelId = context.user.hotelId
@@ -60,7 +83,7 @@ const chatResolver = {
     // и, наконец, вычисляется разница.
     unreadMessagesInChat: async (_, { chatId, userId }) => {
       const unreadMessages = await prisma.message.findMany({
-        where: { chatId, readBy: { none: { userId } } },
+        where: { chatId, readBy: { none: { userId } } }
       })
 
       // Получаем все сообщения чата, выбираем только их идентификаторы
@@ -118,6 +141,20 @@ const chatResolver = {
         },
         include: { sender: true, chat: true }
       })
+
+      const messageRead = await prisma.messageRead.upsert({
+        where: {
+          messageId_userId: { messageId: message.id, userId: senderId }
+        },
+        update: {
+          readAt: new Date()
+        },
+        create: {
+          messageId: message.id,
+          userId: senderId,
+          readAt: new Date()
+        }
+      })
       // Публикуем событие отправки сообщения для подписок, используя уникальное имя события с chatId
       pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
       return message
@@ -145,23 +182,46 @@ const chatResolver = {
     // Помечает все сообщения в чате как прочитанные для конкретного пользователя.
     // Здесь происходит обновление поля lastReadMessageAt в таблице chatUser,
     // а также (опционально) обновление статуса isRead для сообщений.
-    markAllMessagesAsRead: async (_, { chatId, userId }) => {
+    markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
       const currentTime = new Date()
 
       // Обновляем дату последнего прочтения сообщений для пользователя в данном чате
-      await prisma.chatUser.update({
+      await prisma.chatUser.upsert({
         where: { chatId_userId: { chatId, userId } },
-        data: { lastReadMessageAt: currentTime }
+        update: { lastReadMessageAt: currentTime },
+        create: { chatId, userId, lastReadMessageAt: currentTime }
       })
 
-      // Обновляем статус isRead для всех сообщений, созданных до текущего времени
-      await prisma.message.updateMany({
+      // Обновляем все существующие записи MessageRead для сообщений в этом чате
+      await prisma.messageRead.updateMany({
+        where: {
+          message: { chatId },
+          userId
+        },
+        data: { readAt: currentTime }
+      })
+
+      // Находим все сообщения в чате, для которых нет записи MessageRead для данного пользователя
+      const unreadMessages = await prisma.message.findMany({
         where: {
           chatId,
-          createdAt: { lte: currentTime }
+          readBy: { none: { userId } }
         },
-        data: { isRead: true }
+        select: { id: true }
       })
+
+      // Для каждого такого сообщения создаём новую запись MessageRead
+      await Promise.all(
+        unreadMessages.map((msg) =>
+          prisma.messageRead.create({
+            data: {
+              message: { connect: { id: msg.id } },
+              user: { connect: { id: userId } },
+              readAt: currentTime
+            }
+          })
+        )
+      )
 
       return true
     },
@@ -226,32 +286,41 @@ const chatResolver = {
     // Вычисляет количество непрочитанных сообщений в чате для конкретного пользователя.
     // Для этого определяется время последнего прочтения сообщений и считается число сообщений,
     // созданных после этого момента.
-    unreadMessagesCount: async (parent, { userId }) => {
-      const lastReadMessage = await prisma.chatUser.findFirst({
+    unreadMessagesCount: async (parent, { chatId }, context) => {
+      const { user } = context
+      const response = await prisma.message.count({
         where: {
-          chatId: parent.id,
-          userId
-        },
-        select: {
-          lastReadMessageAt: true
+          chatId: chatId ? chatId : parent.id,
+          // Исключаем те сообщения, у которых уже есть запись о прочтении данным пользователем
+          NOT: {
+            readBy: {
+              some: { userId: user.id }
+            }
+          }
         }
       })
-      // Если пользователь никогда не помечал сообщения как прочитанные, используем минимально возможную дату
-      const lastReadTime = lastReadMessage?.lastReadMessageAt || new Date(0)
-      return await prisma.message.count({
-        where: {
-          chatId: parent.id,
-          createdAt: { gt: lastReadTime }
-        }
-      })
+      return response
     },
 
     // Возвращает все сообщения чата с включением данных об отправителе для каждого сообщения.
     messages: async (parent) => {
       return await prisma.message.findMany({
         where: { chatId: parent.id },
-        include: { sender: true }
+        include: { sender: true, readBy: true }
       })
+    }
+  },
+  MessageRead: {
+    user: async (parent, args, context) => {
+      if (parent.user) {
+        return parent.user
+      }
+      if (parent.userId) {
+        return await prisma.user.findUnique({
+          where: { id: parent.userId }
+        })
+      }
+      return null
     }
   }
 }

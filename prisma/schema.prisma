@@ -162,7 +162,7 @@ model User {
   airlineId            String?            @db.ObjectId
   airlineDepartment    AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
   airlineDepartmentId  String?            @db.ObjectId
-  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId              String?            @db.ObjectId
   chats                ChatUser[]
   messageSender        Message[]          @relation(name: "messageSender")
@@ -302,7 +302,7 @@ model AirlinePersonal {
   marriedTo    AirlinePersonal[]  @relation(name: "Marriage")
   airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId    String?            @db.ObjectId
-  department   AirlineDepartment? @relation(fields: [departmentId], references: [id])
+  department   AirlineDepartment? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   departmentId String?            @db.ObjectId
   request      Request[]
   hotelChess   HotelChess[]
@@ -415,6 +415,23 @@ model ReserveHotel {
 
 // Чаты/сообщения  ---------------- ↓↓↓↓
 
+model Chat {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  request      Request?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId    String?    @db.ObjectId
+  messages     Message[]
+  participants ChatUser[]
+  createdAt    DateTime   @default(now())
+  reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId    String?    @db.ObjectId
+  isSupport    Boolean    @default(false)
+  separator    String?
+  airline      Airline?   @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId    String?    @db.ObjectId
+  hotel        Hotel?     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId      String?    @db.ObjectId
+}
+
 model Message {
   id         String        @id @default(auto()) @map("_id") @db.ObjectId
   text       String
@@ -450,23 +467,6 @@ model ChatUser {
   lastReadMessageAt DateTime?
 
   @@unique([chatId, userId])
-}
-
-model Chat {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  request      Request?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId    String?    @db.ObjectId
-  messages     Message[]
-  participants ChatUser[]
-  createdAt    DateTime   @default(now())
-  reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId    String?    @db.ObjectId
-  isSupport    Boolean    @default(false)
-  separator    String?
-  airline      Airline?   @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId    String?    @db.ObjectId
-  hotel        Hotel?     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId      String?    @db.ObjectId
 }
 
 // Чаты/сообщения  ---------------- ↑↑↑↑

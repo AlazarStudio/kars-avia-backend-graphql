@@ -504,6 +504,12 @@ const reserveResolver = {
           }
         }
       }
+      pubsub.publish(NOTIFICATION, {
+        notification: {
+          __typename: "ReserveUpdatedNotification",
+          ...updatedReserve
+        }
+      })
       pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
       return updatedReserve
     },

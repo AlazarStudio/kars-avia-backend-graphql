@@ -260,9 +260,7 @@ const hotelResolver = {
             if (hotelChess.id) {
               // Сохраняем предыдущие данные hotelChess для логирования
               const previousHotelChessData = await prisma.hotelChess.findUnique(
-                {
-                  where: { id: hotelChess.id }
-                }
+                { where: { id: hotelChess.id } }
               )
               let clientConnectData = undefined
               // Если задан clientId, подготавливаем данные для связи
@@ -335,7 +333,7 @@ const hotelResolver = {
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
                 })
-                await prisma.reserve.update({
+                const reserve = await prisma.reserve.update({
                   where: { id: hotelChess.reserveId },
                   data: {
                     hotelChess: { connect: { id: hotelChess.id } }
@@ -345,7 +343,7 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+                  description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
                   oldData: previousHotelChessData,
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
@@ -354,6 +352,7 @@ const hotelResolver = {
               }
             } else {
               // Создание новой записи hotelChess
+
               let newHotelChess
               if (hotelChess.reserveId) {
                 try {
@@ -397,6 +396,15 @@ const hotelResolver = {
                     dinnerEnabled: reserve.mealPlan.dinnerEnabled,
                     dailyMeals: calculatedMealPlan.dailyMeals
                   }
+
+                  const existRoom = await prisma.hotelChess.findFirst({
+                    where: {
+                      roomId: hotelChess.roomId,
+                      start: { gte: hotelChess.start, lte: hotelChess.end },
+                      end: { gte: hotelChess.start, lte: hotelChess.end }
+                    }
+                  })
+                  console.log(existRoom)
 
                   newHotelChess = await prisma.hotelChess.create({
                     data: {
@@ -512,6 +520,15 @@ const hotelResolver = {
                   dinnerEnabled: request.mealPlan.dinnerEnabled,
                   dailyMeals: calculatedMealPlan.dailyMeals
                 }
+
+                const existRoom = await prisma.hotelChess.findFirst({
+                  where: {
+                    roomId: hotelChess.roomId,
+                    start: { gte: hotelChess.start, lte: hotelChess.end },
+                    end: { gte: hotelChess.start, lte: hotelChess.end }
+                  }
+                })
+                console.log(existRoom)
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {

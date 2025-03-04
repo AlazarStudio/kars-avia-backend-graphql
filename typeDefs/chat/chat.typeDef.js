@@ -8,15 +8,15 @@ type Message {
   chat: Chat!
   createdAt: Date!
   isRead: Boolean!            # Используется только для приватных чатов
-  readBy: [MessageRead!]!     # Список пользователей, которые прочитали сообщение
+  readBy: [MessageRead!]     # Список пользователей, которые прочитали сообщение
   separator: String
 }
 
 type MessageRead {
-  id: ID!
-  message: Message!
-  user: User!
-  readAt: Date!
+  id: ID
+  message: Message
+  user: User
+  readAt: Date
 }
 
 type Chat {
@@ -27,7 +27,7 @@ type Chat {
   participants: [User!]!      # Резолвер должен извлекать пользователей через связь ChatUser
   createdAt: Date!
   isSupport: Boolean!         # Соответствует полю isSupport в модели Chat
-  unreadMessagesCount(userId: ID!): Int!  # Вычисляемое поле для непрочитанных сообщений конкретного пользователя
+  unreadMessagesCount: Int 
   separator: String
   airlineId: ID
   hotelId: ID
@@ -36,9 +36,10 @@ type Chat {
 }
 
 type Query {
+  chat(chatId: ID!): Chat 
   chats(requestId: ID, reserveId: ID): [Chat!]!
   messages(chatId: ID!): [Message!]!
-  unreadMessages(receiverId: ID!): [Message!]!
+  unreadMessages(chatId: ID!, userId: ID!): [Message!]!
   unreadMessagesInChat(chatId: ID!, userId: ID!): [Message!]!  # Непрочитанные сообщения в конкретном чате
   readMessages(chatId: ID!, userId: ID!): [Message!]!         # Сообщения, которые пользователь прочитал
 }
