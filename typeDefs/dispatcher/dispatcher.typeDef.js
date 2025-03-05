@@ -2,13 +2,16 @@ const dispatcherTypeDef = `#graphql
 scalar Date
 
 # union NotificationPayload = AirlineCreated | AirlineUpdated | MessageSent | HotelCreated | HotelUpdated | ReportCreated | RequestCreated | RequestUpdated | ReserveCreated | ReserveHotel | ReserveUpdated | ReservePersons | UserCreated | ExtendRequestNotification
-union NotificationPayload =  ExtendRequestNotification | RequestCreatedNotification | ReserveCreatedNotification | ReserveUpdatedNotification
+union NotificationPayload =  ExtendRequestNotification | RequestCreatedNotification | ReserveCreatedNotification | ReserveUpdatedNotification | MessageSentNotification 
 
 # type AirlineCreated {  }
 
 # type AirlineUpdated {  }
 
-# type MessageSent {  }
+type MessageSentNotification { 
+  chat: Chat
+  text: String
+ }
 
 # type HotelCreated {  }
 

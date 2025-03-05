@@ -605,7 +605,20 @@ const requestResolver = {
             createdAt: formattedTime
           },
           include: {
-            sender: true
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                number: true,
+                images: true,
+                role: true,
+                position: true,
+                airlineId: true,
+                airlineDepartmentId: true,
+                hotelId: true,
+                dispatcher: true
+              }
+            }
           }
         })
         pubsub.publish(NOTIFICATION, {
@@ -760,7 +773,20 @@ const requestResolver = {
             createdAt: formattedTime
           },
           include: {
-            sender: true
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                number: true,
+                images: true,
+                role: true,
+                position: true,
+                airlineId: true,
+                airlineDepartmentId: true,
+                hotelId: true,
+                dispatcher: true
+              }
+            }
           }
         })
         pubsub.publish(NOTIFICATION, {

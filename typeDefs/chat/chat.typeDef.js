@@ -7,8 +7,8 @@ type Message {
   sender: User!
   chat: Chat!
   createdAt: Date!
-  isRead: Boolean!            # Используется только для приватных чатов
-  readBy: [MessageRead!]     # Список пользователей, которые прочитали сообщение
+  isRead: Boolean!
+  readBy: [MessageRead!]
   separator: String
 }
 
@@ -24,15 +24,15 @@ type Chat {
   requestId: ID
   reserveId: ID
   messages: [Message!]!
-  participants: [User!]!      # Резолвер должен извлекать пользователей через связь ChatUser
+  participants: [User!]!
   createdAt: Date!
-  isSupport: Boolean!         # Соответствует полю isSupport в модели Chat
+  isSupport: Boolean!
   unreadMessagesCount: Int 
   separator: String
   airlineId: ID
   hotelId: ID
   hotel: Hotel
-  airline: Airline            # При необходимости, если нужна связь с авиакомпанией
+  airline: Airline
 }
 
 type Query {
@@ -40,21 +40,21 @@ type Query {
   chats(requestId: ID, reserveId: ID): [Chat!]!
   messages(chatId: ID!): [Message!]!
   unreadMessages(chatId: ID!, userId: ID!): [Message!]!
-  unreadMessagesInChat(chatId: ID!, userId: ID!): [Message!]!  # Непрочитанные сообщения в конкретном чате
-  readMessages(chatId: ID!, userId: ID!): [Message!]!         # Сообщения, которые пользователь прочитал
+  unreadMessagesInChat(chatId: ID!, userId: ID!): [Message!]!
+  readMessages(chatId: ID!, userId: ID!): [Message!]!
 }
 
 type Mutation {
   sendMessage(chatId: ID!, senderId: ID!, text: String!): Message!
   createChat(requestId: ID!, userIds: [ID!]!): Chat!
-  markMessageAsRead(messageId: ID!, userId: ID!): MessageRead!   # Индивидуальная пометка сообщения как прочитанного
-  markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean!       # Пометка всех сообщений в чате как прочитанных
+  markMessageAsRead(messageId: ID!, userId: ID!): MessageRead! 
+  markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean! 
 }
 
 type Subscription {
   messageSent(chatId: ID!): Message
-  newUnreadMessage(chatId: ID!, userId: ID!): Message!   # Подписка на новые непрочитанные сообщения
-  messageRead(chatId: ID!): MessageRead!               # Подписка на событие прочтения сообщения
+  newUnreadMessage(chatId: ID!, userId: ID!): Message!
+  messageRead(chatId: ID!): MessageRead!
 }
 `
 

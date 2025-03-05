@@ -20,7 +20,24 @@ const supportResolver = {
       return await prisma.chat.findMany({
         where: { isSupport: true },
         include: {
-          participants: { include: { user: true } },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              }
+            }
+          },
           messages: true
         }
       })
@@ -37,7 +54,24 @@ const supportResolver = {
           participants: { some: { userId } }
         },
         include: {
-          participants: { include: { user: true } },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              }
+            }
+          },
           messages: true
         }
       })
@@ -64,7 +98,24 @@ const supportResolver = {
             }
           },
           include: {
-            participants: { include: { user: true } },
+            participants: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    number: true,
+                    images: true,
+                    role: true,
+                    position: true,
+                    airlineId: true,
+                    airlineDepartmentId: true,
+                    hotelId: true,
+                    dispatcher: true
+                  }
+                }
+              }
+            },
             messages: true
           }
         })
@@ -113,7 +164,26 @@ const supportResolver = {
             ]
           }
         },
-        include: { participants: { include: { user: true } } }
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              }
+            }
+          }
+        }
       })
 
       return chat

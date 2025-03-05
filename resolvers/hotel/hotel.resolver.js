@@ -397,14 +397,14 @@ const hotelResolver = {
                     dailyMeals: calculatedMealPlan.dailyMeals
                   }
 
-                  const existRoom = await prisma.hotelChess.findFirst({
+                  const existHotelChess = await prisma.hotelChess.findFirst({
                     where: {
                       roomId: hotelChess.roomId,
                       start: { gte: hotelChess.start, lte: hotelChess.end },
                       end: { gte: hotelChess.start, lte: hotelChess.end }
                     }
                   })
-                  console.log(existRoom)
+                  console.log(existHotelChess)
 
                   newHotelChess = await prisma.hotelChess.create({
                     data: {
@@ -521,14 +521,14 @@ const hotelResolver = {
                   dailyMeals: calculatedMealPlan.dailyMeals
                 }
 
-                const existRoom = await prisma.hotelChess.findFirst({
+                const existHotelChess = await prisma.hotelChess.findFirst({
                   where: {
                     roomId: hotelChess.roomId,
                     start: { gte: hotelChess.start, lte: hotelChess.end },
                     end: { gte: hotelChess.start, lte: hotelChess.end }
                   }
                 })
-                console.log(existRoom)
+                console.log(existHotelChess)
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {

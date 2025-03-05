@@ -1,5 +1,7 @@
 import { prisma } from "../../prisma.js"
-import { pubsub, MESSAGE_SENT } from "../../exports/pubsub.js"
+import { pubsub, MESSAGE_SENT, NOTIFICATION } from "../../exports/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
+import { json } from "express"
 
 const chatResolver = {
   Query: {
@@ -11,17 +13,38 @@ const chatResolver = {
         include: {
           messages: {
             include: {
-              sender: true,
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              },
               readBy: {
                 include: {
-                  user: true
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      number: true,
+                      images: true,
+                      role: true,
+                      position: true,
+                      airlineId: true,
+                      airlineDepartmentId: true,
+                      hotelId: true,
+                      dispatcher: true
+                    }
+                  }
                 }
               }
-            }
-          },
-          participants: {
-            include: {
-              user: true
             }
           }
         }
@@ -73,7 +96,22 @@ const chatResolver = {
             }
           }
         },
-        include: { sender: true } // Включаем данные отправителя для каждого сообщения
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          }
+        } // Включаем данные отправителя для каждого сообщения
       })
       return unreadMessages
     },
@@ -114,7 +152,22 @@ const chatResolver = {
     messages: async (_, { chatId }, context) => {
       return await prisma.message.findMany({
         where: { chatId },
-        include: { sender: true }
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          }
+        }
       })
     }
   },
@@ -139,8 +192,27 @@ const chatResolver = {
           chat: { connect: { id: chatId } },
           createdAt: formattedTime
         },
-        include: { sender: true, chat: true }
+        // include: { sender: true, chat: true }
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          },
+          chat: true
+        }
       })
+
+      // console.log("\n message: \n" + JSON.stringify(message), "\n ")
 
       const messageRead = await prisma.messageRead.upsert({
         where: {
@@ -156,6 +228,14 @@ const chatResolver = {
         }
       })
       // Публикуем событие отправки сообщения для подписок, используя уникальное имя события с chatId
+
+      // pubsub.publish(NOTIFICATION, {
+      //   notification: {
+      //     __typename: "MessageSentNotification",
+      //     ...message
+      //   }
+      // })
+
       pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
       return message
     },
@@ -269,6 +349,10 @@ const chatResolver = {
       subscribe: (_, { chatId }) =>
         pubsub.asyncIterator(`MESSAGE_READ_${chatId}`),
       resolve: (payload) => payload.messageRead
+    },
+    // Подписка на уведомления
+    notification: {
+      subscribe: () => pubsub.asyncIterator([NOTIFICATION])
     }
   },
 
@@ -278,7 +362,22 @@ const chatResolver = {
     participants: async (parent) => {
       const chatUsers = await prisma.chatUser.findMany({
         where: { chatId: parent.id },
-        include: { user: true }
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          }
+        }
       })
       return chatUsers.map((chatUser) => chatUser.user)
     },
@@ -306,7 +405,40 @@ const chatResolver = {
     messages: async (parent) => {
       return await prisma.message.findMany({
         where: { chatId: parent.id },
-        include: { sender: true, readBy: true }
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          },
+          readBy: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              }
+            }
+          }
+        }
       })
     }
   },
