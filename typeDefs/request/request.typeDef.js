@@ -26,7 +26,7 @@ type Request {
   status: String
   requestNumber: String
   archive: Boolean
-  chat: Chat
+  chat: [Chat]
   logs: [Log]
   reserve: Boolean
   files: [String]

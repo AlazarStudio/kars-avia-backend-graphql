@@ -67,7 +67,8 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true
+          logs: true,
+          chat: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -134,7 +135,8 @@ const requestResolver = {
           airport: true,
           hotel: true,
           hotelChess: true,
-          logs: true
+          logs: true,
+          chat: true
         }
       })
       if (!request) {
@@ -397,6 +399,9 @@ const requestResolver = {
       if (!oldRequest) {
         throw new Error("Request not found")
       }
+
+      console.log("\n input: \n", JSON.stringify(input), "\n")
+
       // Определяем, изменились ли даты прибытия или отбытия
       const isArrivalChanged =
         arrival &&
@@ -413,8 +418,8 @@ const requestResolver = {
         departure: departure ? new Date(departure) : undefined,
         roomCategory,
         roomNumber,
-        status,
-        mealPlan
+        status
+        // mealPlan
       }
       if (hotelId) {
         dataToUpdate.hotel = { connect: { id: hotelId } }
@@ -453,9 +458,52 @@ const requestResolver = {
       }
 
       // Если даты изменились и у заявки привязан отель, пересчитываем план питания
-      if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
+      // if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
+      //   const hotel = await prisma.hotel.findUnique({
+      //     where: { id: oldRequest.hotel.id },
+      //     select: {
+      //       breakfast: true,
+      //       lunch: true,
+      //       dinner: true
+      //     }
+      //   })
+      //   const mealTimes = {
+      //     breakfast: hotel.breakfast,
+      //     lunch: hotel.lunch,
+      //     dinner: hotel.dinner
+      //   }
+      //   const enabledMeals = {
+      //     breakfast: oldRequest.mealPlan.breakfastEnabled,
+      //     lunch: oldRequest.mealPlan.lunchEnabled,
+      //     dinner: oldRequest.mealPlan.dinnerEnabled
+      //   }
+      //   const newMealPlan = calculateMeal(
+      //     isArrivalChanged ? arrival : oldRequest.arrival,
+      //     isDepartureChanged ? departure : oldRequest.departure,
+      //     mealTimes,
+      //     enabledMeals
+      //   )
+      //   dataToUpdate.mealPlan = {
+      //     breakfast: newMealPlan.totalBreakfast,
+      //     lunch: newMealPlan.totalLunch,
+      //     dinner: newMealPlan.totalDinner,
+      //     dailyMeals: newMealPlan.dailyMeals
+      //   }
+      // }
+
+      const updatedStart = arrival ? arrival : oldRequest.arrival
+      const updatedEnd = departure ? departure : oldRequest.departure
+
+      const enabledMeals = {
+        breakfast: oldRequest.mealPlan?.breakfastEnabled,
+        lunch: oldRequest.mealPlan?.lunchEnabled,
+        dinner: oldRequest.mealPlan?.dinnerEnabled
+      }
+      let mealPlanData = oldRequest.mealPlan
+      if (oldRequest.hotelChess && oldRequest.hotelChess.length != 0) {
+        // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
-          where: { id: oldRequest.hotel.id },
+          where: { id: oldRequest.hotelId },
           select: {
             breakfast: true,
             lunch: true,
@@ -467,25 +515,31 @@ const requestResolver = {
           lunch: hotel.lunch,
           dinner: hotel.dinner
         }
-        const enabledMeals = {
-          breakfast: oldRequest.mealPlan.breakfastEnabled,
-          lunch: oldRequest.mealPlan.lunchEnabled,
-          dinner: oldRequest.mealPlan.dinnerEnabled
-        }
-        const newMealPlan = calculateMeal(
-          isArrivalChanged ? arrival : oldRequest.arrival,
-          isDepartureChanged ? departure : oldRequest.departure,
+        const calculatedMealPlan = calculateMeal(
+          updatedStart,
+          updatedEnd,
           mealTimes,
           enabledMeals
         )
-        dataToUpdate.mealPlan = {
-          breakfast: newMealPlan.totalBreakfast,
-          lunch: newMealPlan.totalLunch,
-          dinner: newMealPlan.totalDinner,
-          dailyMeals: newMealPlan.dailyMeals
+        mealPlanData = {
+          included: oldRequest.mealPlan.included,
+          breakfast: calculatedMealPlan.totalBreakfast,
+          breakfastEnabled: enabledMeals.breakfast,
+          lunch: calculatedMealPlan.totalLunch,
+          lunchEnabled: enabledMeals.lunch,
+          dinner: calculatedMealPlan.totalDinner,
+          dinnerEnabled: enabledMeals.dinner,
+          dailyMeals: calculatedMealPlan.dailyMeals
         }
-      }
 
+        // Обновляем связанные данные hotelChess с новыми датами.
+
+        const updatedHotelChess = await prisma.hotelChess.update({
+          where: { id: oldRequest.hotelChess[0].id },
+          data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
+        })
+      }
+      dataToUpdate.mealPlan = mealPlanData
       // Обновление заявки в базе данных
       const updatedRequest = await prisma.request.update({
         where: { id },

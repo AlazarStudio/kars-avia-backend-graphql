@@ -303,6 +303,7 @@ const hotelResolver = {
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
                 })
+
                 // Обновляем заявку: меняем статус, привязываем отель и комнату, обновляем план питания (если требуется)
                 const updatedRequest = await prisma.request.update({
                   where: { id: hotelChess.requestId },

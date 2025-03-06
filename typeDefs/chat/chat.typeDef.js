@@ -40,7 +40,7 @@ type Query {
   chats(requestId: ID, reserveId: ID): [Chat!]!
   messages(chatId: ID!): [Message!]!
   unreadMessages(chatId: ID!, userId: ID!): [Message!]!
-  unreadMessagesInChat(chatId: ID!, userId: ID!): [Message!]!
+  unreadMessagesCount(chatId: ID!, userId: ID!): Int
   readMessages(chatId: ID!, userId: ID!): [Message!]!
 }
 

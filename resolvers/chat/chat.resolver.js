@@ -1,7 +1,13 @@
 import { prisma } from "../../prisma.js"
-import { pubsub, MESSAGE_SENT, NOTIFICATION } from "../../exports/pubsub.js"
+import {
+  pubsub,
+  MESSAGE_SENT,
+  NOTIFICATION,
+  RESERVE_UPDATED,
+  REQUEST_UPDATED
+} from "../../exports/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
-import { json } from "express"
+import { json, request } from "express"
 
 const chatResolver = {
   Query: {
@@ -119,31 +125,18 @@ const chatResolver = {
     // Подсчитывает количество непрочитанных сообщений в чате для конкретного пользователя.
     // Сначала извлекаются все сообщения чата, затем – сообщения, которые пользователь уже прочитал,
     // и, наконец, вычисляется разница.
-    unreadMessagesInChat: async (_, { chatId, userId }) => {
-      const unreadMessages = await prisma.message.findMany({
-        where: { chatId, readBy: { none: { userId } } }
+    unreadMessagesCount: async (_, { chatId, userId }) => {
+      const unreadMessages = await prisma.message.count({
+        where: {
+          chatId,
+          // Исключаем те сообщения, у которых уже есть запись о прочтении данным пользователем
+          NOT: {
+            readBy: {
+              some: { userId }
+            }
+          }
+        }
       })
-
-      // Получаем все сообщения чата, выбираем только их идентификаторы
-      const allMessages = await prisma.message.findMany({
-        where: { chatId }
-        // select: { id: true }
-      })
-      // Получаем список записей о прочтении сообщений для данного пользователя
-      // const readMessages = await prisma.messageRead.findMany({
-      //   where: {
-      //     userId,
-      //     messageId: { in: allMessages.map((message) => message.id) }
-      //   }
-      //   // select: { messageId: true }
-      // })
-
-      // Определяем идентификаторы непрочитанных сообщений
-      // const unreadMessageIds = allMessages
-      //   .map((message) => message.id)
-      //   .filter((id) => !readMessages.some((read) => read.messageId === id))
-
-      // return unreadMessageIds
 
       return unreadMessages
     },
@@ -213,6 +206,33 @@ const chatResolver = {
       })
 
       // console.log("\n message: \n" + JSON.stringify(message), "\n ")
+      console.log("\n message: \n" + JSON.stringify(message), "\n ")
+
+      if (message.chat.requestId != null) {
+        console.log("\n request \n")
+
+        pubsub.publish(REQUEST_UPDATED, {
+          requestUpdated: { requestId: message.requestId, chat: message.chatId }
+        })
+      }
+
+      if (message.chat.reserveId != null) {
+        console.log("\n reserve \n")
+
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ReserveUpdatedNotification",
+            ...{ reserveId: message.reserveId, chatId: message.chatId }
+          }
+        })
+
+        // pubsub.publish(RESERVE_UPDATED, {
+        //   reserveUpdated: {
+        //     id: message.reserveId,
+        //     chatId: message.chatId
+        //   }
+        // })
+      }
 
       const messageRead = await prisma.messageRead.upsert({
         where: {
@@ -227,6 +247,7 @@ const chatResolver = {
           readAt: new Date()
         }
       })
+
       // Публикуем событие отправки сообщения для подписок, используя уникальное имя события с chatId
 
       // pubsub.publish(NOTIFICATION, {
