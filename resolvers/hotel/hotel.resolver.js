@@ -405,7 +405,7 @@ const hotelResolver = {
                       end: { gte: hotelChess.start, lte: hotelChess.end }
                     }
                   })
-                  console.log(existHotelChess)
+                  // console.log(existHotelChess)
 
                   newHotelChess = await prisma.hotelChess.create({
                     data: {
@@ -529,7 +529,7 @@ const hotelResolver = {
                     end: { gte: hotelChess.start, lte: hotelChess.end }
                   }
                 })
-                console.log(existHotelChess)
+                // console.log(existHotelChess)
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {

@@ -206,10 +206,9 @@ const chatResolver = {
       })
 
       // console.log("\n message: \n" + JSON.stringify(message), "\n ")
-      console.log("\n message: \n" + JSON.stringify(message), "\n ")
 
       if (message.chat.requestId != null) {
-        console.log("\n request \n")
+        // console.log("\n request \n")
 
         pubsub.publish(REQUEST_UPDATED, {
           requestUpdated: { requestId: message.requestId, chat: message.chatId }
@@ -217,19 +216,27 @@ const chatResolver = {
       }
 
       if (message.chat.reserveId != null) {
-        console.log("\n reserve \n")
+        // console.log("\n reserve \n")
 
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "ReserveUpdatedNotification",
-            ...{ reserveId: message.reserveId, chatId: message.chatId }
+        // pubsub.publish(RESERVE_UPDATED, {
+        //   reserveUpdated: { chat: message.chatId }
+        // })
+
+        const updatedReserve = await prisma.reserve.findUnique({
+          where: { id: message.chat.reserveId },
+          include: {
+            chat: true
           }
         })
 
+        // console.log("updatedReserve \n", updatedReserve)
+        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+
         // pubsub.publish(RESERVE_UPDATED, {
         //   reserveUpdated: {
-        //     id: message.reserveId,
-        //     chatId: message.chatId
+        //     __typename: "ReserveChatNotification",
+        //     reserveId: message.receiverId,
+        //     chat: message.chatId
         //   }
         // })
       }
