@@ -1,6 +1,50 @@
 const dispatcherTypeDef = `#graphql
 scalar Date
 
+type Notification {
+  id: ID!
+  createdAt: Date!
+  readBy: [NotificationRead]
+  request: Request
+  requestId: ID
+  reserve: Reserve
+  reserveId: ID
+  hotel: Hotel
+  hotelId: ID
+  airline: Airline
+  airlineId: ID
+  chat: Chat
+  chatId: ID
+  message: Message
+  messageId: ID
+  description: NotificationDescription
+}
+
+type NotificationDescription {
+  action: String
+  reason: String
+  description: String
+}
+
+type NotificationRead {
+  id: ID
+  notification: Notification
+  user: User
+  readAt: Date
+}
+
+input PaginationInput {
+  skip: Int
+  take: Int
+  status: [String]
+}
+
+type NotificationConnection {
+  totalPages: Int
+  totalCount: Int
+  notifications: [Notification]
+}
+
 # union NotificationPayload = AirlineCreated | AirlineUpdated | MessageSent | HotelCreated | HotelUpdated | ReportCreated | RequestCreated | RequestUpdated | ReserveCreated | ReserveHotel | ReserveUpdated | ReservePersons | UserCreated | ExtendRequestNotification
 union NotificationPayload =  ExtendRequestNotification | RequestCreatedNotification | ReserveCreatedNotification | ReserveUpdatedNotification | MessageSentNotification 
 
@@ -11,6 +55,8 @@ union NotificationPayload =  ExtendRequestNotification | RequestCreatedNotificat
 type MessageSentNotification { 
   chat: Chat
   text: String
+  reserveId: ID
+  requestId: ID
  }
 
 # type HotelCreated {  }
@@ -53,6 +99,11 @@ type ExtendRequestNotification {
   newStart: Date
   newEnd: Date
   airline: Airline
+}
+
+type Query {
+  # getAllNotifications: Notification
+  getAllNotifications(pagination: PaginationInput): NotificationConnection!
 }
 
 type Subscription {

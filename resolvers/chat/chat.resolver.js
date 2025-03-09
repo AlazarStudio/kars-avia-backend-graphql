@@ -7,7 +7,11 @@ import {
   REQUEST_UPDATED
 } from "../../exports/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
-import { json, request } from "express"
+import { subscribe } from "graphql"
+import { connect } from "mongoose"
+
+// import leoProfanity from "leo-profanity"
+// leoProfanity.loadDictionary("ru")
 
 const chatResolver = {
   Query: {
@@ -171,13 +175,137 @@ const chatResolver = {
     // 1. Корректировка времени создания сообщения (сдвиг на 3 часа).
     // 2. Создание записи сообщения в базе данных с привязкой к отправителю и чату.
     // 3. Публикация события через PubSub для уведомления подписчиков.
+
+    // sendMessage: async (_, { chatId, senderId, text }, context) => {
+    //   const currentTime = new Date()
+    //   const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+    //   const formattedTime = adjustedTime.toISOString()
+
+    //   // const filteredText = leoProfanity.clean(text)
+    //   // Создаем сообщение и сразу получаем связанные данные о чате
+    //   const message = await prisma.message.create({
+    //     data: {
+    //       text,
+    //       sender: { connect: { id: senderId } },
+    //       chat: { connect: { id: chatId } },
+    //       createdAt: formattedTime
+    //     },
+    //     include: {
+    //       sender: {
+    //         select: {
+    //           id: true,
+    //           name: true,
+    //           number: true,
+    //           images: true,
+    //           role: true,
+    //           position: true,
+    //           airlineId: true,
+    //           airlineDepartmentId: true,
+    //           hotelId: true,
+    //           dispatcher: true
+    //         }
+    //       },
+    //       chat: {
+    //         select: {
+    //           id: true,
+    //           requestId: true,
+    //           reserveId: true
+    //         }
+    //       }
+    //     }
+    //   })
+
+    //   // Формируем массив промисов для обновлений и уведомлений
+    //   const tasks = []
+
+    //   if (message.chat.requestId) {
+    //     tasks.push(
+    //       prisma.request
+    //         .findUnique({
+    //           where: { id: message.chat.requestId },
+    //           include: { chat: true }
+    //         })
+    //         .then((updatedRequest) => {
+    //           prisma.notification.create({
+    //             data: {
+    //               chat: message.chat,
+    //               request: { connect: { id: message.chat.requestId } }
+    //             }
+    //           })
+    //           pubsub.publish(NOTIFICATION, {
+    //             notification: {
+    //               __typename: "MessageSentNotification",
+    //               requestId: message.chat.requestId,
+    //               chat: message.chat,
+    //               text: message.text
+    //             }
+    //           })
+    //           pubsub.publish(REQUEST_UPDATED, {
+    //             requestUpdated: updatedRequest
+    //           })
+    //         })
+    //     )
+    //   }
+
+    //   if (message.chat.reserveId) {
+    //     tasks.push(
+    //       prisma.reserve
+    //         .findUnique({
+    //           where: { id: message.chat.reserveId },
+    //           include: { chat: true }
+    //         })
+    //         .then((updatedReserve) => {
+    //           prisma.notification.create({
+    //             data: {
+    //               chat: message.chat,
+    //               reserve: { connect: { id: message.chat.reserveId } }
+    //             }
+    //           })
+    //           pubsub.publish(NOTIFICATION, {
+    //             notification: {
+    //               __typename: "MessageSentNotification",
+    //               reserveId: message.chat.reserveId,
+    //               chat: message.chat,
+    //               text: message.text
+    //             }
+    //           })
+    //           pubsub.publish(RESERVE_UPDATED, {
+    //             reserveUpdated: updatedReserve
+    //           })
+    //         })
+    //     )
+    //   }
+
+    //   // Обновляем данные о прочтении сообщений
+    //   tasks.push(
+    //     prisma.messageRead.upsert({
+    //       where: {
+    //         messageId_userId: { messageId: message.id, userId: senderId }
+    //       },
+    //       update: { readAt: new Date() },
+    //       create: {
+    //         messageId: message.id,
+    //         userId: senderId,
+    //         readAt: new Date()
+    //       }
+    //     })
+    //   )
+
+    //   // Ожидаем завершения всех задач
+    //   await Promise.all(tasks)
+
+    //   // Публикуем событие отправки сообщения
+    //   pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
+
+    //   return message
+    // },
+
     sendMessage: async (_, { chatId, senderId, text }, context) => {
-      // Получаем текущее время и корректируем его (например, для учета часового пояса)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
 
-      // Создаем новое сообщение с заданными параметрами
+      // Создаем сообщение и сразу получаем связанные данные о чате
       const message = await prisma.message.create({
         data: {
           text,
@@ -185,7 +313,6 @@ const chatResolver = {
           chat: { connect: { id: chatId } },
           createdAt: formattedTime
         },
-        // include: { sender: true, chat: true }
         include: {
           sender: {
             select: {
@@ -201,95 +328,222 @@ const chatResolver = {
               dispatcher: true
             }
           },
-          chat: true
+          chat: {
+            select: {
+              id: true,
+              requestId: true,
+              reserveId: true,
+              airlineId: true,
+              hotelId: true
+            }
+          }
         }
       })
 
-      // console.log("\n message: \n" + JSON.stringify(message), "\n ")
+      // Формируем массив промисов для обновлений и уведомлений
+      const tasks = []
 
-      if (message.chat.requestId != null) {
-        // console.log("\n request \n")
-
-        pubsub.publish(REQUEST_UPDATED, {
-          requestUpdated: { requestId: message.requestId, chat: message.chatId }
+      if (message.chat.requestId) {
+        const updatedRequest = await prisma.request.findUnique({
+          where: { id: message.chat.requestId },
+          include: { chat: true }
         })
-      }
 
-      if (message.chat.reserveId != null) {
-        // console.log("\n reserve \n")
-
-        // pubsub.publish(RESERVE_UPDATED, {
-        //   reserveUpdated: { chat: message.chatId }
-        // })
-
-        const updatedReserve = await prisma.reserve.findUnique({
-          where: { id: message.chat.reserveId },
-          include: {
-            chat: true
+        await prisma.notification.create({
+          data: {
+            chatId: message.chat.id, // ❗ Используем `chatId`
+            requestId: message.chat.requestId, // ❗ Используем `requestId`
+            airlineId: message.chat.airlineId || null, // ❗ Используем `airlineId`
+            hotelId: message.chat.hotelId || null, // ❗ Используем `hotelId`
+            description: {
+              action: "new_message"
+            }
           }
         })
 
-        // console.log("updatedReserve \n", updatedReserve)
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "MessageSentNotification",
+            requestId: message.chat.requestId,
+            chat: message.chat,
+            text: message.text
+          }
+        })
 
-        // pubsub.publish(RESERVE_UPDATED, {
-        //   reserveUpdated: {
-        //     __typename: "ReserveChatNotification",
-        //     reserveId: message.receiverId,
-        //     chat: message.chatId
-        //   }
-        // })
+        pubsub.publish(REQUEST_UPDATED, {
+          requestUpdated: updatedRequest
+        })
       }
 
-      const messageRead = await prisma.messageRead.upsert({
-        where: {
-          messageId_userId: { messageId: message.id, userId: senderId }
-        },
-        update: {
-          readAt: new Date()
-        },
-        create: {
-          messageId: message.id,
-          userId: senderId,
-          readAt: new Date()
-        }
-      })
+      if (message.chat.reserveId) {
+        const updatedReserve = await prisma.reserve.findUnique({
+          where: { id: message.chat.reserveId },
+          include: { chat: true }
+        })
 
-      // Публикуем событие отправки сообщения для подписок, используя уникальное имя события с chatId
+        await prisma.notification.create({
+          data: {
+            chatId: message.chat.id, // ❗ Используем `chatId`
+            reserveId: message.chat.reserveId, // ❗ Используем `reserveId`
+            airlineId: message.chat.airlineId || null, // ❗ Используем `airlineId`
+            hotelId: message.chat.hotelId || null, // ❗ Используем `hotelId`
+            description: {
+              action: "new_message"
+            }
+          }
+        })
 
-      // pubsub.publish(NOTIFICATION, {
-      //   notification: {
-      //     __typename: "MessageSentNotification",
-      //     ...message
-      //   }
-      // })
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "MessageSentNotification",
+            reserveId: message.chat.reserveId,
+            chat: message.chat,
+            text: message.text
+          }
+        })
 
+        pubsub.publish(RESERVE_UPDATED, {
+          reserveUpdated: updatedReserve
+        })
+      }
+
+      // Обновляем данные о прочтении сообщений
+      tasks.push(
+        prisma.messageRead.upsert({
+          where: {
+            messageId_userId: { messageId: message.id, userId: senderId }
+          },
+          update: { readAt: new Date() },
+          create: {
+            messageId: message.id,
+            userId: senderId,
+            readAt: new Date()
+          }
+        })
+      )
+
+      // Ожидаем завершения всех задач
+      await Promise.all(tasks)
+
+      // Публикуем событие отправки сообщения
       pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
+
       return message
     },
 
     // Помечает конкретное сообщение как прочитанное указанным пользователем.
     // Используется метод upsert для создания или обновления записи в таблице messageRead.
+    // markMessageAsRead: async (_, { messageId, userId }, context) => {
+    //   const messageRead = await prisma.messageRead.upsert({
+    //     where: {
+    //       messageId_userId: { messageId, userId }
+    //     },
+    //     update: {
+    //       readAt: new Date()
+    //     },
+    //     create: {
+    //       messageId,
+    //       userId,
+    //       readAt: new Date()
+    //     }
+    //   })
+
+    //   return messageRead
+    // },
+
     markMessageAsRead: async (_, { messageId, userId }, context) => {
+      const currentTime = new Date()
+
+      // Обновляем статус прочтения конкретного сообщения
       const messageRead = await prisma.messageRead.upsert({
-        where: {
-          messageId_userId: { messageId, userId }
-        },
-        update: {
-          readAt: new Date()
-        },
-        create: {
-          messageId,
-          userId,
-          readAt: new Date()
+        where: { messageId_userId: { messageId, userId } },
+        update: { readAt: currentTime },
+        create: { messageId, userId, readAt: currentTime }
+      })
+
+      // Получаем чат, связанный с этим сообщением
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        select: {
+          chat: { select: { id: true, requestId: true, reserveId: true } }
         }
       })
+
+      if (message && message.chat) {
+        const { requestId, reserveId } = message.chat
+
+        if (requestId) {
+          const updatedRequest = await prisma.request.findUnique({
+            where: { id: requestId },
+            include: { chat: true }
+          })
+          if (updatedRequest) {
+            pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+          }
+        }
+
+        if (reserveId) {
+          const updatedReserve = await prisma.reserve.findUnique({
+            where: { id: reserveId },
+            include: { chat: true }
+          })
+          if (updatedReserve) {
+            pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          }
+        }
+      }
+
       return messageRead
     },
 
     // Помечает все сообщения в чате как прочитанные для конкретного пользователя.
     // Здесь происходит обновление поля lastReadMessageAt в таблице chatUser,
     // а также (опционально) обновление статуса isRead для сообщений.
+
+    // markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
+    //   const currentTime = new Date()
+
+    //   // Обновляем дату последнего прочтения сообщений для пользователя в данном чате
+    //   await prisma.chatUser.upsert({
+    //     where: { chatId_userId: { chatId, userId } },
+    //     update: { lastReadMessageAt: currentTime },
+    //     create: { chatId, userId, lastReadMessageAt: currentTime }
+    //   })
+
+    //   // Обновляем все существующие записи MessageRead для сообщений в этом чате
+    //   await prisma.messageRead.updateMany({
+    //     where: {
+    //       message: { chatId },
+    //       userId
+    //     },
+    //     data: { readAt: currentTime }
+    //   })
+
+    //   // Находим все сообщения в чате, для которых нет записи MessageRead для данного пользователя
+    //   const unreadMessages = await prisma.message.findMany({
+    //     where: {
+    //       chatId,
+    //       readBy: { none: { userId } }
+    //     },
+    //     select: { id: true }
+    //   })
+
+    //   // Для каждого такого сообщения создаём новую запись MessageRead
+    //   await Promise.all(
+    //     unreadMessages.map((msg) =>
+    //       prisma.messageRead.create({
+    //         data: {
+    //           message: { connect: { id: msg.id } },
+    //           user: { connect: { id: userId } },
+    //           readAt: currentTime
+    //         }
+    //       })
+    //     )
+    //   )
+
+    //   return true
+    // },
+
     markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
       const currentTime = new Date()
 
@@ -302,23 +556,16 @@ const chatResolver = {
 
       // Обновляем все существующие записи MessageRead для сообщений в этом чате
       await prisma.messageRead.updateMany({
-        where: {
-          message: { chatId },
-          userId
-        },
+        where: { message: { chatId }, userId },
         data: { readAt: currentTime }
       })
 
-      // Находим все сообщения в чате, для которых нет записи MessageRead для данного пользователя
+      // Находим все непрочитанные сообщения и помечаем их как прочитанные
       const unreadMessages = await prisma.message.findMany({
-        where: {
-          chatId,
-          readBy: { none: { userId } }
-        },
+        where: { chatId, readBy: { none: { userId } } },
         select: { id: true }
       })
 
-      // Для каждого такого сообщения создаём новую запись MessageRead
       await Promise.all(
         unreadMessages.map((msg) =>
           prisma.messageRead.create({
@@ -330,6 +577,34 @@ const chatResolver = {
           })
         )
       )
+
+      // Получаем данные о чате
+      const chat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        select: { requestId: true, reserveId: true }
+      })
+
+      if (chat) {
+        if (chat.requestId) {
+          const updatedRequest = await prisma.request.findUnique({
+            where: { id: chat.requestId },
+            include: { chat: true }
+          })
+          if (updatedRequest) {
+            pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+          }
+        }
+
+        if (chat.reserveId) {
+          const updatedReserve = await prisma.reserve.findUnique({
+            where: { id: chat.reserveId },
+            include: { chat: true }
+          })
+          if (updatedReserve) {
+            pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          }
+        }
+      }
 
       return true
     },
@@ -361,10 +636,75 @@ const chatResolver = {
   Subscription: {
     // Подписка на событие отправки нового сообщения в чате.
     // Событие идентифицируется с использованием chatId.
-    messageSent: {
-      subscribe: (_, { chatId }) =>
-        pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`)
+    // messageSent: {
+    //   subscribe: (_, { chatId }) =>
+    //     pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`)
+    // },
+    requestUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator(REQUEST_UPDATED),
+        (payload, variables, context) => {
+          const user = context.user
+          const message = payload.requestUpdated
+
+          if (user.dispatcher === true) {
+            return true
+          }
+          if (user.airlineId && user.airlineId === message.chat.airlineId) {
+            return true
+          }
+          if (user.hotelId && user.hotelId === message.chat.hotelId) {
+            return true
+          }
+          return false
+        }
+      )
     },
+    reserveUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator(RESERVE_UPDATED),
+        (payload, variables, context) => {
+          const user = context.user
+          const message = payload.reserveUpdated
+
+          if (user.dispatcher === true) {
+            return true
+          }
+          if (user.airlineId && user.airlineId === message.chat.airlineId) {
+            return true
+          }
+          if (user.hotelId && user.hotelId === message.chat.hotelId) {
+            return true
+          }
+          return false
+        }
+      )
+    },
+
+    messageSent: {
+      subscribe: withFilter(
+        (_, { chatId }) => pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`),
+        (payload, variables, context) => {
+          const user = context.user
+          const message = payload.messageSent
+          const chatIdMatches =
+            message.chat && message.chat.id === variables.chatId
+          if (!chatIdMatches) return false
+
+          if (user.dispatcher === true) {
+            return true
+          }
+          if (user.airlineId && user.airlineId === message.chat.airlineId) {
+            return true
+          }
+          if (user.hotelId && user.hotelId === message.chat.hotelId) {
+            return true
+          }
+          return false
+        }
+      )
+    },
+
     // Подписка на событие получения нового непрочитанного сообщения для конкретного пользователя.
     // Имя события включает как chatId, так и userId.
     newUnreadMessage: {

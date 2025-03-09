@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.8.3-1",
+  "version": "1.8.4",
   "main": "server.js",
   "scripts": {
     "backup": "node utils/cron/backup.js",
@@ -20,7 +20,6 @@
     "@graphql-tools/schema": "^10.0.6",
     "@levminer/speakeasy": "^1.4.2",
     "@prisma/client": "^6.4.1",
-    "apollo-server-express": "^3.13.0",
     "archetype": "^0.13.1",
     "argon2": "^0.40.3",
     "bcrypt": "^5.1.1",

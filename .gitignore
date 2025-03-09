@@ -3,7 +3,7 @@ node_modules/
 uploads/
 backups/
 reports/
-reserve/
+reserve_files/
 logs/
 cert/
 data.csv

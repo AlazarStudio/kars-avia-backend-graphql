@@ -25,6 +25,7 @@ const reserveTypeDef = `#graphql
     hotelChess: [HotelChess]
     logs: [Log]
     files: [String]
+    passengerList: [String]
   }
 
   # Тип для отелей, привязанных к резерву

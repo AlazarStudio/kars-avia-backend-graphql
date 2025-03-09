@@ -3,6 +3,7 @@ import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import logAction from "../../exports/logaction.js"
 import {
+  HOTEL_UPDATED,
   MESSAGE_SENT,
   NOTIFICATION,
   pubsub,
@@ -26,7 +27,6 @@ import {
 } from "../../exports/generateReservePas.js"
 import path from "path"
 import fs from "fs"
-import { console } from "inspector"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -220,6 +220,8 @@ const reserveResolver = {
     // Здесь генерируется уникальный номер резерва, выполняется загрузка файлов,
     // создается чат для резерва и происходит логирование действия.
     createReserve: async (_, { input, files }, context) => {
+      // console.log("\n createReserve log")
+      // process.stdout.write(`\n createReserve stdout `)
       const { user } = context
       airlineModerMiddleware(context)
       const {
@@ -340,8 +342,17 @@ const reserveResolver = {
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
-
       // Публикация уведомления и события создания резерва.
+      await prisma.notification.create({
+        data: {
+          reserve: { connect: { id: newReserve.id } },
+          airline: { connect: { id: airlineId } },
+          description: {
+            action: "create_reserve",
+            description: `Создана заявка <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span> `
+          }
+        }
+      })
       pubsub.publish(NOTIFICATION, {
         notification: {
           __typename: "ReserveCreatedNotification",
@@ -358,12 +369,11 @@ const reserveResolver = {
       const { user } = context
       const { arrival, departure, status } = input
       airlineModerMiddleware(context)
-      // Корректировка времени (сдвиг на 3 часа)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
 
-      // Получение текущего резерва с включением связанных сущностей.
+      // Получаем резерв с зависимыми сущностями
       const reserve = await prisma.reserve.findUnique({
         where: { id },
         include: {
@@ -376,142 +386,181 @@ const reserveResolver = {
         }
       })
 
-      // process.stdout.write(`reserve - ${JSON.stringify(reserve)} \n `)
+      if (!reserve) {
+        throw new Error("Резерв не найден")
+      }
 
-      // Обработка файлов: загрузка новых и удаление старых, если они есть.
+      // Обработка файлов (если есть)
       let filesPath = []
-      if (files && files.length > 0) {
+      if (files?.length > 0) {
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
         }
       }
+
       if (filesPath.length > 0) {
-        if (reserve.files && reserve.files.length > 0) {
+        if (reserve.files?.length > 0) {
           for (const filePath of reserve.files) {
             await deleteFiles(filePath)
           }
         }
         await prisma.reserve.update({
           where: { id },
-          data: {
-            files: filesPath
-          }
+          data: { files: filesPath }
         })
       }
 
-      // Если пользователь связан с авиалинией, формируется запрос на изменение дат через чат.
+      // process.stdout.write(`\n files \n`)
+
+      // Если пользователь связан с авиалинией, создаем запрос на изменение через чат
+
       if (user.airlineId) {
-        // if (arrival === reserve.arrival && departure === reserve.departure) {
-        if (arrival == undefined && departure == undefined) {
-          return reserve
-        }
-        const extendRequest = {
-          id,
-          arrival,
-          departure
-        }
-        const updatedStart = arrival ? arrival : reserve.arrival
-        const updatedEnd = departure ? departure : reserve.departure
+        if (!arrival && !departure) return reserve
+
+        const extendReserve = { id, arrival, departure }
+        const updatedStart = arrival ?? reserve.arrival
+        const updatedEnd = departure ?? reserve.departure
+
         const chat = await prisma.chat.findFirst({
           where: { reserveId: id, separator: "airline" }
         })
-        const message = await prisma.message.create({
+
+        if (chat) {
+          const message = await prisma.message.create({
+            data: {
+              text: `Запрос на изменение дат заявки ${
+                reserve.reserveNumber
+              } с ${formatDate(reserve.arrival)} - ${formatDate(
+                reserve.departure
+              )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+              sender: { connect: { id: user.id } },
+              chat: { connect: { id: chat.id } },
+              separator: "important",
+              createdAt: formattedTime
+            },
+            include: { sender: true }
+          })
+          await prisma.notification.create({
+            data: {
+              reserve: { connect: { id: extendReserve.id } },
+              airline: { connect: { id: reserve.airlineId } },
+              description: {
+                action: "update_reserve",
+                description: `Запрос на изменение дат заявки ${
+                  reserve.reserveNumber
+                } с ${formatDate(reserve.arrival)} - ${formatDate(
+                  reserve.departure
+                )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+              }
+            }
+          })
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "ReserveUpdatedNotification",
+              ...extendReserve
+            }
+          })
+          pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+        }
+
+        return extendReserve
+      }
+
+      // Обновляем резерв
+      try {
+        const updatedReserve = await prisma.reserve.update({
+          where: { id },
           data: {
-            text: `Запрос на изменение дат заявки ${
-              reserve.reserveNumber
-            } с ${formatDate(reserve.arrival)} - ${formatDate(
-              reserve.departure
-            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
-            sender: { connect: { id: user.id } },
-            chat: { connect: { id: chat.id } },
-            separator: "important",
-            createdAt: formattedTime
+            arrival: arrival ?? reserve.arrival,
+            departure: departure ?? reserve.departure,
+            status: status ?? reserve.status
           },
-          include: {
-            sender: true
-          }
+          include: { hotelChess: true }
         })
 
+        // Обновляем hotelChess (если есть)
+        if (updatedReserve?.hotelChess?.length > 0) {
+          for (const hc of updatedReserve.hotelChess) {
+            const hotel = await prisma.hotel.findUnique({
+              where: { id: hc.hotelId },
+              include: { breakfast: true, lunch: true, dinner: true }
+            })
+
+            if (hotel) {
+              const enabledMeals = {
+                breakfast: updatedReserve.mealPlan?.breakfastEnabled,
+                lunch: updatedReserve.mealPlan?.lunchEnabled,
+                dinner: updatedReserve.mealPlan?.dinnerEnabled
+              }
+
+              const mealTimes = {
+                breakfast: hotel.breakfast,
+                lunch: hotel.lunch,
+                dinner: hotel.dinner
+              }
+
+              const calculatedMealPlan = calculateMeal(
+                updatedReserve.arrival,
+                updatedReserve.departure,
+                mealTimes,
+                enabledMeals
+              )
+
+              const mealPlanData = {
+                included: updatedReserve.mealPlan?.included,
+                breakfast: calculatedMealPlan.totalBreakfast,
+                breakfastEnabled: updatedReserve.mealPlan?.breakfastEnabled,
+                lunch: calculatedMealPlan.totalLunch,
+                lunchEnabled: updatedReserve.mealPlan?.lunchEnabled,
+                dinner: calculatedMealPlan.totalDinner,
+                dinnerEnabled: updatedReserve.mealPlan?.dinnerEnabled,
+                dailyMeals: calculatedMealPlan.dailyMeals
+              }
+
+              const updatedHotelChess = await prisma.hotelChess.update({
+                where: { id: hc.id },
+                data: {
+                  start: updatedReserve.arrival,
+                  end: updatedReserve.departure,
+                  mealPlan: mealPlanData
+                }
+              })
+              pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotel })
+            }
+          }
+        }
+        await prisma.notification.create({
+          data: {
+            reserve: { connect: { id: updatedReserve.id } },
+            airline: { connect: { id: reserve.airlineId } },
+            description: {
+              action: "update_reserve",
+              description: `Заявка ${
+                reserve.reserveNumber
+              } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
+                reserve.departure
+              )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(updatedReserve.departure)}`
+            }
+          }
+        })
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ReserveUpdatedNotification",
-            ...extendRequest
+            ...updatedReserve
           }
         })
-        pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
-        return extendRequest
+
+        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+
+        return updatedReserve
+      } catch (error) {
+        console.error("\n❌ Ошибка при обновлении резерва:", error)
+        throw new Error(
+          "Ошибка обновления резерва",
+          JSON.stringify(error, null, 2)
+        )
       }
-
-      // Обновление резерва, если не требуется изменение через чат.
-      const updatedReserve = await prisma.reserve.update({
-        where: { id },
-        data: {
-          arrival,
-          departure,
-          status,
-          files: filesPath
-        },
-        include: { hotelChess: true }
-      })
-
-      // Если у резерва есть связанные hotelChess, обновляем для них план питания.
-      if (updatedReserve.hotelChess && updatedReserve.hotelChess.length > 0) {
-        for (const hc of updatedReserve.hotelChess) {
-          const hotel = await prisma.hotel.findUnique({
-            where: { id: hc.hotelId },
-            select: { breakfast: true, lunch: true, dinner: true }
-          })
-          if (hotel) {
-            const enabledMeals = {
-              breakfast: updatedReserve.mealPlan?.breakfastEnabled,
-              lunch: updatedReserve.mealPlan?.lunchEnabled,
-              dinner: updatedReserve.mealPlan?.dinnerEnabled
-            }
-
-            const mealTimes = {
-              breakfast: hotel.breakfast,
-              lunch: hotel.lunch,
-              dinner: hotel.dinner
-            }
-
-            const calculatedMealPlan = calculateMeal(
-              arrival,
-              departure,
-              mealTimes,
-              enabledMeals
-            )
-
-            const mealPlanData = {
-              included: request.mealPlan.included,
-              breakfast: calculatedMealPlan.totalBreakfast,
-              breakfastEnabled: request.mealPlan.breakfastEnabled,
-              lunch: calculatedMealPlan.totalLunch,
-              lunchEnabled: request.mealPlan.lunchEnabled,
-              dinner: calculatedMealPlan.totalDinner,
-              dinnerEnabled: request.mealPlan.dinnerEnabled,
-              dailyMeals: calculatedMealPlan.dailyMeals
-            }
-
-            await prisma.hotelChess.update({
-              where: { id: hc.id },
-              data: {
-                start: updatedReserve.arrival,
-                end: updatedReserve.departure,
-                mealPlan: mealPlanData
-              }
-            })
-          }
-        }
-      }
-      pubsub.publish(NOTIFICATION, {
-        notification: {
-          __typename: "ReserveUpdatedNotification",
-          ...updatedReserve
-        }
-      })
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
-      return updatedReserve
     },
 
     // Добавление отеля к резерву.
@@ -691,7 +740,7 @@ const reserveResolver = {
 
       // Формирование имени и пути для генерируемого файла.
       const listName = `reserve_${reserveId}_${Date.now()}.${format}`
-      const listPath = path.resolve(`./reserve/${listName}`)
+      const listPath = path.resolve(`./reserve_files/${listName}`)
       fs.mkdirSync(path.dirname(listPath), { recursive: true })
 
       if (format === "xlsx") {
@@ -700,9 +749,18 @@ const reserveResolver = {
         throw new Error("Unsupported format")
       }
 
+      const updatedReserve = await prisma.reserve.update({
+        where: { id: reserveId },
+        data: {
+          passengerList: { set: [`/reserve_files/${listName}`] }
+        }
+      })
+
+      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+
       return {
         name: listName,
-        url: `/reserve/${listName}`
+        url: `/reserve_files/${listName}`
       }
     },
 

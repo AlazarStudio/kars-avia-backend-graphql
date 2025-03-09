@@ -7,8 +7,10 @@ import {
   REQUEST_CREATED,
   REQUEST_UPDATED,
   NOTIFICATION,
-  MESSAGE_SENT
+  MESSAGE_SENT,
+  HOTEL_UPDATED
 } from "../../exports/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../exports/calculateMeal.js"
 import {
   formatDate,
@@ -329,7 +331,8 @@ const requestResolver = {
       const newChat = await prisma.chat.create({
         data: {
           request: { connect: { id: newRequest.id } },
-          separator: "airline"
+          separator: "airline",
+          airline: { connect: { id: airlineId } }
         }
       })
       // Добавление отправителя в созданный чат
@@ -359,6 +362,16 @@ const requestResolver = {
         console.error("Ошибка при логировании создания заявки:", error)
       }
       // Публикация уведомления и события о создании заявки
+      await prisma.notification.create({
+        data: {
+          request: { connect: { id: newRequest.id } },
+          airline: { connect: { id: airlineId } },
+          description: {
+            action: "create_request",
+            description: `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span> `
+          }
+        }
+      })
       pubsub.publish(NOTIFICATION, {
         notification: {
           __typename: "RequestCreatedNotification",
@@ -400,7 +413,7 @@ const requestResolver = {
         throw new Error("Request not found")
       }
 
-      console.log("\n input: \n", JSON.stringify(input), "\n")
+      // console.log("\n input: \n", JSON.stringify(input), "\n")
 
       // Определяем, изменились ли даты прибытия или отбытия
       const isArrivalChanged =
@@ -538,6 +551,7 @@ const requestResolver = {
           where: { id: oldRequest.hotelChess[0].id },
           data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
         })
+        pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
       }
       dataToUpdate.mealPlan = mealPlanData
       // Обновление заявки в базе данных
@@ -563,11 +577,15 @@ const requestResolver = {
             updatedRequest.person.position
           } ${
             updatedRequest.person.name
-          }</span> c <span style='color:#545873'>${oldRequest.arrival} - ${
+          }</span> c <span style='color:#545873'>${formatDate(
+            oldRequest.arrival
+          )} - ${formatDate(
             oldRequest.departure
-          }</span> до <span style='color:#545873'>${
-            arrival || oldRequest.arrival
-          } - ${departure || oldRequest.departure}</span>`,
+          )}</span> до <span style='color:#545873'>${
+            formatDate(arrival) || formatDate(oldRequest.arrival)
+          } - ${
+            formatDate(departure) || formatDate(oldRequest.departure)
+          }</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
@@ -675,6 +693,20 @@ const requestResolver = {
             }
           }
         })
+        await prisma.notification.create({
+          data: {
+            request: { connect: { id: extendRequest.id } },
+            airlineId: extendRequest.airlineId,
+            description: {
+              action: "extend_request",
+              description: `Запрос на изменение дат заявки ${
+                request.requestNumber
+              } с ${formatDate(request.arrival)} - ${formatDate(
+                request.departure
+              )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+            }
+          }
+        })
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
@@ -733,6 +765,7 @@ const requestResolver = {
           where: { id: request.hotelChess[0].id },
           data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
         })
+        pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
       }
       // Обновляем заявку с новыми датами, пересчитанным планом питания и измененным статусом.
       const updatedRequest = await prisma.request.update({
@@ -753,7 +786,21 @@ const requestResolver = {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'>${updatedRequest.person.position} ${updatedRequest.person.name}</span> c <span style='color:#545873'>${request.arrival} - ${request.departure}</span> до <span style='color:#545873'>${updatedStart} - ${updatedEnd}</span>`,
+          description: `Пользователь <span style='color:#545873'>${
+            user.name
+          }</span> изменил заявку <span style='color:#545873'> № ${
+            updatedRequest.requestNumber
+          }</span> для <span style='color:#545873'>${
+            updatedRequest.person.position
+          } ${
+            updatedRequest.person.name
+          }</span> c <span style='color:#545873'>${formatDate(
+            request.arrival
+          )} - ${formatDate(
+            request.departure
+          )}</span> до <span style='color:#545873'>${formatDate(
+            updatedStart
+          )} - ${formatDate(updatedEnd)}</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
@@ -843,10 +890,20 @@ const requestResolver = {
             }
           }
         })
+        await prisma.notification.create({
+          data: {
+            request: { connect: { id: request.id } },
+            airlineId: request.airlineId,
+            description: {
+              action: "cancel_request",
+              description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
+            }
+          }
+        })
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
-            ...extendRequest
+            ...request
           }
         })
         pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
@@ -877,12 +934,50 @@ const requestResolver = {
 
   Subscription: {
     // Подписка на событие создания заявки
+    // requestCreated: {
+    //   subscribe: () => pubsub.asyncIterator([REQUEST_CREATED])
+    // },
+
     requestCreated: {
-      subscribe: () => pubsub.asyncIterator([REQUEST_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator(REQUEST_CREATED),
+        (payload, variables, context) => {
+          const user = context.user
+          if (user.dispatcher === true) {
+            return true
+          }
+          if (
+            user.airlineId &&
+            user.airlineId === payload.requestCreated.airlineId
+          ) {
+            return true
+          }
+          return false
+        }
+      )
     },
+
     // Подписка на событие обновления заявки
     requestUpdated: {
-      subscribe: () => pubsub.asyncIterator([REQUEST_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator(REQUEST_UPDATED),
+        (payload, variables, context) => {
+          const user = context.user
+          if (user.dispatcher === true) {
+            return true
+          }
+          if (
+            user.airlineId &&
+            user.airlineId === payload.requestUpdated.airlineId
+          ) {
+            return true
+          }
+          if (user.hotelId && user.hotelId === payload.requestUpdated.hotelId) {
+            return true
+          }
+          return false
+        }
+      )
     },
     // Подписка на уведомления
     notification: {
@@ -924,12 +1019,12 @@ const requestResolver = {
         where: { id: parent.personId }
       })
     },
-    // Получение чатов, связанных с данной заявкой.
-    chat: async (parent) => {
-      return await prisma.chat.findMany({
-        where: { requestId: parent.id }
-      })
-    },
+    // // Получение чатов, связанных с данной заявкой.
+    // chat: async (parent) => {
+    //   return await prisma.chat.findMany({
+    //     where: { requestId: parent.id }
+    //   })
+    // },
     // Получение логов по заявке с информацией о пользователе, выполнившем действие.
     logs: async (parent) => {
       return await prisma.log.findMany({

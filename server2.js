@@ -19,18 +19,68 @@ import authMiddleware, {
 } from "./middlewares/authMiddleware.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
-import { ApolloServerPluginLandingPageLocalDefault } from "apollo-server-core"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
 
 dotenv.config()
 const app = express()
+
 const httpServer = http.createServer(app)
 const schema = makeExecutableSchema({
   typeDefs: mergedTypeDefs,
   resolvers: mergedResolvers
 })
 const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" })
-const serverCleanup = useServer({ schema }, wsServer)
+
+const getDynamicContext = async (ctx, msg, args) => {
+  // ctx is the graphql-ws Context where connectionParams live
+  // console.log("\n ctx" + ctx, "\n ctx" + JSON.stringify(ctx))
+  if (ctx.connectionParams.Authorization) {
+    const authHeader = ctx.connectionParams.Authorization
+    if (!authHeader) {
+      return { user: null }
+    }
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7, authHeader.length)
+      : authHeader
+    let user = null
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        user = await prisma.user.findUnique({
+          where: { id: decoded.userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            number: true,
+            role: true,
+            position: true,
+            airlineId: true,
+            airlineDepartmentId: true,
+            hotelId: true,
+            dispatcher: true,
+            support: true
+          }
+        })
+      } catch (e) {
+        console.error("Error verifying token:", e)
+      }
+    }
+    return { user }
+  }
+  // Otherwise let our resolvers know we don't have a current user
+  // return { user: null }
+}
+
+const serverCleanup = useServer(
+  {
+    schema,
+    context: async (ctx, msg, args) => {
+      return getDynamicContext(ctx, msg, args)
+    }
+  },
+  wsServer
+)
 const server = new ApolloServer({
   schema: schema,
   csrfPrevention: true,
@@ -45,8 +95,7 @@ const server = new ApolloServer({
           }
         }
       }
-    },
-    ApolloServerPluginLandingPageLocalDefault({ embed: true })
+    }
   ]
 })
 // --------------------------------
@@ -57,7 +106,7 @@ await server.start()
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
 app.use("/reports", express.static("reports"))
-app.use("/reserve", express.static("reserve"))
+app.use("/reserve_files", express.static("reserve_files"))
 
 app.use(
   "/",

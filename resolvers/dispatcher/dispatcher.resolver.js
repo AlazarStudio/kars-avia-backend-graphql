@@ -16,8 +16,51 @@ import {
   // USER_CREATED,
   NOTIFICATION
 } from "../../exports/pubsub.js"
+import { Query } from "mongoose"
 
 const dispatcherResolver = {
+  Query: {
+    getAllNotifications: async (_, { pagination }, context) => {
+      const { user } = context
+      const { skip, take, status } = pagination
+      let filter
+      if (user.dispatcher === true) {
+        filter = {}
+      }
+      if (user.airlineId) {
+        filter = { airlineId: user.airlineId }
+      }
+      if (user.hotelId) {
+        filter = { hotelId: user.hotelId }
+      }
+      // const statusFilter =
+      //   status && status.length > 0 && !status.includes("all")
+      //     ? { status: { in: status } }
+      //     : {}
+
+      const totalCount = await prisma.notification.count({
+        where: {
+          ...filter
+        }
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      const notifications = await prisma.notification.findMany({
+        where: {
+          ...filter
+        },
+        skip: skip * take,
+        take: take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          request: true,
+          reserve: true
+        }
+      })
+      return { totalPages, totalCount, notifications }
+    }
+  },
   Subscription: {
     notification: {
       subscribe: () => pubsub.asyncIterator([NOTIFICATION])

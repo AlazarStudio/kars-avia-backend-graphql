@@ -175,6 +175,7 @@ model User {
   twoFASecret          String?
   twoFAMethod          TwoFAMethod?
   messageRead          MessageRead[]
+  NotificationRead     NotificationRead[]
   resetPasswordToken   String? // для хранения токена восстановления
   resetPasswordExpires DateTime? // срок действия токена
   // position             Positions?         @relation(fields: [positionId], references: [id])
@@ -219,6 +220,7 @@ model Hotel {
   chat            Chat[]
   prices          Price?
   Positions       Positions[]
+  Notification    Notification[]
 }
 
 model HotelChess {
@@ -264,21 +266,22 @@ model Room {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id          String              @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  images      String[]
-  information Information?
-  department  AirlineDepartment[]
-  staff       AirlinePersonal[]
-  request     Request[]
-  user        User[]
-  logs        Log[]
-  reserve     Reserve[]
-  mealPrice   MealPrice?
-  savedReport SavedReport[]
-  chat        Chat[]
-  prices      Price?
-  Positions   Positions[]
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  images       String[]
+  information  Information?
+  department   AirlineDepartment[]
+  staff        AirlinePersonal[]
+  request      Request[]
+  user         User[]
+  logs         Log[]
+  reserve      Reserve[]
+  mealPrice    MealPrice?
+  savedReport  SavedReport[]
+  chat         Chat[]
+  prices       Price?
+  Positions    Positions[]
+  Notification Notification[]
 }
 
 model AirlineDepartment {
@@ -356,6 +359,7 @@ model Request {
   archive       Boolean          @default(false)
   files         String[]
   reserve       Boolean          @default(false)
+  Notifications Notification[]
 }
 
 model Reserve {
@@ -381,6 +385,8 @@ model Reserve {
   archive        Boolean        @default(false)
   hotelChess     HotelChess[]
   files          String[]
+  passengerList  String[]
+  Notifications  Notification[]
 }
 
 model Passenger {
@@ -416,35 +422,37 @@ model ReserveHotel {
 // Чаты/сообщения  ---------------- ↓↓↓↓
 
 model Chat {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  request      Request?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId    String?    @db.ObjectId
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  request      Request?       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId    String?        @db.ObjectId
   messages     Message[]
   participants ChatUser[]
-  createdAt    DateTime   @default(now())
-  reserve      Reserve?   @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId    String?    @db.ObjectId
-  isSupport    Boolean    @default(false)
+  createdAt    DateTime       @default(now())
+  reserve      Reserve?       @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId    String?        @db.ObjectId
+  isSupport    Boolean        @default(false)
   separator    String?
-  airline      Airline?   @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId    String?    @db.ObjectId
-  hotel        Hotel?     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId      String?    @db.ObjectId
+  airline      Airline?       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId    String?        @db.ObjectId
+  hotel        Hotel?         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId      String?        @db.ObjectId
+  Notification Notification[]
 }
 
 model Message {
-  id         String        @id @default(auto()) @map("_id") @db.ObjectId
-  text       String
-  sender     User          @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId   String        @db.ObjectId
-  receiver   User?         @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  receiverId String?       @db.ObjectId
-  chat       Chat?         @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId     String?       @db.ObjectId
-  createdAt  DateTime      @default(now())
-  isRead     Boolean       @default(false)
-  readBy     MessageRead[]
-  separator  String?
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  text         String
+  sender       User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId     String         @db.ObjectId
+  receiver     User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId   String?        @db.ObjectId
+  chat         Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId       String?        @db.ObjectId
+  createdAt    DateTime       @default(now())
+  isRead       Boolean        @default(false)
+  readBy       MessageRead[]
+  separator    String?
+  Notification Notification[]
 }
 
 model MessageRead {
@@ -512,3 +520,39 @@ model SavedReport {
 }
 
 // Отчёты  ---------------- ↑↑↑↑
+
+model Notification {
+  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime                 @default(now())
+  readBy      NotificationRead[]
+  request     Request?                 @relation(fields: [requestId], references: [id])
+  requestId   String?                  @db.ObjectId
+  reserve     Reserve?                 @relation(fields: [reserveId], references: [id])
+  reserveId   String?                  @db.ObjectId
+  hotel       Hotel?                   @relation(fields: [hotelId], references: [id])
+  hotelId     String?                  @db.ObjectId
+  airline     Airline?                 @relation(fields: [airlineId], references: [id])
+  airlineId   String?                  @db.ObjectId
+  chat        Chat?                    @relation(fields: [chatId], references: [id])
+  chatId      String?                  @db.ObjectId
+  message     Message?                 @relation(fields: [messageId], references: [id])
+  messageId   String?                  @db.ObjectId
+  description NotificationDescription?
+}
+
+type NotificationDescription {
+  action      String?
+  reason      String?
+  description String?
+}
+
+model NotificationRead {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  readAt         DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+}

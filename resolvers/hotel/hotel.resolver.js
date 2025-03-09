@@ -14,7 +14,8 @@ import {
   pubsub,
   REQUEST_UPDATED,
   HOTEL_CREATED,
-  HOTEL_UPDATED
+  HOTEL_UPDATED,
+  RESERVE_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 
@@ -350,6 +351,7 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   reserveId: hotelChess.reserveId
                 })
+                pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
               }
             } else {
               // Создание новой записи hotelChess
@@ -421,6 +423,7 @@ const hotelResolver = {
                       mealPlan: mealPlanData
                     }
                   })
+                  pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
                 } catch (e) {
                   console.error("Error: ", e)
                   throw new Error(
@@ -575,6 +578,7 @@ const hotelResolver = {
                   const newChat = await prisma.chat.create({
                     data: {
                       request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id: hotelChess.hotelId } },
                       separator: "hotel"
                     }
                   })
@@ -729,7 +733,7 @@ const hotelResolver = {
       await logAction({
         context,
         action: "delete_hotel",
-        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> удалил отель  <span style='color:#545873'> ${hotelToDelete.name}</span>`,
+        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> удалил отель <span style='color:#545873'>${hotelToDelete.name}</span>`,
         oldData: hotelToDelete,
         newData: hotelToDelete,
         hotelId: id
