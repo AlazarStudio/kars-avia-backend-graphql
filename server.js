@@ -128,8 +128,8 @@ app.use(
   // {origin: (origin, callback) => {if (process.env.ALLOWED_ORIGINS.split(",").includes(origin)) {callback(null, true)} else {callback(new Error("Origin not allowed"))}}}
   express.json(),
   expressMiddleware(server, {
-    context: async ({ ctx, msg, args }) => {
-      const authHeader = ctx.headers.authorization
+    context: async ({ req, res }) => {
+      const authHeader = req.headers.authorization
       if (!authHeader) {
         return { user: null }
       }
@@ -160,7 +160,6 @@ app.use(
           console.error("Error verifying token:", e)
         }
       }
-      // console.log("token - ", token)
       return { user }
     }
   })
