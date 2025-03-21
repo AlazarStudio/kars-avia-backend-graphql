@@ -148,16 +148,16 @@ const userResolver = {
       })
 
       // (Опционально) Отправка email с данными аккаунта (закомментировано)
-      // try {
-      //   const info = await transporter.sendMail({
-      //     from: `${process.env.EMAIL_USER}`,
-      //     to: `${createdData.email}`,
-      //     subject: "Данные вашего аккаунта",
-      //     text: `Ваш логин: ${createdData.login} \n Ваша почта: ${createdData.email} \n Ваш пароль: ${password}`
-      //   })
-      // } catch (error) {
-      //   console.error("Ошибка при отправке письма:", error)
-      // }
+      try {
+        const info = await transporter.sendMail({
+          from: `${process.env.EMAIL_USER}`,
+          to: `${createdData.email}`,
+          subject: "Данные вашего аккаунта",
+          text: `Ваш логин: ${createdData.login} \n Ваш пароль: ${password}`
+        })
+      } catch (error) {
+        console.error("Ошибка при отправке письма:", error)
+      }
 
       // Логирование действия создания пользователя
       await logAction({

@@ -646,6 +646,7 @@ const hotelResolver = {
                 active: room.active,
                 beds: room.beds,
                 description: room.description,
+                descriptionSecond: room.descriptionSecond,
                 places: places,
                 ...(roomImages && { images: imagePaths })
               }
@@ -678,6 +679,7 @@ const hotelResolver = {
                   active: room.active,
                   beds: room.beds,
                   description: room.description,
+                  descriptionSecond: room.descriptionSecond,
                   images: imagePaths,
                   places: places
                 }
