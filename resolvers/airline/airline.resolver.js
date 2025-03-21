@@ -407,13 +407,13 @@ const airlineResolver = {
     // Получение списка департаментов, связанных с авиакомпанией
     department: async (parent) => {
       return await prisma.airlineDepartment.findMany({
-        where: { airlineId: parent.id }
+        where: { airlineId: parent.id, active: true }
       })
     },
     // Получение списка сотрудников, привязанных к авиакомпании
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
-        where: { airlineId: parent.id }
+        where: { airlineId: parent.id, active: true }
       })
     },
     logs: async (parent, { pagination }) => {
@@ -442,13 +442,13 @@ const airlineResolver = {
     // Получение списка пользователей, привязанных к департаменту
     users: async (parent) => {
       return await prisma.user.findMany({
-        where: { airlineDepartmentId: parent.id }
+        where: { airlineDepartmentId: parent.id, active: true }
       })
     },
     // Получение списка сотрудников, связанных с департаментом (проверить логику при необходимости)
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
-        where: { airlineId: parent.id }
+        where: { airlineId: parent.id, active: true }
       })
     }
   },
