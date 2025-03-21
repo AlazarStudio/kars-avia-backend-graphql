@@ -68,8 +68,8 @@ const reserveResolver = {
           passengers: true,
           hotel: true,
           hotelChess: true,
-          chat: true,
-          logs: true
+          chat: true
+          // logs: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -479,6 +479,11 @@ const reserveResolver = {
           include: { hotelChess: true }
         })
 
+        if (!arrival && !departure) {
+          pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          return reserve
+        }
+
         // Обновляем hotelChess (если есть)
         if (updatedReserve?.hotelChess?.length > 0) {
           for (const hc of updatedReserve.hotelChess) {
@@ -540,7 +545,9 @@ const reserveResolver = {
                 reserve.reserveNumber
               } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
                 reserve.departure
-              )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(updatedReserve.departure)}`
+              )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(
+                updatedReserve.departure
+              )}`
             }
           }
         })
@@ -835,6 +842,25 @@ const reserveResolver = {
       return await prisma.passenger.findMany({
         where: { reserveId: parent.id }
       })
+    },
+    logs: async (parent, { pagination }) => {
+      const { skip = 0, take = 10 } = pagination || {}
+
+      const totalCount = await prisma.log.count({
+        where: { reserveId: parent.id }
+      })
+
+      const logs = await prisma.log.findMany({
+        where: { reserveId: parent.id },
+        include: { user: true },
+        skip,
+        take,
+        orderBy: { createdAt: "desc" } // сортируем от новых к старым
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      return { totalCount, totalPages, logs }
     }
   },
 

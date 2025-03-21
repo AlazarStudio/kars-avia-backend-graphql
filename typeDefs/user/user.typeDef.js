@@ -36,6 +36,7 @@ type User {
   twoFAMethod: TwoFAMethod
   airlineDepartmentId: ID
   support: Boolean
+  active: Boolean
 }
 
 type Query {

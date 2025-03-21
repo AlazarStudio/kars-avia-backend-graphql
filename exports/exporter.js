@@ -73,32 +73,37 @@ export const generateExcelHotel = async (reportData, filePath) => {
 
   sheet.columns = [
     { header: "п/п", key: "index", width: 5 },
-    { header: "ФИО", key: "personName", width: 20 },
-    { header: "Должность", key: "personPosition", width: 20 },
     { header: "Дата/время заезда", key: "arrival", width: 20 },
     { header: "Дата/время выезда", key: "departure", width: 20 },
     { header: "кол-во суток", key: "totalDays", width: 10 },
-    { header: "Категория номера", key: "category", width: 15 },
-    { header: "Тип", key: "roomType", width: 10 },
-    { header: "Питание", key: "meals", width: 15 },
-    { header: "Стоимость питания", key: "totalMealCost", width: 15 },
-    { header: "Стоимость проживания", key: "totalLivingCost", width: 15 },
-    { header: "Итоговая стоимость", key: "totalDebt", width: 15 }
+    { header: "Категория ном.", key: "category", width: 15 },
+    { header: "ФИО", key: "personName", width: 30 },
+    { header: "Тип", key: "personPosition", width: 20 },
+    { header: "Номер", key: "roomName", width: 10 },
+    { header: "Завтрак", key: "breakfastCount", width: 10 },
+    { header: "Обед", key: "lunchCount", width: 10 },
+    { header: "Ужин", key: "dinnerCount", width: 10 },
+    { header: "Стоимость питания", key: "totalMealCost", width: 18 },
+    { header: "Стоимость проживания", key: "totalLivingCost", width: 18 },
+    { header: "Итоговая стоимость", key: "totalDebt", width: 18 }
   ]
 
   reportData.forEach((row) => {
     sheet.addRow({
-      date: row.date || "Не указано",
-      roomName: row.roomName || "Не указано",
-      category: row.category || "Не указано",
-      isOccupied: row.isOccupied === "Занято" ? "Занято" : "Свободно",
-      totalDays: row.totalDays || 0,
-      breakfastCount: row.breakfastCount || 0,
-      lunchCount: row.lunchCount || 0,
-      dinnerCount: row.dinnerCount || 0,
-      totalMealCost: formatCurrency(row.totalMealCost || 0),
-      dailyPrice: formatCurrency(row.dailyPrice || 0),
-      totalDebt: formatCurrency(row.totalDebt || 0)
+      index: row.index,
+      arrival: row.arrival,
+      departure: row.departure,
+      totalDays: row.totalDays,
+      category: row.category,
+      personName: row.personName,
+      personPosition: row.personPosition,
+      roomName: row.roomName,
+      breakfastCount: row.breakfastCount,
+      lunchCount: row.lunchCount,
+      dinnerCount: row.dinnerCount,
+      totalMealCost: formatCurrency(row.totalMealCost),
+      totalLivingCost: formatCurrency(row.totalLivingCost),
+      totalDebt: formatCurrency(row.totalDebt)
     })
   })
 

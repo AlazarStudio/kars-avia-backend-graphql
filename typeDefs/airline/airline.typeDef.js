@@ -81,15 +81,19 @@ type Airline {
   department: [AirlineDepartment!]!
   staff: [AirlinePersonal!]!
   mealPrice: MealPrice
-  logs: [Log]
+  # logs: [Log]
+  logs(pagination: LogPaginationInput): LogConnection!
   prices: Price
+  active: Boolean
 }
 
 type AirlineDepartment {
   id: ID!
   name: String!
+  email: String
   staff: [AirlinePersonal!]
   users: [User!]
+  active: Boolean
 }
 
 type AirlinePersonal {
@@ -101,6 +105,7 @@ type AirlinePersonal {
   airline: Airline
   department: AirlineDepartment
   hotelChess: [HotelChess!]
+  active: Boolean
 }
 
 type AirlineConnection {
@@ -129,6 +134,7 @@ input UpdateAirlineInput {
 input AirlineDepartmentInput {
   id: ID
   name: String
+  email: String
   userIds: [ID!]
 }
 

@@ -23,7 +23,8 @@ const reserveTypeDef = `#graphql
     # reserveForPerson: Boolean!
     archive: Boolean
     hotelChess: [HotelChess]
-    logs: [Log]
+    # logs: [Log]
+    logs(pagination: LogPaginationInput): LogConnection!
     files: [String]
     passengerList: [String]
   }

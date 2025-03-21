@@ -12,6 +12,7 @@ import {
 } from "../../exports/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../exports/calculateMeal.js"
+import nodemailer from "nodemailer"
 import {
   formatDate,
   reverseDateTimeFormatter
@@ -25,6 +26,17 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
+
+const transporter = nodemailer.createTransport({
+  // host: "smtp.mail.ru",
+  host: "smtp.beget.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+})
 
 // Основной объект-резольвер для работы с заявками (request)
 const requestResolver = {
@@ -65,15 +77,19 @@ const requestResolver = {
         skip: skip * take,
         take: take,
         include: {
-          airline: true,
-          airport: true,
-          hotel: true,
-          hotelChess: true,
-          logs: true,
+          // airline: true,
+          airline: { select: { name: true, images: true } },
+          // airport: true,
+          airport: { select: { name: true, code: true } },
+          // hotel: true,
+          // hotelChess: true,
           chat: true
+          // logs: true,
         },
         orderBy: { createdAt: "desc" }
+        // orderBy: { updatedAt: "desc" }
       })
+
       return {
         totalCount,
         requests,
@@ -206,39 +222,39 @@ const requestResolver = {
         status,
         reserve
       } = input
-
       // Приведение дат к формату YYYY-MM-DD (отсекаем время)
       const arrivalDate = arrival.split("T")[0]
       const departureDate = departure.split("T")[0]
-
       // Проверяем, существует ли уже заявка с такими же параметрами (исключая отмененные).
-      const existingRequest = await prisma.request.findFirst({
-        where: {
-          personId,
-          airlineId,
-          airportId,
-          arrival: {
-            gte: new Date(`${arrivalDate}T00:00:00Z`),
-            lte: new Date(`${arrivalDate}T23:59:59Z`)
-          },
-          departure: {
-            gte: new Date(`${departureDate}T00:00:00Z`),
-            lte: new Date(`${departureDate}T23:59:59Z`)
-          },
-          status: {
-            not: "canceled"
+      let existingRequest = null
+      if (personId) {
+        existingRequest = await prisma.request.findFirst({
+          where: {
+            personId,
+            airlineId,
+            airportId,
+            arrival: {
+              gte: new Date(`${arrivalDate}T00:00:00Z`),
+              lte: new Date(`${arrivalDate}T23:59:59Z`)
+            },
+            departure: {
+              gte: new Date(`${departureDate}T00:00:00Z`),
+              lte: new Date(`${departureDate}T23:59:59Z`)
+            },
+            status: {
+              not: "canceled"
+            }
           }
-        }
-      })
-      if (existingRequest) {
+        })
+        // console.log("\n existingRequest", existingRequest)
+      }
+      if (existingRequest != null) {
         throw new Error(`Request already exists with id: ${existingRequest.id}`)
       }
-
       // Определение текущего месяца и года для формирования номера заявки
       const currentDate = new Date()
       const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
       const year = String(currentDate.getFullYear()).slice(-2)
-
       // Определение границ месяца для поиска последней заявки
       const startOfMonth = new Date(
         currentDate.getFullYear(),
@@ -253,13 +269,11 @@ const requestResolver = {
         59,
         59
       )
-
       // Поиск последней созданной заявки в текущем месяце
       const lastRequest = await prisma.request.findFirst({
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
         orderBy: { createdAt: "desc" }
       })
-
       // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
@@ -268,7 +282,6 @@ const requestResolver = {
       } else {
         sequenceNumber = "0001"
       }
-
       // Получение данных об аэропорте для формирования кода заявки
       const airport = await prisma.airport.findUnique({
         where: { id: airportId }
@@ -276,10 +289,8 @@ const requestResolver = {
       if (!airport) {
         throw new Error("Airport not found")
       }
-
       // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
       const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
-
       // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {
@@ -288,7 +299,6 @@ const requestResolver = {
           filesPath.push(uploadedPath)
         }
       }
-
       if (mealPlan && mealPlan.included) {
         // Если требуется, чтобы все приёмы были включены, можно проверять:
         if (
@@ -307,7 +317,8 @@ const requestResolver = {
       // Создание заявки в базе данных с подключением связанных сущностей
       const newRequest = await prisma.request.create({
         data: {
-          person: { connect: { id: personId } },
+          // person: { connect: { id: personId } },
+          ...(personId ? { person: { connect: { id: personId } } } : {}),
           airport: airportId ? { connect: { id: airportId } } : null,
           arrival,
           departure,
@@ -326,7 +337,6 @@ const requestResolver = {
           person: true
         }
       })
-
       // Создание чата для заявки, связанного с авиалинией
       const newChat = await prisma.chat.create({
         data: {
@@ -342,13 +352,36 @@ const requestResolver = {
           user: { connect: { id: senderId } }
         }
       })
+      const mailOptions = {
+        from: `${process.env.EMAIL_USER}`,
+        to: `${process.env.EMAIL_RESIEVER}`,
+        subject: "Request created",
+        html:
+          newRequest.person && newRequest.person.position
+            ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
+        для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт 
+        <span style='color:#545873'>${newRequest.airport.name}</span>`
+            : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
+        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+      }
+
+      // Отправка письма через настроенный транспортёр
+      await transporter.sendMail(mailOptions)
 
       // Логирование создания заявки
       try {
+        const description =
+          newRequest.person && newRequest.person.position
+            ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
+            для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт 
+            <span style='color:#545873'>${newRequest.airport.name}</span>`
+            : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
+            в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+
         await logAction({
           context,
           action: "create_request",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`,
+          description,
           newData: {
             requestNumber: newRequest.requestNumber,
             airportId,
@@ -368,7 +401,13 @@ const requestResolver = {
           airline: { connect: { id: airlineId } },
           description: {
             action: "create_request",
-            description: `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span> `
+            description:
+              newRequest.person && newRequest.person.position
+                ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
+                      для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> 
+                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+                : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
+                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
           }
         }
       })
@@ -385,138 +424,466 @@ const requestResolver = {
     // Обновление существующей заявки.
     // Производится сравнение новых дат с текущими, обновление связанных сущностей (например, hotelChess)
     // и пересчёт плана питания, если даты изменились.
+
+    // updateRequest: async (_, { id, input }, context) => {
+    //   const { user } = context
+    //   // Проверка прав: airlineModerMiddleware для модераторов авиалиний
+    //   moderatorMiddleware(context)
+    //   const {
+    //     airportId,
+    //     arrival,
+    //     departure,
+    //     roomCategory,
+    //     mealPlan,
+    //     hotelId,
+    //     hotelChessId,
+    //     roomNumber,
+    //     status
+    //   } = input
+    //   // Получаем старую заявку для сравнения
+    //   const oldRequest = await prisma.request.findUnique({
+    //     where: { id },
+    //     include: {
+    //       hotelChess: true,
+    //       hotel: true,
+    //       person: true
+    //     }
+    //   })
+    //   if (!oldRequest) {
+    //     throw new Error("Request not found")
+    //   }
+
+    //   // console.log("\n input: \n", JSON.stringify(input), "\n")
+
+    //   // Определяем, изменились ли даты прибытия или отбытия
+    //   const isArrivalChanged =
+    //     arrival &&
+    //     new Date(arrival).getTime() !== new Date(oldRequest.arrival).getTime()
+    //   const isDepartureChanged =
+    //     departure &&
+    //     new Date(departure).getTime() !==
+    //       new Date(oldRequest.departure).getTime()
+
+    //   // Формируем объект с данными для обновления заявки
+    //   const dataToUpdate = {
+    //     airport: airportId ? { connect: { id: airportId } } : undefined,
+    //     arrival: arrival ? new Date(arrival) : undefined,
+    //     departure: departure ? new Date(departure) : undefined,
+    //     roomCategory,
+    //     roomNumber,
+    //     status
+    //     // mealPlan
+    //   }
+    //   if (hotelId) {
+    //     dataToUpdate.hotel = { connect: { id: hotelId } }
+    //   }
+    //   if (hotelChessId) {
+    //     dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
+    //   }
+
+    //   // Обработка hotelChess: если заявка уже привязана к номеру, обновляем даты
+    //   let hotelChessToUpdate = null
+    //   if (
+    //     Array.isArray(oldRequest.hotelChess) &&
+    //     oldRequest.hotelChess.length > 0
+    //   ) {
+    //     hotelChessToUpdate = oldRequest.hotelChess[0]
+    //   } else if (
+    //     oldRequest.hotelChess &&
+    //     typeof oldRequest.hotelChess === "object"
+    //   ) {
+    //     hotelChessToUpdate = oldRequest.hotelChess
+    //   }
+    //   if (hotelChessToUpdate && hotelChessToUpdate.id) {
+    //     await prisma.hotelChess.update({
+    //       where: { id: hotelChessToUpdate.id },
+    //       data: {
+    //         start: isArrivalChanged
+    //           ? new Date(arrival)
+    //           : hotelChessToUpdate.start,
+    //         end: isDepartureChanged
+    //           ? new Date(departure)
+    //           : hotelChessToUpdate.end
+    //       }
+    //     })
+    //   } else {
+    //     console.warn("No valid hotelChess found for updating.")
+    //   }
+
+    //   // Если даты изменились и у заявки привязан отель, пересчитываем план питания
+    //   // if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
+    //   //   const hotel = await prisma.hotel.findUnique({
+    //   //     where: { id: oldRequest.hotel.id },
+    //   //     select: {
+    //   //       breakfast: true,
+    //   //       lunch: true,
+    //   //       dinner: true
+    //   //     }
+    //   //   })
+    //   //   const mealTimes = {
+    //   //     breakfast: hotel.breakfast,
+    //   //     lunch: hotel.lunch,
+    //   //     dinner: hotel.dinner
+    //   //   }
+    //   //   const enabledMeals = {
+    //   //     breakfast: oldRequest.mealPlan.breakfastEnabled,
+    //   //     lunch: oldRequest.mealPlan.lunchEnabled,
+    //   //     dinner: oldRequest.mealPlan.dinnerEnabled
+    //   //   }
+    //   //   const newMealPlan = calculateMeal(
+    //   //     isArrivalChanged ? arrival : oldRequest.arrival,
+    //   //     isDepartureChanged ? departure : oldRequest.departure,
+    //   //     mealTimes,
+    //   //     enabledMeals
+    //   //   )
+    //   //   dataToUpdate.mealPlan = {
+    //   //     breakfast: newMealPlan.totalBreakfast,
+    //   //     lunch: newMealPlan.totalLunch,
+    //   //     dinner: newMealPlan.totalDinner,
+    //   //     dailyMeals: newMealPlan.dailyMeals
+    //   //   }
+    //   // }
+
+    //   const updatedStart = arrival ? arrival : oldRequest.arrival
+    //   const updatedEnd = departure ? departure : oldRequest.departure
+
+    //   const enabledMeals = {
+    //     breakfast: oldRequest.mealPlan?.breakfastEnabled,
+    //     lunch: oldRequest.mealPlan?.lunchEnabled,
+    //     dinner: oldRequest.mealPlan?.dinnerEnabled
+    //   }
+    //   let mealPlanData = oldRequest.mealPlan
+    //   if (oldRequest.hotelChess && oldRequest.hotelChess.length != 0) {
+    //     // Получаем настройки приема пищи от отеля для расчета нового плана питания.
+    //     const hotel = await prisma.hotel.findUnique({
+    //       where: { id: oldRequest.hotelId },
+    //       select: {
+    //         breakfast: true,
+    //         lunch: true,
+    //         dinner: true
+    //       }
+    //     })
+    //     const mealTimes = {
+    //       breakfast: hotel.breakfast,
+    //       lunch: hotel.lunch,
+    //       dinner: hotel.dinner
+    //     }
+    //     const calculatedMealPlan = calculateMeal(
+    //       updatedStart,
+    //       updatedEnd,
+    //       mealTimes,
+    //       enabledMeals
+    //     )
+    //     mealPlanData = {
+    //       included: oldRequest.mealPlan.included,
+    //       breakfast: calculatedMealPlan.totalBreakfast,
+    //       breakfastEnabled: enabledMeals.breakfast,
+    //       lunch: calculatedMealPlan.totalLunch,
+    //       lunchEnabled: enabledMeals.lunch,
+    //       dinner: calculatedMealPlan.totalDinner,
+    //       dinnerEnabled: enabledMeals.dinner,
+    //       dailyMeals: calculatedMealPlan.dailyMeals
+    //     }
+
+    //     // Обновляем связанные данные hotelChess с новыми датами.
+
+    //     const updatedHotelChess = await prisma.hotelChess.update({
+    //       where: { id: oldRequest.hotelChess[0].id },
+    //       data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
+    //     })
+    //     pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
+    //   }
+    //   dataToUpdate.mealPlan = mealPlanData
+    //   // Обновление заявки в базе данных
+    //   const updatedRequest = await prisma.request.update({
+    //     where: { id },
+    //     data: dataToUpdate,
+    //     include: {
+    //       hotelChess: true,
+    //       person: true
+    //     }
+    //   })
+
+    //   // Логирование изменения заявки
+    //   try {
+    //     await logAction({
+    //       context,
+    //       action: "update_request",
+    //       description: `Пользователь <span style='color:#545873'>${
+    //         user.name
+    //       }</span> изменил заявку <span style='color:#545873'> № ${
+    //         updatedRequest.requestNumber
+    //       }</span> для <span style='color:#545873'>${
+    //         updatedRequest.person.position
+    //       } ${
+    //         updatedRequest.person.name
+    //       }</span> c <span style='color:#545873'>${formatDate(
+    //         oldRequest.arrival
+    //       )} - ${formatDate(
+    //         oldRequest.departure
+    //       )}</span> до <span style='color:#545873'>${
+    //         formatDate(arrival) || formatDate(oldRequest.arrival)
+    //       } - ${
+    //         formatDate(departure) || formatDate(oldRequest.departure)
+    //       }</span>`,
+    //       requestId: updatedRequest.id
+    //     })
+    //   } catch (error) {
+    //     console.error("Ошибка при логировании изменения заявки:", error)
+    //   }
+    //   // Публикация события обновления заявки
+    //   pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+    //   return updatedRequest
+    // },
+
+    // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    // updateRequest: async (_, { id, input }, context) => {
+    //   const { user } = context
+    //   console.log(`Request update`)
+    //   moderatorMiddleware(context)
+    //   const {
+    //     personId, // Добавили personId в параметры
+    //     airportId,
+    //     arrival,
+    //     departure,
+    //     roomCategory,
+    //     mealPlan,
+    //     hotelId,
+    //     hotelChessId,
+    //     roomNumber,
+    //     status
+    //   } = input
+    //   // Получаем старую заявку
+    //   const oldRequest = await prisma.request.findUnique({
+    //     where: { id },
+    //     include: {
+    //       hotelChess: true,
+    //       hotel: true,
+    //       person: true
+    //     }
+    //   })
+    //   if (!oldRequest) {
+    //     throw new Error("Request not found")
+    //   }
+    //   const dataToUpdate = {
+    //     airport: airportId ? { connect: { id: airportId } } : undefined,
+    //     arrival: arrival ? new Date(arrival) : undefined,
+    //     departure: departure ? new Date(departure) : undefined,
+    //     roomCategory,
+    //     roomNumber,
+    //     status
+    //   }
+    //   if (personId) {
+    //     dataToUpdate.person = { connect: { id: personId } }
+    //   }
+    //   if (hotelId) {
+    //     dataToUpdate.hotel = { connect: { id: hotelId } }
+    //   }
+    //   if (hotelChessId) {
+    //     dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
+    //   }
+    //   // Обновление заявки в базе данных
+    //   const updatedRequest = await prisma.request.update({
+    //     where: { id },
+    //     data: dataToUpdate,
+    //     include: {
+    //       hotelChess: true,
+    //       person: true
+    //     }
+    //   })
+
+    //   const mailOptions = {
+    //     from: `${process.env.EMAIL_USER}`,
+    //     to: `${process.env.EMAIL_RESIEVER}`,
+    //     subject: "Request created",
+    //     html: `Пользователь <span style='color:#545873'>${user.name}</span> изменил заявку <span style='color:#545873'>№${updatedRequest.requestNumber}</span>`
+    //   }
+
+    //   // Отправка письма через настроенный транспортёр
+    //   await transporter.sendMail(mailOptions)
+
+    //   // Логирование изменения заявки
+    //   try {
+    //     await logAction({
+    //       context,
+    //       action: "update_request",
+    //       description: `Пользователь <span style='color:#545873'>${
+    //         user.name
+    //       }</span>
+    //         изменил заявку <span style='color:#545873'> № ${
+    //           updatedRequest.requestNumber
+    //         }</span>
+    //         ${
+    //           updatedRequest.person
+    //             ? `для <span style='color:#545873'>${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
+    //             : ""
+    //         }
+    //         c <span style='color:#545873'>${formatDate(
+    //           oldRequest.arrival
+    //         )} - ${formatDate(oldRequest.departure)}</span>
+    //         до <span style='color:#545873'>${
+    //           formatDate(arrival) || formatDate(oldRequest.arrival)
+    //         } - ${
+    //         formatDate(departure) || formatDate(oldRequest.departure)
+    //       }</span>`,
+    //       requestId: updatedRequest.id
+    //     })
+    //   } catch (error) {
+    //     console.error("Ошибка при логировании изменения заявки:", error)
+    //   }
+    //   // Публикация события обновления заявки
+    //   pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+    //   return updatedRequest
+    // },
+
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
-      // Проверка прав: airlineModerMiddleware для модераторов авиалиний
+      // airlineModerMiddleware(context)
       moderatorMiddleware(context)
-      const {
-        airportId,
-        arrival,
-        departure,
-        roomCategory,
-        mealPlan,
-        hotelId,
-        hotelChessId,
-        roomNumber,
-        status
-      } = input
-      // Получаем старую заявку для сравнения
-      const oldRequest = await prisma.request.findUnique({
-        where: { id },
+
+      const currentTime = new Date()
+      const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
+      const formattedTime = adjustedTime.toISOString()
+
+      const newStart = input.arrival
+      const newEnd = input.departure
+      const status = input.status
+
+      // const { newStart, newEnd, status } = input
+      const requestId = id
+      const request = await prisma.request.findUnique({
+        where: { id: requestId },
         include: {
           hotelChess: true,
           hotel: true,
-          person: true
+          mealPlan: true,
+          chat: true,
+          airline: true
         }
       })
-      if (!oldRequest) {
+      if (!request) {
         throw new Error("Request not found")
       }
 
-      // console.log("\n input: \n", JSON.stringify(input), "\n")
-
-      // Определяем, изменились ли даты прибытия или отбытия
-      const isArrivalChanged =
-        arrival &&
-        new Date(arrival).getTime() !== new Date(oldRequest.arrival).getTime()
-      const isDepartureChanged =
-        departure &&
-        new Date(departure).getTime() !==
-          new Date(oldRequest.departure).getTime()
-
-      // Формируем объект с данными для обновления заявки
-      const dataToUpdate = {
-        airport: airportId ? { connect: { id: airportId } } : undefined,
-        arrival: arrival ? new Date(arrival) : undefined,
-        departure: departure ? new Date(departure) : undefined,
-        roomCategory,
-        roomNumber,
-        status
-        // mealPlan
-      }
-      if (hotelId) {
-        dataToUpdate.hotel = { connect: { id: hotelId } }
-      }
-      if (hotelChessId) {
-        dataToUpdate.hotelChess = { connect: { id: hotelChessId } }
-      }
-
-      // Обработка hotelChess: если заявка уже привязана к номеру, обновляем даты
-      let hotelChessToUpdate = null
-      if (
-        Array.isArray(oldRequest.hotelChess) &&
-        oldRequest.hotelChess.length > 0
-      ) {
-        hotelChessToUpdate = oldRequest.hotelChess[0]
-      } else if (
-        oldRequest.hotelChess &&
-        typeof oldRequest.hotelChess === "object"
-      ) {
-        hotelChessToUpdate = oldRequest.hotelChess
-      }
-      if (hotelChessToUpdate && hotelChessToUpdate.id) {
-        await prisma.hotelChess.update({
-          where: { id: hotelChessToUpdate.id },
+      // Инициализация переменной newMealPlan
+      // let newMealPlan = null
+      if (input.personId) {
+        await prisma.request.update({
+          where: { id: requestId },
           data: {
-            start: isArrivalChanged
-              ? new Date(arrival)
-              : hotelChessToUpdate.start,
-            end: isDepartureChanged
-              ? new Date(departure)
-              : hotelChessToUpdate.end
+            person: { connect: { id: input.personId } }
+          },
+          include: {
+            hotelChess: true,
+            person: true
           }
         })
-      } else {
-        console.warn("No valid hotelChess found for updating.")
+
+        if (request.hotelChess) {
+          await prisma.hotelChess.update({
+            where: { id: request.hotelChess[0].id },
+            data: { client: { connect: { id: input.personId } } }
+          })
+        }
       }
 
-      // Если даты изменились и у заявки привязан отель, пересчитываем план питания
-      // if ((isArrivalChanged || isDepartureChanged) && oldRequest.hotel) {
-      //   const hotel = await prisma.hotel.findUnique({
-      //     where: { id: oldRequest.hotel.id },
-      //     select: {
-      //       breakfast: true,
-      //       lunch: true,
-      //       dinner: true
-      //     }
-      //   })
-      //   const mealTimes = {
-      //     breakfast: hotel.breakfast,
-      //     lunch: hotel.lunch,
-      //     dinner: hotel.dinner
-      //   }
-      //   const enabledMeals = {
-      //     breakfast: oldRequest.mealPlan.breakfastEnabled,
-      //     lunch: oldRequest.mealPlan.lunchEnabled,
-      //     dinner: oldRequest.mealPlan.dinnerEnabled
-      //   }
-      //   const newMealPlan = calculateMeal(
-      //     isArrivalChanged ? arrival : oldRequest.arrival,
-      //     isDepartureChanged ? departure : oldRequest.departure,
-      //     mealTimes,
-      //     enabledMeals
-      //   )
-      //   dataToUpdate.mealPlan = {
-      //     breakfast: newMealPlan.totalBreakfast,
-      //     lunch: newMealPlan.totalLunch,
-      //     dinner: newMealPlan.totalDinner,
-      //     dailyMeals: newMealPlan.dailyMeals
-      //   }
-      // }
+      // Если пользователь связан с авиалинией и статус заявки не "created",
+      // создаётся запрос на изменение дат через чат для уведомления диспетчера.
+      if (user.airlineId && request.status != "created") {
+        const extendRequest = {
+          requestId,
+          newStart,
+          newEnd
+        }
+        const updatedStart = newStart ? newStart : request.arrival
+        const updatedEnd = newEnd ? newEnd : request.departure
+        const chat = await prisma.chat.findFirst({
+          where: { requestId: requestId, separator: "airline" }
+        })
+        const message = await prisma.message.create({
+          data: {
+            text: `Запрос на изменение дат заявки ${
+              request.requestNumber
+            } с ${formatDate(request.arrival)} - ${formatDate(
+              request.departure
+            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+            sender: { connect: { id: user.id } },
+            chat: { connect: { id: chat.id } },
+            separator: "important",
+            createdAt: formattedTime
+          },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                number: true,
+                images: true,
+                role: true,
+                position: true,
+                airlineId: true,
+                airlineDepartmentId: true,
+                hotelId: true,
+                dispatcher: true
+              }
+            }
+          }
+        })
+        await prisma.notification.create({
+          data: {
+            request: { connect: { id: extendRequest.id } },
+            airlineId: extendRequest.airlineId,
+            description: {
+              action: "extend_request",
+              description: `Запрос на изменение дат заявки ${
+                request.requestNumber
+              } с ${formatDate(request.arrival)} - ${formatDate(
+                request.departure
+              )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+            }
+          }
+        })
+        const mailOptions = {
+          from: `${process.env.EMAIL_USER}`,
+          to: `${process.env.EMAIL_RESIEVER}`,
+          subject: "Request updated",
+          html: `Пользователь <span style='color:#545873'>${
+            user.name
+          }</span> отправил запрос на изменение дат заявки <span style='color:#545873'>№${
+            extendRequest.requestNumber
+          }</span> с ${formatDate(request.arrival)} - ${formatDate(
+            request.departure
+          )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+        }
 
-      const updatedStart = arrival ? arrival : oldRequest.arrival
-      const updatedEnd = departure ? departure : oldRequest.departure
+        // Отправка письма через настроенный транспортёр
+        await transporter.sendMail(mailOptions)
+
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ExtendRequestNotification",
+            ...extendRequest
+          }
+        })
+        pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+        return request
+      }
+
+      // Если пользователь диспетчер, обновляем даты и план питания.
+      const updatedStart = newStart ? newStart : request.arrival
+      const updatedEnd = newEnd ? newEnd : request.departure
 
       const enabledMeals = {
-        breakfast: oldRequest.mealPlan?.breakfastEnabled,
-        lunch: oldRequest.mealPlan?.lunchEnabled,
-        dinner: oldRequest.mealPlan?.dinnerEnabled
+        breakfast: request.mealPlan?.breakfastEnabled,
+        lunch: request.mealPlan?.lunchEnabled,
+        dinner: request.mealPlan?.dinnerEnabled
       }
-      let mealPlanData = oldRequest.mealPlan
-      if (oldRequest.hotelChess && oldRequest.hotelChess.length != 0) {
+      let mealPlanData = request.mealPlan
+      if (request.hotelChess && request.hotelChess.length != 0) {
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
-          where: { id: oldRequest.hotelId },
+          where: { id: request.hotelId },
           select: {
             breakfast: true,
             lunch: true,
@@ -535,7 +902,7 @@ const requestResolver = {
           enabledMeals
         )
         mealPlanData = {
-          included: oldRequest.mealPlan.included,
+          included: request.mealPlan.included,
           breakfast: calculatedMealPlan.totalBreakfast,
           breakfastEnabled: enabledMeals.breakfast,
           lunch: calculatedMealPlan.totalLunch,
@@ -548,50 +915,72 @@ const requestResolver = {
         // Обновляем связанные данные hotelChess с новыми датами.
 
         const updatedHotelChess = await prisma.hotelChess.update({
-          where: { id: oldRequest.hotelChess[0].id },
+          where: { id: request.hotelChess[0].id },
           data: { start: updatedStart, end: updatedEnd, mealPlan: mealPlanData }
         })
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
       }
-      dataToUpdate.mealPlan = mealPlanData
-      // Обновление заявки в базе данных
+      // Обновляем заявку с новыми датами, пересчитанным планом питания и измененным статусом.
       const updatedRequest = await prisma.request.update({
-        where: { id },
-        data: dataToUpdate,
+        where: { id: requestId },
+        data: {
+          arrival: updatedStart,
+          departure: updatedEnd,
+          mealPlan: mealPlanData,
+          status: status,
+          ...input
+        },
         include: {
           hotelChess: true,
           person: true
         }
       })
 
-      // Логирование изменения заявки
+      const mailOptions = {
+        from: `${process.env.EMAIL_USER}`,
+        to: `${process.env.EMAIL_RESIEVER}`,
+        subject: "Request updated",
+        html: `Пользователь <span style='color:#545873'>${
+          user.name
+        }</span> изменил ${
+          updatedRequest.person
+            ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
+            : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
+        } c <span style='color:#545873'>${formatDate(
+          request.arrival
+        )} - ${formatDate(
+          request.departure
+        )}</span> до <span style='color:#545873'>${formatDate(
+          updatedStart
+        )} - ${formatDate(updatedEnd)}</span>`
+      }
+
+      // Отправка письма через настроенный транспортёр
+      await transporter.sendMail(mailOptions)
+
       try {
         await logAction({
           context,
           action: "update_request",
           description: `Пользователь <span style='color:#545873'>${
             user.name
-          }</span> изменил заявку <span style='color:#545873'> № ${
-            updatedRequest.requestNumber
-          }</span> для <span style='color:#545873'>${
-            updatedRequest.person.position
-          } ${
-            updatedRequest.person.name
-          }</span> c <span style='color:#545873'>${formatDate(
-            oldRequest.arrival
+          }</span> изменил ${
+            updatedRequest.person
+              ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
+              : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
+          } c <span style='color:#545873'>${formatDate(
+            request.arrival
           )} - ${formatDate(
-            oldRequest.departure
-          )}</span> до <span style='color:#545873'>${
-            formatDate(arrival) || formatDate(oldRequest.arrival)
-          } - ${
-            formatDate(departure) || formatDate(oldRequest.departure)
-          }</span>`,
+            request.departure
+          )}</span> до <span style='color:#545873'>${formatDate(
+            updatedStart
+          )} - ${formatDate(updatedEnd)}</span>`,
           requestId: updatedRequest.id
         })
       } catch (error) {
         console.error("Ошибка при логировании изменения заявки:", error)
       }
-      // Публикация события обновления заявки
+
       pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
       return updatedRequest
     },
@@ -628,7 +1017,9 @@ const requestResolver = {
     // Если диспетчер, обновляются даты в hotelChess, пересчитывается план питания и обновляется заявка.
     extendRequestDates: async (_, { input }, context) => {
       const { user } = context
-      airlineModerMiddleware(context)
+      // airlineModerMiddleware(context)
+      moderatorMiddleware(context)
+
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -707,6 +1098,22 @@ const requestResolver = {
             }
           }
         })
+        const mailOptions = {
+          from: `${process.env.EMAIL_USER}`,
+          to: `${process.env.EMAIL_RESIEVER}`,
+          subject: "Request updated",
+          html: `Пользователь <span style='color:#545873'>${
+            user.name
+          }</span> отправил запрос на изменение дат заявки <span style='color:#545873'>№${
+            extendRequest.requestNumber
+          }</span> с ${formatDate(request.arrival)} - ${formatDate(
+            request.departure
+          )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+        }
+
+        // Отправка письма через настроенный транспортёр
+        await transporter.sendMail(mailOptions)
+
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
@@ -782,6 +1189,30 @@ const requestResolver = {
         }
       })
 
+      const mailOptions = {
+        from: `${process.env.EMAIL_USER}`,
+        to: `${process.env.EMAIL_RESIEVER}`,
+        subject: "Request updated",
+        html: `Пользователь <span style='color:#545873'>${
+          user.name
+        }</span> изменил заявку <span style='color:#545873'> № ${
+          updatedRequest.requestNumber
+        }</span> для <span style='color:#545873'>${
+          updatedRequest.person
+            ? `${updatedRequest.person.position} ${updatedRequest.person.name}`
+            : "Предварительная бронь"
+        }</span> c <span style='color:#545873'>${formatDate(
+          request.arrival
+        )} - ${formatDate(
+          request.departure
+        )}</span> до <span style='color:#545873'>${formatDate(
+          updatedStart
+        )} - ${formatDate(updatedEnd)}</span>`
+      }
+
+      // Отправка письма через настроенный транспортёр
+      await transporter.sendMail(mailOptions)
+
       try {
         await logAction({
           context,
@@ -791,9 +1222,9 @@ const requestResolver = {
           }</span> изменил заявку <span style='color:#545873'> № ${
             updatedRequest.requestNumber
           }</span> для <span style='color:#545873'>${
-            updatedRequest.person.position
-          } ${
-            updatedRequest.person.name
+            updatedRequest.person
+              ? `${updatedRequest.person.position} ${updatedRequest.person.name}`
+              : "Предварительная бронь"
           }</span> c <span style='color:#545873'>${formatDate(
             request.arrival
           )} - ${formatDate(
@@ -900,6 +1331,17 @@ const requestResolver = {
             }
           }
         })
+
+        const mailOptions = {
+          from: `${process.env.EMAIL_USER}`,
+          to: `${process.env.EMAIL_RESIEVER}`,
+          subject: "Request cancelled",
+          html: `Пользователь <span style='color:#545873'>${user.name}</span> отпраил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
+        }
+
+        // Отправка письма через настроенный транспортёр
+        await transporter.sendMail(mailOptions)
+
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
@@ -918,6 +1360,17 @@ const requestResolver = {
           where: { requestId: requestId }
         })
       }
+
+      const mailOptions = {
+        from: `${process.env.EMAIL_USER}`,
+        to: `${process.env.EMAIL_RESIEVER}`,
+        subject: "Request canceled",
+        html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
+      }
+
+      // Отправка письма через настроенный транспортёр
+      await transporter.sendMail(mailOptions)
+
       await logAction({
         context,
         action: "cancel_request",
@@ -1015,9 +1468,13 @@ const requestResolver = {
     },
     // Получение данных сотрудника авиакомпании, к которому привязана заявка.
     person: async (parent) => {
-      return await prisma.airlinePersonal.findUnique({
-        where: { id: parent.personId }
-      })
+      if (parent.personId) {
+        return await prisma.airlinePersonal.findUnique({
+          where: { id: parent.personId }
+        })
+      } else {
+        return null
+      }
     },
     // // Получение чатов, связанных с данной заявкой.
     // chat: async (parent) => {
@@ -1026,11 +1483,30 @@ const requestResolver = {
     //   })
     // },
     // Получение логов по заявке с информацией о пользователе, выполнившем действие.
-    logs: async (parent) => {
-      return await prisma.log.findMany({
-        where: { requestId: parent.id },
-        include: { user: true }
+    // logs: async (parent) => {
+    //   return await prisma.log.findMany({
+    //     where: { requestId: parent.id },
+    //     include: { user: true }
+    //   })
+    // }
+    logs: async (parent, { pagination }) => {
+      const { skip = 0, take = 10 } = pagination || {}
+
+      const totalCount = await prisma.log.count({
+        where: { requestId: parent.id }
       })
+
+      const logs = await prisma.log.findMany({
+        where: { requestId: parent.id },
+        include: { user: true },
+        skip,
+        take,
+        orderBy: { createdAt: "desc" } // сортируем от новых к старым
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      return { totalCount, totalPages, logs }
     }
   }
 }

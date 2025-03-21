@@ -36,6 +36,7 @@ type NotificationRead {
 input PaginationInput {
   skip: Int
   take: Int
+  type: String
   status: [String]
 }
 
@@ -104,6 +105,10 @@ type ExtendRequestNotification {
 type Query {
   # getAllNotifications: Notification
   getAllNotifications(pagination: PaginationInput): NotificationConnection!
+}
+
+type Mutation {
+  allDataUpdate: Boolean
 }
 
 type Subscription {

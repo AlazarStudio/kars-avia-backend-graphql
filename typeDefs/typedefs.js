@@ -7,6 +7,7 @@ import cityTypeDef from "./city/city.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
 import fileTypeDef from "./file/file.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
+import logTypeDef from "./log/log.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
 import requestTypeDef from "./request/request.typeDef.js"
 import reserveTypeDef from "./reserve/reserve.typeDef.js"
@@ -21,6 +22,7 @@ const mergedTypeDefs = mergeTypeDefs([
   dispatcherTypeDef,
   fileTypeDef,
   hotelTypeDef,
+  logTypeDef,
   reportTypeDef,
   requestTypeDef,
   reserveTypeDef,

@@ -18,6 +18,7 @@ type Mutation {
   createAirlineReport(input: CreateReportInput!): SavedReport!
   # Создание и сохранение отчёта для отеля
   createHotelReport(input: CreateReportInput!): SavedReport!
+  deleteReport(id: ID!): SavedReport!
 }
 
 # Фильтры для запросов отчётов

@@ -17,12 +17,13 @@ import {
   NOTIFICATION
 } from "../../exports/pubsub.js"
 import { Query } from "mongoose"
+import { superAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
 const dispatcherResolver = {
   Query: {
     getAllNotifications: async (_, { pagination }, context) => {
       const { user } = context
-      const { skip, take, status } = pagination
+      const { skip, take, type, status } = pagination
       let filter
       if (user.dispatcher === true) {
         filter = {}
@@ -33,6 +34,17 @@ const dispatcherResolver = {
       if (user.hotelId) {
         filter = { hotelId: user.hotelId }
       }
+
+      if (type === "request") {
+        filter.requestId = { not: null }
+        // console.log("filter: " + JSON.stringify(filter))
+      } else if (type === "reserve") {
+        filter.reserveId = { not: null }
+        // console.log("filter: " + JSON.stringify(filter))
+      }
+
+      // console.log("\n filter" + JSON.stringify(filter), "\n filter" + filter)
+
       // const statusFilter =
       //   status && status.length > 0 && !status.includes("all")
       //     ? { status: { in: status } }
@@ -59,6 +71,27 @@ const dispatcherResolver = {
         }
       })
       return { totalPages, totalCount, notifications }
+    }
+  },
+  Mutation: {
+    allDataUpdate: async (_, {}, context) => {
+      superAdminMiddleware(context)
+
+      await prisma.airline.updateMany({
+        data: { active: true }
+      })
+      await prisma.hotel.updateMany({
+        data: { active: true }
+      })
+      await prisma.user.updateMany({
+        data: { active: true }
+      })
+      await prisma.airlinePersonal.updateMany({
+        data: { active: true }
+      })
+      await prisma.airlineDepartment.updateMany({
+        data: { active: true }
+      })
     }
   },
   Subscription: {

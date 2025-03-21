@@ -125,6 +125,7 @@ type Hotel {
   information: Information
   provision: Int
   quote: Int
+  capacity: Int
   images: [String!]!
   hotelChesses: [HotelChess!]
   rooms: [Room!]!
@@ -135,10 +136,12 @@ type Hotel {
   stars: String
   usStars: String
   airportDistance: String
-  logs: [Log]
+  # logs: [Log]
+  logs(pagination: LogPaginationInput): LogConnection!
   savedReport: [SavedReport]
   chat: [Chat]
   prices: Price
+  active: Boolean
 }
 
 # Тип бронирования номера (HotelChess)
@@ -172,9 +175,11 @@ type Room {
   name: String!
   category: Category
   places: Float
+  beds: Float
   active: Boolean
   reserve: Boolean
   description: String
+  descriptionSecond: String
   images: [String!]
 }
 
@@ -190,6 +195,7 @@ input CreateHotelInput {
   information: InformationInput
   provision: Int
   quote: Int
+  capacity: Int
   hotelChesses: [HotelChessInput!]
   rooms: [RoomInput!]
   breakfast: MealTimeInput
@@ -207,6 +213,7 @@ input UpdateHotelInput {
   information: InformationInput
   provision: Int
   quote: Int
+  capacity: Int
   hotelChesses: [HotelChessInput!]
   rooms: [RoomInput!]
   breakfast: MealTimeInput
@@ -240,8 +247,10 @@ input RoomInput {
   name: String
   category: Category
   active: Boolean
+  beds: Float
   reserve: Boolean
   description: String
+  descriptionSecond: String
   images: [Upload!]
 }
 

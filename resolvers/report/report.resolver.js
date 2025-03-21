@@ -13,6 +13,7 @@ import {
   hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
+import { deleteFiles } from "../../exports/uploadFiles.js"
 
 const reportResolver = {
   Query: {
@@ -135,6 +136,7 @@ const reportResolver = {
       if (!user) {
         throw new Error("Access denied")
       }
+
       const filterStart = new Date(filter.startDate)
       const filterEnd = new Date(filter.endDate)
       const startDateStr = filterStart.toISOString().slice(0, 10)
@@ -198,6 +200,8 @@ const reportResolver = {
         )
       }
 
+      // console.log("\n reportData: " + JSON.stringify(reportData))
+
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
         : `airline_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -234,6 +238,8 @@ const reportResolver = {
       return savedReport
     },
 
+    // --------------------------------------------------------------------------------------------------------------------
+
     createHotelReport: async (_, { input }, context) => {
       const { user } = context
       hotelAdminMiddleware(context)
@@ -258,13 +264,15 @@ const reportResolver = {
           prices: true
         }
       })
+
       if (!hotel) {
         throw new Error("Hotel not found")
       }
 
       const requests = await prisma.request.findMany({
         where: {
-          hotelId: filter.hotelId,
+          // hotelId: filter.hotelId,
+          ...applyCreateFilters(filter),
           status: {
             in: [
               "done",
@@ -278,28 +286,36 @@ const reportResolver = {
         },
         include: {
           person: true,
-          hotelChess: true,
-          hotel: true
+          hotelChess: {
+            include: {
+              room: true
+            }
+          },
+          hotel: true,
+          airline: true,
+          mealPlan: true
         },
         orderBy: { arrival: "asc" }
       })
 
-      const requestsWithMealPlan = await Promise.all(
-        requests.map(async (request) => {
-          const mp = await prisma.request.findUnique({
-            where: { id: request.id },
-            select: { mealPlan: true }
-          })
-          return { ...request, mealPlan: mp?.mealPlan || {} }
-        })
-      )
+      // const requestsWithMealPlan = await Promise.all(
+      //   requests.map(async (request) => {
+      //     const mp = await prisma.request.findUnique({
+      //       where: { id: request.id },
+      //       select: { mealPlan: true }
+      //     })
+      //     return { ...request, mealPlan: mp?.mealPlan || {} }
+      //   })
+      // )
 
-      const reportData = aggregateReports(
-        requestsWithMealPlan,
+      const reportData = aggregateRequestReports(
+        requests,
         "hotel",
         filterStart,
         filterEnd
       )
+
+      // console.log("\n reportData: " + JSON.stringify(reportData))
 
       const reportName = `hotel_report-${
         hotel.name
@@ -332,6 +348,32 @@ const reportResolver = {
       })
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
+    },
+
+    deleteReport: async (_, { id }, context) => {
+      const { user } = context
+      const report = await prisma.savedReport.findUnique({
+        where: { id },
+        include: { airline: true, hotel: true }
+      })
+      if (!report) {
+        throw new Error("Report not found")
+      }
+      if (report.separator === "dispatcher") {
+        adminMiddleware(context)
+      }
+      if (report.separator === "airline") {
+        airlineAdminMiddleware(context)
+      }
+      if (report.separator === "hotel") {
+        hotelAdminMiddleware(context)
+      }
+      if (report.url) {
+        await deleteFiles(report.url)
+      }
+      await prisma.savedReport.delete({ where: { id } })
+      pubsub.publish(REPORT_CREATED, { reportCreated: report })
+      return report
     }
   },
 
@@ -345,6 +387,7 @@ const reportResolver = {
 /* ================================= */
 /* Функции для формирования фильтров */
 /* ================================= */
+
 const applyCreateFilters = (filter) => {
   const {
     startDate,
@@ -620,7 +663,13 @@ const aggregateRequestReports = (
       onePlace: "Одноместный",
       twoPlace: "Двухместный",
       threePlace: "Трёхместный",
-      fourPlace: "Четырёхместный"
+      fourPlace: "Четырёхместный",
+      fivePlace: "Пятиместный",
+      sixPlace: "Шестиместный",
+      sevenPlace: "Семиместный",
+      eightPlace: "Восьмиместный",
+      ninePlace: "Девятиместный",
+      tenPlace: "Десятиместный"
     }
 
     const arrivalFormatted = formatLocalDate(checkIn)

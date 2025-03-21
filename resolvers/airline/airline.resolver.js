@@ -31,6 +31,7 @@ const airlineResolver = {
       // иначе - с использованием skip и take
       const airlines = all
         ? await prisma.airline.findMany({
+            where: { active: true },
             include: {
               staff: true,
               department: true
@@ -38,6 +39,7 @@ const airlineResolver = {
             orderBy: { name: "asc" }
           })
         : await prisma.airline.findMany({
+            where: { active: true },
             skip: skip ? skip * take : undefined,
             take: take || undefined,
             include: {
@@ -81,7 +83,7 @@ const airlineResolver = {
     // Получение списка сотрудников для заданной авиакомпании по airlineId
     airlineStaffs: async (_, { airlineId }, context) => {
       return await prisma.airlinePersonal.findMany({
-        where: { airlineId },
+        where: { airlineId, active: true },
         include: { hotelChess: true },
         orderBy: { name: "asc" }
       })
@@ -206,6 +208,7 @@ const airlineResolver = {
                 where: { id: depart.id },
                 data: {
                   name: depart.name,
+                  email: depart.email,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
@@ -225,6 +228,7 @@ const airlineResolver = {
                 data: {
                   airlineId: id,
                   name: depart.name,
+                  email: depart.email,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
@@ -319,18 +323,25 @@ const airlineResolver = {
       // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
       // Удаляем авиакомпанию и возвращаем связанные с ней данные (например, персонал)
-      const deletedAirline = await prisma.airline.delete({
+      const deletedAirline = await prisma.airline.update({
         where: { id },
         include: {
           staff: true
+        },
+        data: {
+          active: false
         }
       })
+      // await prisma.user.updateMany({
+      //   where: { airlineId: id },
+      //   data: { active: false }
+      // })
       // Если у авиакомпании есть изображения, удаляем их (функция deleteImage предполагается определённой в другом месте)
-      if (deletedAirline.images && deletedAirline.images.length > 0) {
-        for (const imagePath of deletedAirline.images) {
-          await deleteImage(imagePath)
-        }
-      }
+      // if (deletedAirline.images && deletedAirline.images.length > 0) {
+      //   for (const imagePath of deletedAirline.images) {
+      //     await deleteImage(imagePath)
+      //   }
+      // }
       return deletedAirline
     },
 
@@ -361,8 +372,11 @@ const airlineResolver = {
       // Проверка прав администратора авиакомпании
       airlineAdminMiddleware(context)
       // Удаляем данные о сотруднике
-      const person = await prisma.airlinePersonal.delete({
-        where: { id }
+      const person = await prisma.airlinePersonal.update({
+        where: { id },
+        data: {
+          active: false
+        }
       })
       // Получаем обновленную информацию об авиакомпании, к которой относился сотрудник
       const airlineWithRelations = await prisma.airline.findUnique({
@@ -401,6 +415,25 @@ const airlineResolver = {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id }
       })
+    },
+    logs: async (parent, { pagination }) => {
+      const { skip = 0, take = 10 } = pagination || {}
+
+      const totalCount = await prisma.log.count({
+        where: { airlineId: parent.id }
+      })
+
+      const logs = await prisma.log.findMany({
+        where: { airlineId: parent.id },
+        include: { user: true },
+        skip,
+        take,
+        orderBy: { createdAt: "desc" } // сортируем от новых к старым
+      })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      return { totalCount, totalPages, logs }
     }
   },
 

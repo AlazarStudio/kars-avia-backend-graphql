@@ -158,11 +158,11 @@ model User {
   sender               Request[]          @relation(name: "sender")
   receiver             Request[]          @relation(name: "receiver")
   reserve              Reserve[]
-  airline              Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airline              Airline?           @relation(fields: [airlineId], references: [id], onDelete: NoAction)
   airlineId            String?            @db.ObjectId
-  airlineDepartment    AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
+  airlineDepartment    AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
   airlineDepartmentId  String?            @db.ObjectId
-  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction)
   hotelId              String?            @db.ObjectId
   chats                ChatUser[]
   messageSender        Message[]          @relation(name: "messageSender")
@@ -178,13 +178,14 @@ model User {
   NotificationRead     NotificationRead[]
   resetPasswordToken   String? // для хранения токена восстановления
   resetPasswordExpires DateTime? // срок действия токена
+  active               Boolean            @default(true)
   // position             Positions?         @relation(fields: [positionId], references: [id])
   // positionId           String?            @db.ObjectId
 }
 
 model Positions {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  airline    Airline? @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airline    Airline? @relation(fields: [airlineId], references: [id], onDelete: NoAction)
   airlineId  String?  @db.ObjectId
   hotel      Hotel?   @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   hotelId    String?  @db.ObjectId
@@ -201,6 +202,7 @@ model Hotel {
   name            String
   provision       Int?
   quote           Int?
+  capacity        Int?
   information     Information?
   breakfast       MealTime?
   lunch           MealTime?
@@ -221,6 +223,7 @@ model Hotel {
   prices          Price?
   Positions       Positions[]
   Notification    Notification[]
+  active          Boolean        @default(true)
 }
 
 model HotelChess {
@@ -248,17 +251,19 @@ model HotelChess {
 }
 
 model Room {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  hotel       Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId     String       @db.ObjectId
-  description String?
-  images      String[]
-  category    Category
-  places      Float?
-  reserve     Boolean      @default(false)
-  active      Boolean      @default(true)
-  hotelChess  HotelChess[]
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  hotel             Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId           String       @db.ObjectId
+  description       String?
+  descriptionSecond String?
+  images            String[]
+  category          Category
+  places            Float?
+  beds              Float?
+  reserve           Boolean      @default(false)
+  active            Boolean      @default(true)
+  hotelChess        HotelChess[]
 }
 
 // Отели  ---------------- ↑↑↑↑
@@ -282,15 +287,18 @@ model Airline {
   prices       Price?
   Positions    Positions[]
   Notification Notification[]
+  active       Boolean             @default(true)
 }
 
 model AirlineDepartment {
   id        String            @id @default(auto()) @map("_id") @db.ObjectId
   name      String
+  email     String?
   staff     AirlinePersonal[]
   users     User[]
   airline   Airline           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId String            @db.ObjectId
+  active    Boolean           @default(true)
 }
 
 model AirlinePersonal {
@@ -303,12 +311,13 @@ model AirlinePersonal {
   husband      AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   husbandId    String?            @db.ObjectId
   marriedTo    AirlinePersonal[]  @relation(name: "Marriage")
-  airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: NoAction)
   airlineId    String?            @db.ObjectId
-  department   AirlineDepartment? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department   AirlineDepartment? @relation(fields: [departmentId], references: [id], onDelete: NoAction)
   departmentId String?            @db.ObjectId
   request      Request[]
   hotelChess   HotelChess[]
+  active       Boolean            @default(true)
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -338,9 +347,9 @@ model Request {
   senderId      String           @db.ObjectId
   airport       Airport?         @relation(fields: [airportId], references: [id])
   airportId     String?          @db.ObjectId
-  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
   airlineId     String           @db.ObjectId
-  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
   personId      String?          @db.ObjectId
   arrival       DateTime
   departure     DateTime
@@ -444,7 +453,7 @@ model Message {
   text         String
   sender       User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
   senderId     String         @db.ObjectId
-  receiver     User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiver     User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: NoAction)
   receiverId   String?        @db.ObjectId
   chat         Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId       String?        @db.ObjectId

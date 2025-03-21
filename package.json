@@ -1,12 +1,12 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.8.4",
+  "version": "1.9.0",
   "main": "server.js",
   "scripts": {
     "backup": "node utils/cron/backup.js",
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "dev2": "nodemon server2.js",
+    "start": "node server2.js",
+    "production": "nodemon server.js",
+    "dev": "nodemon server2.js",
     "prisma": "prisma"
   },
   "type": "module",
@@ -19,7 +19,7 @@
     "@graphql-tools/merge": "^9.0.4",
     "@graphql-tools/schema": "^10.0.6",
     "@levminer/speakeasy": "^1.4.2",
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^6.5.0",
     "archetype": "^0.13.1",
     "argon2": "^0.40.3",
     "bcrypt": "^5.1.1",
@@ -61,6 +61,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.4",
-    "prisma": "^6.4.0"
+    "prisma": "^6.5.0"
   }
 }

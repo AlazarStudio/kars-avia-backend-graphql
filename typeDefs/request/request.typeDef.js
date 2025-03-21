@@ -27,22 +27,23 @@ type Request {
   requestNumber: String
   archive: Boolean
   chat: [Chat]
-  logs: [Log]
+  # logs: [Log]
+  logs(pagination: LogPaginationInput): LogConnection!
   reserve: Boolean
   files: [String]
 }
 
-type Log {
-  id: ID!
-  user: User
-  hotel: Hotel
-  airline: Airline
-  action: String!
-  description: String
-  oldData: String
-  newData: String
-  createdAt: Date!
-}
+# type Log {
+#   id: ID!
+#   user: User
+#   hotel: Hotel
+#   airline: Airline
+#   action: String!
+#   description: String
+#   oldData: String
+#   newData: String
+#   createdAt: Date!
+# }
 
 type RequestConnection {
   totalPages: Int!
@@ -65,6 +66,7 @@ input CreateRequestInput {
 }
 
 input UpdateRequestInput {
+  personId: ID
   arrival: Date
   departure: Date
   roomCategory: String
@@ -81,7 +83,7 @@ input UpdateRequestInput {
 # }
 
 input MealPlanInput {
-  included: Boolean
+  included: Boolean!
   breakfastEnabled: Boolean
   lunchEnabled: Boolean
   dinnerEnabled: Boolean

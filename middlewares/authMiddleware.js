@@ -72,6 +72,7 @@ export const hotelModerMiddleware = (context) =>
   roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
+    "DISPATCHERMODERATOR",
     "HOTELADMIN",
     "HOTELMODERATOR"
   ])

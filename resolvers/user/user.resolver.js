@@ -38,26 +38,29 @@ const userResolver = {
   Query: {
     // Получение всех пользователей, сортированных по имени (возвращает всех)
     users: async (_, __, context) => {
-      return prisma.user.findMany({ orderBy: { name: "asc" } })
+      return prisma.user.findMany({
+        where: { active: true },
+        orderBy: { name: "asc" }
+      })
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
-        where: { airlineId },
+        where: { airlineId, active: true },
         orderBy: { name: "asc" }
       })
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId }, context) => {
       return prisma.user.findMany({
-        where: { hotelId },
+        where: { hotelId, active: true },
         orderBy: { name: "asc" }
       })
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, __, context) => {
       return prisma.user.findMany({
-        where: { dispatcher: true },
+        where: { dispatcher: true, active: true },
         orderBy: { name: "asc" }
       })
     },
@@ -249,6 +252,10 @@ const userResolver = {
       // Ищем пользователя по логину
       const user = await prisma.user.findUnique({ where: { login } })
       // Проверка корректности пароля с помощью argon2.verify
+      if (!user.active) {
+        throw new Error("User is not active")
+      }
+      
       if (!user || !(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
@@ -559,8 +566,11 @@ const userResolver = {
             await deleteImage(imagePath)
           }
         }
-        return await prisma.user.delete({
-          where: { id }
+        return await prisma.user.update({
+          where: { id },
+          data: {
+            active: false
+          }
         })
       }
 
@@ -572,8 +582,11 @@ const userResolver = {
             await deleteImage(imagePath)
           }
         }
-        return await prisma.user.delete({
-          where: { id }
+        return await prisma.user.update({
+          where: { id },
+          data: {
+            active: false
+          }
         })
       }
 
@@ -585,8 +598,11 @@ const userResolver = {
             await deleteImage(imagePath)
           }
         }
-        return await prisma.user.delete({
-          where: { id }
+        return await prisma.user.update({
+          where: { id },
+          data: {
+            active: false
+          }
         })
       }
     }
