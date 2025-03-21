@@ -8,6 +8,7 @@ import express from "express"
 import { prisma } from "./prisma.js"
 import { ApolloServer } from "@apollo/server"
 import { expressMiddleware } from "@apollo/server/express4"
+import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
 import { WebSocketServer } from "ws"
 import { useServer } from "graphql-ws/lib/use/ws"
@@ -100,6 +101,7 @@ const server = new ApolloServer({
   cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
+    ApolloServerPluginLandingPageDisabled(),
     {
       async serverWillStart() {
         return {
