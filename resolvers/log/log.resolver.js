@@ -1,7 +1,7 @@
 const logResolver = {
   Query: {
     logs: async (_, { requestId, pagination }) => {
-      const { skip = 0, take = 10 } = pagination || {}
+      const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({
         where: { requestId }

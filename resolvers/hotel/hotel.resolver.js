@@ -33,6 +33,8 @@ const transporter = nodemailer.createTransport({
 
 // Объект для сопоставления текстового названия категории с числовым значением мест
 const categoryToPlaces = {
+  apartment: 2,
+  studio: 2,
   onePlace: 1,
   twoPlace: 2,
   threePlace: 3,
@@ -60,7 +62,7 @@ const hotelResolver = {
     hotels: async (_, { pagination }, context) => {
       const { skip, take, all } = pagination || {}
       // Получаем общее количество отелей
-      const totalCount = await prisma.hotel.count({})
+      const totalCount = await prisma.hotel.count({ where: { active: true } })
 
       // Если передан флаг all, возвращаем все отели, иначе – с учетом пагинации
       const hotels = all
@@ -648,6 +650,7 @@ const hotelResolver = {
                 description: room.description,
                 descriptionSecond: room.descriptionSecond,
                 places: places,
+                price: room.price,
                 ...(roomImages && { images: imagePaths })
               }
               await prisma.room.update({
@@ -681,7 +684,9 @@ const hotelResolver = {
                   description: room.description,
                   descriptionSecond: room.descriptionSecond,
                   images: imagePaths,
-                  places: places
+                  places: places,
+                  type: room.type,
+                  price: room.price
                 }
               })
               await logAction({
@@ -718,7 +723,7 @@ const hotelResolver = {
     // логирование действия и, если есть изображения, их удаление.
     deleteHotel: async (_, { id }, context) => {
       // Проверка прав: только супер-администратор может удалять отели
-      superAdminMiddleware(context)
+      adminMiddleware(context)
       const hotelToDelete = await prisma.hotel.findUnique({
         where: { id }
       })
@@ -813,7 +818,7 @@ const hotelResolver = {
       })
     },
     logs: async (parent, { pagination }) => {
-      const { skip = 0, take = 10 } = pagination || {}
+      const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({
         where: { hotelId: parent.id }

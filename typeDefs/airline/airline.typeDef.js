@@ -47,6 +47,8 @@ input MealPriceInput {
 }
 
 type Price {
+  priceApartment: Float
+  priceStudio: Float
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
@@ -60,6 +62,8 @@ type Price {
 }
 
 input PriceInput {
+  priceApartment: Float
+  priceStudio: Float
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
@@ -76,6 +80,7 @@ input PriceInput {
 type Airline {
   id: ID!
   name: String!
+  nameFull: String
   images: [String!]!
   information: Information
   department: [AirlineDepartment!]!
@@ -117,6 +122,7 @@ type AirlineConnection {
 # Входные типы для создания и обновления
 input CreateAirlineInput {
   name: String!
+  nameFull: String
   information: InformationInput
   mealPrice: MealPriceInput
   prices: PriceInput
@@ -124,6 +130,7 @@ input CreateAirlineInput {
 
 input UpdateAirlineInput {
   name: String
+  nameFull: String
   information: InformationInput
   staff: [AirlinePersonalInput!]
   department: [AirlineDepartmentInput!]

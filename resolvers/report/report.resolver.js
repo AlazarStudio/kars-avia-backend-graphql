@@ -565,6 +565,8 @@ const aggregateReports = (requests, reportType, filterStart, filterEnd) => {
     let dailyPrice = 0
     if (reportType === "airline") {
       const categoryPrices = {
+        studio: request.airline?.prices?.priceStudio || 0,
+        apartment: request.airline?.prices?.priceApartment || 0,
         onePlace: request.airline?.prices?.priceOneCategory || 0,
         twoPlace: request.airline?.prices?.priceTwoCategory || 0,
         threePlace: request.airline?.prices?.priceThreeCategory || 0,
@@ -579,6 +581,8 @@ const aggregateReports = (requests, reportType, filterStart, filterEnd) => {
       dailyPrice = categoryPrices[request.roomCategory] || 0
     } else if (reportType === "hotel") {
       const categoryPrices = {
+        studio: request.hotelChess?.room?.price || 0,
+        apartment: request.hotelChess?.room?.price || 0,
         onePlace: request.hotel?.prices?.priceOneCategory || 0,
         twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
         threePlace: request.hotel?.prices?.priceThreeCategory || 0,
@@ -660,6 +664,8 @@ const aggregateRequestReports = (
     }
 
     const categoryMapping = {
+      studio: "Студия",
+      apartment: "Квартира",
       onePlace: "Одноместный",
       twoPlace: "Двухместный",
       threePlace: "Трёхместный",
@@ -797,6 +803,8 @@ const calculateLivingCost = (request, type, days) => {
   const roomCategory = request.roomCategory
   const priceMapping = {
     airline: {
+      studio: request.airline?.prices?.priceStudio || 0,
+      apartment: request.airline?.prices?.priceApartment || 0,
       onePlace: request.airline?.prices?.priceOneCategory || 0,
       twoPlace: request.airline?.prices?.priceTwoCategory || 0,
       threePlace: request.airline?.prices?.priceThreeCategory || 0,
@@ -809,6 +817,8 @@ const calculateLivingCost = (request, type, days) => {
       tenPlace: request.airline?.prices?.priceTenCategory || 0
     },
     hotel: {
+      studio: request.hotelChess[0].room?.price || 0,
+      apartment: request.hotelChess[0].room?.price || 0,
       onePlace: request.hotel?.prices?.priceOneCategory || 0,
       twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
       threePlace: request.hotel?.prices?.priceThreeCategory || 0,

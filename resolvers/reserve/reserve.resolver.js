@@ -844,7 +844,7 @@ const reserveResolver = {
       })
     },
     logs: async (parent, { pagination }) => {
-      const { skip = 0, take = 10 } = pagination || {}
+      const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({
         where: { reserveId: parent.id }

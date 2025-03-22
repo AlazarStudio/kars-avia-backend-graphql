@@ -25,7 +25,7 @@ const airlineResolver = {
       // Извлекаем параметры пагинации: skip, take и флаг all
       const { skip, take, all } = pagination || {}
       // Получаем общее количество авиакомпаний
-      const totalCount = await prisma.airline.count({})
+      const totalCount = await prisma.airline.count({ where: { active: true } })
 
       // Если запрошено получение всех записей, то выполняем запрос без пагинации,
       // иначе - с использованием skip и take
@@ -150,7 +150,7 @@ const airlineResolver = {
       await logAction({
         context,
         action: "create_airline",
-        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию  <span style='color:#545873'> ${createdAirline.name} </span> `,
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию <span style='color:#545873'>${createdAirline.name}</span> `,
         airlineName: createdAirline.name,
         airlineId: createdAirline.id
       })
@@ -219,7 +219,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  изменил данные в департаменте  <span style='color:#545873'> ${depart.name} </span> `,
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в отделе <span style='color:#545873'>${depart.name}</span> `,
                 airlineId: id
               })
             } else {
@@ -239,7 +239,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  добавил департамент  <span style='color:#545873'> ${depart.name} </span> `,
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил отдел <span style='color:#545873'>${depart.name}</span> `,
                 airlineId: id
               })
             }
@@ -282,7 +282,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  добавил пользователя  <span style='color:#545873'> ${person.name} </span> `,
+                description: `Пользователь <span style='color:#545873'> ${user.name} </span> добавил пользователя <span style='color:#545873'>${person.name}</span> `,
                 airlineId: id
               })
             }
@@ -321,7 +321,7 @@ const airlineResolver = {
     // Удаление авиакомпании
     deleteAirline: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
-      airlineAdminMiddleware(context)
+      adminMiddleware(context)
       // Удаляем авиакомпанию и возвращаем связанные с ней данные (например, персонал)
       const deletedAirline = await prisma.airline.update({
         where: { id },
@@ -417,7 +417,7 @@ const airlineResolver = {
       })
     },
     logs: async (parent, { pagination }) => {
-      const { skip = 0, take = 10 } = pagination || {}
+      const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({
         where: { airlineId: parent.id }

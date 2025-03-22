@@ -3,6 +3,8 @@ scalar Upload
 scalar Date
 
 enum Category {
+  apartment
+  studio
   onePlace
   twoPlace
   threePlace
@@ -13,6 +15,16 @@ enum Category {
   eightPlace
   ninePlace
   tenPlace
+}
+
+enum RoomType {
+  room
+  apartment
+}
+
+enum HotelType {
+  hotel
+  apartment
 }
 
 # Составной тип для контактной информации и реквизитов отеля
@@ -142,6 +154,7 @@ type Hotel {
   chat: [Chat]
   prices: Price
   active: Boolean
+  type: HotelType
 }
 
 # Тип бронирования номера (HotelChess)
@@ -181,6 +194,8 @@ type Room {
   description: String
   descriptionSecond: String
   images: [String!]
+  type: RoomType
+  price: Float
 }
 
 type HotelConnection {
@@ -206,6 +221,7 @@ input CreateHotelInput {
   usStars: String
   airportDistance: String
   prices: PriceInput
+  type: HotelType
 }
 
 input UpdateHotelInput {
@@ -252,6 +268,8 @@ input RoomInput {
   description: String
   descriptionSecond: String
   images: [Upload!]
+  type: RoomType
+  price: Float
 }
 
 input HotelPaginationInput {
