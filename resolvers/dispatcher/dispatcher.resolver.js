@@ -74,25 +74,25 @@ const dispatcherResolver = {
     }
   },
   Mutation: {
-    allDataUpdate: async (_, {}, context) => {
-      superAdminMiddleware(context)
+    // allDataUpdate: async (_, {}, context) => {
+    //   superAdminMiddleware(context)
 
-      await prisma.airline.updateMany({
-        data: { active: true }
-      })
-      await prisma.hotel.updateMany({
-        data: { active: true }
-      })
-      await prisma.user.updateMany({
-        data: { active: true }
-      })
-      await prisma.airlinePersonal.updateMany({
-        data: { active: true }
-      })
-      await prisma.airlineDepartment.updateMany({
-        data: { active: true }
-      })
-    }
+    //   await prisma.airline.updateMany({
+    //     data: { active: true }
+    //   })
+    //   await prisma.hotel.updateMany({
+    //     data: { active: true }
+    //   })
+    //   await prisma.user.updateMany({
+    //     data: { active: true }
+    //   })
+    //   await prisma.airlinePersonal.updateMany({
+    //     data: { active: true }
+    //   })
+    //   await prisma.airlineDepartment.updateMany({
+    //     data: { active: true }
+    //   })
+    // }
   },
   Subscription: {
     notification: {
