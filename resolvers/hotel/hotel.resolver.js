@@ -19,6 +19,7 @@ import {
   RESERVE_UPDATED
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
+import { sendEmail } from "../../utils/sendMail.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -80,6 +81,7 @@ const hotelResolver = {
             take: take || undefined,
             include: {
               rooms: true,
+              airport: true,
               hotelChesses: true
             },
             orderBy: { name: "asc" }
@@ -102,6 +104,7 @@ const hotelResolver = {
         include: {
           rooms: true,
           hotelChesses: true,
+          airport: true,
           logs: true
         }
       })
@@ -112,7 +115,7 @@ const hotelResolver = {
     // Создание нового отеля.
     // Выполняется проверка прав доступа, обработка изображений, установка значений по умолчанию
     // и логирование действия.
-    createHotel: async (_, { input, images }, context) => {
+    createHotel: async (_, { input, images, gallery }, context) => {
       const { user } = context
       // Проверка доступа: требуется администратор
       adminMiddleware(context)
@@ -153,15 +156,26 @@ const hotelResolver = {
         }
       }
 
+      let galleryPaths = []
+      if (gallery && gallery.length > 0) {
+        for (const image of gallery) {
+          galleryPaths.push(await uploadImage(image))
+        }
+      }
+
+      const airportId = input.airportId
+
       // Формируем объект данных для создания отеля, подставляя значения по умолчанию при отсутствии
       const data = {
         ...input,
+        airportId,
         mealPrice: input.mealPrice || defaultMealPrice,
         prices: input.prices || defaultPrices,
         breakfast: input.breakfast || defaultMealTime.breakfast,
         lunch: input.lunch || defaultMealTime.lunch,
         dinner: input.dinner || defaultMealTime.dinner,
-        images: imagePaths
+        images: imagePaths,
+        gallery: galleryPaths
       }
 
       // Создаем новый отель с включением связанных комнат
@@ -191,7 +205,11 @@ const hotelResolver = {
     // - загрузка и обновление изображений;
     // - обновление записей hotelChesses (связанных с заявками, бронями и т.д.) с расчетом плана питания;
     // - обработка информации о комнатах (rooms) и обновление количества мест в отеле.
-    updateHotel: async (_, { id, input, images, roomImages }, context) => {
+    updateHotel: async (
+      _,
+      { id, input, images, roomImages, gallery },
+      context
+    ) => {
       const { user } = context
       // Проверка прав доступа для администратора отеля
       // hotelAdminMiddleware(context)
@@ -210,8 +228,15 @@ const hotelResolver = {
         }
       }
 
+      let galleryPaths = []
+      if (gallery && gallery.length > 0) {
+        for (const image of gallery) {
+          galleryPaths.push(await uploadImage(image))
+        }
+      }
+
       // Извлекаем из input данные по комнатам и hotelChesses, остальные данные сохраняем в restInput
-      const { rooms, hotelChesses, ...restInput } = input
+      const { rooms, hotelChesses, airportId, ...restInput } = input
       // Формируем объект данных для логирования обновлений
       const updatedData = {
         rooms,
@@ -229,6 +254,7 @@ const hotelResolver = {
         const updatedHotel = await prisma.hotel.update({
           where: { id },
           data: {
+            airportId,
             ...restInput,
             prices: {
               ...previousHotelData.prices, // Оставляем старые цены
@@ -238,7 +264,8 @@ const hotelResolver = {
               ...previousHotelData.mealPrice, // Оставляем старые значения
               ...input.mealPrice // Обновляем только переданные поля
             },
-            ...(imagePaths.length > 0 && { images: { set: imagePaths } })
+            ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
+            ...(galleryPaths.length > 0 && { gallery: { set: galleryPaths } })
           }
         })
 
@@ -447,7 +474,8 @@ const hotelResolver = {
                   })
                   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
                 } catch (e) {
-                  console.error("Error: ", e)
+                  const timestamp = new Date().toISOString();
+                  console.error(timestamp, " \n Error: \n ", e)
                   throw new Error(
                     "Ошибка при создании клиентского бронирования: " +
                       e.message +
@@ -572,8 +600,8 @@ const hotelResolver = {
                 }
 
                 const mailOptions = {
-                  from: `${process.env.EMAIL_USER}`,
-                  to: `${process.env.EMAIL_RESIEVER}`,
+                  // from: `${process.env.EMAIL_USER}`,
+                  to: `${process.env.EMAIL_HOTEL}`,
                   subject: "Request updated",
                   html: `<span style='color:#545873'>${
                     updatedRequest.person
@@ -591,7 +619,8 @@ const hotelResolver = {
                 }
 
                 // Отправка письма через настроенный транспортёр
-                await transporter.sendMail(mailOptions)
+                // await transporter.sendMail(mailOptions)
+                await sendEmail(mailOptions)
 
                 await logAction({
                   context,
@@ -713,7 +742,8 @@ const hotelResolver = {
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
-        console.error("Ошибка при обновлении отеля:", error)
+        const timestamp = new Date().toISOString();
+        console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         throw new Error("Не удалось обновить отель")
       }
     },
@@ -816,6 +846,14 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { client: true }
       })
+    },
+    airport: async (parent) => {
+      if (parent.airportId) {
+        return await prisma.airport.findUnique({
+          where: { id: parent.airportId }
+        })
+      }
+      return null
     },
     logs: async (parent, { pagination }) => {
       const { skip, take } = pagination || {}

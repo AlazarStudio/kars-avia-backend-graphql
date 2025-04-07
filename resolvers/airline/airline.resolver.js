@@ -67,6 +67,7 @@ const airlineResolver = {
         include: {
           staff: true,
           department: true,
+          position: true,
           logs: true
         }
       })
@@ -76,7 +77,7 @@ const airlineResolver = {
     airlineStaff: async (_, { id }, context) => {
       return await prisma.airlinePersonal.findUnique({
         where: { id },
-        include: { hotelChess: true }
+        include: { hotelChess: true, position: true }
       })
     },
 
@@ -84,7 +85,7 @@ const airlineResolver = {
     airlineStaffs: async (_, { airlineId }, context) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId, active: true },
-        include: { hotelChess: true },
+        include: { hotelChess: true, position: true },
         orderBy: { name: "asc" }
       })
     }
@@ -174,7 +175,7 @@ const airlineResolver = {
         }
       }
       // Извлекаем из input данные для обновления, отделяя департаменты и персонал
-      const { department, staff, ...restInput } = input
+      const { department, staff, position, ...restInput } = input
       try {
         // Обновляем основную информацию об авиакомпании,
         // включая обновление поля mealPrice и изображений (если новые были загружены)
@@ -212,6 +213,13 @@ const airlineResolver = {
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
+                      : []
+                  },
+                  position: {
+                    create: depart.positionIds
+                      ? depart.positionIds.map((positionId) => ({
+                          position: { connect: { id: positionId } }
+                        }))
                       : []
                   }
                 }
@@ -257,7 +265,7 @@ const airlineResolver = {
                   name: person.name,
                   departmentId: person.departmentId,
                   number: person.number,
-                  position: person.position,
+                  positionId: person.positionId,
                   gender: person.gender
                 }
               })
@@ -275,7 +283,7 @@ const airlineResolver = {
                   name: person.name,
                   departmentId: person.departmentId,
                   number: person.number,
-                  position: person.position,
+                  positionId: person.positionId,
                   gender: person.gender
                 }
               })
@@ -284,6 +292,29 @@ const airlineResolver = {
                 action: "update_airline",
                 description: `Пользователь <span style='color:#545873'> ${user.name} </span> добавил пользователя <span style='color:#545873'>${person.name}</span> `,
                 airlineId: id
+              })
+            }
+          }
+        }
+
+        // Обработка должностей
+        if (position) {
+          for (const pos of position) {
+            if (pos.id) {
+              await prisma.position.update({
+                where: { id: pos.id },
+                data: {
+                  name: pos.name
+                  // airlineDepartment: { connect: { id: pos.airlineDepartmentId } }
+                }
+              })
+            } else {
+              await prisma.position.create({
+                data: {
+                  name: pos.name,
+                  airlineId: id
+                  // airlineDepartmentId: pos.airlineDepartmentId ? { connect: { id: pos.airlineDepartmentId } } : null
+                }
               })
             }
           }
@@ -313,7 +344,8 @@ const airlineResolver = {
 
         return airlineWithRelations
       } catch (error) {
-        console.error("Ошибка при обновлении авиакомпании:", error)
+        const timestamp = new Date().toISOString();
+        console.error(timestamp, "\n Ошибка при обновлении авиакомпании: \n ", error)
         throw new Error("Не удалось обновить авиакомпанию")
       }
     },
@@ -416,6 +448,11 @@ const airlineResolver = {
         where: { airlineId: parent.id, active: true }
       })
     },
+    position: async (parent) => {
+      return await prisma.position.findMany({
+        where: { airlineId: parent.id }
+      })
+    },
     logs: async (parent, { pagination }) => {
       const { skip, take } = pagination || {}
 
@@ -448,8 +485,15 @@ const airlineResolver = {
     // Получение списка сотрудников, связанных с департаментом (проверить логику при необходимости)
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
-        where: { airlineId: parent.id, active: true }
+        where: { airlineDepartmentId: parent.id, active: true }
       })
+    },
+    position: async (parent) => {
+      const posOnDept = await prisma.positionOnDepartment.findMany({
+        where: { airlineDepartmentId: parent.id },
+        include: { position: true }
+      })
+      return posOnDept.map((record) => record.position)
     }
   },
 
@@ -462,6 +506,14 @@ const airlineResolver = {
         include: { hotel: true }
       })
       return hotelChessEntries
+    },
+    position: async (parent) => {
+      if (parent.positionId) {
+        return await prisma.position.findUnique({
+          where: { id: parent.positionId }
+        })
+      }
+      return null
     }
   }
 }

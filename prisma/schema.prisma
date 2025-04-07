@@ -151,6 +151,7 @@ type Information {
   bik         String?
   link        String?
   description String?
+  // airport String?
 }
 
 // type  ---------------- ↑↑↑↑
@@ -168,7 +169,7 @@ model User {
   password             String
   images               String[]
   role                 Role
-  position             String?
+  // position             String?
   sender               Request[]          @relation(name: "sender")
   receiver             Request[]          @relation(name: "receiver")
   reserve              Reserve[]
@@ -193,18 +194,36 @@ model User {
   resetPasswordToken   String? // для хранения токена восстановления
   resetPasswordExpires DateTime? // срок действия токена
   active               Boolean            @default(true)
-  // position             Positions?         @relation(fields: [positionId], references: [id])
-  // positionId           String?            @db.ObjectId
+  position             Position?          @relation(fields: [positionId], references: [id])
+  positionId           String?            @db.ObjectId
 }
 
-model Positions {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  airline    Airline? @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId  String?  @db.ObjectId
-  hotel      Hotel?   @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  hotelId    String?  @db.ObjectId
-  dispatcher Boolean
-  name       String
+model PositionOnDepartment {
+  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
+  airlineDepartment   AirlineDepartment @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
+  airlineDepartmentId String            @db.ObjectId
+  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  positionId          String            @db.ObjectId
+  // hotelChess HotelChess[]
+  // capacity   Int?
+  // passengers Passenger[]
+
+  @@unique([airlineDepartmentId, positionId])
+}
+
+model Position {
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  airline           Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId         String?                @db.ObjectId
+  airlineDepartment PositionOnDepartment[]
+  // airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
+  // airlineDepartmentId String?            @db.ObjectId
+  hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hotelId           String?                @db.ObjectId
+  dispatcher        Boolean                @default(false)
+  name              String
+  airlinePersonal   AirlinePersonal[]
+  user              User[]
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -227,6 +246,8 @@ model Hotel {
   hotelChesses    HotelChess[]
   request         Request[]
   rooms           Room[]
+  // roomsType
+  // Общая инеформация по номерам
   user            User[]
   logs            Log[]
   stars           String?
@@ -235,10 +256,13 @@ model Hotel {
   savedReport     SavedReport[]
   chat            Chat[]
   prices          Price?
-  Positions       Positions[]
+  position        Position[]
   Notification    Notification[]
   active          Boolean        @default(true)
   type            HotelType      @default(hotel)
+  gallery         String[]
+  airport         Airport?       @relation(fields: [airportId], references: [id])
+  airportId       String?        @db.ObjectId
 }
 
 model HotelChess {
@@ -303,27 +327,28 @@ model Airline {
   savedReport  SavedReport[]
   chat         Chat[]
   prices       Price?
-  Positions    Positions[]
+  position     Position[]
   Notification Notification[]
   active       Boolean             @default(true)
 }
 
 model AirlineDepartment {
-  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  id        String                 @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   email     String?
   staff     AirlinePersonal[]
   users     User[]
-  airline   Airline           @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId String            @db.ObjectId
-  active    Boolean           @default(true)
+  airline   Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId String                 @db.ObjectId
+  active    Boolean                @default(true)
+  position  PositionOnDepartment[]
 }
 
 model AirlinePersonal {
   id           String             @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   number       String?
-  position     String?
+  // position     String?
   gender       String?
   married      Boolean?           @default(false)
   husband      AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -336,6 +361,8 @@ model AirlinePersonal {
   request      Request[]
   hotelChess   HotelChess[]
   active       Boolean            @default(true)
+  position     Position?          @relation(fields: [positionId], references: [id])
+  positionId   String?            @db.ObjectId
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -347,6 +374,7 @@ model Airport {
   city    String?
   request Request[]
   reserve Reserve[]
+  hotel   Hotel[]
 }
 
 model City {

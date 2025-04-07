@@ -8,7 +8,6 @@ import {
 } from "../../exports/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import { subscribe } from "graphql"
-import { connect } from "mongoose"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")

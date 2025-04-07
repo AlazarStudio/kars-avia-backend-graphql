@@ -90,6 +90,7 @@ type Airline {
   logs(pagination: LogPaginationInput): LogConnection!
   prices: Price
   active: Boolean
+  position: [Position]
 }
 
 type AirlineDepartment {
@@ -99,13 +100,15 @@ type AirlineDepartment {
   staff: [AirlinePersonal!]
   users: [User!]
   active: Boolean
+  position: [Position]
 }
 
 type AirlinePersonal {
   id: ID!
   name: String
   number: String
-  position: String
+  # position: String
+  position: Position
   gender: String
   airline: Airline
   department: AirlineDepartment
@@ -136,6 +139,7 @@ input UpdateAirlineInput {
   department: [AirlineDepartmentInput!]
   mealPrice: MealPriceInput
   prices: PriceInput
+  position: [PositionInput!]
 }
 
 input AirlineDepartmentInput {
@@ -143,13 +147,15 @@ input AirlineDepartmentInput {
   name: String
   email: String
   userIds: [ID!]
+  positionIds: [ID!]
 }
 
 input AirlinePersonalInput {
   id: ID
   name: String
   number: String
-  position: String
+  # position: String
+  positionId: ID
   gender: String
   departmentId: ID
 }

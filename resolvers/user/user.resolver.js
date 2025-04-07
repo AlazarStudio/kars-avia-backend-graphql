@@ -9,7 +9,8 @@ import {
   adminHotelAirMiddleware,
   adminMiddleware,
   airlineAdminMiddleware,
-  hotelAdminMiddleware
+  hotelAdminMiddleware,
+  superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
@@ -18,6 +19,7 @@ import { v4 as uuidv4 } from "uuid"
 import bcrypt from "bcrypt"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { SubscriptionClient } from "subscriptions-transport-ws"
+import { sendEmail } from "../../utils/sendMail.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -255,7 +257,7 @@ const userResolver = {
       if (!user.active) {
         throw new Error("User is not active")
       }
-      
+
       if (!user || !(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
@@ -422,7 +424,7 @@ const userResolver = {
       }
 
       // Хэшируем новый пароль с использованием bcrypt
-      const hashedPassword = await bcrypt.hash(newPassword, 10)
+      const hashedPassword = await argon2.hash(newPassword)
 
       // Обновляем пароль и очищаем поля токена сброса
       await prisma.user.update({
@@ -452,12 +454,14 @@ const userResolver = {
           counter: 0
         })
         try {
-          const info = await transporter.sendMail({
-            from: `${process.env.EMAIL_USER}`,
+          const mailOptions = {
+            // from: `${process.env.EMAIL_USER}`,
             to: `${context.user.email}`,
             subject: "Your HOTP Code",
             text: `Your HOTP code is ${token}`
-          })
+          }
+          // await transporter.sendMail(mailOptions)
+          await sendEmail(mailOptions)
         } catch (error) {
           console.error("Ошибка при отправке письма:", error)
         }
@@ -620,10 +624,11 @@ const userResolver = {
 // Формируется ссылка для сброса пароля, которая действительна в течение 1 часа.
 const sendResetPasswordEmail = async (userEmail, token) => {
   // Ссылка для сброса пароля (замените домен на нужный)
-  const resetLink = `https://192.168.0.14/reset-password?token=${token}`
+  const resetLink = `https://karsavia.ru/reset-password?token=${token}`
+  // const resetLink = `http://192.168.0.16:5173/reset-password?token=${token}`
 
   const mailOptions = {
-    from: `${process.env.EMAIL_USER}`,
+    // from: `${process.env.EMAIL_USER}`,
     to: userEmail,
     subject: "Восстановление пароля",
     html: `<p>Чтобы сбросить пароль, перейдите по ссылке: <a href="${resetLink}">${resetLink}</a></p>
@@ -631,7 +636,8 @@ const sendResetPasswordEmail = async (userEmail, token) => {
   }
 
   // Отправка письма через настроенный транспортёр
-  await transporter.sendMail(mailOptions)
+  // await transporter.sendMail(mailOptions)
+  await sendEmail(mailOptions)
 }
 
 export default userResolver

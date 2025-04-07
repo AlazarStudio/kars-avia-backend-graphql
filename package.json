@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "main": "server.js",
   "scripts": {
     "backup": "node utils/cron/backup.js",
@@ -40,7 +40,6 @@
     "graphql-ws": "^5.16.0",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.0",
-    "mongoose": "^8.4.5",
     "mpath": "^0.9.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",

@@ -58,6 +58,7 @@ input InformationInput {
   bik: String
   link: String
   description: String
+  # airport: String
 }
 
 # Типы для времени питания
@@ -134,6 +135,7 @@ input PriceInput {
 type Hotel {
   id: ID!
   name: String!
+  airport: Airport
   information: Information
   provision: Int
   quote: Int
@@ -155,6 +157,8 @@ type Hotel {
   prices: Price
   active: Boolean
   type: HotelType
+  position: [Position]
+  gallery: [String]
 }
 
 # Тип бронирования номера (HotelChess)
@@ -207,6 +211,7 @@ type HotelConnection {
 # Входные типы для создания/обновления отеля
 input CreateHotelInput {
   name: String!
+  airportId: ID
   information: InformationInput
   provision: Int
   quote: Int
@@ -226,6 +231,7 @@ input CreateHotelInput {
 
 input UpdateHotelInput {
   name: String
+  airportId: ID
   information: InformationInput
   provision: Int
   quote: Int
@@ -284,8 +290,8 @@ type Query {
 }
 
 type Mutation { 
-  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!]): Hotel!
-  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!]): Hotel!
+  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], gallery: [Upload!]): Hotel!
+  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], gallery: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
 }

@@ -26,7 +26,8 @@ type User {
   login: String!
   password: String!
   role: Role!
-  position: String
+  # position: String
+  position: Position
   token: String
   hotelId: ID
   airlineId: ID
@@ -37,6 +38,17 @@ type User {
   airlineDepartmentId: ID
   support: Boolean
   active: Boolean
+}
+
+type Position {
+  id: ID!
+  name: String!
+  user: User
+  dispatcher: Boolean
+  hotelId: ID
+  airlineId: ID
+  airlineDepartmentId: ID
+  airlinePersonal: AirlinePersonal
 }
 
 type Query {
@@ -75,13 +87,21 @@ input SignInInput {
   token2FA: String
 }
 
+input PositionInput {
+  name: String!
+  hotelId: ID
+  airlineId: ID
+  airlineDepartmentId: ID
+  }
+
 input RegisterUserInput {
   name: String!
   email: String!
   login: String!
   password: String!
   role: Role
-  position: String
+  # position: String
+  positionId: ID
   hotelId: ID
   airlineId: ID
   dispatcher: Boolean
@@ -96,7 +116,8 @@ input UpdateUserInput {
   password: String
   oldPassword: String
   role: Role
-  position: String
+  # position: String
+  positionId: ID
   hotelId: ID
   airlineId: ID
   airlineDepartmentId: ID
@@ -112,7 +133,8 @@ type AuthPayload {
   email: String
   login: String
   role: Role
-  position: String
+  # position: String
+  position: Position
   token: String
   refreshToken: String
   images: [String!]

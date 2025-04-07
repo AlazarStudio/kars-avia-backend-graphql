@@ -16,7 +16,6 @@ import {
   // USER_CREATED,
   NOTIFICATION
 } from "../../exports/pubsub.js"
-import { Query } from "mongoose"
 import { superAdminMiddleware } from "../../middlewares/authMiddleware.js"
 
 const dispatcherResolver = {
@@ -76,7 +75,6 @@ const dispatcherResolver = {
   Mutation: {
     // allDataUpdate: async (_, {}, context) => {
     //   superAdminMiddleware(context)
-
     //   await prisma.airline.updateMany({
     //     data: { active: true }
     //   })
