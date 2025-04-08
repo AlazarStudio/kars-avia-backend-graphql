@@ -759,6 +759,7 @@ const hotelResolver = {
                 name: room.name,
                 description: room.description,
                 price: room.price,
+                category: room.category,
                 ...(roomKindImages && { images: imagePaths })
               }
               await prisma.roomKind.update({
@@ -778,6 +779,7 @@ const hotelResolver = {
                   name: room.name,
                   description: room.description,
                   price: room.price,
+                  category: room.category,
                   images: imagePaths
                 }
               })
