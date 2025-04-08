@@ -687,6 +687,7 @@ const hotelResolver = {
               })
               const updatedRoomData = {
                 name: room.name,
+                roomKindId: room.roomKindId,
                 category: room.category,
                 reserve: room.reserve,
                 active: room.active,
@@ -721,6 +722,7 @@ const hotelResolver = {
                 data: {
                   hotelId: id,
                   name: room.name,
+                  roomKindId: room.roomKindId,
                   category: room.category,
                   reserve: room.reserve,
                   active: room.active,

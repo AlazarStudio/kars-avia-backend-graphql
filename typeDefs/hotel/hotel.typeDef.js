@@ -294,12 +294,13 @@ input RoomInput {
   reserve: Boolean
   description: String
   descriptionSecond: String
+  roomKindId: ID
   images: [Upload!]
   type: RoomType
   price: Float
 }
 
-input roomKindInput {
+input RoomKindInput {
   id: ID
   name: String
   description: String
