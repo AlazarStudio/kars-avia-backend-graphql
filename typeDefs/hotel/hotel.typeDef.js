@@ -258,7 +258,7 @@ input UpdateHotelInput {
   capacity: Int
   hotelChesses: [HotelChessInput!]
   rooms: [RoomInput!]
-  roomKind: [roomKindInput!]
+  roomKind: [RoomKindInput!]
   breakfast: MealTimeInput
   lunch: MealTimeInput
   dinner: MealTimeInput
