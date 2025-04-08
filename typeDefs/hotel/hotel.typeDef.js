@@ -205,9 +205,12 @@ type Room {
 
 type RoomKind {
   id: ID!
-  name: String
+  name: String!
   description: String
-  images: [String!]
+  category: Category
+  price: Float!
+  images: [String]
+  hotel: Hotel
 }
 
 # type Tariff {
