@@ -258,6 +258,7 @@ input UpdateHotelInput {
   capacity: Int
   hotelChesses: [HotelChessInput!]
   rooms: [RoomInput!]
+  roomKind: [roomKindInput!]
   breakfast: MealTimeInput
   lunch: MealTimeInput
   dinner: MealTimeInput
@@ -296,6 +297,15 @@ input RoomInput {
   images: [Upload!]
   type: RoomType
   price: Float
+}
+
+input roomKindInput {
+  id: ID
+  name: String
+  description: String
+  category: Category
+  price: Float
+  images: [String]
 }
 
 input HotelPaginationInput {
