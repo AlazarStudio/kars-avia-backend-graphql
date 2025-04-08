@@ -564,6 +564,7 @@ const reserveResolver = {
       } catch (error) {
         const timestamp = new Date().toISOString();
         console.error(timestamp, "\n❌ Ошибка при обновлении резерва: \n", error)
+        // console.error("\n❌ Ошибка при обновлении резерва: \n", error)
         throw new Error(
           "Ошибка обновления резерва",
           JSON.stringify(error, null, 2)
@@ -629,6 +630,7 @@ const reserveResolver = {
       } catch (error) {
         const timestamp = new Date().toISOString();
         console.error(timestamp, " \n Ошибка при добавлении отеля: \n", error)
+        // console.error(" \n Ошибка при добавлении отеля: \n", error)
         // Если возникает ошибка уникальности (уже существует такая комбинация),
         // можно вернуть соответствующее сообщение, здесь закомментировано.
         // if (

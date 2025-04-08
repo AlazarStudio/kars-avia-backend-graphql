@@ -246,7 +246,7 @@ model Hotel {
   hotelChesses    HotelChess[]
   request         Request[]
   rooms           Room[]
-  // roomsType
+  roomKind        RoomKind[]
   // Общая инеформация по номерам
   user            User[]
   logs            Log[]
@@ -263,6 +263,7 @@ model Hotel {
   gallery         String[]
   airport         Airport?       @relation(fields: [airportId], references: [id])
   airportId       String?        @db.ObjectId
+  // tariff          Tariff[]
 }
 
 model HotelChess {
@@ -305,7 +306,31 @@ model Room {
   hotelChess        HotelChess[]
   type              RoomType     @default(room)
   price             Float?
+  roomKind          RoomKind?    @relation(fields: [roomKindId], references: [id])
+  roomKindId        String?      @db.ObjectId
 }
+
+model RoomKind {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String?
+  description String?
+  category    Category
+  price       Float
+  images      String[]
+  room        Room[]
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  hotelId     String   @db.ObjectId
+}
+
+// model Tariff {
+//   id       String   @id @default(auto()) @map("_id") @db.ObjectId
+//   name     String
+//   price    Float
+//   category Category
+//   hotel    Hotel    @relation(fields: [hotelId], references: [id])
+//   hotelId  String   @db.ObjectId
+//   room     Room[]
+// }
 
 // Отели  ---------------- ↑↑↑↑
 

@@ -143,6 +143,7 @@ type Hotel {
   images: [String!]!
   hotelChesses: [HotelChess!]
   rooms: [Room!]!
+  roomKind: [RoomKind]
   breakfast: MealTime
   lunch: MealTime
   dinner: MealTime
@@ -201,6 +202,22 @@ type Room {
   type: RoomType
   price: Float
 }
+
+type RoomKind {
+  id: ID!
+  name: String
+  description: String
+  images: [String!]
+}
+
+# type Tariff {
+#   id: ID!
+#   name: String!
+#   price: Float!
+#   category: Category
+#   hotel: Hotel
+#   room: [Room]
+# }
 
 type HotelConnection {
   totalPages: Int!
@@ -290,8 +307,8 @@ type Query {
 }
 
 type Mutation { 
-  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], gallery: [Upload!]): Hotel!
-  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], gallery: [Upload!]): Hotel!
+  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
+  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
 }

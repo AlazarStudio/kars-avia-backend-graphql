@@ -204,7 +204,7 @@ const airlineResolver = {
         if (department) {
           for (const depart of department) {
             if (depart.id) {
-              // Если департамент уже существует, обновляем его данные
+              // Обновляем данные департамента, например, name, email, users и т.д.
               await prisma.airlineDepartment.update({
                 where: { id: depart.id },
                 data: {
@@ -214,16 +214,52 @@ const airlineResolver = {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
                       : []
-                  },
-                  position: {
-                    create: depart.positionIds
-                      ? depart.positionIds.map((positionId) => ({
-                          position: { connect: { id: positionId } }
-                        }))
-                      : []
                   }
                 }
               })
+
+              // Обновляем связи с должностями
+              if (depart.positionIds) {
+                // Получаем текущие связи (id должностей, связанных с департаментом)
+                const currentPositions =
+                  await prisma.positionOnDepartment.findMany({
+                    where: { airlineDepartmentId: depart.id },
+                    select: { positionId: true }
+                  })
+                const currentIds = currentPositions.map(
+                  (item) => item.positionId
+                )
+                const newIds = depart.positionIds
+
+                // Вычисляем какие id нужно добавить, а какие убрать
+                const toConnect = newIds.filter(
+                  (id) => !currentIds.includes(id)
+                )
+                const toDisconnect = currentIds.filter(
+                  (id) => !newIds.includes(id)
+                )
+
+                // Добавляем новые связи
+                if (toConnect.length > 0) {
+                  await prisma.positionOnDepartment.createMany({
+                    data: toConnect.map((positionId) => ({
+                      airlineDepartmentId: depart.id,
+                      positionId: positionId
+                    }))
+                  })
+                }
+
+                // Удаляем отсутствующие связи
+                if (toDisconnect.length > 0) {
+                  await prisma.positionOnDepartment.deleteMany({
+                    where: {
+                      airlineDepartmentId: depart.id,
+                      positionId: { in: toDisconnect }
+                    }
+                  })
+                }
+              }
+
               await logAction({
                 context,
                 action: "update_airline",
@@ -231,7 +267,7 @@ const airlineResolver = {
                 airlineId: id
               })
             } else {
-              // Если департамента не существует, создаем новый
+              // Создаем новый департамент
               await prisma.airlineDepartment.create({
                 data: {
                   airlineId: id,
@@ -344,8 +380,13 @@ const airlineResolver = {
 
         return airlineWithRelations
       } catch (error) {
-        const timestamp = new Date().toISOString();
-        console.error(timestamp, "\n Ошибка при обновлении авиакомпании: \n ", error)
+        const timestamp = new Date().toISOString()
+        console.error(
+          timestamp,
+          "\n Ошибка при обновлении авиакомпании: \n ",
+          error
+        )
+        // console.error("\n Ошибка при обновлении авиакомпании: \n ", error)
         throw new Error("Не удалось обновить авиакомпанию")
       }
     },

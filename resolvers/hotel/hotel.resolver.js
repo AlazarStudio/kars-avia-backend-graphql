@@ -103,6 +103,7 @@ const hotelResolver = {
         where: { id },
         include: {
           rooms: true,
+          roomKind: true,
           hotelChesses: true,
           airport: true,
           logs: true
@@ -207,7 +208,7 @@ const hotelResolver = {
     // - обработка информации о комнатах (rooms) и обновление количества мест в отеле.
     updateHotel: async (
       _,
-      { id, input, images, roomImages, gallery },
+      { id, input, images, roomImages, roomKindImages, gallery },
       context
     ) => {
       const { user } = context
@@ -236,10 +237,19 @@ const hotelResolver = {
       }
 
       // Извлекаем из input данные по комнатам и hotelChesses, остальные данные сохраняем в restInput
-      const { rooms, hotelChesses, airportId, ...restInput } = input
+      const {
+        tariffs,
+        rooms,
+        roomKind,
+        hotelChesses,
+        airportId,
+        ...restInput
+      } = input
       // Формируем объект данных для логирования обновлений
       const updatedData = {
+        tariffs,
         rooms,
+        roomKind,
         hotelChesses,
         ...restInput
       }
@@ -278,6 +288,10 @@ const hotelResolver = {
           newData: updatedData,
           hotelId: updatedHotel.id
         })
+
+        // if (tariffs) {
+
+        // }
 
         // Обработка записей hotelChesses (связанных с размещением, заявками, бронями)
         if (hotelChesses) {
@@ -476,6 +490,7 @@ const hotelResolver = {
                 } catch (e) {
                   const timestamp = new Date().toISOString();
                   console.error(timestamp, " \n Error: \n ", e)
+                  // console.error(" \n Error: \n ", e)
                   throw new Error(
                     "Ошибка при создании клиентского бронирования: " +
                       e.message +
@@ -730,6 +745,45 @@ const hotelResolver = {
           // Обновляем подсчет комнат отеля (резервных и квотных)
           await updateHotelRoomCounts(id)
         }
+
+        if (roomKind) {
+          for (const room of roomKind) {
+            if (room.id) {
+              let imagePaths = []
+              if (roomKindImages && roomKindImages.length > 0) {
+                for (const image of roomKindImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
+              const updatedRoomData = {
+                name: room.name,
+                description: room.description,
+                price: room.price,
+                ...(roomKindImages && { images: imagePaths })
+              }
+              await prisma.roomKind.update({
+                where: { id: room.id },
+                data: updatedRoomData
+              })
+            } else {
+              let imagePaths = []
+              if (roomKindImages && roomKindImages.length > 0) {
+                for (const image of roomKindImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
+              await prisma.roomKind.create({
+                data: {
+                  hotelId: id,
+                  name: room.name,
+                  description: room.description,
+                  price: room.price,
+                  images: imagePaths
+                }
+              })
+            }
+          }
+        }
         // Получаем обновленную информацию об отеле вместе со связанными комнатами и hotelChesses
         const hotelWithRelations = await prisma.hotel.findUnique({
           where: { id },
@@ -744,6 +798,7 @@ const hotelResolver = {
       } catch (error) {
         const timestamp = new Date().toISOString();
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
+        // console.error(" \n Ошибка при обновлении отеля: \n ", error)
         throw new Error("Не удалось обновить отель")
       }
     },
@@ -837,6 +892,11 @@ const hotelResolver = {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
       return await prisma.room.findMany({
+        where: { hotelId: parent.id }
+      })
+    },
+    roomKind: async (parent) => {
+      return await prisma.roomKind.findMany({
         where: { hotelId: parent.id }
       })
     },
