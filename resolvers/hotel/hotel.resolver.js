@@ -915,7 +915,8 @@ const hotelResolver = {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
       return await prisma.room.findMany({
-        where: { hotelId: parent.id }
+        where: { hotelId: parent.id },
+        include: { roomKind: true }
       })
     },
     roomKind: async (parent) => {
