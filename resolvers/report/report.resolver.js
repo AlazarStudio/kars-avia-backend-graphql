@@ -483,6 +483,52 @@ const applyFilters = (filter) => {
   return where
 }
 
+const getAirlinePriceForCategory = (request, category) => {
+  const airportId = request.airport?.id
+  if (!airportId) return 0
+  const airlinePrices = request.airline?.prices || []
+  for (const contract of airlinePrices) {
+    if (contract.airports && contract.airports.length > 0) {
+      // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
+      const match = contract.airports.find(
+        (item) => item.airport && item.airport.id === airportId
+      )
+      if (match) {
+        // В зависимости от категории возвращаем соответствующее поле цены
+        switch (category) {
+          case "studio":
+            return contract.prices?.priceStudio || 0
+          case "apartment":
+            return contract.prices?.priceApartment || 0
+          case "onePlace":
+            return contract.prices?.priceOneCategory || 0
+          case "twoPlace":
+            return contract.prices?.priceTwoCategory || 0
+          case "threePlace":
+            return contract.prices?.priceThreeCategory || 0
+          case "fourPlace":
+            return contract.prices?.priceFourCategory || 0
+          case "fivePlace":
+            return contract.prices?.priceFiveCategory || 0
+          case "sixPlace":
+            return contract.prices?.priceSixCategory || 0
+          case "sevenPlace":
+            return contract.prices?.priceSevenCategory || 0
+          case "eightPlace":
+            return contract.prices?.priceEightCategory || 0
+          case "ninePlace":
+            return contract.prices?.priceNineCategory || 0
+          case "tenPlace":
+            return contract.prices?.priceTenCategory || 0
+          default:
+            return 0
+        }
+      }
+    }
+  }
+  return 0
+}
+
 /* =================================== */
 /* Функции для расчёта количества дней */
 /* =================================== */
@@ -719,8 +765,9 @@ const aggregateRequestReports = (
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
     const personName = request.person ? request.person.name : "Не указано"
-    const personPosition = request.person
-      ? request.person.position.split("(")[0]
+    console.log("\n person - ", request.person)
+    const personPosition = request.person.position
+      ? request.person.position.name
       : "Не указано"
 
     const roomName = hotelChess.room?.name
@@ -801,26 +848,55 @@ const aggregatePassengerReports = (reserves, filterStart, filterEnd) => {
   })
 }
 
+// const calculateLivingCost = (request, type, days) => {
+//   const roomCategory = request.roomCategory
+//   const priceMapping = {
+//     airline: {
+//       studio: request.airline?.prices?.priceStudio || 0,
+//       apartment: request.airline?.prices?.priceApartment || 0,
+//       onePlace: request.airline?.prices?.priceOneCategory || 0,
+//       twoPlace: request.airline?.prices?.priceTwoCategory || 0,
+//       threePlace: request.airline?.prices?.priceThreeCategory || 0,
+//       fourPlace: request.airline?.prices?.priceFourCategory || 0,
+//       fivePlace: request.airline?.prices?.priceFiveCategory || 0,
+//       sixPlace: request.airline?.prices?.priceSixCategory || 0,
+//       sevenPlace: request.airline?.prices?.priceSevenCategory || 0,
+//       eightPlace: request.airline?.prices?.priceEightCategory || 0,
+//       ninePlace: request.airline?.prices?.priceNineCategory || 0,
+//       tenPlace: request.airline?.prices?.priceTenCategory || 0
+//     },
+//     hotel: {
+//       studio: request.hotelChess[0].room?.price || 0,
+//       apartment: request.hotelChess[0].room?.price || 0,
+//       onePlace: request.hotel?.prices?.priceOneCategory || 0,
+//       twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
+//       threePlace: request.hotel?.prices?.priceThreeCategory || 0,
+//       fourPlace: request.hotel?.prices?.priceFourCategory || 0,
+//       fivePlace: request.hotel?.prices?.priceFiveCategory || 0,
+//       sixPlace: request.hotel?.prices?.priceSixCategory || 0,
+//       sevenPlace: request.hotel?.prices?.priceSevenCategory || 0,
+//       eightPlace: request.hotel?.prices?.priceEightCategory || 0,
+//       ninePlace: request.hotel?.prices?.priceNineCategory || 0,
+//       tenPlace: request.hotel?.prices?.priceTenCategory || 0
+//     }
+//   }
+
+//   const pricePerDay = priceMapping[type]?.[roomCategory] || 0
+//   return days > 0 ? days * pricePerDay : 0
+// }
+
 const calculateLivingCost = (request, type, days) => {
   const roomCategory = request.roomCategory
-  const priceMapping = {
-    airline: {
-      studio: request.airline?.prices?.priceStudio || 0,
-      apartment: request.airline?.prices?.priceApartment || 0,
-      onePlace: request.airline?.prices?.priceOneCategory || 0,
-      twoPlace: request.airline?.prices?.priceTwoCategory || 0,
-      threePlace: request.airline?.prices?.priceThreeCategory || 0,
-      fourPlace: request.airline?.prices?.priceFourCategory || 0,
-      fivePlace: request.airline?.prices?.priceFiveCategory || 0,
-      sixPlace: request.airline?.prices?.priceSixCategory || 0,
-      sevenPlace: request.airline?.prices?.priceSevenCategory || 0,
-      eightPlace: request.airline?.prices?.priceEightCategory || 0,
-      ninePlace: request.airline?.prices?.priceNineCategory || 0,
-      tenPlace: request.airline?.prices?.priceTenCategory || 0
-    },
-    hotel: {
-      studio: request.hotelChess[0].room?.price || 0,
-      apartment: request.hotelChess[0].room?.price || 0,
+  let pricePerDay = 0
+
+  if (type === "airline") {
+    // Для авиакомпании ищем цену по тарифным договорам, основываясь на аэропорте заявки
+    pricePerDay = getAirlinePriceForCategory(request, roomCategory)
+  } else if (type === "hotel") {
+    // Логика для отеля остается прежней (при необходимости её можно тоже изменить)
+    const hotelPriceMapping = {
+      studio: request.hotelChess[0]?.room?.price || 0,
+      apartment: request.hotelChess[0]?.room?.price || 0,
       onePlace: request.hotel?.prices?.priceOneCategory || 0,
       twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
       threePlace: request.hotel?.prices?.priceThreeCategory || 0,
@@ -832,9 +908,9 @@ const calculateLivingCost = (request, type, days) => {
       ninePlace: request.hotel?.prices?.priceNineCategory || 0,
       tenPlace: request.hotel?.prices?.priceTenCategory || 0
     }
+    pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
 
-  const pricePerDay = priceMapping[type]?.[roomCategory] || 0
   return days > 0 ? days * pricePerDay : 0
 }
 

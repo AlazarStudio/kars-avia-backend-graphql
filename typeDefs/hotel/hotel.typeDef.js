@@ -325,6 +325,7 @@ type Mutation {
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
+  deleteRoomKind(id: ID!): RoomKind!
 }
 
 type Subscription {

@@ -337,24 +337,50 @@ model RoomKind {
 // Авиакомпании  ---------------- ↓↓↓↓
 
 model Airline {
-  id           String              @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  nameFull     String?
-  images       String[]
-  information  Information?
-  department   AirlineDepartment[]
-  staff        AirlinePersonal[]
-  request      Request[]
-  user         User[]
-  logs         Log[]
-  reserve      Reserve[]
-  mealPrice    MealPrice?
-  savedReport  SavedReport[]
-  chat         Chat[]
-  prices       Price?
-  position     Position[]
-  Notification Notification[]
-  active       Boolean             @default(true)
+  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String
+  nameFull              String?
+  images                String[]
+  information           Information?
+  department            AirlineDepartment[]
+  staff                 AirlinePersonal[]
+  request               Request[]
+  user                  User[]
+  logs                  Log[]
+  reserve               Reserve[]
+  mealPrice             MealPrice?
+  savedReport           SavedReport[]
+  chat                  Chat[]
+  // prices       Price?
+  prices                AirlinePrice[]
+  position              Position[]
+  Notification          Notification[]
+  active                Boolean                 @default(true)
+  airportOnAirlinePrice AirportOnAirlinePrice[]
+}
+
+model AirlinePrice {
+  id        String                  @id @default(auto()) @map("_id") @db.ObjectId
+  airline   Airline                 @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId String                  @db.ObjectId
+  airports  AirportOnAirlinePrice[]
+  name      String
+  prices    Price?
+}
+
+model AirportOnAirlinePrice {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  airline        Airline       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId      String        @db.ObjectId
+  airport        Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
+  airportId      String        @db.ObjectId
+  // hotelChess HotelChess[]
+  // capacity   Int?
+  // passengers Passenger[]
+  airlinePrice   AirlinePrice? @relation(fields: [airlinePriceId], references: [id])
+  airlinePriceId String?       @db.ObjectId
+
+  @@unique([airlineId, airportId])
 }
 
 model AirlineDepartment {
@@ -393,13 +419,14 @@ model AirlinePersonal {
 // Авиакомпании  ---------------- ↑↑↑↑
 
 model Airport {
-  id      String    @id @default(auto()) @map("_id") @db.ObjectId
-  name    String?
-  code    String?
-  city    String?
-  request Request[]
-  reserve Reserve[]
-  hotel   Hotel[]
+  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String?
+  code                  String?
+  city                  String?
+  request               Request[]
+  reserve               Reserve[]
+  hotel                 Hotel[]
+  airportOnAirlinePrice AirportOnAirlinePrice[]
 }
 
 model City {

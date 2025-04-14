@@ -877,6 +877,26 @@ const hotelResolver = {
         }
       }
       return deletedRoom
+    }, 
+
+    deleteRoomKind: async (_, { id }, context) => {
+      
+      hotelAdminMiddleware(context)
+      const roomToDelete = await prisma.roomKind.findUnique({
+        where: { id }
+      })
+      if (!roomToDelete) {
+        throw new Error("Комната не найдена")
+      }
+      const deletedRoomKind = await prisma.roomKind.delete({
+        where: { id }
+      })
+      if (deletedRoomKind.images && deletedRoomKind.images.length > 0) {
+        for (const imagePath of deletedRoomKind.images) {
+          await deleteImage(imagePath)
+        }
+      }
+      return deletedRoomKind
     }
   },
 
