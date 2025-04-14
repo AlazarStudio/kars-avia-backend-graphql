@@ -488,7 +488,7 @@ const hotelResolver = {
                   })
                   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
                 } catch (e) {
-                  const timestamp = new Date().toISOString();
+                  const timestamp = new Date().toISOString()
                   console.error(timestamp, " \n Error: \n ", e)
                   // console.error(" \n Error: \n ", e)
                   throw new Error(
@@ -800,7 +800,7 @@ const hotelResolver = {
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toISOString()
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)
         throw new Error("Не удалось обновить отель")
@@ -877,10 +877,9 @@ const hotelResolver = {
         }
       }
       return deletedRoom
-    }, 
+    },
 
     deleteRoomKind: async (_, { id }, context) => {
-      
       hotelAdminMiddleware(context)
       const roomToDelete = await prisma.roomKind.findUnique({
         where: { id }
@@ -993,7 +992,10 @@ const hotelResolver = {
     // Получение данных комнаты, связанной с HotelChess
     room: async (parent) => {
       if (!parent.roomId) return null
-      return await prisma.room.findUnique({ where: { id: parent.roomId } })
+      return await prisma.room.findUnique({
+        where: { id: parent.roomId },
+        include: { roomKind: true }
+      })
     }
   }
 }

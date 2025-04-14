@@ -196,6 +196,7 @@ type Room {
   beds: Float
   active: Boolean
   reserve: Boolean
+  roomKind: RoomKind
   description: String
   descriptionSecond: String
   images: [String!]
