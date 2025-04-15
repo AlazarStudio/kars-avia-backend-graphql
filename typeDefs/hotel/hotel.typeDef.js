@@ -289,7 +289,7 @@ input HotelChessInput {
 input RoomInput {
   id: ID
   name: String
-  category: Category
+#  category: Category
   active: Boolean
   beds: Float
   reserve: Boolean
