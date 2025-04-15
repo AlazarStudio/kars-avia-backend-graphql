@@ -488,7 +488,7 @@ const hotelResolver = {
                   })
                   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
                 } catch (e) {
-                  const timestamp = new Date().toISOString();
+                  const timestamp = new Date().toISOString()
                   console.error(timestamp, " \n Error: \n ", e)
                   // console.error(" \n Error: \n ", e)
                   throw new Error(
@@ -718,6 +718,11 @@ const hotelResolver = {
                   imagePaths.push(await uploadImage(image))
                 }
               }
+              const roomCategory = await prisma.roomKind.findUnique({
+                where: { id: room.roomKindId }
+              })
+              console.log("\n roomKind" + roomCategory)
+              console.log("\n roomCategory" + roomCategory.category)
               await prisma.room.create({
                 data: {
                   hotelId: id,
@@ -800,7 +805,7 @@ const hotelResolver = {
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toISOString()
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)
         throw new Error("Не удалось обновить отель")
