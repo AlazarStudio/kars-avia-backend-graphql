@@ -685,13 +685,25 @@ const hotelResolver = {
               const previousRoomData = await prisma.room.findUnique({
                 where: { id: room.id }
               })
-              const roomKind = await prisma.roomKind.findUnique({
-                where: { id: room.roomKindId }
-              })
+
+              let roomKind
+              if (room.roomKindId != null) {
+                roomKind = await prisma.roomKind.findUnique({
+                  where: { id: room.roomKindId }
+                })
+              }
+
+              let roomCategory
+              if (room.category != null) {
+                roomCategory = room.category
+              } else {
+                roomCategory = roomKind.category
+              }
+
               const updatedRoomData = {
                 name: room.name,
                 roomKindId: room.roomKindId,
-                category: roomKind.category,
+                category: roomCategory,
                 reserve: room.reserve,
                 active: room.active,
                 beds: room.beds,
@@ -721,16 +733,27 @@ const hotelResolver = {
                   imagePaths.push(await uploadImage(image))
                 }
               }
-              const roomKind = await prisma.roomKind.findUnique({
-                where: { id: room.roomKindId }
-              })
+
+              let roomKind
+              if (room.roomKindId != null) {
+                roomKind = await prisma.roomKind.findUnique({
+                  where: { id: room.roomKindId }
+                })
+              }
+
+              let roomCategory
+              if (room.category != null) {
+                roomCategory = room.category
+              } else {
+                roomCategory = roomKind.category
+              }
 
               await prisma.room.create({
                 data: {
                   hotelId: id,
                   name: room.name,
                   roomKindId: room.roomKindId,
-                  category: roomKind.category,
+                  category: roomCategory,
                   reserve: room.reserve,
                   active: room.active,
                   beds: room.beds,
