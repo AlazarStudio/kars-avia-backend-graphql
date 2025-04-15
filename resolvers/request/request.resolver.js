@@ -1163,7 +1163,7 @@ const requestResolver = {
     person: async (parent) => {
       if (parent.personId) {
         return await prisma.airlinePersonal.findUnique({
-          where: { id: parent.personId }
+          where: { id: parent.personId }, include: { position: true }
         })
       } else {
         return null

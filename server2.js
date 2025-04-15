@@ -143,7 +143,7 @@ app.use(
             }
           })
         } catch (e) {
-          console.error("Error verifying token:", e + "\n user ", user.name)
+          console.error("Error verifying token:", e + "\n user ")
         }
       }
       return { user }

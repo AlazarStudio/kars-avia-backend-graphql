@@ -1,7 +1,7 @@
 const airlineTypeDef = `#graphql
 scalar Upload
 
-# Общие составные типы (если ещё не определены, их можно вынести в общий файл)
+# Общие составные типы (можно вынести в общий файл)
 type Information {
   country: String
   city: String
@@ -34,6 +34,7 @@ input InformationInput {
   description: String
 }
 
+# Типы для питания
 type MealPrice {
   breakfast: Float
   lunch: Float
@@ -46,6 +47,7 @@ input MealPriceInput {
   dinner: Float
 }
 
+# Тип прайс-листа (ценовой набор)
 type Price {
   priceApartment: Float
   priceStudio: Float
@@ -76,7 +78,36 @@ input PriceInput {
   priceTenCategory: Float
 }
 
-# Основной тип Airline
+# Новый тип тарифного договора для авиакомпании
+type AirlinePrice {
+  id: ID!
+  prices: Price
+  name: String
+  airports: [AirportOnAirlinePrice!]!
+}
+
+# Новый тип для связи аэропортов с тарифом авиакомпании
+type AirportOnAirlinePrice {
+  id: ID!
+  airport: Airport
+}
+
+# Тип аэропорта
+type Airport {
+  id: ID!
+  name: String
+  code: String
+  city: String
+}
+
+# Входной тип для тарифного договора
+input AirlinePriceInput {
+  prices: PriceInput
+  name: String
+  airportIds: [ID!]  # список id аэропортов, к которым применяется договор
+}
+
+# Основной тип Airline (авиакомпания)
 type Airline {
   id: ID!
   name: String!
@@ -86,13 +117,14 @@ type Airline {
   department: [AirlineDepartment!]!
   staff: [AirlinePersonal!]!
   mealPrice: MealPrice
-  # logs: [Log]
   logs(pagination: LogPaginationInput): LogConnection!
-  prices: Price
+  prices: [AirlinePrice!]!         # изменено: список договоров с тарифами
   active: Boolean
   position: [Position]
+  airportOnAirlinePrice: [AirportOnAirlinePrice]
 }
 
+# Остальные типы оставляем без изменений (пример – департамент и персонал)
 type AirlineDepartment {
   id: ID!
   name: String!
@@ -107,7 +139,6 @@ type AirlinePersonal {
   id: ID!
   name: String
   number: String
-  # position: String
   position: Position
   gender: String
   airline: Airline
@@ -116,19 +147,13 @@ type AirlinePersonal {
   active: Boolean
 }
 
-type AirlineConnection {
-  totalPages: Int!
-  totalCount: Int!
-  airlines: [Airline!]!
-}
-
-# Входные типы для создания и обновления
+# Пагинация, Query, Mutation и Subscription
 input CreateAirlineInput {
   name: String!
   nameFull: String
   information: InformationInput
   mealPrice: MealPriceInput
-  prices: PriceInput
+  prices: [AirlinePriceInput!]   # теперь массив тарифов
 }
 
 input UpdateAirlineInput {
@@ -138,7 +163,7 @@ input UpdateAirlineInput {
   staff: [AirlinePersonalInput!]
   department: [AirlineDepartmentInput!]
   mealPrice: MealPriceInput
-  prices: PriceInput
+  prices: [AirlinePriceInput!]   # массив тарифов для обновления
   position: [PositionInput!]
 }
 
@@ -154,7 +179,6 @@ input AirlinePersonalInput {
   id: ID
   name: String
   number: String
-  # position: String
   positionId: ID
   gender: String
   departmentId: ID
@@ -164,6 +188,12 @@ input AirlinePaginationInput {
   skip: Int
   take: Int
   all: Boolean
+}
+
+type AirlineConnection {
+  totalPages: Int!
+  totalCount: Int!
+  airlines: [Airline!]!
 }
 
 type Query {
@@ -185,6 +215,7 @@ type Subscription {
   airlineCreated: Airline!
   airlineUpdated: Airline!
 }
+
 `
 
 export default airlineTypeDef

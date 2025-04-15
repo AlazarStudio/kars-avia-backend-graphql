@@ -196,6 +196,7 @@ type Room {
   beds: Float
   active: Boolean
   reserve: Boolean
+  roomKind: RoomKind
   description: String
   descriptionSecond: String
   images: [String!]
@@ -325,6 +326,7 @@ type Mutation {
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
+  deleteRoomKind(id: ID!): RoomKind!
 }
 
 type Subscription {

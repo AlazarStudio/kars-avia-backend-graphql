@@ -882,6 +882,25 @@ const hotelResolver = {
         }
       }
       return deletedRoom
+    },
+
+    deleteRoomKind: async (_, { id }, context) => {
+      hotelAdminMiddleware(context)
+      const roomToDelete = await prisma.roomKind.findUnique({
+        where: { id }
+      })
+      if (!roomToDelete) {
+        throw new Error("Комната не найдена")
+      }
+      const deletedRoomKind = await prisma.roomKind.delete({
+        where: { id }
+      })
+      if (deletedRoomKind.images && deletedRoomKind.images.length > 0) {
+        for (const imagePath of deletedRoomKind.images) {
+          await deleteImage(imagePath)
+        }
+      }
+      return deletedRoomKind
     }
   },
 
@@ -901,7 +920,8 @@ const hotelResolver = {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
       return await prisma.room.findMany({
-        where: { hotelId: parent.id }
+        where: { hotelId: parent.id },
+        include: { roomKind: true }
       })
     },
     roomKind: async (parent) => {
@@ -978,7 +998,10 @@ const hotelResolver = {
     // Получение данных комнаты, связанной с HotelChess
     room: async (parent) => {
       if (!parent.roomId) return null
-      return await prisma.room.findUnique({ where: { id: parent.roomId } })
+      return await prisma.room.findUnique({
+        where: { id: parent.roomId },
+        include: { roomKind: true }
+      })
     }
   }
 }
