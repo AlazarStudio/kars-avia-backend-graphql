@@ -174,6 +174,11 @@ const airlineResolver = {
                 }
               })
 
+              // Удаляем старые связи
+              await prisma.airportOnAirlinePrice.deleteMany({
+                where: { airlinePriceId: priceInput.id }
+              })
+
               // Создаём новые связи для тарифа
               if (priceInput.airportIds && priceInput.airportIds.length > 0) {
                 for (const airportId of priceInput.airportIds) {
@@ -507,14 +512,14 @@ const airlineResolver = {
     prices: async (parent) => {
       return await prisma.airlinePrice.findMany({
         where: { airlineId: parent.id },
-        include: { 
-          airports: { 
+        include: {
+          airports: {
             include: { airport: true }
           }
         }
       })
     },
-    
+
     // При необходимости – резольвер для airportOnAirlinePrice
     airportOnAirlinePrice: async (parent) => {
       return await prisma.airportOnAirlinePrice.findMany({
