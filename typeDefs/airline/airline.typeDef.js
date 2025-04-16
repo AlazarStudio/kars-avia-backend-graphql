@@ -102,6 +102,7 @@ type Airport {
 
 # Входной тип для тарифного договора
 input AirlinePriceInput {
+  id: ID
   prices: PriceInput
   name: String
   airportIds: [ID!]  # список id аэропортов, к которым применяется договор
