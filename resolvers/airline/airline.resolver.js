@@ -24,7 +24,8 @@ const airlineResolver = {
             where: { active: true },
             include: {
               staff: true,
-              department: true
+              department: true,
+              prices: true
             },
             orderBy: { name: "asc" }
           })
@@ -34,7 +35,8 @@ const airlineResolver = {
             take: take || undefined,
             include: {
               staff: true,
-              department: true
+              department: true,
+              prices: true
             },
             orderBy: { name: "asc" }
           })
