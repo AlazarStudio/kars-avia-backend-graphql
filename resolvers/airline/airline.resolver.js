@@ -174,11 +174,6 @@ const airlineResolver = {
                 }
               })
 
-              // Удаляем старые связи
-              await prisma.airportOnAirlinePrice.deleteMany({
-                where: { airlinePriceId: priceInput.id }
-              })
-
               // Создаём новые связи для тарифа
               if (priceInput.airportIds && priceInput.airportIds.length > 0) {
                 for (const airportId of priceInput.airportIds) {
