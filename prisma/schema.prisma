@@ -374,9 +374,6 @@ model AirportOnAirlinePrice {
   airlineId      String        @db.ObjectId
   airport        Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
   airportId      String        @db.ObjectId
-  // hotelChess HotelChess[]
-  // capacity   Int?
-  // passengers Passenger[]
   airlinePrice   AirlinePrice? @relation(fields: [airlinePriceId], references: [id])
   airlinePriceId String?       @db.ObjectId
 

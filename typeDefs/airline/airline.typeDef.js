@@ -83,7 +83,7 @@ type AirlinePrice {
   id: ID!
   prices: Price
   name: String
-  airports: [AirportOnAirlinePrice!]!
+  airports: [AirportOnAirlinePrice]
 }
 
 # Новый тип для связи аэропортов с тарифом авиакомпании
