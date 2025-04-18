@@ -104,11 +104,14 @@ type ExtendRequestNotification {
 
 type Query {
   # getAllNotifications: Notification
+  getPosition(id:ID!): Position
+  getAllPositions: [Position]
   getAllNotifications(pagination: PaginationInput): NotificationConnection!
 }
 
 type Mutation {
   createPosition(input: PositionInput): Position
+  updatePosition(input: PositionInput): Position
   allDataUpdate: Boolean
 }
 

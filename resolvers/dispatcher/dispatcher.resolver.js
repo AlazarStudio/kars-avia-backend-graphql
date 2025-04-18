@@ -70,9 +70,38 @@ const dispatcherResolver = {
         }
       })
       return { totalPages, totalCount, notifications }
+    },
+    getAllPositions: async (_, {}, context) => {
+      const positions = await prisma.position.findMany({})
+      return positions
+    },
+    getPosition: async (_, { id }, context) => {
+      const position = await prisma.position.findUnique({ where: { id } })
+      return position
     }
   },
   Mutation: {
+    createPosition: async (_, { input }, context) => {
+      const { name, dispatcher } = input
+      const position = await prisma.position.create({
+        data: {
+          name,
+          dispatcher
+        }
+      })
+      return position
+    },
+    updatePosition: async (_, { input }, context) => {
+      const { name, dispatcher } = input
+      const position = await prisma.position.update({
+        where: { id: pos.id },
+        data: {
+          name,
+          dispatcher
+        }
+      })
+      return position
+    }
     // allDataUpdate: async (_, {}, context) => {
     //   superAdminMiddleware(context)
     //   await prisma.airline.updateMany({
