@@ -121,7 +121,7 @@ type Airline {
   logs(pagination: LogPaginationInput): LogConnection!
   prices: [AirlinePrice!]!         # изменено: список договоров с тарифами
   active: Boolean
-  position: [Position]
+  # position: [Position]
   airportOnAirlinePrice: [AirportOnAirlinePrice]
 }
 
@@ -165,7 +165,7 @@ input UpdateAirlineInput {
   department: [AirlineDepartmentInput!]
   mealPrice: MealPriceInput
   prices: [AirlinePriceInput!]   # массив тарифов для обновления
-  position: [PositionInput!]
+  # position: [PositionInput!]
 }
 
 input AirlineDepartmentInput {

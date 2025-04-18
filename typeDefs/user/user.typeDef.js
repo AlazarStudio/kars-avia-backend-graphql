@@ -43,12 +43,12 @@ type User {
 type Position {
   id: ID!
   name: String!
-  user: User
   dispatcher: Boolean
-  hotelId: ID
-  airlineId: ID
-  airlineDepartmentId: ID
-  airlinePersonal: AirlinePersonal
+  user: [User]
+  airlinePersonal: [AirlinePersonal]
+  airlineDepartment: [AirlineDepartment]
+  # hotelId: ID
+  # airlineId: ID
 }
 
 type Query {
@@ -89,9 +89,10 @@ input SignInInput {
 
 input PositionInput {
   name: String!
-  hotelId: ID
-  airlineId: ID
-  airlineDepartmentId: ID
+  dispatcher: Boolean
+  # hotelId: ID
+  # airlineId: ID
+  # airlineDepartmentId: ID
   }
 
 input RegisterUserInput {

@@ -158,7 +158,7 @@ type Hotel {
   prices: Price
   active: Boolean
   type: HotelType
-  position: [Position]
+  # position: [Position]
   gallery: [String]
 }
 

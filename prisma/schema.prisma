@@ -213,17 +213,17 @@ model PositionOnDepartment {
 
 model Position {
   id                String                 @id @default(auto()) @map("_id") @db.ObjectId
-  airline           Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId         String?                @db.ObjectId
+  name              String
+  dispatcher        Boolean                @default(false)
+  user              User[]
+  airlinePersonal   AirlinePersonal[]
   airlineDepartment PositionOnDepartment[]
+  // airline           Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  // airlineId         String?                @db.ObjectId
   // airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
   // airlineDepartmentId String?            @db.ObjectId
-  hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  hotelId           String?                @db.ObjectId
-  dispatcher        Boolean                @default(false)
-  name              String
-  airlinePersonal   AirlinePersonal[]
-  user              User[]
+  // hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // hotelId           String?                @db.ObjectId
 }
 
 // Пользователи  ---------------- ↑↑↑↑
@@ -256,7 +256,7 @@ model Hotel {
   savedReport     SavedReport[]
   chat            Chat[]
   prices          Price?
-  position        Position[]
+  // position        Position[]
   Notification    Notification[]
   active          Boolean        @default(true)
   type            HotelType      @default(hotel)
@@ -353,7 +353,7 @@ model Airline {
   chat                  Chat[]
   // prices       Price?
   prices                AirlinePrice[]
-  position              Position[]
+  // position              Position[]
   Notification          Notification[]
   active                Boolean                 @default(true)
   airportOnAirlinePrice AirportOnAirlinePrice[]

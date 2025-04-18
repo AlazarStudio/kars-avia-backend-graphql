@@ -142,7 +142,7 @@ const airlineResolver = {
         }
       }
       // Извлекаем поля для обновления (например, department, staff, position и новые цены)
-      const { department, staff, position, prices, ...restInput } = input
+      const { department, staff, prices, ...restInput } = input
       try {
         const previousAirlineData = await prisma.airline.findUnique({
           where: { id },
@@ -345,27 +345,27 @@ const airlineResolver = {
         }
 
         // Обработка должностей
-        if (position) {
-          for (const pos of position) {
-            if (pos.id) {
-              await prisma.position.update({
-                where: { id: pos.id },
-                data: {
-                  name: pos.name
-                  // airlineDepartment: { connect: { id: pos.airlineDepartmentId } }
-                }
-              })
-            } else {
-              await prisma.position.create({
-                data: {
-                  name: pos.name,
-                  airlineId: id
-                  // airlineDepartmentId: pos.airlineDepartmentId ? { connect: { id: pos.airlineDepartmentId } } : null
-                }
-              })
-            }
-          }
-        }
+        // if (position) {
+        //   for (const pos of position) {
+        //     if (pos.id) {
+        //       await prisma.position.update({
+        //         where: { id: pos.id },
+        //         data: {
+        //           name: pos.name
+        //           // airlineDepartment: { connect: { id: pos.airlineDepartmentId } }
+        //         }
+        //       })
+        //     } else {
+        //       await prisma.position.create({
+        //         data: {
+        //           name: pos.name,
+        //           airlineId: id
+        //           // airlineDepartmentId: pos.airlineDepartmentId ? { connect: { id: pos.airlineDepartmentId } } : null
+        //         }
+        //       })
+        //     }
+        //   }
+        // }
 
         const airlineWithRelations = await prisma.airline.findUnique({
           where: { id },
@@ -485,7 +485,7 @@ const airlineResolver = {
     },
     position: async (parent) => {
       return await prisma.position.findMany({
-        where: { airlineId: parent.id }
+        // where: { airlineId: parent.id }
       })
     },
     logs: async (parent, { pagination }) => {

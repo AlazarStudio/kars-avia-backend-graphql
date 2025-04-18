@@ -454,7 +454,7 @@ const applyFilters = (filter) => {
     personId,
     hotelId,
     airlineId,
-    position,
+    positionId,
     region
   } = filter
   const where = {}
@@ -465,13 +465,14 @@ const applyFilters = (filter) => {
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
+  if (positionId) where.positionId = positionId
 
-  if (position) {
-    where.person = {
-      isNot: null,
-      position: position
-    }
-  }
+  // if (position) {
+  //   where.person = {
+  //     isNot: null,
+  //     position: position
+  //   }
+  // }
 
   if (region) {
     where.airport = {

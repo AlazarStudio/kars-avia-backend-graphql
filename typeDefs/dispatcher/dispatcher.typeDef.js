@@ -108,6 +108,7 @@ type Query {
 }
 
 type Mutation {
+  createPosition(input: PositionInput): Position
   allDataUpdate: Boolean
 }
 
