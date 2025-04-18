@@ -16,7 +16,6 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
-import bcrypt from "bcrypt"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { SubscriptionClient } from "subscriptions-transport-ws"
 import { sendEmail } from "../../utils/sendMail.js"
@@ -423,7 +422,6 @@ const userResolver = {
         throw new Error("Неверный или просроченный токен")
       }
 
-      // Хэшируем новый пароль с использованием bcrypt
       const hashedPassword = await argon2.hash(newPassword)
 
       // Обновляем пароль и очищаем поля токена сброса
