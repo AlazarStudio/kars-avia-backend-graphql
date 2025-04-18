@@ -50,7 +50,6 @@ const airlineResolver = {
         include: {
           staff: true,
           department: true,
-          position: true,
           logs: true,
           prices: true, // включаем тарифы
           airportOnAirlinePrice: true
