@@ -488,11 +488,11 @@ const airlineResolver = {
         where: { airlineId: parent.id, active: true }
       })
     },
-    position: async (parent) => {
-      return await prisma.position.findMany({
-        // where: { airlineId: parent.id }
-      })
-    },
+    // position: async (parent) => {
+    //   return await prisma.position.findMany({
+    //     where: { airlineId: parent.id }
+    //   })
+    // },
     logs: async (parent, { pagination }) => {
       const { skip, take } = pagination || {}
       const totalCount = await prisma.log.count({
