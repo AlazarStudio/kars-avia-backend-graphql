@@ -1077,39 +1077,44 @@ const updateHotelRoomCounts = async (hotelId) => {
   return updatedHotel
 }
 
-const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
-  const overlap = await prisma.hotelChess.findFirst({
-    where: {
-      roomId,
-      place,
-      // исключаем “вне диапазона” записи:
-      NOT: [
-        // 1) запись полностью до нового периода
-        { end:   { lte: newStart } },
-        // 2) запись полностью после нового периода
-        { start: { gte: newEnd   } },
-      ],
-      // при обновлении — не учитываем саму себя
-      ...(excludeId ? { id: { not: excludeId } } : {}),
+const ensureNoOverlap = async (
+  roomId,
+  place,
+  newStartParam,
+  newEndParam,
+  excludeId
+) => {
+  // 1) приводим к Date и валидация
+  const newStart = new Date(newStartParam)
+  const newEnd = new Date(newEndParam)
+  if (isNaN(newStart) || isNaN(newEnd) || newStart >= newEnd) {
+    throw new Error("Неверный диапазон дат")
+  }
+
+  // 2) вытягиваем все заявки в этой комнате/месте (кроме себя, если нужно)
+  const where = { roomId, place }
+  if (excludeId) {
+    where.id = { not: excludeId }
+  }
+  const bookings = await prisma.hotelChess.findMany({
+    where,
+    select: { id: true, start: true, end: true }
+  })
+
+  // 3) прогоняем в JS по классическому условию пересечения
+  for (const b of bookings) {
+    const existStart = new Date(b.start)
+    const existEnd = new Date(b.end)
+    if (existStart < newEnd && existEnd > newStart) {
+      const msg =
+        `Невозможно разместить заявку: пересечение с заявкой №${b.id} ` +
+        `в комнате ${roomId}, месте ${place} ` +
+        `(${existStart.toISOString().slice(0, 10)} – ${existEnd
+          .toISOString()
+          .slice(0, 10)})`
+      console.error(msg)
+      throw new Error(msg)
     }
-  });
-
-  console.log(
-    "\n overlap" + overlap,
-    "\n overlap string" + JSON.stringify(overlap)
-  )
-
-  if (overlap) {
-    console.log(
-      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
-        `в комнате ${roomId}, месте ${place} ` +
-        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
-    )
-    throw new Error(
-      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
-        `в комнате ${roomId}, месте ${place} ` +
-        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
-    )
   }
 }
 
