@@ -1077,36 +1077,35 @@ const updateHotelRoomCounts = async (hotelId) => {
   return updatedHotel
 }
 
-const ensureNoOverlap = async (
-  roomId,
-  place,
-  newStart,
-  newEnd,
-  excludeId
-) => {
-
-  const where = { roomId, place }
-  if (excludeId) {
-    where.id = { not: excludeId }
-  }
-  const bookings = await prisma.hotelChess.findMany({
-    where,
-    select: { id: true, start: true, end: true }
+const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
+  const overlap = await prisma.hotelChess.findFirst({
+    where: {
+      roomId,
+      place,
+      NOT: [
+        { end: { lte: newStart, gte: newEnd } },
+        { start: { lte: newStart, gte: newEnd } }
+      ],
+      ...(excludeId ? { id: { not: excludeId } } : {})
+    }
   })
 
-  for (const b of bookings) {
-    const existStart = new Date(b.start)
-    const existEnd = new Date(b.end)
-    if (existStart < newEnd && existEnd > newStart) {
-      const msg =
-        `Невозможно разместить заявку: пересечение с заявкой №${b.id} ` +
+  console.log(
+    "\n overlap" + overlap,
+    "\n overlap string" + JSON.stringify(overlap)
+  )
+
+  if (overlap) {
+    console.log(
+      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
         `в комнате ${roomId}, месте ${place} ` +
-        `(${existStart.toISOString().slice(0, 10)} – ${existEnd
-          .toISOString()
-          .slice(0, 10)})`
-      console.error(msg)
-      throw new Error(msg)
-    }
+        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
+    )
+    throw new Error(
+      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
+        `в комнате ${roomId}, месте ${place} ` +
+        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
+    )
   }
 }
 
