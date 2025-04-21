@@ -1087,7 +1087,7 @@ const ensureNoOverlap = async (roomId, place, start, end, excludeId) => {
     }
   })
 
-  if (overlap) {
+  if (!overlap) {
     console.log(
       `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
         `в комнате ${roomId}, месте ${place} ` +
