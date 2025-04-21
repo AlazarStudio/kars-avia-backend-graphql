@@ -337,6 +337,14 @@ const hotelResolver = {
                 }
               }
 
+              await ensureNoOverlap(
+                hotelChess.roomId,
+                hotelChess.place,
+                hotelChess.start,
+                hotelChess.end,
+                hotelChess.id
+              )
+
               // Обновляем запись hotelChess
               await prisma.hotelChess.update({
                 where: { id: hotelChess.id },
@@ -418,6 +426,13 @@ const hotelResolver = {
               }
             } else {
               // Создание новой записи hotelChess
+
+              await ensureNoOverlap(
+                hotelChess.roomId,
+                hotelChess.place,
+                hotelChess.start,
+                hotelChess.end
+              )
 
               let newHotelChess
               if (hotelChess.reserveId) {
@@ -1060,6 +1075,25 @@ const updateHotelRoomCounts = async (hotelId) => {
   })
 
   return updatedHotel
+}
+
+const ensureNoOverlap = async (roomId, place, start, end, excludeId) => {
+  const overlap = await prisma.hotelChess.findFirst({
+    where: {
+      roomId: roomId,
+      place: place,
+      AND: [{ start: { lt: end } }, { end: { gt: start } }],
+      ...(excludeId ? { id: { not: excludeId } } : {})
+    }
+  })
+
+  if (overlap) {
+    throw new Error(
+      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
+        `в комнате ${roomId}, месте ${place} ` +
+        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
+    )
+  }
 }
 
 export default hotelResolver
