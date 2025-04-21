@@ -1083,12 +1083,12 @@ const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
       roomId,
       place,
       OR: [
-        { start: { gte: newStart, lte: newEnd } },
-        { end: { gte: newStart, lte: newEnd } }
+        { start: { gte: new Date(newStart), lte: new Date(newEnd) } },
+        { end: { gte: new Date(newStart), lte: new Date(newEnd) } }
       ],
       NOT: [
-        { start: { lt: newStart, gt: newEnd } },
-        { end: { lt: newStart, gt: newEnd } }
+        { start: { lt: new Date(newStart), gt: new Date(newEnd) } },
+        { end: { lt: new Date(newStart), gt: new Date(newEnd) } }
       ],
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
