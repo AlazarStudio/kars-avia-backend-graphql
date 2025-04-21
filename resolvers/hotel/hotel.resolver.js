@@ -1082,8 +1082,18 @@ const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
     where: {
       roomId: roomId,
       place: place,
-      AND: [{ start: { lt: newEnd } }, { end: { gt: newStart } }],
-      ...(excludeId ? { id: { not: excludeId } } : {})
+      // AND: [{ start: { lt: newEnd } }, { end: { gt: newStart } }],
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      OR: [
+        // 1) начинается внутри нового
+        { start: { gte: newStart, lt: newEnd } },
+        // 2) заканчивается внутри нового
+        { end: { gt: newStart, lte: newEnd } },
+        // 3) обёртывает весь новый диапазон
+        {
+          AND: [{ start: { lte: newStart } }, { end: { gte: newEnd } }]
+        }
+      ]
     }
   })
 
