@@ -294,7 +294,7 @@ const hotelResolver = {
         // }
 
         // Обработка записей hotelChesses (связанных с размещением, заявками, бронями)
-        if (hotelChesses) { 
+        if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
             let mealPlanData = null
             // Если заданы временные интервалы start и end, рассчитываем план питания
@@ -1078,7 +1078,6 @@ const updateHotelRoomCounts = async (hotelId) => {
 }
 
 const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
-  console.log("\n newStart" + new Date(newStart), "\n newEnd" + new Date(newEnd))
   const overlap = await prisma.hotelChess.findFirst({
     where: {
       roomId,
@@ -1088,11 +1087,6 @@ const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
   })
-
-  console.log(
-    "\n overlap" + overlap,
-    "\n overlap string" + JSON.stringify(overlap)
-  )
 
   if (overlap) {
     console.log(
