@@ -294,7 +294,7 @@ const hotelResolver = {
         // }
 
         // Обработка записей hotelChesses (связанных с размещением, заявками, бронями)
-        if (hotelChesses) {
+        if (hotelChesses) { 
           for (const hotelChess of hotelChesses) {
             let mealPlanData = null
             // Если заданы временные интервалы start и end, рассчитываем план питания
@@ -338,11 +338,11 @@ const hotelResolver = {
               }
 
               await ensureNoOverlap(
-                hotelChess.roomId,
-                hotelChess.place,
-                hotelChess.start,
-                hotelChess.end,
-                hotelChess.id
+                previousHotelChessData.roomId,
+                previousHotelChessData.place,
+                previousHotelChessData.start,
+                previousHotelChessData.end,
+                previousHotelChessData.id
               )
 
               // Обновляем запись hotelChess
