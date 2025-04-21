@@ -214,7 +214,7 @@ model PositionOnDepartment {
 model Position {
   id                String                 @id @default(auto()) @map("_id") @db.ObjectId
   name              String
-  dispatcher        Boolean                @default(false)
+  separator         String
   user              User[]
   airlinePersonal   AirlinePersonal[]
   airlineDepartment PositionOnDepartment[]

@@ -72,32 +72,40 @@ const dispatcherResolver = {
       return { totalPages, totalCount, notifications }
     },
     getAllPositions: async (_, {}, context) => {
-      const positions = await prisma.position.findMany({})
-      return positions
+      return await prisma.position.findMany({})
+    },
+    getAirlinePositions: async (_, {}, context) => {
+      return await prisma.position.findMany({ where: { separator: "airline" } })
+    },
+    getHotelPositions: async (_, {}, context) => {
+      return await prisma.position.findMany({ where: { separator: "hotel" } })
+    },
+    getDispatcherPositions: async (_, {}, context) => {
+      return await prisma.position.findMany({
+        where: { separator: "dispatcher" }
+      })
     },
     getPosition: async (_, { id }, context) => {
-      const position = await prisma.position.findUnique({ where: { id } })
-      return position
+      return await prisma.position.findUnique({ where: { id } })
     }
   },
   Mutation: {
     createPosition: async (_, { input }, context) => {
-      const { name, dispatcher } = input
+      const { name, separator } = input
       const position = await prisma.position.create({
         data: {
           name,
-          dispatcher
+          separator
         }
       })
       return position
     },
     updatePosition: async (_, { input }, context) => {
-      const { name, dispatcher } = input
+      const { name } = input
       const position = await prisma.position.update({
         where: { id: pos.id },
         data: {
-          name,
-          dispatcher
+          name
         }
       })
       return position

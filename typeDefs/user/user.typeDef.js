@@ -43,7 +43,7 @@ type User {
 type Position {
   id: ID!
   name: String!
-  dispatcher: Boolean
+  separator: String!
   user: [User]
   airlinePersonal: [AirlinePersonal]
   airlineDepartment: [AirlineDepartment]
@@ -89,7 +89,7 @@ input SignInInput {
 
 input PositionInput {
   name: String!
-  dispatcher: Boolean
+  separator: String
   # hotelId: ID
   # airlineId: ID
   # airlineDepartmentId: ID
