@@ -1080,18 +1080,11 @@ const updateHotelRoomCounts = async (hotelId) => {
 const ensureNoOverlap = async (
   roomId,
   place,
-  newStartParam,
-  newEndParam,
+  newStart,
+  newEnd,
   excludeId
 ) => {
-  // 1) приводим к Date и валидация
-  const newStart = new Date(newStartParam)
-  const newEnd = new Date(newEndParam)
-  if (isNaN(newStart) || isNaN(newEnd) || newStart >= newEnd) {
-    throw new Error("Неверный диапазон дат")
-  }
 
-  // 2) вытягиваем все заявки в этой комнате/месте (кроме себя, если нужно)
   const where = { roomId, place }
   if (excludeId) {
     where.id = { not: excludeId }
@@ -1101,7 +1094,6 @@ const ensureNoOverlap = async (
     select: { id: true, start: true, end: true }
   })
 
-  // 3) прогоняем в JS по классическому условию пересечения
   for (const b of bookings) {
     const existStart = new Date(b.start)
     const existEnd = new Date(b.end)
