@@ -1080,22 +1080,19 @@ const updateHotelRoomCounts = async (hotelId) => {
 const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
   const overlap = await prisma.hotelChess.findFirst({
     where: {
-      roomId: roomId,
-      place: place,
-      // AND: [{ start: { lt: newEnd } }, { end: { gt: newStart } }],
+      roomId,
+      place,
+      // исключаем “вне диапазона” записи:
+      NOT: [
+        // 1) запись полностью до нового периода
+        { end:   { lte: newStart } },
+        // 2) запись полностью после нового периода
+        { start: { gte: newEnd   } },
+      ],
+      // при обновлении — не учитываем саму себя
       ...(excludeId ? { id: { not: excludeId } } : {}),
-      OR: [
-        // 1) начинается внутри нового
-        { start: { gte: newStart, lt: newEnd } },
-        // 2) заканчивается внутри нового
-        { end: { gt: newStart, lte: newEnd } },
-        // 3) обёртывает весь новый диапазон
-        {
-          AND: [{ start: { lte: newStart } }, { end: { gte: newEnd } }]
-        }
-      ]
     }
-  })
+  });
 
   console.log(
     "\n overlap" + overlap,
