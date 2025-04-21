@@ -1077,13 +1077,12 @@ const updateHotelRoomCounts = async (hotelId) => {
   return updatedHotel
 }
 
-const ensureNoOverlap = async (roomId, place, start, end, excludeId) => {
+const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
   const overlap = await prisma.hotelChess.findFirst({
     where: {
       roomId: roomId,
       place: place,
-      start: { lte: end, gte: start },
-      end: { gte: start, lte: end },
+      AND: [{ start: { lt: newEnd } }, { end: { gt: newStart } }],
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
   })
