@@ -17,7 +17,6 @@ import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
-import { SubscriptionClient } from "subscriptions-transport-ws"
 import { sendEmail } from "../../utils/sendMail.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
@@ -41,34 +40,39 @@ const userResolver = {
     users: async (_, __, context) => {
       return prisma.user.findMany({
         where: { active: true },
-        orderBy: { name: "asc" }
+        orderBy: { name: "asc" },
+        include: { position: true }
       })
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId }, context) => {
       return prisma.user.findMany({
         where: { airlineId, active: true },
-        orderBy: { name: "asc" }
+        orderBy: { name: "asc" },
+        include: { position: true }
       })
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId }, context) => {
       return prisma.user.findMany({
         where: { hotelId, active: true },
-        orderBy: { name: "asc" }
+        orderBy: { name: "asc" },
+        include: { position: true }
       })
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, __, context) => {
       return prisma.user.findMany({
         where: { dispatcher: true, active: true },
-        orderBy: { name: "asc" }
+        orderBy: { name: "asc" },
+        include: { position: true }
       })
     },
     // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
       return prisma.user.findUnique({
-        where: { id: userId }
+        where: { id: userId },
+        include: { position: true }
       })
     }
   },
@@ -614,6 +618,16 @@ const userResolver = {
     // Подписка на событие создания нового пользователя
     userCreated: {
       subscribe: () => pubsub.asyncIterator([USER_CREATED])
+    }
+  },
+  User: {
+    position: async (parent) => {
+      if (parent.positionId) {
+        return await prisma.position.findUnique({
+          where: { id: parent.positionId }
+        })
+      }
+      return null
     }
   }
 }
