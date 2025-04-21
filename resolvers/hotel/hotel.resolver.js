@@ -1082,7 +1082,8 @@ const ensureNoOverlap = async (roomId, place, start, end, excludeId) => {
     where: {
       roomId: roomId,
       place: place,
-      AND: [{ start: { lte: end } }, { end: { gte: start } }],
+      start: { lte: end },
+      end: { gte: start },
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
   })
@@ -1092,7 +1093,7 @@ const ensureNoOverlap = async (roomId, place, start, end, excludeId) => {
     "\n overlap string" + JSON.stringify(overlap)
   )
 
-  if (!overlap) {
+  if (overlap) {
     console.log(
       `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
         `в комнате ${roomId}, месте ${place} ` +
