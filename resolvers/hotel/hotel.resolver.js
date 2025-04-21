@@ -338,11 +338,11 @@ const hotelResolver = {
               }
 
               await ensureNoOverlap(
-                previousHotelChessData.roomId,
-                previousHotelChessData.place,
+                hotelChess.roomId,
+                hotelChess.place,
                 previousHotelChessData.start,
                 previousHotelChessData.end,
-                previousHotelChessData.id
+                hotelChess.id
               )
 
               // Обновляем запись hotelChess
