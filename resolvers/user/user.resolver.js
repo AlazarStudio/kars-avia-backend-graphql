@@ -312,7 +312,7 @@ const userResolver = {
         password,
         oldPassword, // Предыдущее значение пароля (для проверки при смене)
         role,
-        position,
+        positionId,
         hotelId,
         airlineId,
         airlineDepartmentId
@@ -335,7 +335,7 @@ const userResolver = {
           updatedData.role = role
         }
       }
-      if (position !== undefined) updatedData.position = position
+      if (positionId !== undefined) updatedData.positionId = positionId
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
       if (airlineDepartmentId !== undefined)
