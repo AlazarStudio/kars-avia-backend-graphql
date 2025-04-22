@@ -766,7 +766,6 @@ const aggregateRequestReports = (
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
     const personName = request.person ? request.person.name : "Не указано"
-    console.log("\n person - ", request.person)
     const personPosition = request.person.position
       ? request.person.position.name
       : "Не указано"

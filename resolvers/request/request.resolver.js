@@ -27,6 +27,7 @@ import {
 import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 import { sendEmail } from "../../utils/sendMail.js"
+import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -456,8 +457,6 @@ const requestResolver = {
         throw new Error("Request not found")
       }
 
-      // Инициализация переменной newMealPlan
-      // let newMealPlan = null
       if (input.personId) {
         await prisma.request.update({
           where: { id: requestId },
@@ -572,6 +571,12 @@ const requestResolver = {
       }
       let mealPlanData = request.mealPlan
       if (request.hotelChess && request.hotelChess.length != 0) {
+        await ensureNoOverlap(
+          request.hotelChess[0].roomId,
+          request.hotelChess[0].place,
+          updatedStart,
+          updatedEnd
+        )
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
           where: { id: request.hotelId },
@@ -828,6 +833,12 @@ const requestResolver = {
       }
       let mealPlanData = request.mealPlan
       if (request.hotelChess && request.hotelChess.length != 0) {
+        await ensureNoOverlap(
+          request.hotelChess[0].roomId,
+          request.hotelChess[0].place,
+          updatedStart,
+          updatedEnd
+        )
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
           where: { id: request.hotelId },
@@ -1163,7 +1174,8 @@ const requestResolver = {
     person: async (parent) => {
       if (parent.personId) {
         return await prisma.airlinePersonal.findUnique({
-          where: { id: parent.personId }, include: { position: true }
+          where: { id: parent.personId },
+          include: { position: true }
         })
       } else {
         return null

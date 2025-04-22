@@ -1,0 +1,32 @@
+import { prisma } from "../prisma"
+
+export const ensureNoOverlap = async (
+  roomId,
+  place,
+  newStart,
+  newEnd,
+  excludeId
+) => {
+  const overlap = await prisma.hotelChess.findFirst({
+    where: {
+      roomId,
+      place,
+      start: { gte: newStart, lte: newEnd },
+      end: { gte: newStart, lte: newEnd },
+      ...(excludeId ? { id: { not: excludeId } } : {})
+    }
+  })
+
+  if (overlap) {
+    console.log(
+      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
+        `в комнате ${roomId}, месте ${place} ` +
+        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
+    )
+    throw new Error(
+      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
+        `в комнате ${roomId}, месте ${place} ` +
+        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
+    )
+  }
+}

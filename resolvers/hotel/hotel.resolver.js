@@ -20,6 +20,7 @@ import {
 } from "../../exports/pubsub.js"
 import calculateMeal from "../../exports/calculateMeal.js"
 import { sendEmail } from "../../utils/sendMail.js"
+import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -1075,31 +1076,6 @@ const updateHotelRoomCounts = async (hotelId) => {
   })
 
   return updatedHotel
-}
-
-const ensureNoOverlap = async (roomId, place, newStart, newEnd, excludeId) => {
-  const overlap = await prisma.hotelChess.findFirst({
-    where: {
-      roomId,
-      place,
-      start: { gte: newStart, lte: newEnd },
-      end: { gte: newStart, lte: newEnd },
-      ...(excludeId ? { id: { not: excludeId } } : {})
-    }
-  })
-
-  if (overlap) {
-    console.log(
-      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
-        `в комнате ${roomId}, месте ${place} ` +
-        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
-    )
-    throw new Error(
-      `Невозможно разместить заявку: пересечение с заявкой №${overlap.id} ` +
-        `в комнате ${roomId}, месте ${place} ` +
-        `(${overlap.start.toISOString()} – ${overlap.end.toISOString()})`
-    )
-  }
 }
 
 export default hotelResolver
