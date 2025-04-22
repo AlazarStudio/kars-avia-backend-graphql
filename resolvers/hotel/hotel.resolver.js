@@ -365,6 +365,46 @@ const hotelResolver = {
               // console.log("\n hotelChess.requestId: " + hotelChess.requestId)
               // console.log("\n dupl str: " + JSON.stringify(dupl))
 
+              const arrival = hotelChess.start.toString()
+              const departure = hotelChess.end.toString()
+              const hotel = await prisma.hotel.findUnique({
+                where: { id },
+                select: {
+                  breakfast: true,
+                  lunch: true,
+                  dinner: true,
+                  name: true
+                }
+              })
+              const mealTimes = {
+                breakfast: hotel.breakfast,
+                lunch: hotel.lunch,
+                dinner: hotel.dinner
+              }
+              const request = await prisma.request.findUnique({
+                where: { id: hotelChess.requestId }
+              })
+              const enabledMeals = {
+                breakfast: request.mealPlan?.breakfastEnabled,
+                lunch: request.mealPlan?.lunchEnabled,
+                dinner: request.mealPlan?.dinnerEnabled
+              }
+              const calculatedMealPlan = calculateMeal(
+                arrival,
+                departure,
+                mealTimes,
+                enabledMeals
+              )
+              const mealPlanData = {
+                included: request.mealPlan.included,
+                breakfast: calculatedMealPlan.totalBreakfast,
+                breakfastEnabled: request.mealPlan.breakfastEnabled,
+                lunch: calculatedMealPlan.totalLunch,
+                lunchEnabled: request.mealPlan.lunchEnabled,
+                dinner: calculatedMealPlan.totalDinner,
+                dinnerEnabled: request.mealPlan.dinnerEnabled,
+                dailyMeals: calculatedMealPlan.dailyMeals
+              }
 
               // Обновляем запись hotelChess
               await prisma.hotelChess.update({
@@ -385,8 +425,8 @@ const hotelResolver = {
                   reserve: hotelChess.reserveId
                     ? { connect: { id: hotelChess.reserveId } }
                     : undefined,
-                  status: hotelChess.status
-                  // mealPlan: mealPlanData  // Можно добавить, если требуется обновление плана питания
+                  status: hotelChess.status,
+                  mealPlan: mealPlanData // Можно добавить, если требуется обновление плана питания
                 }
               })
 
@@ -399,6 +439,7 @@ const hotelResolver = {
                 })
 
                 // Обновляем заявку: меняем статус, привязываем отель и комнату, обновляем план питания (если требуется)
+
                 const updatedRequest = await prisma.request.update({
                   where: { id: hotelChess.requestId },
                   data: {
@@ -406,10 +447,11 @@ const hotelResolver = {
                     hotel: { connect: { id } },
                     hotelChess: { connect: { id: hotelChess.id } },
                     roomCategory: room?.category,
-                    roomNumber: room?.name
-                    // mealPlan: mealPlanData
+                    roomNumber: room?.name,
+                    mealPlan: mealPlanData
                   }
                 })
+
                 await logAction({
                   context,
                   action: "update_hotel_chess",

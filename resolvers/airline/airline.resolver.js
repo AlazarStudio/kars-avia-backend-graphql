@@ -283,7 +283,7 @@ const airlineResolver = {
               })
             } else {
               // Создаем новый департамент
-              await prisma.airlineDepartment.create({
+              const newDepart = await prisma.airlineDepartment.create({
                 data: {
                   airlineId: id,
                   name: depart.name,
@@ -295,6 +295,48 @@ const airlineResolver = {
                   }
                 }
               })
+
+              if (depart.positionIds) {
+                // Получаем текущие связи (id должностей, связанных с департаментом)
+                const currentPositions =
+                  await prisma.positionOnDepartment.findMany({
+                    where: { airlineDepartmentId: newDepart.id },
+                    select: { positionId: true }
+                  })
+                const currentIds = currentPositions.map(
+                  (item) => item.positionId
+                )
+                const newIds = depart.positionIds
+
+                // Вычисляем какие id нужно добавить, а какие убрать
+                const toConnect = newIds.filter(
+                  (id) => !currentIds.includes(id)
+                )
+                const toDisconnect = currentIds.filter(
+                  (id) => !newIds.includes(id)
+                )
+
+                // Добавляем новые связи
+                if (toConnect.length > 0) {
+                  await prisma.positionOnDepartment.createMany({
+                    data: toConnect.map((positionId) => ({
+                      airlineDepartmentId: newDepart.id,
+                      positionId: positionId
+                    }))
+                  })
+                }
+
+                // Удаляем отсутствующие связи
+                if (toDisconnect.length > 0) {
+                  await prisma.positionOnDepartment.deleteMany({
+                    where: {
+                      airlineDepartmentId: newDepart.id,
+                      positionId: { in: toDisconnect }
+                    }
+                  })
+                }
+              }
+
               await logAction({
                 context,
                 action: "update_airline",
