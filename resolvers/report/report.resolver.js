@@ -432,7 +432,6 @@ const applyCreateFilters = (filter) => {
   if (airportId) where.airportId = airportId
   if (positionId) {
     where.person = {
-      isNot: null,
       positionId: positionId
     }
   }
