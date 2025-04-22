@@ -349,14 +349,14 @@ const hotelResolver = {
 
               const dupl = await prisma.hotelChess.findMany({
                 where: {
-                  NOT: { id: hotelChess.id },
-                  // id: { not: hotelChess.id },
                   requestId: hotelChess.requestId
+                  // NOT: { id: hotelChess.id },
+                  // id: { not: hotelChess.id },
                 },
                 select: {
                   id: true,
-                  start: true,
-                  end: true,
+                  // start: true,
+                  // end: true,
                   requestId: true
                 }
               })
