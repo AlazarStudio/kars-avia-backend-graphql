@@ -21,6 +21,7 @@ import {
 import calculateMeal from "../../exports/calculateMeal.js"
 import { sendEmail } from "../../utils/sendMail.js"
 import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
+import { request } from "express"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -346,6 +347,17 @@ const hotelResolver = {
                 hotelChess.id
               )
 
+              const dupl = await prisma.hotelChess.findMany({
+                where: {
+                  requestId: hotelChess.requestId,
+                  id: { not: hotelChess.id }
+                }
+              })
+
+              console.log(
+                "\n dupl" + dupl,
+                "\n dupl str" + JSON.stringify(dupl)
+              )
               // Обновляем запись hotelChess
               await prisma.hotelChess.update({
                 where: { id: hotelChess.id },
@@ -514,10 +526,7 @@ const hotelResolver = {
                       e.stack
                   )
                 }
-              }
-
-              // Если новая запись hotelChess связана с заявкой (request)
-              else if (hotelChess.requestId) {
+              } else if (hotelChess.requestId) {
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
                 })
@@ -570,6 +579,17 @@ const hotelResolver = {
                   }
                 })
                 // console.log(existHotelChess)
+
+                const dupl = await prisma.hotelChess.findMany({
+                  where: {
+                    requestId: hotelChess.requestId
+                  }
+                })
+
+                console.log(
+                  "\n !id dupl" + dupl,
+                  "\n !id dupl str" + JSON.stringify(dupl)
+                )
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {
