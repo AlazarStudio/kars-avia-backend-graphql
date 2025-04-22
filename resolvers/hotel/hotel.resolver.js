@@ -343,8 +343,10 @@ const hotelResolver = {
               await ensureNoOverlap(
                 hotelChess.roomId,
                 hotelChess.place,
-                hotelChess.start,
-                hotelChess.end,
+                hotelChess.start
+                  ? hotelChess.start
+                  : previousHotelChessData.start,
+                hotelChess.end ? hotelChess.end : previousHotelChessData.end,
                 hotelChess.id
               )
 

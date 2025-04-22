@@ -575,7 +575,8 @@ const requestResolver = {
           request.hotelChess[0].roomId,
           request.hotelChess[0].place,
           updatedStart,
-          updatedEnd
+          updatedEnd,
+          request.hotelChess[0].id
         )
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
@@ -837,7 +838,8 @@ const requestResolver = {
           request.hotelChess[0].roomId,
           request.hotelChess[0].place,
           updatedStart,
-          updatedEnd
+          updatedEnd,
+          request.hotelChess[0].id
         )
         // Получаем настройки приема пищи от отеля для расчета нового плана питания.
         const hotel = await prisma.hotel.findUnique({
