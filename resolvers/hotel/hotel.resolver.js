@@ -392,6 +392,7 @@ const hotelResolver = {
 
               // Если hotelChess связан с заявкой (request)
               if (hotelChess.requestId) {
+                console.log("\n requestId: " + hotelChess.requestId)
                 // Получаем данные комнаты для извлечения информации о категории и названии
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
