@@ -349,8 +349,9 @@ const hotelResolver = {
 
               const dupl = await prisma.hotelChess.findMany({
                 where: {
-                  requestId: hotelChess.requestId,
-                  id: { not: hotelChess.id }
+                  NOT: { id: hotelChess.id },
+                  // id: { not: hotelChess.id },
+                  requestId: hotelChess.requestId
                 },
                 select: {
                   id: true,
@@ -361,7 +362,7 @@ const hotelResolver = {
               })
 
               console.log(
-                "\n dupl" + dupl,
+                // "\n dupl" + dupl,
                 "\n dupl str" + JSON.stringify(dupl)
               )
               // Обновляем запись hotelChess
@@ -586,22 +587,22 @@ const hotelResolver = {
                 })
                 // console.log(existHotelChess)
 
-                const dupl = await prisma.hotelChess.findMany({
-                  where: {
-                    requestId: hotelChess.requestId
-                  },
-                  select: {
-                    id: true,
-                    start: true,
-                    end: true,
-                    requestId: true
-                  }
-                })
+                // const dupl = await prisma.hotelChess.findMany({
+                //   where: {
+                //     requestId: hotelChess.requestId
+                //   },
+                //   select: {
+                //     id: true,
+                //     start: true,
+                //     end: true,
+                //     requestId: true
+                //   }
+                // })
 
-                console.log(
-                  "\n !id dupl" + dupl,
-                  "\n !id dupl str" + JSON.stringify(dupl)
-                )
+                // console.log(
+                //   "\n !id dupl" + dupl,
+                //   "\n !id dupl str" + JSON.stringify(dupl)
+                // )
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {
