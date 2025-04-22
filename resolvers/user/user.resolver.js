@@ -89,7 +89,7 @@ const userResolver = {
         login,
         password,
         role,
-        position,
+        positionId,
         hotelId,
         airlineId,
         dispatcher,
@@ -141,7 +141,7 @@ const userResolver = {
         hotelId: hotelId || undefined,
         airlineId: airlineId || undefined,
         role: role || "USER",
-        position,
+        positionId,
         dispatcher: dispatcher || false,
         airlineDepartmentId: airlineDepartmentId || null,
         images: imagePaths
