@@ -77,6 +77,9 @@ const dispatcherResolver = {
     getAirlinePositions: async (_, {}, context) => {
       return await prisma.position.findMany({ where: { separator: "airline" } })
     },
+    getAirlineUserPositions: async (_, {}, context) => {
+      return await prisma.position.findMany({ where: { separator: "airlineUser" } })
+    },
     getHotelPositions: async (_, {}, context) => {
       return await prisma.position.findMany({ where: { separator: "hotel" } })
     },

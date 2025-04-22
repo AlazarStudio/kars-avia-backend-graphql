@@ -107,6 +107,7 @@ type Query {
   getPosition(id:ID!): Position
   getAllPositions: [Position]
   getAirlinePositions: [Position]
+  getAirlineUserPositions: [Position]
   getHotelPositions: [Position]
   getDispatcherPositions: [Position]
   getAllNotifications(pagination: PaginationInput): NotificationConnection!

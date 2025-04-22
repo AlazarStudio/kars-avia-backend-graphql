@@ -30,7 +30,7 @@ export const dateTimeFormatter = (seconds) => {
 export const formatDate = (date) => {
   const d = new Date(date)
   // Добавляем 3 часа к времени
-  d.setHours(d.getHours() - 3)
+  // d.setHours(d.getHours() + 3)
   // Форматируем дату в строку вида 'DD.MM.YYYY HH:MM'
   const options = {
     day: "2-digit",

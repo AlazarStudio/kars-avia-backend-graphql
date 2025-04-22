@@ -28,8 +28,9 @@ input ReportFilterInput {
   archived: Boolean
   hotelId: ID
   airlineId: ID
+  airportId: ID
   personId: ID
-  position: String
+  positionId: String
   region: String
   passengersReport: Boolean 
 }
