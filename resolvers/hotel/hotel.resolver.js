@@ -328,6 +328,8 @@ const hotelResolver = {
               const previousHotelChessData = await prisma.hotelChess.findUnique(
                 { where: { id: hotelChess.id } }
               )
+              // console.log("\n previousHotelChessData: " + previousHotelChessData)
+              console.log("\n previousHotelChessData: " + JSON.stringify(previousHotelChessData))
               let clientConnectData = undefined
               // Если задан clientId, подготавливаем данные для связи
               if (hotelChess.clientId) {
@@ -361,10 +363,9 @@ const hotelResolver = {
                 }
               })
 
-              console.log(
-                // "\n dupl" + dupl,
-                "\n dupl str" + JSON.stringify(dupl)
-              )
+              // console.log("\n dupl str" + JSON.stringify(dupl))
+
+
               // Обновляем запись hotelChess
               await prisma.hotelChess.update({
                 where: { id: hotelChess.id },
