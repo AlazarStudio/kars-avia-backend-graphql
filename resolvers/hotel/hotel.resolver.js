@@ -281,21 +281,6 @@ const hotelResolver = {
           }
         })
 
-        // Логирование обновления отеля
-        await logAction({
-          context,
-          action: "update_hotel",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в отеле <span style='color:#545873'>${updatedHotel.name}</span>`,
-          oldData: previousHotelData,
-          newData: updatedData,
-          hotelId: updatedHotel.id
-        })
-
-        // if (tariffs) {
-
-        // }
-
-        // Обработка записей hotelChesses (связанных с размещением, заявками, бронями)
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
             let mealPlanData = null
@@ -722,7 +707,6 @@ const hotelResolver = {
           }
         }
 
-        // Обработка комнат (rooms) отеля
         if (rooms) {
           for (const room of rooms) {
             // Определяем количество мест в комнате на основе категории
@@ -752,6 +736,8 @@ const hotelResolver = {
               } else {
                 roomCategory = roomKind.category
               }
+
+              // const places = calculatePlaces(roomCategory)
 
               const updatedRoomData = {
                 name: room.name,
@@ -800,6 +786,8 @@ const hotelResolver = {
               } else {
                 roomCategory = roomKind.category
               }
+
+              // const places = calculatePlaces(roomCategory)
 
               await prisma.room.create({
                 data: {
@@ -871,12 +859,23 @@ const hotelResolver = {
             }
           }
         }
+
+        // Логирование обновления отеля
+        await logAction({
+          context,
+          action: "update_hotel",
+          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в отеле <span style='color:#545873'>${updatedHotel.name}</span>`,
+          oldData: previousHotelData,
+          newData: updatedData,
+          hotelId: updatedHotel.id
+        })
         // Получаем обновленную информацию об отеле вместе со связанными комнатами и hotelChesses
         const hotelWithRelations = await prisma.hotel.findUnique({
           where: { id },
           include: {
             rooms: true,
-            hotelChesses: true
+            hotelChesses: true,
+            roomKind: true
           }
         })
         // Публикуем событие обновления отеля для подписчиков
@@ -887,6 +886,45 @@ const hotelResolver = {
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)
         throw new Error("Не удалось обновить отель")
+      }
+    },
+
+    createManyRooms: async (_, { input }, context) => {
+      const { hotelId, roomKindId, reserve, active, beds, type, numberOfRooms, roomsName } = input
+
+      let roomKind
+      if (roomKindId != null) {
+        roomKind = await prisma.roomKind.findUnique({
+          where: { id: roomKindId }
+        })
+      }
+
+      let roomCategory
+      if (category != null) {
+        roomCategory = category
+      } else {
+        roomCategory = roomKind.category
+      }
+
+      const places = calculatePlaces(roomCategory)
+
+      for (let i = 0; i < numberOfRooms; i++) {
+        // const roomName = `${room.name}-${i + 1}`
+        const roomName = `${roomsName + i}`
+
+        await prisma.room.create({
+          data: {
+            hotelId: hotelId,
+            name: roomName,
+            roomKindId: roomKindId,
+            category: roomCategory,
+            reserve: reserve,
+            active: active,
+            beds: beds,
+            places: places,
+            type: type
+          }
+        })
       }
     },
 
