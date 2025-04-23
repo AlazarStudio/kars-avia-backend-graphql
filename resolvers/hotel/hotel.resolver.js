@@ -890,7 +890,16 @@ const hotelResolver = {
     },
 
     createManyRooms: async (_, { input }, context) => {
-      const { hotelId, roomKindId, reserve, active, beds, type, numberOfRooms, roomsName } = input
+      const {
+        hotelId,
+        roomKindId,
+        reserve,
+        active,
+        beds,
+        type,
+        numberOfRooms,
+        roomsName
+      } = input
 
       let roomKind
       if (roomKindId != null) {
@@ -898,6 +907,8 @@ const hotelResolver = {
           where: { id: roomKindId }
         })
       }
+
+      const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } })
 
       let roomCategory = roomKind.category
 
@@ -921,6 +932,8 @@ const hotelResolver = {
           }
         })
       }
+
+      return hotel.room
     },
 
     // Удаление отеля.
