@@ -908,11 +908,6 @@ const hotelResolver = {
         })
       }
 
-      const hotel = await prisma.hotel.findUnique({
-        where: { id: hotelId },
-        select: { room: true }
-      })
-
       let roomCategory = roomKind.category
 
       const places = calculatePlaces(roomCategory)
@@ -936,7 +931,12 @@ const hotelResolver = {
         })
       }
 
-      return hotel.room
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: hotelId },
+        select: { room: true }
+      })
+
+      return hotel
     },
 
     // Удаление отеля.
