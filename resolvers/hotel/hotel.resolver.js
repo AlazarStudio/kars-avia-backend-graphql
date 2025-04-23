@@ -899,12 +899,7 @@ const hotelResolver = {
         })
       }
 
-      let roomCategory
-      if (category != null) {
-        roomCategory = category
-      } else {
-        roomCategory = roomKind.category
-      }
+      let roomCategory = roomKind.category
 
       const places = calculatePlaces(roomCategory)
 
