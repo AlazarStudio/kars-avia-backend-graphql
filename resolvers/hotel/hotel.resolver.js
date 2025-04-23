@@ -710,7 +710,7 @@ const hotelResolver = {
         if (rooms) {
           for (const room of rooms) {
             // Определяем количество мест в комнате на основе категории
-            const places = calculatePlaces(room.category)
+            // const places = calculatePlaces(room.category)
             if (room.id) {
               // Если комната существует, обновляем данные
               let imagePaths = []
@@ -737,7 +737,7 @@ const hotelResolver = {
                 roomCategory = roomKind.category
               }
 
-              // const places = calculatePlaces(roomCategory)
+              const places = calculatePlaces(roomCategory)
 
               const updatedRoomData = {
                 name: room.name,
@@ -787,7 +787,7 @@ const hotelResolver = {
                 roomCategory = roomKind.category
               }
 
-              // const places = calculatePlaces(roomCategory)
+              const places = calculatePlaces(roomCategory)
 
               await prisma.room.create({
                 data: {
@@ -908,7 +908,10 @@ const hotelResolver = {
         })
       }
 
-      const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } })
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: hotelId },
+        select: { room: true }
+      })
 
       let roomCategory = roomKind.category
 
