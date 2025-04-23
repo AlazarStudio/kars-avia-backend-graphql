@@ -933,9 +933,16 @@ const hotelResolver = {
 
       const hotel = await prisma.hotel.findUnique({
         where: { id: hotelId },
-        select: { room: true }
+        select: { rooms: true }
       })
-
+      // const hotelWithRelations = await prisma.hotel.findUnique({
+      //   where: { id },
+      //   include: {
+      //     rooms: true,
+      //     hotelChesses: true,
+      //     roomKind: true
+      //   }
+      // })
       return hotel
     },
 
