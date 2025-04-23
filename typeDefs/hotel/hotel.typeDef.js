@@ -335,7 +335,7 @@ type Query {
 type Mutation { 
   createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
-  createManyRooms(input: ManyRoomsInput): Room!
+  createManyRooms(input: ManyRoomsInput): Hotel!
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
   deleteRoomKind(id: ID!): RoomKind!
