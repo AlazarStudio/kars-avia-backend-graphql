@@ -936,7 +936,7 @@ const hotelResolver = {
         })
       }
 
-      return hotel
+      return hotel.room
     },
 
     // Удаление отеля.
