@@ -900,23 +900,24 @@ const hotelResolver = {
         numberOfRooms,
         roomsName
       } = input
-
-      let roomKind
+    
+      let roomKind;
       if (roomKindId != null) {
         roomKind = await prisma.roomKind.findUnique({
           where: { id: roomKindId }
         })
       }
-
-      let roomCategory = roomKind.category
-
-      const places = calculatePlaces(roomCategory)
-
+    
+      let roomCategory = roomKind.category;
+      const places = calculatePlaces(roomCategory);
+    
+      // Массив для хранения всех созданных комнат
+      const createdRooms = [];
+    
       for (let i = 0; i < numberOfRooms; i++) {
-        // const roomName = `${room.name}-${i + 1}`
-        const roomName = `${roomsName + i}`
-
-        await prisma.room.create({
+        const roomName = `${roomsName}-${i + 1}`; // Название комнаты с номером
+    
+        const createdRoom = await prisma.room.create({
           data: {
             hotelId: hotelId,
             name: roomName,
@@ -928,23 +929,15 @@ const hotelResolver = {
             places: places,
             type: type
           }
-        })
+        });
+    
+        // Добавляем созданную комнату в массив
+        createdRooms.push(createdRoom);
       }
-
-      const hotel = await prisma.hotel.findUnique({
-        where: { id: hotelId },
-        select: { rooms: true }
-      })
-      // const hotelWithRelations = await prisma.hotel.findUnique({
-      //   where: { id },
-      //   include: {
-      //     rooms: true,
-      //     hotelChesses: true,
-      //     roomKind: true
-      //   }
-      // })
-      return hotel
-    },
+    
+      // Возвращаем массив созданных комнат
+      return createdRooms;
+    },    
 
     // Удаление отеля.
     // Требуется права супер-администратора. Выполняется удаление отеля,
