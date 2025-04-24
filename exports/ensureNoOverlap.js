@@ -7,12 +7,26 @@ export const ensureNoOverlap = async (
   newEnd,
   excludeId
 ) => {
+  // console.log(
+  //   "\n roomId: ",
+  //   roomId,
+  //   "\n place: ",
+  //   place,
+  //   "\n newStart: ",
+  //   newStart,
+  //   "\n newEnd: ",
+  //   newEnd,
+  //   "\n excludeId: ",
+  //   excludeId
+  // )
   const overlap = await prisma.hotelChess.findFirst({
     where: {
       roomId,
       place,
-      start: { gte: newStart, lte: newEnd },
-      end: { gte: newStart, lte: newEnd },
+      OR: [
+        { start: { gte: newStart, lte: newEnd } },
+        { end: { gte: newStart, lte: newEnd } }
+      ],
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
   })
