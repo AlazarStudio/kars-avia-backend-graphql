@@ -487,8 +487,8 @@ const applyFilters = (filter) => {
 const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
   // console.log(airportId)
-  if (!airportId) return 0
-  const airlinePrices = request.airline?.prices || []
+  // if (!airportId) return 0
+  const airlinePrices = request.airline?.prices 
   for (const contract of airlinePrices) {
     console.log("\n contract \n" + contract)
     console.log("\n contract str \n" + JSON.stringify(contract))
