@@ -188,7 +188,8 @@ const reportResolver = {
             },
             hotel: true,
             airline: true,
-            mealPlan: true
+            mealPlan: true,
+            airportId: true
           },
           orderBy: { arrival: "asc" }
         })
