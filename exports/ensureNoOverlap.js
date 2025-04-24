@@ -23,8 +23,10 @@ export const ensureNoOverlap = async (
     where: {
       roomId,
       place,
-      start: { gte: newStart, lte: newEnd },
-      end: { gte: newStart, lte: newEnd },
+      OR: [
+        { start: { gte: newStart, lte: newEnd } },
+        { end: { gte: newStart, lte: newEnd } }
+      ],
       ...(excludeId ? { id: { not: excludeId } } : {})
     }
   })
