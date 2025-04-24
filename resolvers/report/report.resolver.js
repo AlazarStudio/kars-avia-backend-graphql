@@ -189,7 +189,7 @@ const reportResolver = {
             hotel: true,
             airline: true,
             mealPlan: true,
-            airportId: true
+            airport: true
           },
           orderBy: { arrival: "asc" }
         })
