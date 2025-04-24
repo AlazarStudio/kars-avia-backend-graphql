@@ -486,10 +486,12 @@ const applyFilters = (filter) => {
 
 const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
-  console.log(airportId)
+  // console.log(airportId)
   if (!airportId) return 0
   const airlinePrices = request.airline?.prices || []
   for (const contract of airlinePrices) {
+    console.log("\n contract \n" + contract)
+    console.log("\n contract str \n" + JSON.stringify(contract))
     if (contract.airports && contract.airports.length > 0) {
       // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
