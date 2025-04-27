@@ -1156,7 +1156,8 @@ const requestResolver = {
     // Получение авиалинии по ID, указанному в заявке.
     airline: async (parent) => {
       return await prisma.airline.findUnique({
-        where: { id: parent.airlineId }
+        where: { id: parent.airlineId },
+        include: { prices: true }
       })
     },
     // Получение отеля, связанного с заявкой (если задан).
