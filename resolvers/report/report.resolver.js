@@ -187,7 +187,7 @@ const reportResolver = {
               }
             },
             hotel: true,
-            airline: { include: { prices: true } },
+            airline: { include: { prices: { include: { airports: true } } } },
             mealPlan: true,
             airport: true
           },
