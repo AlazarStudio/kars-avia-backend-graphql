@@ -496,8 +496,8 @@ const getAirlinePriceForCategory = (request, category) => {
     if (contract.airports && contract.airports.length > 0) {
       // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
-        (item) => item.airport && item.airport.id === airportId,
-        console.log("\n item ", item)
+        (item) => console.log("\n item ", item)
+        // (item) => item.airport && item.airport.id === airportId
       )
       console.log("\n match ", match)
       console.log("\n match str ", JSON.stringify(match))
