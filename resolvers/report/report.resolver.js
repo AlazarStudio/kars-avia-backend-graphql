@@ -491,13 +491,15 @@ const getAirlinePriceForCategory = (request, category) => {
   const airlinePrices = request.airline?.prices
   console.log("\n request.airline \n" + JSON.stringify(request.airline))
   for (const contract of airlinePrices) {
-    console.log("\n contract \n" + contract)
-    console.log("\n contract str \n" + JSON.stringify(contract))
+    // console.log("\n contract \n" + contract)
+    // console.log("\n contract str \n" + JSON.stringify(contract))
     if (contract.airports && contract.airports.length > 0) {
       // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
         (item) => item.airport && item.airport.id === airportId
       )
+      console.log("\n match ", match)
+      console.log("\n match ", JSON.stringify(match))
       if (match) {
         // В зависимости от категории возвращаем соответствующее поле цены
         switch (category) {
