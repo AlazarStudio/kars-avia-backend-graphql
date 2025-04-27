@@ -187,7 +187,7 @@ const reportResolver = {
               }
             },
             hotel: true,
-            airline: true,
+            airline: { include: { prices: true } },
             mealPlan: true,
             airport: true
           },
@@ -488,7 +488,8 @@ const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
   // console.log(airportId)
   // if (!airportId) return 0
-  const airlinePrices = request.airline?.prices 
+  const airlinePrices = request.airline?.prices
+  console.log("\n request.airline \n" + JSON.stringify(request.airline))
   for (const contract of airlinePrices) {
     console.log("\n contract \n" + contract)
     console.log("\n contract str \n" + JSON.stringify(contract))
