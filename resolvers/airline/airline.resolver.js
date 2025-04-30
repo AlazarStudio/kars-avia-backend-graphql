@@ -77,7 +77,7 @@ const airlineResolver = {
     createAirline: async (_, { input, images }, context) => {
       const { user } = context
       adminMiddleware(context)
-      const defaultMealPrice = { breakfast: 0, lunch: 0, dinner: 0 }
+      // const defaultMealPrice = { breakfast: 0, lunch: 0, dinner: 0 }
 
       // Для цен теперь ожидаем массив тарифных договоров
       // Если input.prices не переданы, можно установить пустой массив
@@ -94,7 +94,7 @@ const airlineResolver = {
       // Основные данные
       const data = {
         ...input,
-        mealPrice: input.mealPrice || defaultMealPrice,
+        // mealPrice: input.mealPrice || defaultMealPrice,
         images: imagePaths,
         // Используем nested create для создания тарифных договоров
         prices: {
@@ -145,7 +145,7 @@ const airlineResolver = {
       try {
         const previousAirlineData = await prisma.airline.findUnique({
           where: { id },
-          select: { mealPrice: true }
+          // select: { mealPrice: true }
         })
 
         // Обновляем основные данные авиакомпании
@@ -153,10 +153,10 @@ const airlineResolver = {
           where: { id },
           data: {
             ...restInput,
-            mealPrice: {
-              ...previousAirlineData.mealPrice,
-              ...input.mealPrice
-            },
+            // mealPrice: {
+            //   ...previousAirlineData.mealPrice,
+            //   ...input.mealPrice
+            // },
             ...(imagePaths.length > 0 && { images: { set: imagePaths } })
           }
         })

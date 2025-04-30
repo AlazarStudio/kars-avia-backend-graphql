@@ -348,7 +348,7 @@ model Airline {
   user                  User[]
   logs                  Log[]
   reserve               Reserve[]
-  mealPrice             MealPrice?
+  // mealPrice             MealPrice?
   savedReport           SavedReport[]
   chat                  Chat[]
   // prices       Price?
@@ -366,6 +366,7 @@ model AirlinePrice {
   airports  AirportOnAirlinePrice[]
   name      String
   prices    Price?
+  mealPrice MealPrice?
 }
 
 model AirportOnAirlinePrice {

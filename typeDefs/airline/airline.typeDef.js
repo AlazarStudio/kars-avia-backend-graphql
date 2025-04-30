@@ -82,6 +82,7 @@ input PriceInput {
 type AirlinePrice {
   id: ID!
   prices: Price
+  mealPrice: MealPrice
   name: String
   airports: [AirportOnAirlinePrice]
 }
@@ -104,6 +105,7 @@ type Airport {
 input AirlinePriceInput {
   id: ID
   prices: PriceInput
+  mealPrice: MealPriceInput
   name: String
   airportIds: [ID!]  # список id аэропортов, к которым применяется договор
 }
@@ -117,7 +119,7 @@ type Airline {
   information: Information
   department: [AirlineDepartment!]!
   staff: [AirlinePersonal!]!
-  mealPrice: MealPrice
+  # mealPrice: MealPrice
   logs(pagination: LogPaginationInput): LogConnection!
   prices: [AirlinePrice!]!         # изменено: список договоров с тарифами
   active: Boolean
@@ -153,7 +155,7 @@ input CreateAirlineInput {
   name: String!
   nameFull: String
   information: InformationInput
-  mealPrice: MealPriceInput
+  # mealPrice: MealPriceInput
   prices: [AirlinePriceInput!]   # теперь массив тарифов
 }
 
@@ -163,7 +165,7 @@ input UpdateAirlineInput {
   information: InformationInput
   staff: [AirlinePersonalInput!]
   department: [AirlineDepartmentInput!]
-  mealPrice: MealPriceInput
+  # mealPrice: MealPriceInput
   prices: [AirlinePriceInput!]   # массив тарифов для обновления
   # position: [PositionInput!]
 }

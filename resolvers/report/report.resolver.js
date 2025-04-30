@@ -530,6 +530,24 @@ const getAirlinePriceForCategory = (request, category) => {
   return 0
 }
 
+const getAirlineMealPrice = (request) => {
+  const airportId = request.airport?.id
+
+  const airlinePrices = request.airline?.prices
+  for (const contract of airlinePrices) {
+    if (contract.airports && contract.airports.length > 0) {
+      // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
+      const match = contract.airports.find(
+        (item) => item.airportId && item.airportId === airportId
+      )
+      if (match) {
+        return contract.prices?.mealPrice
+      }
+    }
+  }
+  return 0
+}
+
 /* =================================== */
 /* Функции для расчёта количества дней */
 /* =================================== */
@@ -748,6 +766,8 @@ const aggregateRequestReports = (
       effectiveDays
     )
 
+    // Meal Price calculate 
+
     const mealPlan = request.mealPlan || {}
     let breakfastCount = mealPlan.breakfast || 0
     let lunchCount = mealPlan.lunch || 0
@@ -758,12 +778,14 @@ const aggregateRequestReports = (
       lunchCount = Math.round(lunchCount * ratio)
       dinnerCount = Math.round(dinnerCount * ratio)
     }
-    const mealPrices =
-      request.airline?.mealPrice || request.hotel?.mealPrice || {}
+    const mealPrices = getAirlineMealPrice(request)
+    // const mealPrices = request.airline?.mealPrice || request.hotel?.mealPrice || {}
     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
     const lunchCost = lunchCount * (mealPrices.lunch || 0)
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
+
+    // Meal Price calculate 
 
     const personName = request.person ? request.person.name : "Не указано"
     const personPosition = request.person.position
