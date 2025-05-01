@@ -541,7 +541,8 @@ const getAirlineMealPrice = (request) => {
         (item) => item.airportId && item.airportId === airportId
       )
       if (match) {
-        return contract.prices?.mealPrice
+        // console.log(contract.mealPrice)
+        return contract.mealPrice
       }
     }
   }
@@ -788,7 +789,7 @@ const aggregateRequestReports = (
     // Meal Price calculate 
 
     const personName = request.person ? request.person.name : "Не указано"
-    const personPosition = request.person.position
+    const personPosition = request.person?.position
       ? request.person.position.name
       : "Не указано"
 

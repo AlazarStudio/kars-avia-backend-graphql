@@ -169,7 +169,8 @@ const airlineResolver = {
                 where: { id: priceInput.id },
                 data: {
                   name: priceInput.name,
-                  prices: priceInput.prices
+                  prices: priceInput.prices,
+                  mealPrice: priceInput.mealPrice
                 }
               })
 
@@ -196,7 +197,8 @@ const airlineResolver = {
                 data: {
                   airlineId: id,
                   name: priceInput.name,
-                  prices: priceInput.prices
+                  prices: priceInput.prices,
+                  mealPrice: priceInput.mealPrice
                 }
               })
 
