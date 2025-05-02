@@ -5,6 +5,7 @@ scalar Date
 enum Category {
   apartment
   studio
+  luxe
   onePlace
   twoPlace
   threePlace

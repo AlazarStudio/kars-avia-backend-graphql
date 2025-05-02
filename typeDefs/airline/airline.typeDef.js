@@ -51,6 +51,7 @@ input MealPriceInput {
 type Price {
   priceApartment: Float
   priceStudio: Float
+  priceLuxe: Float
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float
@@ -66,6 +67,7 @@ type Price {
 input PriceInput {
   priceApartment: Float
   priceStudio: Float
+  priceLuxe: Float
   priceOneCategory: Float
   priceTwoCategory: Float
   priceThreeCategory: Float

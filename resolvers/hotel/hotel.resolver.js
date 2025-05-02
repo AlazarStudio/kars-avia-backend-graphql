@@ -38,6 +38,7 @@ const transporter = nodemailer.createTransport({
 const categoryToPlaces = {
   apartment: 2,
   studio: 2,
+  luxe: 2,
   onePlace: 1,
   twoPlace: 2,
   threePlace: 3,

@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/client"
 }
 
 datasource db {
@@ -42,6 +43,7 @@ enum Role {
 enum Category {
   apartment
   studio
+  luxe
   onePlace
   twoPlace
   threePlace
@@ -115,6 +117,7 @@ type DailyMeal {
 type Price {
   priceApartment     Float? @default(0)
   priceStudio        Float? @default(0)
+  priceLuxe          Float? @default(0)
   priceOneCategory   Float? @default(0)
   priceTwoCategory   Float? @default(0)
   priceThreeCategory Float? @default(0)
