@@ -562,7 +562,7 @@ const hotelResolver = {
                   enabledMeals
                 )
                 const mealPlanData = {
-                  included: request.mealPlan.included,
+                  included: request.mealPlan?.included,
                   breakfast: calculatedMealPlan.totalBreakfast,
                   breakfastEnabled: request.mealPlan.breakfastEnabled,
                   lunch: calculatedMealPlan.totalLunch,
