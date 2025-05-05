@@ -524,6 +524,13 @@ const hotelResolver = {
                   )
                 }
               } else if (hotelChess.requestId) {
+                const request = await prisma.request.findUnique({
+                  where: { id: hotelChess.requestId },
+                  select: {hotelChess: true}
+                })
+                if (request.hotelChess.length != 0) { 
+                  throw new Error("HotelChess already created")
+                } 
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
                 })
@@ -543,9 +550,6 @@ const hotelResolver = {
                   lunch: hotel.lunch,
                   dinner: hotel.dinner
                 }
-                const request = await prisma.request.findUnique({
-                  where: { id: hotelChess.requestId }
-                })
                 const enabledMeals = {
                   breakfast: request.mealPlan?.breakfastEnabled,
                   lunch: request.mealPlan?.lunchEnabled,

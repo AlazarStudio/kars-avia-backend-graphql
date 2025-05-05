@@ -21,7 +21,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
     { header: "кол-во суток", key: "totalDays", width: 10 },
     { header: "Категория ном.", key: "category", width: 15 },
     { header: "ФИО", key: "personName", width: 30 },
-    { header: "Тип", key: "personPosition", width: 20 },
+    { header: "Должность", key: "personPosition", width: 20 },
     { header: "Номер", key: "roomName", width: 10 },
     { header: "Завтрак", key: "breakfastCount", width: 10 },
     { header: "Обед", key: "lunchCount", width: 10 },
@@ -52,7 +52,14 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   sheet.addRow({})
   sheet.addRow({
-    personName: "ИТОГО:",
+    departure: "ИТОГО:",
+    totalDays: reportData.reduce((sum, row) => sum + row.totalDays, 0),
+    breakfastCount: reportData.reduce(
+      (sum, row) => sum + row.breakfastCount,
+      0
+    ),
+    lunchCount: reportData.reduce((sum, row) => sum + row.lunchCount, 0),
+    dinnerCount: reportData.reduce((sum, row) => sum + row.dinnerCount, 0),
     totalMealCost: formatCurrency(
       reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
     ),
@@ -78,7 +85,7 @@ export const generateExcelHotel = async (reportData, filePath) => {
     { header: "кол-во суток", key: "totalDays", width: 10 },
     { header: "Категория ном.", key: "category", width: 15 },
     { header: "ФИО", key: "personName", width: 30 },
-    { header: "Тип", key: "personPosition", width: 20 },
+    { header: "Должность", key: "personPosition", width: 20 },
     { header: "Номер", key: "roomName", width: 10 },
     { header: "Завтрак", key: "breakfastCount", width: 10 },
     { header: "Обед", key: "lunchCount", width: 10 },
@@ -109,7 +116,7 @@ export const generateExcelHotel = async (reportData, filePath) => {
 
   sheet.addRow({})
   sheet.addRow({
-    date: "ИТОГО",
+    departure: "ИТОГО",
     totalDays: reportData.reduce((sum, row) => sum + row.totalDays, 0),
     breakfastCount: reportData.reduce(
       (sum, row) => sum + row.breakfastCount,
@@ -119,6 +126,9 @@ export const generateExcelHotel = async (reportData, filePath) => {
     dinnerCount: reportData.reduce((sum, row) => sum + row.dinnerCount, 0),
     totalMealCost: formatCurrency(
       reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
+    ),
+    totalLivingCost: formatCurrency(
+      reportData.reduce((sum, row) => sum + row.totalLivingCost, 0)
     ),
     totalDebt: formatCurrency(
       reportData.reduce((sum, row) => sum + row.totalDebt, 0)

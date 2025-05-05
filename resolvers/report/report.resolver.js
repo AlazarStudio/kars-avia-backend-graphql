@@ -289,7 +289,7 @@ const reportResolver = {
           person: true,
           hotelChess: {
             include: {
-              room: true
+              room: { include: { roomKind: true } }
             }
           },
           hotel: true,
@@ -770,7 +770,7 @@ const aggregateRequestReports = (
       effectiveDays
     )
 
-    // Meal Price calculate 
+    // Meal Price calculate
 
     const mealPlan = request.mealPlan || {}
     let breakfastCount = mealPlan.breakfast || 0
@@ -782,16 +782,28 @@ const aggregateRequestReports = (
       lunchCount = Math.round(lunchCount * ratio)
       dinnerCount = Math.round(dinnerCount * ratio)
     }
-    const mealPrices = getAirlineMealPrice(request)
+
+    let mealPrices
+    if (reportType === "airline") {
+      mealPrices = getAirlineMealPrice(request)
+    }
+    if (reportType === "hotel") {
+      mealPrices = request.hotel?.mealPrice
+    }
+
     // const mealPrices = request.airline?.mealPrice || request.hotel?.mealPrice || {}
     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
     const lunchCost = lunchCount * (mealPrices.lunch || 0)
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
-    // Meal Price calculate 
+    // Meal Price calculate
 
     const personName = request.person ? request.person.name : "Не указано"
+
+    // console.log("\n position", request.person)
+    // console.log("\n position name", request.person?.position.name)
+
     const personPosition = request.person?.position
       ? request.person.position.name
       : "Не указано"
@@ -881,22 +893,22 @@ const calculateLivingCost = (request, type, days) => {
   if (type === "airline") {
     // Для авиакомпании ищем цену по тарифным договорам, основываясь на аэропорте заявки
     pricePerDay = getAirlinePriceForCategory(request, roomCategory)
-  } else if (type === "hotel") {
+  } else if (type === "hotel") {  
     // Логика для отеля остается прежней (при необходимости её можно тоже изменить)
     const hotelPriceMapping = {
-      studio: request.hotelChess[0]?.room?.price || 0,
-      apartment: request.hotelChess[0]?.room?.price || 0,
-      luxe: request.hotel?.prices?.priceLuxe || 0,
-      onePlace: request.hotel?.prices?.priceOneCategory || 0,
-      twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
-      threePlace: request.hotel?.prices?.priceThreeCategory || 0,
-      fourPlace: request.hotel?.prices?.priceFourCategory || 0,
-      fivePlace: request.hotel?.prices?.priceFiveCategory || 0,
-      sixPlace: request.hotel?.prices?.priceSixCategory || 0,
-      sevenPlace: request.hotel?.prices?.priceSevenCategory || 0,
-      eightPlace: request.hotel?.prices?.priceEightCategory || 0,
-      ninePlace: request.hotel?.prices?.priceNineCategory || 0,
-      tenPlace: request.hotel?.prices?.priceTenCategory || 0
+      studio: request.hotelChess[0]?.room?.price || 1,
+      apartment: request.hotelChess[0]?.room?.price || 1,
+      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
     }
     pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
