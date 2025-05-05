@@ -561,7 +561,6 @@ const hotelResolver = {
                   mealTimes,
                   enabledMeals
                 )
-                console.log("\n req", request)
                 const mealPlanData = {
                   included: request.mealPlan.included,
                   breakfast: calculatedMealPlan.totalBreakfast,
