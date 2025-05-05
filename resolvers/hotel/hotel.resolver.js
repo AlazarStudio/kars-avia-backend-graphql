@@ -526,7 +526,7 @@ const hotelResolver = {
               } else if (hotelChess.requestId) {
                 const request = await prisma.request.findUnique({
                   where: { id: hotelChess.requestId },
-                  select: {hotelChess: true}
+                  include: {hotelChess: true}
                 })
                 if (request.hotelChess.length != 0) { 
                   throw new Error("HotelChess already created")
