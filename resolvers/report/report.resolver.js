@@ -180,7 +180,7 @@ const reportResolver = {
             }
           },
           include: {
-            person: true,
+            person: { include: { position: true } },
             hotelChess: {
               include: {
                 room: true
@@ -286,7 +286,7 @@ const reportResolver = {
           }
         },
         include: {
-          person: true,
+          person: { include: { position: true } },
           hotelChess: {
             include: {
               room: { include: { roomKind: true } }
@@ -801,9 +801,6 @@ const aggregateRequestReports = (
 
     const personName = request.person ? request.person.name : "Не указано"
 
-    // console.log("\n position", request.person)
-    // console.log("\n position name", request.person?.position.name)
-
     const personPosition = request.person?.position
       ? request.person.position.name
       : "Не указано"
@@ -893,7 +890,7 @@ const calculateLivingCost = (request, type, days) => {
   if (type === "airline") {
     // Для авиакомпании ищем цену по тарифным договорам, основываясь на аэропорте заявки
     pricePerDay = getAirlinePriceForCategory(request, roomCategory)
-  } else if (type === "hotel") {  
+  } else if (type === "hotel") {
     // Логика для отеля остается прежней (при необходимости её можно тоже изменить)
     const hotelPriceMapping = {
       studio: request.hotelChess[0]?.room?.price || 1,
