@@ -321,6 +321,7 @@ model RoomKind {
   price       Float
   images      String[]
   room        Room[]
+  roomsCount  Int?
   hotel       Hotel    @relation(fields: [hotelId], references: [id])
   hotelId     String   @db.ObjectId
 }

@@ -526,11 +526,11 @@ const hotelResolver = {
               } else if (hotelChess.requestId) {
                 const request = await prisma.request.findUnique({
                   where: { id: hotelChess.requestId },
-                  include: {hotelChess: true}
+                  include: { hotelChess: true }
                 })
-                if (request.hotelChess.length != 0) { 
+                if (request.hotelChess.length != 0) {
                   throw new Error("HotelChess already created")
-                } 
+                }
                 const room = await prisma.room.findUnique({
                   where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
                 })
@@ -761,6 +761,11 @@ const hotelResolver = {
                 where: { id: room.id },
                 data: updatedRoomData
               })
+
+              if (room.roomKindId) {
+                updateRoomKindCounts(room.roomKindId)
+              }
+
               await logAction({
                 context,
                 action: "update_room",
@@ -811,6 +816,11 @@ const hotelResolver = {
                   price: room.price
                 }
               })
+
+              if (room.roomKindId) {
+                updateRoomKindCounts(room.roomKindId)
+              }
+
               await logAction({
                 context,
                 action: "create_room",
@@ -1168,6 +1178,23 @@ const updateHotelRoomCounts = async (hotelId) => {
   })
 
   return updatedHotel
+}
+
+// Вспомогательная функция для обновления количества резервных (provision) и квотных (quote) комнат отеля.
+// Производится подсчёт комнат с параметром reserve (true/false) и обновление соответствующих полей в отеле.
+const updateRoomKindCounts = async (roomKindId) => {
+  // Подсчёт комнат в тарифе
+  const roomsCount = await prisma.room.count({
+    where: { roomKindId }
+  })
+
+  // Обновляем поля отеля с новыми значениями подсчетов
+  const updatedRoomKind = await prisma.roomKind.update({
+    where: { id: roomKindId },
+    data: { roomsCount }
+  })
+
+  return updatedRoomKind
 }
 
 export default hotelResolver

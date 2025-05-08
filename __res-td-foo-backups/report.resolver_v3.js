@@ -270,11 +270,6 @@ const reportResolver = {
         throw new Error("Hotel not found")
       }
 
-      const rooms = await prisma.room.findMany({
-        where: { hotelId: filter.hotelId, reserve: false },
-        include: { roomKind: true }
-      })
-
       const requests = await prisma.request.findMany({
         where: {
           // hotelId: filter.hotelId,
@@ -304,49 +299,6 @@ const reportResolver = {
         orderBy: { arrival: "asc" }
       })
 
-      const reportData = [];
-      // console.log("\n reportData: ", reportData)
-
-      rooms.forEach((room) => {
-        console.log("\n room", room)
-        const alreadyOccupied = reportData.some(
-          (request) => request.hotelChess.roomId === room.id
-        )
-        if (!alreadyOccupied) {
-          const categoryPrices = {
-            onePlace: room.roomKind?.price || 0,
-            twoPlace: room.roomKind?.price || 0,
-            threePlace: room.roomKind?.price || 0,
-            fourPlace: room.roomKind?.price || 0,
-            fivePlace: room.roomKind?.price || 0,
-            sixPlace: room.roomKind?.price || 0,
-            sevenPlace: room.roomKind?.price || 0,
-            eightPlace: room.roomKind?.price || 0,
-            ninePlace: room.roomKind?.price || 0,
-            tenPlace: room.roomKind?.price || 0
-          }
-
-          const category = room.category || "Не указано"
-          // const dailyPrice = categoryPrices[category] || 0
-          const dailyPrice = room.roomKind?.price || 0
-
-          reportData.push({
-            date: "Не указано",
-            roomName: room.name,
-            category: room.roomKind.name,
-            isOccupied: "Свободно",
-            totalDays: 0,
-            breakfastCount: 0,
-            lunchCount: 0,
-            dinnerCount: 0,
-            dailyPrice: dailyPrice / 2,
-            totalMealCost: 0,
-            totalLivingCost: dailyPrice / 2,
-            totalDebt: dailyPrice / 2
-          })
-        }
-      })
-
       // const requestsWithMealPlan = await Promise.all(
       //   requests.map(async (request) => {
       //     const mp = await prisma.request.findUnique({
@@ -357,12 +309,12 @@ const reportResolver = {
       //   })
       // )
 
-      // const reportData = aggregateRequestReports(
-      //   requests,
-      //   "hotel",
-      //   filterStart,
-      //   filterEnd
-      // )  
+      const reportData = aggregateRequestReports(
+        requests,
+        "hotel",
+        filterStart,
+        filterEnd
+      )
 
       // console.log("\n reportData: " + JSON.stringify(reportData))
 

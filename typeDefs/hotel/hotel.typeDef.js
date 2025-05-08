@@ -213,6 +213,7 @@ type RoomKind {
   price: Float!
   images: [String]
   hotel: Hotel
+  roomsCount: Float
 }
 
 # type Tariff {
