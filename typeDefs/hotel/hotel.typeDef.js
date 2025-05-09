@@ -341,6 +341,7 @@ type Mutation {
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
   deleteRoomKind(id: ID!): RoomKind!
+  updateAllRoomKindCount: [Hotel]
 }
 
 type Subscription {

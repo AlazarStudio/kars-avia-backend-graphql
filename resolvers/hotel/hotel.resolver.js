@@ -952,6 +952,9 @@ const hotelResolver = {
       }
 
       // Возвращаем массив созданных комнат
+      if (roomKindId) {
+        updateRoomKindCounts(roomKindId)
+      }
       return createdRooms
     },
 
@@ -1024,6 +1027,9 @@ const hotelResolver = {
           await deleteImage(imagePath)
         }
       }
+      if (deletedRoom.roomKindId) {
+        updateRoomKindCounts(deletedRoom.roomKindId)
+      }
       return deletedRoom
     },
 
@@ -1044,6 +1050,16 @@ const hotelResolver = {
         }
       }
       return deletedRoomKind
+    },
+    updateAllRoomKindCount: async (_, { __ }, context) => {
+      const hotels = await prisma.hotel.findMany({
+        select: { roomKind: true }  
+      })
+      for (const hotel of hotels) {
+        for (const roomKind of hotel.roomKind) {
+          updateRoomKindCounts(roomKind.id)
+        } 
+      }
     }
   },
 
