@@ -20,6 +20,9 @@ import authMiddleware, {
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
+import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
+import { ApolloServerPluginLandingPageLocalDefault, ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
+
 
 dotenv.config()
 const app = express()
@@ -88,6 +91,7 @@ const server = new ApolloServer({
   introspection: process.env.NODE_ENV !== "production",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer }),
+    ApolloServerPluginLandingPageLocalDefault(),
     {
       async serverWillStart() {
         return {
