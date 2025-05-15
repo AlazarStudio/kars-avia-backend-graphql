@@ -22,6 +22,7 @@ import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
 import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import { ApolloServerPluginLandingPageLocalDefault, ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
+import { logger } from "./utils/logger.js"
 
 
 dotenv.config()
@@ -66,6 +67,7 @@ const getDynamicContext = async (ctx, msg, args) => {
           }
         })
       } catch (e) {
+        logger.error('Ошибка токена', e)
         console.error("Error verifying token:", e)
       }
     }
@@ -147,6 +149,7 @@ app.use(
             }
           })
         } catch (e) {
+          logger.error('Ошибка токена', e)
           console.error("Error verifying token:", e + "\n user ")
         }
       }

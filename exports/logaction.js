@@ -1,4 +1,5 @@
 import { prisma } from "../prisma.js"
+import { logger } from "../utils/logger.js"
 
 const safeStringify = (data) => {
   try {
@@ -42,6 +43,7 @@ const createLog = async ({
       }
     })
   } catch (error) {
+    logger.error('Ошибка логирования', error)
     console.error("Ошибка при логировании действия:", error)
   }
 }

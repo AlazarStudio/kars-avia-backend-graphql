@@ -21,6 +21,7 @@ import authMiddleware, {
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
+import { logger } from "./utils/logger.js"
 
 dotenv.config()
 const app = express()
@@ -77,6 +78,7 @@ const getDynamicContext = async (ctx, msg, args) => {
           }
         })
       } catch (e) {
+        logger.error('Ошибка токена', e)
         console.error("Error verifying token:", e)
       }
     }
@@ -159,6 +161,7 @@ app.use(
             }
           })
         } catch (e) {
+          logger.error('Ошибка токена', e)
           console.error("Error verifying token:", e)
         }
       }

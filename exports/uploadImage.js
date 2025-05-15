@@ -3,6 +3,7 @@ import { createWriteStream, existsSync, mkdirSync } from "fs"
 import { promises as fsPromises } from "fs"
 import path from "path"
 import sharp from "sharp"
+import { logger } from "../utils/logger"
 
 // export const uploadImage = async (image) => {
 //   const { createReadStream, filename } = await image;
@@ -69,6 +70,7 @@ export const deleteImage = async (imagePath) => {
     await fsPromises.unlink(absolutePath)
     // console.log(`Файл ${absolutePath} успешно удалён.`)
   } catch (error) {
+    logger.error('Ошибка удаления', error)
     console.error(`Ошибка при удалении файла ${absolutePath}:`, error)
     // При необходимости можно пробросить ошибку или проигнорировать её
   }

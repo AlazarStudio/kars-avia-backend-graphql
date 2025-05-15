@@ -22,6 +22,7 @@ import calculateMeal from "../../exports/calculateMeal.js"
 import { sendEmail } from "../../utils/sendMail.js"
 import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
 import { request } from "express"
+import { logger } from "../../utils/logger.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -512,15 +513,16 @@ const hotelResolver = {
                     }
                   })
                   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
-                } catch (e) {
+                } catch (error) {
+                  logger.error('Ошибка при бронировании', error)
                   const timestamp = new Date().toISOString()
-                  console.error(timestamp, " \n Error: \n ", e)
+                  console.error(timestamp, " \n Error: \n ", error)
                   // console.error(" \n Error: \n ", e)
                   throw new Error(
                     "Ошибка при создании клиентского бронирования: " +
-                      e.message +
+                      error.message +
                       "\n\n :" +
-                      e.stack
+                      error.stack
                   )
                 }
               } else if (hotelChess.requestId) {
@@ -897,6 +899,7 @@ const hotelResolver = {
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
+        logger.error('Ошибка при обновлении отеля', error)
         const timestamp = new Date().toISOString()
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)

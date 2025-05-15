@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
+import { logger } from "../utils/logger.js"
 
 // Общий мидлвар для авторизации
 const authMiddleware = async (req, res, next) => {
@@ -20,6 +21,7 @@ const authMiddleware = async (req, res, next) => {
     req.user = user // Добавляем пользователя в запрос
     next()
   } catch (error) {
+    logger.error('Ошибка токена', error)
     return res.status(401).json({ message: "Invalid token" })
   }
 }
