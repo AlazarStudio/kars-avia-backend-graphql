@@ -3,7 +3,7 @@ import { createWriteStream, existsSync, mkdirSync } from "fs"
 import { promises as fsPromises } from "fs"
 import path from "path"
 import sharp from "sharp"
-import { logger } from "../utils/logger"
+import { logger } from "../utils/logger.js"
 
 export const uploadFiles = async (file) => {
   const { createReadStream, filename } = await file

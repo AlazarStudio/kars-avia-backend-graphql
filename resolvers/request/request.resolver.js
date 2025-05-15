@@ -28,6 +28,7 @@ import updateDailyMeals from "../../exports/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 import { sendEmail } from "../../utils/sendMail.js"
 import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
+import { logger } from "../../utils/logger.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
