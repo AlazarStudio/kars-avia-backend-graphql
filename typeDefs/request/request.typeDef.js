@@ -105,7 +105,15 @@ input PaginationInput {
   skip: Int
   take: Int
   status: [String]
+  airportId: ID
+  airlineId: ID
+  personId: ID
+  hotelId: ID
+  arrival: Date
+  departure: Date
+  search: String
 }
+
 
 input ExtendRequestDatesInput {
   requestId: ID!

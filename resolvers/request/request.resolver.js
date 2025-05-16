@@ -52,54 +52,83 @@ const requestResolver = {
     // Исключаются архивные заявки (archive: true).
     requests: async (_, { pagination }, context) => {
       const { user } = context
-      const { skip, take, status } = pagination
-      // Формирование фильтра по статусу: если статус указан и не содержит "all" – фильтруем по нему.
+      const {
+        skip = 0,
+        take = 10,
+        status,
+        airportId,
+        airlineId,
+        personId,
+        hotelId,
+        arrival,
+        departure,
+        search
+      } = pagination
+
       const statusFilter =
         status && status.length > 0 && !status.includes("all")
           ? { status: { in: status } }
           : {}
-      // Если у пользователя есть airlineId, добавляем соответствующий фильтр.
-      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
 
-      // Подсчёт общего количества заявок с учетом фильтров и исключения архивных.
-      const totalCount = await prisma.request.count({
-        where: {
-          ...statusFilter,
-          ...airlineFilter,
-          archive: { not: true }
-        }
-      })
+      const airlineAccessFilter = user.airlineId
+        ? { airlineId: user.airlineId }
+        : {}
+
+      const exactMatchFilters = {
+        ...(airportId && { airportId }),
+        ...(airlineId && { airlineId }),
+        ...(personId && { personId }),
+        ...(hotelId && { hotelId }),
+        ...(arrival && { arrival: { equals: new Date(arrival) } }),
+        ...(departure && { departure: { equals: new Date(departure) } })
+      }
+
+      // Поиск по названиям: airport.name, airline.name, hotel.name, person.fullName
+      const searchFilter = search
+        ? {
+            OR: [
+              { airport: { name: { contains: search, mode: "insensitive" } } },
+              { airline: { name: { contains: search, mode: "insensitive" } } },
+              { hotel: { name: { contains: search, mode: "insensitive" } } },
+              {
+                person: { fullName: { contains: search, mode: "insensitive" } }
+              }
+            ]
+          }
+        : {}
+
+      const where = {
+        ...statusFilter,
+        ...airlineAccessFilter,
+        ...exactMatchFilters,
+        ...searchFilter,
+        archive: { not: true }
+      }
+
+      const totalCount = await prisma.request.count({ where })
+
       const totalPages = Math.ceil(totalCount / take)
-      // Получаем список заявок с указанными фильтрами, пагинацией и сортировкой (по убыванию даты создания).
+
       const requests = await prisma.request.findMany({
-        where: {
-          ...statusFilter,
-          ...airlineFilter,
-          archive: { not: true }
-        },
+        where,
         skip: skip * take,
-        take: take,
+        take,
         include: {
-          // airline: true,
           airline: { select: { name: true, images: true } },
-          // airport: true,
           airport: { select: { name: true, code: true } },
-          // hotel: true,
-          // hotelChess: true,
+          hotel: { select: { name: true } },
+          person: { select: { fullName: true } },
           chat: true
-          // logs: true,
         },
         orderBy: { createdAt: "desc" }
-        // orderBy: { updatedAt: "desc" }
       })
 
       return {
         totalCount,
-        requests,
-        totalPages
+        totalPages,
+        requests
       }
     },
-
     // Получение архивных заявок.
     // Доступно только для администраторов авиалиний (airlineAdminMiddleware).
     requestArchive: async (_, { pagination }, context) => {
