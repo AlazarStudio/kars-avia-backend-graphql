@@ -791,7 +791,7 @@ const aggregateRequestReports = (
 
     const categoryMapping = {
       studio: "Студия",
-      apartment: "Квартира",
+      apartment: "Апартаменты",
       luxe: "Люкс",
       onePlace: "Одноместный",
       twoPlace: "Двухместный",

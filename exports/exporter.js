@@ -12,6 +12,10 @@ const formatCurrency = (value) => {
 
 export const generateExcelAvia = async (reportData, filePath) => {
   const workbook = new ExcelJS.Workbook()
+  workbook.DefaultFont = {
+    name: "Times New Roman",
+    size: 12
+  }
   const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
 
   sheet.columns = [
