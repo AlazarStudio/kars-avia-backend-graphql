@@ -83,7 +83,7 @@ const requestResolver = {
         ...(departure && { departure: { equals: new Date(departure) } })
       }
 
-      // Поиск по названиям: airport.name, airline.name, hotel.name, person.fullName
+      // Поиск по названиям: airport.name, airline.name, hotel.name, person.name
       const searchFilter = search
         ? {
             OR: [
@@ -91,7 +91,7 @@ const requestResolver = {
               { airline: { name: { contains: search, mode: "insensitive" } } },
               { hotel: { name: { contains: search, mode: "insensitive" } } },
               {
-                person: { fullName: { contains: search, mode: "insensitive" } }
+                person: { name: { contains: search, mode: "insensitive" } }
               }
             ]
           }
@@ -117,7 +117,7 @@ const requestResolver = {
           airline: { select: { name: true, images: true } },
           airport: { select: { name: true, code: true } },
           hotel: { select: { name: true } },
-          person: { select: { fullName: true } },
+          person: { select: { name: true } },
           chat: true
         },
         orderBy: { createdAt: "desc" }
