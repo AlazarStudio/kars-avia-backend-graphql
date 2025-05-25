@@ -100,8 +100,7 @@ const requestResolver = {
               { airline: { name: { contains: search, mode: "insensitive" } } },
               { hotel: { name: { contains: search, mode: "insensitive" } } },
               { person: { name: { contains: search, mode: "insensitive" } } },
-              { requestNumber:  { contains: search, mode: "insensitive" } },
-
+              { requestNumber: { contains: search, mode: "insensitive" } }
             ]
           }
         : null
@@ -147,29 +146,80 @@ const requestResolver = {
     requestArchive: async (_, { pagination }, context) => {
       const { user } = context
       airlineAdminMiddleware(context)
-      const { skip, take, status } = pagination
-      // Если статус содержит "all" – фильтр не применяется, иначе фильтруем по указанным статусам.
+
+      const {
+        skip = 0,
+        take = 10,
+        status,
+        airportId,
+        airlineId,
+        personId,
+        hotelId,
+        arrival,
+        departure,
+        search
+      } = pagination
+
       const statusFilter =
-        status && status.includes("all") ? {} : { status: { in: status } }
-      const airlineFilter = user.airlineId ? { airlineId: user.airlineId } : {}
-      // Подсчёт количества архивных заявок.
-      const totalCount = await prisma.request.count({
-        where: {
-          ...statusFilter,
-          ...airlineFilter,
-          archive: true
-        }
-      })
+        status && status.length > 0 && !status.includes("all")
+          ? { status: { in: status } }
+          : {}
+
+      const airlineAccessFilter = user.airlineId
+        ? { airlineId: user.airlineId }
+        : {}
+
+      const exactMatchFilters = {
+        ...(airportId && { airportId }),
+        ...(airlineId && { airlineId }),
+        ...(personId && { personId }),
+        ...(hotelId && { hotelId }),
+        ...(arrival && {
+          arrival: {
+            gte: new Date(arrival),
+            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
+          }
+        }),
+        ...(departure && {
+          departure: {
+            gte: new Date(arrival),
+            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
+          }
+        })
+      }
+
+      const searchFilter = search
+        ? {
+            OR: [
+              { airport: { name: { contains: search, mode: "insensitive" } } },
+              { airline: { name: { contains: search, mode: "insensitive" } } },
+              { hotel: { name: { contains: search, mode: "insensitive" } } },
+              { person: { name: { contains: search, mode: "insensitive" } } },
+              { requestNumber: { contains: search, mode: "insensitive" } }
+            ]
+          }
+        : null
+
+      const filters = [
+        { archive: true },
+        airlineAccessFilter,
+        statusFilter,
+        exactMatchFilters,
+        ...(searchFilter ? [searchFilter] : [])
+      ]
+
+      const where = {
+        AND: filters
+      }
+
+      const totalCount = await prisma.request.count({ where })
+
       const totalPages = Math.ceil(totalCount / take)
-      // Получение архивных заявок с пагинацией и сортировкой.
+
       const requests = await prisma.request.findMany({
-        where: {
-          ...statusFilter,
-          ...airlineFilter,
-          archive: true
-        },
+        where,
         skip: skip * take,
-        take: take,
+        take,
         include: {
           airline: true,
           airport: true,
@@ -179,6 +229,7 @@ const requestResolver = {
         },
         orderBy: { createdAt: "desc" }
       })
+
       return {
         totalCount,
         requests,
