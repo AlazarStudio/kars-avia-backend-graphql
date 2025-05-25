@@ -77,7 +77,11 @@ const hotelResolver = {
               rooms: true,
               hotelChesses: true
             },
-            orderBy: { name: "asc" }
+            orderBy: {
+              information: {
+                city: "asc"
+              }
+            }
           })
         : await prisma.hotel.findMany({
             where: { active: true },
@@ -88,7 +92,11 @@ const hotelResolver = {
               airport: true,
               hotelChesses: true
             },
-            orderBy: { name: "asc" }
+            orderBy: {
+              information: {
+                city: "asc"
+              }
+            }
           })
 
       // Расчет общего количества страниц при наличии пагинации
@@ -514,7 +522,7 @@ const hotelResolver = {
                   })
                   pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
                 } catch (error) {
-                  logger.error('Ошибка при бронировании', error)
+                  logger.error("Ошибка при бронировании", error)
                   const timestamp = new Date().toISOString()
                   console.error(timestamp, " \n Error: \n ", error)
                   // console.error(" \n Error: \n ", e)
@@ -899,7 +907,7 @@ const hotelResolver = {
         pubsub.publish(HOTEL_UPDATED, { hotelUpdated: hotelWithRelations })
         return hotelWithRelations
       } catch (error) {
-        logger.error('Ошибка при обновлении отеля', error)
+        logger.error("Ошибка при обновлении отеля", error)
         const timestamp = new Date().toISOString()
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)
@@ -1056,12 +1064,12 @@ const hotelResolver = {
     },
     updateAllRoomKindCount: async (_, { __ }, context) => {
       const hotels = await prisma.hotel.findMany({
-        select: { roomKind: true }  
+        select: { roomKind: true }
       })
       for (const hotel of hotels) {
         for (const roomKind of hotel.roomKind) {
           updateRoomKindCounts(roomKind.id)
-        } 
+        }
       }
     }
   },

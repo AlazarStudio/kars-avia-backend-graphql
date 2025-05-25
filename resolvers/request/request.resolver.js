@@ -79,30 +79,41 @@ const requestResolver = {
         ...(airlineId && { airlineId }),
         ...(personId && { personId }),
         ...(hotelId && { hotelId }),
-        ...(arrival && { arrival: { equals: new Date(arrival) } }),
-        ...(departure && { departure: { equals: new Date(departure) } })
+        ...(arrival && {
+          arrival: {
+            gte: new Date(arrival),
+            lt: new Date(new Date(arrival).getTime() + 24 * 60 * 60 * 1000)
+          }
+        }),
+        ...(departure && {
+          departure: {
+            gte: new Date(departure),
+            lt: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
+          }
+        })
       }
 
-      // Поиск по названиям: airport.name, airline.name, hotel.name, person.name
       const searchFilter = search
         ? {
             OR: [
               { airport: { name: { contains: search, mode: "insensitive" } } },
               { airline: { name: { contains: search, mode: "insensitive" } } },
               { hotel: { name: { contains: search, mode: "insensitive" } } },
-              {
-                person: { name: { contains: search, mode: "insensitive" } }
-              }
+              { person: { name: { contains: search, mode: "insensitive" } } }
             ]
           }
-        : {}
+        : null
+
+      const filters = [
+        { archive: { not: true } },
+        airlineAccessFilter,
+        statusFilter,
+        exactMatchFilters,
+        ...(searchFilter ? [searchFilter] : [])
+      ]
 
       const where = {
-        ...statusFilter,
-        ...airlineAccessFilter,
-        ...exactMatchFilters,
-        ...searchFilter,
-        archive: { not: true }
+        AND: filters
       }
 
       const totalCount = await prisma.request.count({ where })
