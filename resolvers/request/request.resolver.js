@@ -99,7 +99,9 @@ const requestResolver = {
               { airport: { name: { contains: search, mode: "insensitive" } } },
               { airline: { name: { contains: search, mode: "insensitive" } } },
               { hotel: { name: { contains: search, mode: "insensitive" } } },
-              { person: { name: { contains: search, mode: "insensitive" } } }
+              { person: { name: { contains: search, mode: "insensitive" } } },
+              { requestNumber:  { contains: search, mode: "insensitive" } },
+
             ]
           }
         : null
