@@ -82,13 +82,13 @@ const requestResolver = {
         ...(arrival && {
           arrival: {
             gte: new Date(arrival),
-            lt: new Date(new Date(arrival).getTime() + 24 * 60 * 60 * 1000)
+            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
           }
         }),
         ...(departure && {
           departure: {
-            gte: new Date(departure),
-            lt: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
+            gte: new Date(arrival),
+            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
           }
         })
       }
