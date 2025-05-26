@@ -165,6 +165,7 @@ model User {
   id                   String             @id @default(auto()) @map("_id") @db.ObjectId
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
+  lastSeen             DateTime?
   name                 String
   email                String             @unique
   number               String?
@@ -664,4 +665,12 @@ model NotificationRead {
   readAt         DateTime     @default(now())
 
   @@unique([notificationId, userId])
+}
+
+model PatchNote {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  date        DateTime
+  name        String
+  description String
+  files       String[]
 }

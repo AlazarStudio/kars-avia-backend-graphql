@@ -21,7 +21,7 @@ const authMiddleware = async (req, res, next) => {
     req.user = user // Добавляем пользователя в запрос
     next()
   } catch (error) {
-    logger.error('Ошибка токена', error)
+    logger.error("Ошибка токена", error)
     return res.status(401).json({ message: "Invalid token" })
   }
 }
@@ -36,9 +36,13 @@ export const roleMiddleware = (context, allowedRoles) => {
   }
 }
 
-// 
+//
 export const dispatcherModerMiddleware = (context) => {
-  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "DISPATCHERMODERATOR"])
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "DISPATCHERMODERATOR"
+  ])
 }
 
 // Специфичные мидлвары для ролей на основе универсального

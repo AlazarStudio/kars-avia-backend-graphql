@@ -7,6 +7,17 @@ import { pubsub } from "../../exports/pubsub.js"
 // а также за поиск чата поддержки, связанного с конкретным пользователем.
 const supportResolver = {
   Query: {
+    getAllPatchNotes: async () => {
+      return await prisma.patchNote.findMany({
+        orderBy: { date: "desc" }
+      })
+    },
+
+    getPatchNote: async (_, { id }) => {
+      return await prisma.patchNote.findUnique({
+        where: { id }
+      })
+    },
     // Query: supportChats
     // Возвращает список всех чатов поддержки.
     // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
@@ -125,6 +136,18 @@ const supportResolver = {
   },
 
   Mutation: {
+    createPatchNote: async (_, { data }) => {
+      return await prisma.patchNote.create({
+        data
+      })
+    },
+
+    updatePatchNote: async (_, { id, data }) => {
+      return await prisma.patchNote.update({
+        where: { id },
+        data
+      })
+    },
     // Mutation: createSupportChat
     // Создает чат поддержки для указанного пользователя (userId).
     // Если чат уже существует для данного пользователя, возвращается существующий чат.
