@@ -180,15 +180,16 @@ const reportResolver = {
             }
           },
           include: {
-            person: true,
+            person: { include: { position: true } },
             hotelChess: {
               include: {
                 room: true
               }
             },
             hotel: true,
-            airline: true,
-            mealPlan: true
+            airline: { include: { prices: { include: { airports: true } } } },
+            mealPlan: true,
+            airport: true
           },
           orderBy: { arrival: "asc" }
         })
@@ -269,6 +270,11 @@ const reportResolver = {
         throw new Error("Hotel not found")
       }
 
+      const rooms = await prisma.room.findMany({
+        where: { hotelId: filter.hotelId, reserve: false },
+        include: { roomKind: true }
+      })
+
       const requests = await prisma.request.findMany({
         where: {
           // hotelId: filter.hotelId,
@@ -285,10 +291,10 @@ const reportResolver = {
           }
         },
         include: {
-          person: true,
+          person: { include: { position: true } },
           hotelChess: {
             include: {
-              room: true
+              room: { include: { roomKind: true } }
             }
           },
           hotel: true,
@@ -296,6 +302,49 @@ const reportResolver = {
           mealPlan: true
         },
         orderBy: { arrival: "asc" }
+      })
+
+      const reportData = [];
+      // console.log("\n reportData: ", reportData)
+
+      rooms.forEach((room) => {
+        console.log("\n room", room)
+        const alreadyOccupied = reportData.some(
+          (request) => request.hotelChess.roomId === room.id
+        )
+        if (!alreadyOccupied) {
+          const categoryPrices = {
+            onePlace: room.roomKind?.price || 0,
+            twoPlace: room.roomKind?.price || 0,
+            threePlace: room.roomKind?.price || 0,
+            fourPlace: room.roomKind?.price || 0,
+            fivePlace: room.roomKind?.price || 0,
+            sixPlace: room.roomKind?.price || 0,
+            sevenPlace: room.roomKind?.price || 0,
+            eightPlace: room.roomKind?.price || 0,
+            ninePlace: room.roomKind?.price || 0,
+            tenPlace: room.roomKind?.price || 0
+          }
+
+          const category = room.category || "Не указано"
+          // const dailyPrice = categoryPrices[category] || 0
+          const dailyPrice = room.roomKind?.price || 0
+
+          reportData.push({
+            date: "Не указано",
+            roomName: room.name,
+            category: room.roomKind.name,
+            isOccupied: "Свободно",
+            totalDays: 0,
+            breakfastCount: 0,
+            lunchCount: 0,
+            dinnerCount: 0,
+            dailyPrice: dailyPrice / 2,
+            totalMealCost: 0,
+            totalLivingCost: dailyPrice / 2,
+            totalDebt: dailyPrice / 2
+          })
+        }
       })
 
       // const requestsWithMealPlan = await Promise.all(
@@ -308,12 +357,12 @@ const reportResolver = {
       //   })
       // )
 
-      const reportData = aggregateRequestReports(
-        requests,
-        "hotel",
-        filterStart,
-        filterEnd
-      )
+      // const reportData = aggregateRequestReports(
+      //   requests,
+      //   "hotel",
+      //   filterStart,
+      //   filterEnd
+      // )  
 
       // console.log("\n reportData: " + JSON.stringify(reportData))
 
@@ -397,7 +446,7 @@ const applyCreateFilters = (filter) => {
     hotelId,
     airlineId,
     airportId,
-    position,
+    positionId,
     region
   } = filter
   const where = {}
@@ -430,10 +479,9 @@ const applyCreateFilters = (filter) => {
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
   if (airportId) where.airportId = airportId
-  if (position) {
+  if (positionId) {
     where.person = {
-      isNot: null,
-      position: position
+      positionId: positionId
     }
   }
   if (region) {
@@ -484,15 +532,19 @@ const applyFilters = (filter) => {
   return where
 }
 
+/* ========================= */
+/* Функции для получения цен */
+/* ========================= */
+
 const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
-  if (!airportId) return 0
-  const airlinePrices = request.airline?.prices || []
+
+  const airlinePrices = request.airline?.prices
   for (const contract of airlinePrices) {
     if (contract.airports && contract.airports.length > 0) {
       // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
-        (item) => item.airport && item.airport.id === airportId
+        (item) => item.airportId && item.airportId === airportId
       )
       if (match) {
         // В зависимости от категории возвращаем соответствующее поле цены
@@ -501,6 +553,8 @@ const getAirlinePriceForCategory = (request, category) => {
             return contract.prices?.priceStudio || 0
           case "apartment":
             return contract.prices?.priceApartment || 0
+          case "luxe":
+            return contract.prices?.priceLuxe || 0
           case "onePlace":
             return contract.prices?.priceOneCategory || 0
           case "twoPlace":
@@ -524,6 +578,25 @@ const getAirlinePriceForCategory = (request, category) => {
           default:
             return 0
         }
+      }
+    }
+  }
+  return 0
+}
+
+const getAirlineMealPrice = (request) => {
+  const airportId = request.airport?.id
+
+  const airlinePrices = request.airline?.prices
+  for (const contract of airlinePrices) {
+    if (contract.airports && contract.airports.length > 0) {
+      // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
+      const match = contract.airports.find(
+        (item) => item.airportId && item.airportId === airportId
+      )
+      if (match) {
+        // console.log(contract.mealPrice)
+        return contract.mealPrice
       }
     }
   }
@@ -591,6 +664,10 @@ const calculateEffectiveCostDaysWithPartial = (
     return arrivalFactor + (dayDifference - 1) + departureFactor
   }
 }
+
+/* ============================= */
+/* Функции для агрегации заявок  */
+/* ============================= */
 
 const aggregateReports = (requests, reportType, filterStart, filterEnd) => {
   return requests.map((request) => {
@@ -714,7 +791,8 @@ const aggregateRequestReports = (
 
     const categoryMapping = {
       studio: "Студия",
-      apartment: "Квартира",
+      apartment: "Апартаменты",
+      luxe: "Люкс",
       onePlace: "Одноместный",
       twoPlace: "Двухместный",
       threePlace: "Трёхместный",
@@ -748,6 +826,8 @@ const aggregateRequestReports = (
       effectiveDays
     )
 
+    // Meal Price calculate
+
     const mealPlan = request.mealPlan || {}
     let breakfastCount = mealPlan.breakfast || 0
     let lunchCount = mealPlan.lunch || 0
@@ -758,16 +838,26 @@ const aggregateRequestReports = (
       lunchCount = Math.round(lunchCount * ratio)
       dinnerCount = Math.round(dinnerCount * ratio)
     }
-    const mealPrices =
-      request.airline?.mealPrice || request.hotel?.mealPrice || {}
+
+    let mealPrices
+    if (reportType === "airline") {
+      mealPrices = getAirlineMealPrice(request)
+    }
+    if (reportType === "hotel") {
+      mealPrices = request.hotel?.mealPrice
+    }
+
+    // const mealPrices = request.airline?.mealPrice || request.hotel?.mealPrice || {}
     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
     const lunchCost = lunchCount * (mealPrices.lunch || 0)
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
+    // Meal Price calculate
+
     const personName = request.person ? request.person.name : "Не указано"
-    console.log("\n person - ", request.person)
-    const personPosition = request.person.position
+
+    const personPosition = request.person?.position
       ? request.person.position.name
       : "Не указано"
 
@@ -849,42 +939,9 @@ const aggregatePassengerReports = (reserves, filterStart, filterEnd) => {
   })
 }
 
-// const calculateLivingCost = (request, type, days) => {
-//   const roomCategory = request.roomCategory
-//   const priceMapping = {
-//     airline: {
-//       studio: request.airline?.prices?.priceStudio || 0,
-//       apartment: request.airline?.prices?.priceApartment || 0,
-//       onePlace: request.airline?.prices?.priceOneCategory || 0,
-//       twoPlace: request.airline?.prices?.priceTwoCategory || 0,
-//       threePlace: request.airline?.prices?.priceThreeCategory || 0,
-//       fourPlace: request.airline?.prices?.priceFourCategory || 0,
-//       fivePlace: request.airline?.prices?.priceFiveCategory || 0,
-//       sixPlace: request.airline?.prices?.priceSixCategory || 0,
-//       sevenPlace: request.airline?.prices?.priceSevenCategory || 0,
-//       eightPlace: request.airline?.prices?.priceEightCategory || 0,
-//       ninePlace: request.airline?.prices?.priceNineCategory || 0,
-//       tenPlace: request.airline?.prices?.priceTenCategory || 0
-//     },
-//     hotel: {
-//       studio: request.hotelChess[0].room?.price || 0,
-//       apartment: request.hotelChess[0].room?.price || 0,
-//       onePlace: request.hotel?.prices?.priceOneCategory || 0,
-//       twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
-//       threePlace: request.hotel?.prices?.priceThreeCategory || 0,
-//       fourPlace: request.hotel?.prices?.priceFourCategory || 0,
-//       fivePlace: request.hotel?.prices?.priceFiveCategory || 0,
-//       sixPlace: request.hotel?.prices?.priceSixCategory || 0,
-//       sevenPlace: request.hotel?.prices?.priceSevenCategory || 0,
-//       eightPlace: request.hotel?.prices?.priceEightCategory || 0,
-//       ninePlace: request.hotel?.prices?.priceNineCategory || 0,
-//       tenPlace: request.hotel?.prices?.priceTenCategory || 0
-//     }
-//   }
-
-//   const pricePerDay = priceMapping[type]?.[roomCategory] || 0
-//   return days > 0 ? days * pricePerDay : 0
-// }
+/* ======================================== */
+/* Функции для расчёта стоимости проживания */
+/* ======================================== */
 
 const calculateLivingCost = (request, type, days) => {
   const roomCategory = request.roomCategory
@@ -896,18 +953,19 @@ const calculateLivingCost = (request, type, days) => {
   } else if (type === "hotel") {
     // Логика для отеля остается прежней (при необходимости её можно тоже изменить)
     const hotelPriceMapping = {
-      studio: request.hotelChess[0]?.room?.price || 0,
-      apartment: request.hotelChess[0]?.room?.price || 0,
-      onePlace: request.hotel?.prices?.priceOneCategory || 0,
-      twoPlace: request.hotel?.prices?.priceTwoCategory || 0,
-      threePlace: request.hotel?.prices?.priceThreeCategory || 0,
-      fourPlace: request.hotel?.prices?.priceFourCategory || 0,
-      fivePlace: request.hotel?.prices?.priceFiveCategory || 0,
-      sixPlace: request.hotel?.prices?.priceSixCategory || 0,
-      sevenPlace: request.hotel?.prices?.priceSevenCategory || 0,
-      eightPlace: request.hotel?.prices?.priceEightCategory || 0,
-      ninePlace: request.hotel?.prices?.priceNineCategory || 0,
-      tenPlace: request.hotel?.prices?.priceTenCategory || 0
+      studio: request.hotelChess[0]?.room?.price || 1,
+      apartment: request.hotelChess[0]?.room?.price || 1,
+      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
     }
     pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
