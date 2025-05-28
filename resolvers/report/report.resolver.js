@@ -614,13 +614,19 @@ const calculateTotalDays = (start, end) => {
 }
 
 const calculateEffectiveCostDaysWithPartial = (
-  rawIn,
-  rawOut,
+  arrival,
+  departure,
   filterStart,
   filterEnd
 ) => {
-  const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
-  const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
+  // const effectiveArrival = filterStart
+  const effectiveArrival = arrival < filterStart ? filterStart : arrival
+  // const effectiveDeparture = filterEnd
+  const effectiveDeparture = departure > filterEnd ? filterEnd : departure
+  console.log("\n effectiveArrival - " + effectiveArrival)
+  console.log("\n filterStart - " + filterStart)
+  console.log("\n effectiveDeparture - " + effectiveDeparture)
+  console.log("\n filterEnd - " + filterEnd)
 
   if (effectiveDeparture <= effectiveArrival) return 0
 
@@ -641,6 +647,9 @@ const calculateEffectiveCostDaysWithPartial = (
   let arrivalFactor = 1
   const arrivalHours =
     effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
+  if (arrivalHours < 6) {
+    arrivalFactor = 1
+  }
   if (arrivalHours >= 6 && arrivalHours < 14) {
     arrivalFactor = 0.5
   }
@@ -650,6 +659,10 @@ const calculateEffectiveCostDaysWithPartial = (
     effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
   if (departureHours >= 12 && departureHours < 18) {
     departureFactor = 0.5
+  }
+
+  if (departureHours > 18) {
+    departureFactor = 1
   }
 
   if (dayDifference === 0) {
@@ -686,14 +699,73 @@ const aggregateRequestReports = (
       const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
       const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
 
+      // const formatLocalDate = (date) => {
+      //   const dd = String(date.getDate()).padStart(2, "0")
+      //   const mm = String(date.getMonth() + 1).padStart(2, "0")
+      //   const yyyy = date.getFullYear()
+      //   const hh = String(date.getHours()).padStart(2, "0")
+      //   const min = String(date.getMinutes()).padStart(2, "0")
+      //   const ss = String(date.getSeconds()).padStart(2, "0")
+      //   return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
+      // }
       const formatLocalDate = (date) => {
-        const dd = String(date.getDate()).padStart(2, "0")
-        const mm = String(date.getMonth() + 1).padStart(2, "0")
-        const yyyy = date.getFullYear()
-        const hh = String(date.getHours()).padStart(2, "0")
-        const min = String(date.getMinutes()).padStart(2, "0")
-        const ss = String(date.getSeconds()).padStart(2, "0")
-        return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
+        const dd = String(date.getUTCDate()).padStart(2, "0")
+        const mm = String(date.getUTCMonth() + 1).padStart(2, "0")
+        const yyyy = date.getUTCFullYear()
+        const hh = String(date.getUTCHours()).padStart(2, "0")
+        const mi = String(date.getUTCMinutes()).padStart(2, "0")
+        const ss = String(date.getUTCSeconds()).padStart(2, "0")
+        return `${dd}.${mm}.${yyyy} ${hh}:${mi}:${ss}`
+      }
+
+      // const formatUtcDateTime = (date) => {
+      //   const dd = String(date.getUTCDate()).padStart(2, "0")
+      //   const mm = String(date.getUTCMonth() + 1).padStart(2, "0")
+      //   const yyyy = date.getUTCFullYear()
+      //   const hh = String(date.getUTCHours()).padStart(2, "0")
+      //   const mi = String(date.getUTCMinutes()).padStart(2, "0")
+      //   const ss = String(date.getUTCSeconds()).padStart(2, "0")
+      //   return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}.000Z`
+      // }
+
+      const formatUtcDateTime = (date) => {
+        // московский часовой пояс — +3 часа
+        const MOSCOW_OFFSET_MIN = 3 * 60
+
+        // смещаем метку времени на +3 часа
+        const ts = date.getTime() + MOSCOW_OFFSET_MIN * 60 * 1000
+        const moscowDate = new Date(ts)
+
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        const months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec"
+        ]
+
+        const dayName = weekdays[moscowDate.getUTCDay()]
+        const monthName = months[moscowDate.getUTCMonth()]
+        const day = String(moscowDate.getUTCDate()).padStart(2, "0")
+        const year = moscowDate.getUTCFullYear()
+
+        const hh = String(moscowDate.getUTCHours()).padStart(2, "0")
+        const mi = String(moscowDate.getUTCMinutes()).padStart(2, "0")
+        const ss = String(moscowDate.getUTCSeconds()).padStart(2, "0")
+
+        // жёстко задаём смещение +0300 и русское название зоны
+        const offset = "GMT+0300"
+        const zoneName = "(Москва, стандартное время)"
+
+        return `${dayName} ${monthName} ${day} ${year} ${hh}:${mi}:${ss} ${offset} ${zoneName}`
       }
 
       const categoryMapping = {
@@ -715,10 +787,15 @@ const aggregateRequestReports = (
       const arrivalFormatted = formatLocalDate(effectiveArrival)
       const departureFormatted = formatLocalDate(effectiveDeparture)
 
-      const fullDays = calculateTotalDays(rawIn, rawOut)
+      const arrivalForCalc = formatUtcDateTime(effectiveArrival)
+      console.log("\n arrivalForCalc - " + arrivalForCalc)
+      const departureForCalc = formatUtcDateTime(effectiveDeparture)
+      console.log("\n departureForCalc - " + departureForCalc)
+
+      const fullDays = calculateTotalDays(arrivalFormatted, departureFormatted)
       const effectiveDays = calculateEffectiveCostDaysWithPartial(
-        rawIn,
-        rawOut,
+        arrivalForCalc,
+        departureForCalc,
         filterStart,
         filterEnd
       )
