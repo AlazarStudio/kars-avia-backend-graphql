@@ -623,10 +623,10 @@ const calculateEffectiveCostDaysWithPartial = (
   const effectiveArrival = arrival < filterStart ? filterStart : arrival
   // const effectiveDeparture = filterEnd
   const effectiveDeparture = departure > filterEnd ? filterEnd : departure
-  console.log("\n effectiveArrival - " + effectiveArrival)
-  console.log("\n filterStart - " + filterStart)
-  console.log("\n effectiveDeparture - " + effectiveDeparture)
-  console.log("\n filterEnd - " + filterEnd)
+  // console.log("\n effectiveArrival - " + effectiveArrival)
+  // console.log("\n filterStart - " + filterStart)
+  // console.log("\n effectiveDeparture - " + effectiveDeparture)
+  // console.log("\n filterEnd - " + filterEnd)
 
   if (effectiveDeparture <= effectiveArrival) return 0
 
@@ -788,14 +788,14 @@ const aggregateRequestReports = (
       const departureFormatted = formatLocalDate(effectiveDeparture)
 
       const arrivalForCalc = formatUtcDateTime(effectiveArrival)
-      console.log("\n arrivalForCalc - " + arrivalForCalc)
+      // console.log("\n arrivalForCalc - " + arrivalForCalc)
       const departureForCalc = formatUtcDateTime(effectiveDeparture)
-      console.log("\n departureForCalc - " + departureForCalc)
+      // console.log("\n departureForCalc - " + departureForCalc)
 
       const fullDays = calculateTotalDays(arrivalFormatted, departureFormatted)
       const effectiveDays = calculateEffectiveCostDaysWithPartial(
-        arrivalForCalc,
-        departureForCalc,
+        effectiveArrival,
+        effectiveDeparture,
         filterStart,
         filterEnd
       )
