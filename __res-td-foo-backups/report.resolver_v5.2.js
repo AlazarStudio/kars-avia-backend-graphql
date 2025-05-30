@@ -163,27 +163,15 @@ const reportResolver = {
               }
             }
           },
-          select: {
-            person: { select: { position: true, name: true } },
+          include: {
+            person: { include: { position: true } },
             hotelChess: {
-              select: {
-                id: true,
-                room: true,
-                start: true,
-                end: true
+              include: {
+                room: true
               }
             },
-            hotel: {
-              select: {
-                id: true,
-                name: true,
-                breakfast: true,
-                lunch: true,
-                dinner: true,
-                mealPrice: true
-              }
-            },
-            airline: { select: { prices: { include: { airports: true } } } },
+            hotel: true,
+            airline: { include: { prices: { include: { airports: true } } } },
             mealPlan: true,
             airport: true
           },
@@ -191,7 +179,7 @@ const reportResolver = {
         })
 
         console.log("\n requests: \n " + JSON.stringify(requests))
-
+        
         reportData = aggregateRequestReports(
           requests,
           "airline",
