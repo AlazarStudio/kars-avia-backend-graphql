@@ -1,10 +1,5 @@
-// Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
-import {
-  // generatePDF,
-  generateExcelHotel,
-  generateExcelAvia
-} from "../../exports/exporter.js"
+import { generateExcelAvia } from "../../exports/exporter.js"
 import path from "path"
 import fs from "fs"
 import {
@@ -226,8 +221,6 @@ const reportResolver = {
       return savedReport
     },
 
-    // --------------------------------------------------------------------------------------------------------------------
-
     deleteReport: async (_, { id }, context) => {
       const { user } = context
       const report = await prisma.savedReport.findUnique({
@@ -354,22 +347,16 @@ const applyFilters = (filter) => {
   return where
 }
 
-/* ========================= */
-/* Функции для получения цен */
-/* ========================= */
-
 const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
 
   const airlinePrices = request.airline?.prices
   for (const contract of airlinePrices) {
     if (contract.airports && contract.airports.length > 0) {
-      // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
         (item) => item.airportId && item.airportId === airportId
       )
       if (match) {
-        // В зависимости от категории возвращаем соответствующее поле цены
         switch (category) {
           case "studio":
             return contract.prices?.priceStudio || 0
@@ -412,7 +399,6 @@ const getAirlineMealPrice = (request) => {
   const airlinePrices = request.airline?.prices
   for (const contract of airlinePrices) {
     if (contract.airports && contract.airports.length > 0) {
-      // Ищем среди привязанных аэропортов тот, чей airport.id совпадает с id заявки
       const match = contract.airports.find(
         (item) => item.airportId && item.airportId === airportId
       )
@@ -423,10 +409,6 @@ const getAirlineMealPrice = (request) => {
   }
   return 0
 }
-
-/* =================================== */
-/* Функции для расчёта количества дней */
-/* =================================== */
 
 const calculateTotalDays = (start, end) => {
   if (!start || !end) return 0
@@ -498,15 +480,10 @@ const calculateEffectiveCostDaysWithPartial = (
   }
 }
 
-/* ============================= */
-/* Функции для агрегации заявок  */
-/* ============================= */
-
 function parseAsLocal(input) {
   let year, monthIndex, day, hour, minute, second
 
   if (typeof input === "string") {
-    // разбираем "2025-05-11T13:00:00.000Z" или без .000Z
     const [y, m, d, h, min, s] = input
       .match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/)
       .slice(1)
@@ -518,8 +495,6 @@ function parseAsLocal(input) {
     minute = min
     second = s
   } else if (input instanceof Date) {
-    // берём UTC-геттеры, чтобы «извлечь» именно компоненты,
-    // которые лежат в объекте как utc
     year = input.getUTCFullYear()
     monthIndex = input.getUTCMonth()
     day = input.getUTCDate()
@@ -530,7 +505,6 @@ function parseAsLocal(input) {
     throw new TypeError("Ожидается строка ISO или Date")
   }
 
-  // Конструируем новый Date в вашей локальной TZ
   return new Date(year, monthIndex, day, hour, minute, second)
 }
 
@@ -550,56 +524,17 @@ const aggregateRequestReports = (
   filterStart,
   filterEnd
 ) => {
-  // задаём порядок категорий
-  // const categoryOrder = [
-  //   "studio",
-  //   "apartment",
-  //   "luxe",
-  //   "onePlace",
-  //   "twoPlace",
-  //   "threePlace",
-  //   "fourPlace",
-  //   "fivePlace",
-  //   "sixPlace",
-  //   "sevenPlace",
-  //   "eightPlace",
-  //   "ninePlace",
-  //   "tenPlace"
-  // ]
-  // // Фильтруем ненужные позиции
-  // const filtered = requests.filter((r) => {
-  //   const pos = r.person?.position?.name
-  //   return pos !== "Техник" && pos !== "Инженер"
-  // })
-
-  // filtered.sort((a, b) => {
-  //   const hotelA = a.hotel?.name || ""
-  //   const hotelB = b.hotel?.name || ""
-  //   if (hotelA !== hotelB) {
-  //     // локаль ru, чтобы кириллица сортировалась корректно
-  //     return hotelA.localeCompare(hotelB, "ru")
-  //   }
-  //   // если та же гостиница — смотрим на roomCategory
-  //   return (
-  //     categoryOrder.indexOf(a.roomCategory) -
-  //     categoryOrder.indexOf(b.roomCategory)
-  //   )
-  // })
-
-  // Фильтруем ненужные позиции
   const filtered = requests.filter((r) => {
     const pos = r.person?.position?.name
     return pos !== "Техник" && pos !== "Инженер"
   })
 
   filtered.sort((a, b) => {
-    // 1) Сравниваем по названию отеля
     const hotelA = a.hotel?.name || ""
     const hotelB = b.hotel?.name || ""
     const hotelCmp = hotelA.localeCompare(hotelB, "ru")
     if (hotelCmp !== 0) return hotelCmp
 
-    // 2) Сравниваем по порядковому номеру типа комнаты
     const catOrder = [
       "studio",
       "apartment",
@@ -619,13 +554,11 @@ const aggregateRequestReports = (
     const catB = catOrder.indexOf(b.roomCategory)
     if (catA !== catB) return catA - catB
 
-    // 3) И, наконец, по ФИО сотрудника (по-русски)
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
     return nameA.localeCompare(nameB, "ru")
   })
 
-  // Теперь уже мапим отсортированный массив
   return filtered.map((request, index) => {
     const hotelChess = request.hotelChess?.[0] || {}
     const rawIn = hotelChess.start
@@ -668,8 +601,6 @@ const aggregateRequestReports = (
       effectiveDays
     )
 
-    // Meal Price calculate
-
     const mealPlan = request.mealPlan || {}
 
     const isNoMealCategory = ["apartment", "studio"].includes(
@@ -695,17 +626,13 @@ const aggregateRequestReports = (
       mealPrices = request.hotel?.mealPrice
     }
 
-    // const mealPrices = request.airline?.mealPrice || request.hotel?.mealPrice || {}
     const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
     const lunchCost = lunchCount * (mealPrices.lunch || 0)
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
-    // Meal Price calculate
-
     return {
       index: index + 1,
-      // чтобы в Excel было видно, к какой гостинице относится строка
       hotelName: request.hotel?.name || "Не указано",
       arrival: formatLocalDate(effectiveArrival),
       departure: formatLocalDate(effectiveDeparture),
@@ -729,19 +656,13 @@ const aggregateRequestReports = (
   })
 }
 
-/* ======================================== */
-/* Функции для расчёта стоимости проживания */
-/* ======================================== */
-
 const calculateLivingCost = (request, type, days) => {
   const roomCategory = request.roomCategory
   let pricePerDay = 0
 
   if (type === "airline") {
-    // Для авиакомпании ищем цену по тарифным договорам, основываясь на аэропорте заявки
     pricePerDay = getAirlinePriceForCategory(request, roomCategory)
   } else if (type === "hotel") {
-    // Логика для отеля остается прежней (при необходимости её можно тоже изменить)
     const hotelPriceMapping = {
       studio: request.hotelChess[0]?.room?.price || 1,
       apartment: request.hotelChess[0]?.room?.price || 1,

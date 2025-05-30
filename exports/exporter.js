@@ -31,7 +31,8 @@ export const generateExcelAvia = async (reportData, filePath) => {
     { header: "Ужин", key: "dinnerCount", width: 10 },
     { header: "Стоимость питания", key: "totalMealCost", width: 22 },
     { header: "Стоимость проживания", key: "totalLivingCost", width: 22 },
-    { header: "Итоговая стоимость", key: "totalDebt", width: 22 }
+    { header: "Итоговая стоимость", key: "totalDebt", width: 22 },
+    { header: "Гостиница", key: "hotelName", width: 30 }
   ]
 
   reportData.forEach((row) => {
@@ -49,7 +50,8 @@ export const generateExcelAvia = async (reportData, filePath) => {
       dinnerCount: row.dinnerCount,
       totalMealCost: formatCurrency(row.totalMealCost),
       totalLivingCost: formatCurrency(row.totalLivingCost),
-      totalDebt: formatCurrency(row.totalDebt)
+      totalDebt: formatCurrency(row.totalDebt),
+      hotelName: row.hotelName
     })
   })
 
