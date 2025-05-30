@@ -134,9 +134,16 @@ const reportResolver = {
       const startDateStr = filterStart.toISOString().slice(0, 10)
       const endDateStr = filterEnd.toISOString().slice(0, 10)
 
-      // 1) Получаем данные авиакомпании разом
+      // 1) Определяем ID авиакомпании
+      const airlineId =
+        user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
+      if (!airlineId) {
+        throw new Error("Airline ID is required to generate report")
+      }
+
+      // 2) Получаем данные авиакомпании
       const airlineData = await prisma.airline.findUnique({
-        where: { id: user.airlineId },
+        where: { id: airlineId },
         select: {
           id: true,
           name: true,
@@ -161,7 +168,10 @@ const reportResolver = {
           mealPrice: true
         }
       })
-      if (!airlineData) throw new Error("Airline not found")
+      if (!airlineData) {
+        throw new Error("Airline not found")
+      }
+      ;("Airline not found")
 
       // 2) Получаем только необходимые поля заявок
       const requests = await prisma.request.findMany({
