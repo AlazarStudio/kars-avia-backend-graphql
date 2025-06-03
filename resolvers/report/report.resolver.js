@@ -648,6 +648,7 @@ const aggregateRequestReports = (
 
     return {
       index: index + 1,
+      id: request.id,
       hotelName: request.hotel?.name || "Не указано",
       arrival: formatLocalDate(effectiveArrival),
       departure: formatLocalDate(effectiveDeparture),
