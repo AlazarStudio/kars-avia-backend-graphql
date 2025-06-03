@@ -9,6 +9,7 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { deleteFiles } from "../../exports/uploadFiles.js"
+import { error } from "console"
 
 const reportResolver = {
   Query: {
@@ -126,133 +127,100 @@ const reportResolver = {
       const { user } = context
       airlineAdminMiddleware(context)
       const { filter, format } = input
+      const separator = user.airlineId ? "airline" : "dispatcher"
 
-      if (!user) throw new Error("Access denied")
+      if (!user) {
+        throw new Error("Access denied")
+      }
 
       const filterStart = new Date(filter.startDate)
       const filterEnd = new Date(filter.endDate)
       const startDateStr = filterStart.toISOString().slice(0, 10)
       const endDateStr = filterEnd.toISOString().slice(0, 10)
 
-      // 1) Определяем ID авиакомпании
-      const airlineId =
-        user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId
-      if (!airlineId) {
-        throw new Error("Airline ID is required to generate report")
-      }
+      console.log("\n filterStart" + filterStart, "\n filterEnd" + filterEnd)
 
-      // 2) Получаем данные авиакомпании
-      const airlineData = await prisma.airline.findUnique({
-        where: { id: airlineId },
-        select: {
-          id: true,
-          name: true,
-          prices: {
-            select: {
-              priceStudio: true,
-              priceApartment: true,
-              priceLuxe: true,
-              priceOneCategory: true,
-              priceTwoCategory: true,
-              priceThreeCategory: true,
-              priceFourCategory: true,
-              priceFiveCategory: true,
-              priceSixCategory: true,
-              priceSevenCategory: true,
-              priceEightCategory: true,
-              priceNineCategory: true,
-              priceTenCategory: true,
-              airports: { select: { airportId: true } }
-            }
-          },
-          mealPrice: true
-        }
-      })
-      if (!airlineData) {
-        throw new Error("Airline not found")
-      }
-      ;("Airline not found")
-
-      // 2) Получаем только необходимые поля заявок
-      const requests = await prisma.request.findMany({
-        where: {
-          ...applyCreateFilters(filter),
-          status: {
-            in: [
-              "done",
-              "transferred",
-              "extended",
-              "archiving",
-              "archived",
-              "reduced"
-            ]
-          },
-          person: { position: { name: { notIn: ["Техник", "Инженер"] } } }
-        },
-        select: {
-          arrival: true,
-          departure: true,
-          roomCategory: true,
-          person: {
-            select: { name: true, position: { select: { name: true } } }
-          },
-          mealPlan: { select: { breakfast: true, lunch: true, dinner: true } },
-          airport: { select: { id: true } },
-          hotel: {
-            select: {
-              id: true,
-              name: true,
-              breakfast: true,
-              lunch: true,
-              dinner: true,
-              mealPrice: true
-            }
-          },
-          hotelChess: {
-            select: {
-              start: true,
-              end: true,
-              room: {
-                select: {
-                  name: true,
-                  price: true,
-                  roomKind: { select: { price: true } }
+      let reportData
+      if (filter.passengersReport) {
+        return (error = new Error(" \n passenger report not implemented! "))
+      } else {
+        const requests = await prisma.request.findMany({
+          where: {
+            ...applyCreateFilters(filter),
+            status: {
+              in: [
+                "done",
+                "transferred",
+                "extended",
+                "archiving",
+                "archived",
+                "reduced"
+              ]
+            },
+            person: {
+              position: {
+                name: {
+                  notIn: ["Техник", "Инженер"]
                 }
               }
             }
-          }
-        },
-        orderBy: { arrival: "asc" }
-      })
+          },
+          include: {
+            person: { include: { position: true } },
+            hotelChess: {
+              include: {
+                room: true
+              }
+            },
+            hotel: true,
+            airline: { include: { prices: { include: { airports: true } } } },
+            mealPlan: true,
+            airport: true
+          },
+          orderBy: { arrival: "asc" }
+        })
 
-      const reportData = aggregateRequestReports(
-        requests,
-        "airline",
-        filterStart,
-        filterEnd
-      )
+        // console.log("\n requests: \n " + JSON.stringify(requests))
 
-      const reportName = `airline_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
+        reportData = aggregateRequestReports(
+          requests,
+          "airline",
+          filterStart,
+          filterEnd
+        )
+      }
+
+      const reportName = filter.passengersReport
+        ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
+        : `airline_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
       const reportPath = path.resolve(`./reports/${reportName}`)
       fs.mkdirSync(path.dirname(reportPath), { recursive: true })
 
-      if (format === "xlsx") {
+      if (format === "pdf") {
+        throw new Error("PDF формат не реализован в данном примере")
+      } else if (format === "xlsx") {
         await generateExcelAvia(reportData, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
 
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        airlineId:
+          user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId,
+        separator: separator
+      }
+
+      if (!reportRecord.airlineId) {
+        throw new Error("Airline ID is required for this report")
+      }
+
       const savedReport = await prisma.savedReport.create({
-        data: {
-          name: reportName,
-          url: `/reports/${reportName}`,
-          startDate: filterStart,
-          endDate: filterEnd,
-          createdAt: new Date(),
-          airlineId:
-            user.role === "AIRLINEADMIN" ? user.airlineId : filter.airlineId,
-          separator: user.airlineId ? "airline" : "dispatcher"
-        }
+        data: reportRecord
       })
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
@@ -264,11 +232,21 @@ const reportResolver = {
         where: { id },
         include: { airline: true, hotel: true }
       })
-      if (!report) throw new Error("Report not found")
-      if (report.separator === "dispatcher") adminMiddleware(context)
-      if (report.separator === "airline") airlineAdminMiddleware(context)
-      if (report.separator === "hotel") hotelAdminMiddleware(context)
-      if (report.url) await deleteFiles(report.url)
+      if (!report) {
+        throw new Error("Report not found")
+      }
+      if (report.separator === "dispatcher") {
+        adminMiddleware(context)
+      }
+      if (report.separator === "airline") {
+        airlineAdminMiddleware(context)
+      }
+      if (report.separator === "hotel") {
+        hotelAdminMiddleware(context)
+      }
+      if (report.url) {
+        await deleteFiles(report.url)
+      }
       await prisma.savedReport.delete({ where: { id } })
       pubsub.publish(REPORT_CREATED, { reportCreated: report })
       return report
@@ -283,8 +261,9 @@ const reportResolver = {
 }
 
 /* ================================= */
-/* Функции для фильтров и утилиты */
+/* Функции для формирования фильтров */
 /* ================================= */
+
 const applyCreateFilters = (filter) => {
   const {
     startDate,
@@ -298,10 +277,29 @@ const applyCreateFilters = (filter) => {
     region
   } = filter
   const where = {}
+
+  console.log(
+    "\n create filters: ",
+    "\n startDate - " + startDate,
+    "\n new date startDate - " + new Date(startDate),
+    "\n endDate - " + endDate,
+    "\n new date endDate - " + new Date(endDate)
+  )
+
   if (startDate || endDate) {
     where.OR = [
-      { arrival: { gte: new Date(startDate), lte: new Date(endDate) } },
-      { departure: { gte: new Date(startDate), lte: new Date(endDate) } },
+      {
+        arrival: {
+          gte: new Date(startDate),
+          lte: new Date(endDate)
+        }
+      },
+      {
+        departure: {
+          gte: new Date(startDate),
+          lte: new Date(endDate)
+        }
+      },
       {
         AND: [
           { arrival: { lte: new Date(startDate) } },
@@ -310,13 +308,24 @@ const applyCreateFilters = (filter) => {
       }
     ]
   }
+
   if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
   if (airportId) where.airportId = airportId
-  if (positionId) where.person = { positionId }
-  if (region) where.airport = { isNot: null, city: region }
+  if (positionId) {
+    where.person = {
+      positionId: positionId
+    }
+  }
+  if (region) {
+    where.airport = {
+      isNot: null,
+      city: region
+    }
+  }
+
   return where
 }
 
@@ -332,51 +341,67 @@ const applyFilters = (filter) => {
     region
   } = filter
   const where = {}
-  if (startDate) where.createdAt = { gte: new Date(startDate) }
-  if (endDate) where.createdAt = { lte: new Date(endDate) }
+
+  if (startDate)
+    where.arrival = { gte: new Date(startDate), lte: new Date(endDate) }
+  if (endDate)
+    where.departure = { gte: new Date(startDate), lte: new Date(endDate) }
   if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
   if (positionId) where.positionId = positionId
-  if (region) where.airport = { isNot: null, city: region }
+
+  if (region) {
+    where.airport = {
+      isNot: null,
+      city: region
+    }
+  }
+
   return where
 }
 
 const getAirlinePriceForCategory = (request, category) => {
   const airportId = request.airport?.id
-  for (const contract of request.requestedAirlinePrices || []) {
-    const match = contract.airports?.find(
-      (item) => item.airportId === airportId
-    )
-    if (match) {
-      switch (category) {
-        case "studio":
-          return contract.priceStudio || 0
-        case "apartment":
-          return contract.priceApartment || 0
-        case "luxe":
-          return contract.priceLuxe || 0
-        case "onePlace":
-          return contract.priceOneCategory || 0
-        case "twoPlace":
-          return contract.priceTwoCategory || 0
-        case "threePlace":
-          return contract.priceThreeCategory || 0
-        case "fourPlace":
-          return contract.priceFourCategory || 0
-        case "fivePlace":
-          return contract.priceFiveCategory || 0
-        case "sixPlace":
-          return contract.priceSixCategory || 0
-        case "sevenPlace":
-          return contract.priceSevenCategory || 0
-        case "eightPlace":
-          return contract.priceEightCategory || 0
-        case "ninePlace":
-          return contract.priceNineCategory || 0
-        case "tenPlace":
-          return contract.priceTenCategory || 0
+
+  const airlinePrices = request.airline?.prices
+  for (const contract of airlinePrices) {
+    if (contract.airports && contract.airports.length > 0) {
+      const match = contract.airports.find(
+        (item) => item.airportId && item.airportId === airportId
+      )
+      if (match) {
+        switch (category) {
+          case "studio":
+            return contract.prices?.priceStudio || 0
+          case "apartment":
+            return contract.prices?.priceApartment || 0
+          case "luxe":
+            return contract.prices?.priceLuxe || 0
+          case "onePlace":
+            return contract.prices?.priceOneCategory || 0
+          case "twoPlace":
+            return contract.prices?.priceTwoCategory || 0
+          case "threePlace":
+            return contract.prices?.priceThreeCategory || 0
+          case "fourPlace":
+            return contract.prices?.priceFourCategory || 0
+          case "fivePlace":
+            return contract.prices?.priceFiveCategory || 0
+          case "sixPlace":
+            return contract.prices?.priceSixCategory || 0
+          case "sevenPlace":
+            return contract.prices?.priceSevenCategory || 0
+          case "eightPlace":
+            return contract.prices?.priceEightCategory || 0
+          case "ninePlace":
+            return contract.prices?.priceNineCategory || 0
+          case "tenPlace":
+            return contract.prices?.priceTenCategory || 0
+          default:
+            return 0
+        }
       }
     }
   }
@@ -385,16 +410,25 @@ const getAirlinePriceForCategory = (request, category) => {
 
 const getAirlineMealPrice = (request) => {
   const airportId = request.airport?.id
-  for (const c of request.requestedAirlinePrices || []) {
-    const match = c.airports?.find((i) => i.airportId === airportId)
-    if (match) return c.mealPrice
+
+  const airlinePrices = request.airline?.prices
+  for (const contract of airlinePrices) {
+    if (contract.airports && contract.airports.length > 0) {
+      const match = contract.airports.find(
+        (item) => item.airportId && item.airportId === airportId
+      )
+      if (match) {
+        return contract.mealPrice
+      }
+    }
   }
   return 0
 }
 
 const calculateTotalDays = (start, end) => {
   if (!start || !end) return 0
-  return Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24))
+  const differenceInMilliseconds = new Date(end) - new Date(start)
+  return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
 }
 
 const calculateEffectiveCostDaysWithPartial = (
@@ -403,44 +437,90 @@ const calculateEffectiveCostDaysWithPartial = (
   filterStart,
   filterEnd
 ) => {
-  const effArr = arrival < filterStart ? filterStart : arrival
-  const effDep = departure > filterEnd ? filterEnd : departure
-  if (effDep <= effArr) return 0
-  const arrMid = new Date(
-    effArr.getFullYear(),
-    effArr.getMonth(),
-    effArr.getDate()
+  const effectiveArrival = arrival < filterStart ? filterStart : arrival
+  const effectiveDeparture = departure > filterEnd ? filterEnd : departure
+
+  if (effectiveDeparture <= effectiveArrival) return 0
+
+  const arrivalMidnight = new Date(
+    effectiveArrival.getFullYear(),
+    effectiveArrival.getMonth(),
+    effectiveArrival.getDate()
   )
-  const depMid = new Date(
-    effDep.getFullYear(),
-    effDep.getMonth(),
-    effDep.getDate()
+  const departureMidnight = new Date(
+    effectiveDeparture.getFullYear(),
+    effectiveDeparture.getMonth(),
+    effectiveDeparture.getDate()
   )
-  const dayDiff = Math.round((depMid - arrMid) / (1000 * 60 * 60 * 24))
-  const hArr = effArr.getHours() + effArr.getMinutes() / 60
-  let arrFactor = hArr < 6 ? 1 : hArr <= 14 ? 0.5 : 0
-  const hDep = effDep.getHours() + effDep.getMinutes() / 60
-  let depFactor = hDep < 12 ? 0 : hDep <= 18 ? 0.5 : 1
-  if (dayDiff === 0) return Math.max(arrFactor, depFactor)
-  return arrFactor + (dayDiff - 1) + depFactor
+  const dayDifference = Math.round(
+    (departureMidnight - arrivalMidnight) / (1000 * 60 * 60 * 24)
+  )
+
+  let arrivalFactor = 1
+  const arrivalHours =
+    effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
+
+  if (arrivalHours < 6 && arrivalHours > 0) {
+    arrivalFactor = 1
+  }
+
+  if (arrivalHours >= 6 && arrivalHours <= 14) {
+    arrivalFactor = 0.5
+  }
+
+  if (arrivalHours > 14 && arrivalHours < 24) {
+    arrivalFactor = 0
+  }
+
+  let departureFactor = 1
+  const departureHours =
+    effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
+
+  if (departureHours < 12 && departureHours > 0) {
+    departureFactor = 0
+  }
+
+  if (departureHours >= 12 && departureHours <= 18) {
+    departureFactor = 0.5
+  }
+
+  if (departureHours > 18 && departureHours < 24) {
+    departureFactor = 1
+  }
+
+  if (dayDifference === 0) {
+    return Math.max(arrivalFactor, departureFactor)
+  } else {
+    return arrivalFactor + (dayDifference - 1) + departureFactor
+  }
 }
 
 function parseAsLocal(input) {
-  let y, m, d, h, min, s
+  let year, monthIndex, day, hour, minute, second
+
   if (typeof input === "string") {
-    ;[y, m, d, h, min, s] = input
+    const [y, m, d, h, min, s] = input
       .match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/)
       .slice(1)
       .map(Number)
+    year = y
+    monthIndex = m - 1
+    day = d
+    hour = h
+    minute = min
+    second = s
+  } else if (input instanceof Date) {
+    year = input.getUTCFullYear()
+    monthIndex = input.getUTCMonth()
+    day = input.getUTCDate()
+    hour = input.getUTCHours()
+    minute = input.getUTCMinutes()
+    second = input.getUTCSeconds()
   } else {
-    y = input.getUTCFullYear()
-    m = input.getUTCMonth() + 1
-    d = input.getUTCDate()
-    h = input.getUTCHours()
-    min = input.getUTCMinutes()
-    s = input.getUTCSeconds()
+    throw new TypeError("Ожидается строка ISO или Date")
   }
-  return new Date(y, m - 1, d, h, min, s)
+
+  return new Date(year, monthIndex, day, hour, minute, second)
 }
 
 const formatLocalDate = (date) => {
@@ -448,9 +528,9 @@ const formatLocalDate = (date) => {
   const mm = String(date.getMonth() + 1).padStart(2, "0")
   const yyyy = date.getFullYear()
   const hh = String(date.getHours()).padStart(2, "0")
-  const mi = String(date.getMinutes()).padStart(2, "0")
+  const min = String(date.getMinutes()).padStart(2, "0")
   const ss = String(date.getSeconds()).padStart(2, "0")
-  return `${dd}.${mm}.${yyyy} ${hh}:${mi}:${ss}`
+  return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
 }
 
 const aggregateRequestReports = (
@@ -459,109 +539,164 @@ const aggregateRequestReports = (
   filterStart,
   filterEnd
 ) => {
-  const categoryMapping = {
-    studio: "Студия",
-    apartment: "Апартаменты",
-    luxe: "Люкс",
-    onePlace: "Одноместный",
-    twoPlace: "Двухместный",
-    threePlace: "Трёхместный",
-    fourPlace: "Четырёхместный",
-    fivePlace: "Пятиместный",
-    sixPlace: "Шестиместный",
-    sevenPlace: "Семиместный",
-    eightPlace: "Восьмиместный",
-    ninePlace: "Девятиместный",
-    tenPlace: "Десятиместный"
-  }
   const filtered = requests.filter((r) => {
     const pos = r.person?.position?.name
-    return pos != "Техник" && pos != "Инженер"
-  })
-  const categoryOrder = Object.keys(categoryMapping)
-  filtered.sort((a, b) => {
-    const hA = a.hotel?.name || "",
-      hB = b.hotel?.name || ""
-    const cmpH = hA.localeCompare(hB, "ru")
-    if (cmpH) return cmpH
-    const cA = categoryOrder.indexOf(a.roomCategory)
-    const cB = categoryOrder.indexOf(b.roomCategory)
-    if (cA !== cB) return cA - cB
-    const nA = a.person?.name || "",
-      nB = b.person?.name || ""
-    return nA.localeCompare(nB, "ru")
+    return pos !== "Техник" && pos !== "Инженер"
   })
 
-  return filtered.map((req, i) => {
-    const hc = req.hotelChess?.[0] || {}
-    const rawIn = hc.start ? parseAsLocal(hc.start) : parseAsLocal(req.arrival)
-    const rawOut = hc.end ? parseAsLocal(hc.end) : parseAsLocal(req.departure)
-    const effArr = rawIn < filterStart ? filterStart : rawIn
-    const effDep = rawOut > filterEnd ? filterEnd : rawOut
-    const days = calculateEffectiveCostDaysWithPartial(
-      effArr,
-      effDep,
+  filtered.sort((a, b) => {
+    const hotelA = a.hotel?.name || ""
+    const hotelB = b.hotel?.name || ""
+    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    if (hotelCmp !== 0) return hotelCmp
+
+    const catOrder = [
+      "studio",
+      "apartment",
+      "luxe",
+      "onePlace",
+      "twoPlace",
+      "threePlace",
+      "fourPlace",
+      "fivePlace",
+      "sixPlace",
+      "sevenPlace",
+      "eightPlace",
+      "ninePlace",
+      "tenPlace"
+    ]
+    const catA = catOrder.indexOf(a.roomCategory)
+    const catB = catOrder.indexOf(b.roomCategory)
+    if (catA !== catB) return catA - catB
+
+    const nameA = a.person?.name || ""
+    const nameB = b.person?.name || ""
+    return nameA.localeCompare(nameB, "ru")
+  })
+
+  return filtered.map((request, index) => {
+    const hotelChess = request.hotelChess?.[0] || {}
+    const rawIn = hotelChess.start
+      ? parseAsLocal(hotelChess.start)
+      : parseAsLocal(request.arrival)
+    const rawOut = hotelChess.end
+      ? parseAsLocal(hotelChess.end)
+      : parseAsLocal(request.departure)
+
+    const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
+    const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
+
+    const categoryMapping = {
+      studio: "Студия",
+      apartment: "Апартаменты",
+      luxe: "Люкс",
+      onePlace: "Одноместный",
+      twoPlace: "Двухместный",
+      threePlace: "Трёхместный",
+      fourPlace: "Четырёхместный",
+      fivePlace: "Пятиместный",
+      sixPlace: "Шестиместный",
+      sevenPlace: "Семиместный",
+      eightPlace: "Восьмиместный",
+      ninePlace: "Девятиместный",
+      tenPlace: "Десятиместный"
+    }
+
+    const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
+    const effectiveDays = calculateEffectiveCostDaysWithPartial(
+      effectiveArrival,
+      effectiveDeparture,
       filterStart,
       filterEnd
     )
-    const living = calculateLivingCost(req, reportType, days)
-    const meal =
-      reportType === "airline"
-        ? getAirlineMealPrice(req)
-        : req.hotel?.mealPrice || {}
-    const fullDays = calculateTotalDays(effArr, effDep)
-    let b = meal.breakfast || 0,
-      l = meal.lunch || 0,
-      d = meal.dinner || 0
-    if (fullDays > 0 && days < fullDays) {
-      const r = days / fullDays
-      b = Math.round(b * r)
-      l = Math.round(l * r)
-      d = Math.round(d * r)
+
+    const totalLivingCost = calculateLivingCost(
+      request,
+      reportType,
+      effectiveDays
+    )
+
+    const mealPlan = request.mealPlan || {}
+
+    const isNoMealCategory = ["apartment", "studio"].includes(
+      request.roomCategory
+    )
+
+    let breakfastCount = isNoMealCategory ? 0 : mealPlan.breakfast || 0
+    let lunchCount = isNoMealCategory ? 0 : mealPlan.lunch || 0
+    let dinnerCount = isNoMealCategory ? 0 : mealPlan.dinner || 0
+
+    if (fullDays > 0 && effectiveDays < fullDays) {
+      const ratio = effectiveDays / fullDays
+      breakfastCount = Math.round(breakfastCount * ratio)
+      lunchCount = Math.round(lunchCount * ratio)
+      dinnerCount = Math.round(dinnerCount * ratio)
     }
-    const totalMeal =
-      b * (meal.breakfast || 0) + l * (meal.lunch || 0) + d * (meal.dinner || 0)
+
+    let mealPrices
+    if (reportType === "airline") {
+      mealPrices = getAirlineMealPrice(request)
+    }
+    if (reportType === "hotel") {
+      mealPrices = request.hotel?.mealPrice
+    }
+
+    const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
+    const lunchCost = lunchCount * (mealPrices.lunch || 0)
+    const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
+    const totalMealCost = breakfastCost + lunchCost + dinnerCost
+
     return {
-      index: i + 1,
-      hotelName: req.hotel?.name || "Не указано",
-      arrival: formatLocalDate(effArr),
-      departure: formatLocalDate(effDep),
-      totalDays: days,
-      category: categoryMapping[req.roomCategory] || req.roomCategory,
-      personName: req.person?.name || "Не указано",
-      personPosition: req.person?.position?.name || "Не указано",
-      roomName: hc.room?.name || "",
-      breakfastCount: b,
-      lunchCount: l,
-      dinnerCount: d,
-      totalMealCost: totalMeal,
-      totalLivingCost: living,
-      totalDebt: living + totalMeal
+      index: index + 1,
+      hotelName: request.hotel?.name || "Не указано",
+      arrival: formatLocalDate(effectiveArrival),
+      departure: formatLocalDate(effectiveDeparture),
+      totalDays: calculateEffectiveCostDaysWithPartial(
+        effectiveArrival,
+        effectiveDeparture,
+        filterStart,
+        filterEnd
+      ),
+      category: categoryMapping[request.roomCategory] || request.roomCategory,
+      personName: request.person?.name || "Не указано",
+      personPosition: request.person?.position?.name || "Не указано",
+      roomName: hotelChess.room?.name || "",
+      breakfastCount,
+      lunchCount,
+      dinnerCount,
+      totalMealCost,
+      totalLivingCost,
+      totalDebt: totalLivingCost + totalMealCost
     }
   })
 }
 
 const calculateLivingCost = (request, type, days) => {
-  if (days <= 0) return 0
-  const cat = request.roomCategory
-  if (type === "airline") return days * getAirlinePriceForCategory(request, cat)
-  const room = request.hotelChess?.[0]?.room
-  const mapping = {
-    studio: room?.price,
-    apartment: room?.price,
-    luxe: room?.roomKind?.price,
-    onePlace: room?.roomKind?.price,
-    twoPlace: room?.roomKind?.price,
-    threePlace: room?.roomKind?.price,
-    fourPlace: room?.roomKind?.price,
-    fivePlace: room?.roomKind?.price,
-    sixPlace: room?.roomKind?.price,
-    sevenPlace: room?.roomKind?.price,
-    eightPlace: room?.roomKind?.price,
-    ninePlace: room?.roomKind?.price,
-    tenPlace: room?.roomKind?.price
+  const roomCategory = request.roomCategory
+  let pricePerDay = 0
+
+  if (type === "airline") {
+    pricePerDay = getAirlinePriceForCategory(request, roomCategory)
+  } else if (type === "hotel") {
+    const hotelPriceMapping = {
+      studio: request.hotelChess[0]?.room?.price || 1,
+      apartment: request.hotelChess[0]?.room?.price || 1,
+      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
+    }
+    pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
-  return days * (mapping[cat] || 0)
+
+  return days > 0 ? days * pricePerDay : 0
 }
 
 export default reportResolver
