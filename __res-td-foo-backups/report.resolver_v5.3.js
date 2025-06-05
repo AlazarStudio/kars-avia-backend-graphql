@@ -452,41 +452,51 @@ const calculateEffectiveCostDaysWithPartial = (
     effectiveDeparture.getMonth(),
     effectiveDeparture.getDate()
   )
-
   const dayDifference = Math.round(
     (departureMidnight - arrivalMidnight) / (1000 * 60 * 60 * 24)
   )
 
-  let arrivalFactor = 0
+  let arrivalFactor = 1
   const arrivalHours =
     effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
 
-  if (arrivalHours < 6) {
-    arrivalFactor = 1
-  } else if (arrivalHours < 14) {
-    arrivalFactor = 0.5
-  } else {
+  if (arrivalHours < 6 && arrivalHours > 0) {
     arrivalFactor = 1
   }
 
-  let departureFactor = 0
+  if (arrivalHours >= 6 && arrivalHours < 14) {
+    arrivalFactor = 0.5
+  }
+
+  if (arrivalHours >= 15 && arrivalHours < 24) {
+    arrivalFactor = 0
+  }
+
+  let departureFactor = 1
   const departureHours =
     effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
 
-  if (departureHours <= 12) {
+  if (departureHours < 12 && departureHours > 0) {
     departureFactor = 0
-  } else if (departureHours <= 18) {
+  }
+
+  if (departureHours >= 13 && departureHours <= 18) {
     departureFactor = 0.5
-  } else {
+  }
+
+  if (departureHours > 18 && departureHours < 24) {
     departureFactor = 1
   }
 
   if (dayDifference === 0) {
     return Math.max(arrivalFactor, departureFactor)
-  } else if (dayDifference === 1) {
-    return arrivalFactor + departureFactor
+  } else if (
+    dayDifference === 1 &&
+    arrivalFactor + (dayDifference - 1) + departureFactor === 0
+  ) {
+    return 1
   } else {
-    return arrivalFactor + dayDifference + departureFactor
+    return arrivalFactor + (dayDifference - 1) + departureFactor
   }
 }
 
