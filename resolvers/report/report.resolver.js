@@ -469,6 +469,8 @@ const calculateEffectiveCostDaysWithPartial = (
     arrivalFactor = 1
   }
 
+  arrivalFactor = arrival < filterStart ? 0 : arrivalFactor
+
   let departureFactor = 0
   const departureHours =
     effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
@@ -480,6 +482,8 @@ const calculateEffectiveCostDaysWithPartial = (
   } else {
     departureFactor = 1
   }
+
+  departureFactor = departure > filterEnd ? 0 : departureFactor
 
   if (dayDifference === 0) {
     return Math.max(arrivalFactor, departureFactor)
@@ -540,29 +544,29 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    const hotelA = a.hotel?.name || ""
-    const hotelB = b.hotel?.name || ""
-    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
-    if (hotelCmp !== 0) return hotelCmp
+    // const hotelA = a.hotel?.name || ""
+    // const hotelB = b.hotel?.name || ""
+    // const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    // if (hotelCmp !== 0) return hotelCmp
 
-    const catOrder = [
-      "studio",
-      "apartment",
-      "luxe",
-      "onePlace",
-      "twoPlace",
-      "threePlace",
-      "fourPlace",
-      "fivePlace",
-      "sixPlace",
-      "sevenPlace",
-      "eightPlace",
-      "ninePlace",
-      "tenPlace"
-    ]
-    const catA = catOrder.indexOf(a.roomCategory)
-    const catB = catOrder.indexOf(b.roomCategory)
-    if (catA !== catB) return catA - catB
+    // const catOrder = [
+    //   "studio",
+    //   "apartment",
+    //   "luxe",
+    //   "onePlace",
+    //   "twoPlace",
+    //   "threePlace",
+    //   "fourPlace",
+    //   "fivePlace",
+    //   "sixPlace",
+    //   "sevenPlace",
+    //   "eightPlace",
+    //   "ninePlace",
+    //   "tenPlace"
+    // ]
+    // const catA = catOrder.indexOf(a.roomCategory)
+    // const catB = catOrder.indexOf(b.roomCategory)
+    // if (catA !== catB) return catA - catB
 
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
@@ -599,8 +603,8 @@ const aggregateRequestReports = (
 
     const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
     const effectiveDays = calculateEffectiveCostDaysWithPartial(
-      effectiveArrival,
-      effectiveDeparture,
+      rawIn,
+      rawOut,
       filterStart,
       filterEnd
     )
@@ -648,8 +652,8 @@ const aggregateRequestReports = (
       arrival: formatLocalDate(effectiveArrival),
       departure: formatLocalDate(effectiveDeparture),
       totalDays: calculateEffectiveCostDaysWithPartial(
-        effectiveArrival,
-        effectiveDeparture,
+        rawIn,
+        rawOut,
         filterStart,
         filterEnd
       ),
