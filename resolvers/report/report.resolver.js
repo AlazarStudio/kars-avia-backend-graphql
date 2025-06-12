@@ -352,9 +352,9 @@ const applyFilters = (filter) => {
   const where = {}
 
   if (startDate)
-    where.arrival = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.createdAt = { gte: new Date(startDate), lte: new Date(endDate) }
   if (endDate)
-    where.departure = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.createdAt = { gte: new Date(startDate), lte: new Date(endDate) }
   if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
