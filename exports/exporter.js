@@ -19,7 +19,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   sheet.columns = [
     { header: "п/п", key: "index", width: 6 },
-    { header: "id", key: "id", width: 25 },
+    // { header: "id", key: "id", width: 30 },
     { header: "Дата/время заезда", key: "arrival", width: 25 },
     { header: "Дата/время выезда", key: "departure", width: 25 },
     { header: "кол-во суток", key: "totalDays", width: 10 },
@@ -39,7 +39,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
   reportData.forEach((row) => {
     sheet.addRow({
       index: row.index,
-      id: row.id,
+      // id: row.id,
       arrival: row.arrival,
       departure: row.departure,
       totalDays: row.totalDays,
@@ -99,49 +99,46 @@ export const generateExcelAvia = async (reportData, filePath) => {
         bottom: { style: "thin" },
         right: { style: "thin" }
       }
-      // ----------------------------------------------------------------
-      if (row.hasValues) {
-        // выбираем цвет: нечётная → светло-серый, чётная → тёмно-серый
-        const isOdd = row.number % 2 === 1
-        const fillColor = isOdd ? "FFEEEEEE" : "FFCCCCCC"
+      // ---------------------------------------------------------------- ↓↓↓↓
+      // if (row.hasValues) {
+      //   const isOdd = row.number % 2 === 1
+      //   const fillColor = isOdd ? "FFEEEEEE" : "FFCCCCCC"
 
-        row.eachCell((cell) => {
-          // общий шрифт и границы
-          cell.font = { name: "Times New Roman", size: 12 }
-          cell.border = {
-            top: { style: "thin" },
-            left: { style: "thin" },
-            bottom: { style: "thin" },
-            right: { style: "thin" }
-          }
-          // заливаем фон
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: fillColor }
-          }
-        })
-      }
-      // ----------------------------------------------------------------
+      //   row.eachCell((cell) => {
+      //     cell.font = { name: "Times New Roman", size: 12 }
+      //     cell.border = {
+      //       top: { style: "thin" },
+      //       left: { style: "thin" },
+      //       bottom: { style: "thin" },
+      //       right: { style: "thin" }
+      //     }
+      //     cell.fill = {
+      //       type: "pattern",
+      //       pattern: "solid",
+      //       fgColor: { argb: fillColor }
+      //     }
+      //   })
+      // }
+      // ---------------------------------------------------------------- ↑↑↑↑
     })
   })
 
-  // const headerRow = sheet.getRow(1)
-  // headerRow.font = { name: "Times New Roman", size: 12, bold: true }
-  // headerRow.height = 30
+  const headerRow = sheet.getRow(1)
+  headerRow.font = { name: "Times New Roman", size: 12, bold: true }
+  headerRow.height = 30
 
-  // ----------------------------------------------------------------
-  const header = sheet.getRow(1)
-  header.font = { name: "Times New Roman", size: 12, bold: true }
-  header.height = 30
-  header.eachCell((cell) => {
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FF999999" }
-    }
-  })
-  // ----------------------------------------------------------------
+  // ---------------------------------------------------------------- ↓↓↓↓
+  // const header = sheet.getRow(1)
+  // header.font = { name: "Times New Roman", size: 12, bold: true }
+  // header.height = 30
+  // header.eachCell((cell) => {
+  //   cell.fill = {
+  //     type: "pattern",
+  //     pattern: "solid",
+  //     fgColor: { argb: "FF999999" }
+  //   }
+  // })
+  // ---------------------------------------------------------------- ↑↑↑↑
 
   await workbook.xlsx.writeFile(filePath)
 }

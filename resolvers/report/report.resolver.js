@@ -9,7 +9,7 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { deleteFiles } from "../../exports/uploadFiles.js"
-import { error } from "console"
+import { error, log } from "console"
 
 const reportResolver = {
   Query: {
@@ -453,45 +453,56 @@ const calculateEffectiveCostDaysWithPartial = (
     effectiveDeparture.getDate()
   )
 
-  const dayDifference = Math.round(
+  const dayDifference =
     (departureMidnight - arrivalMidnight) / (1000 * 60 * 60 * 24)
-  )
+
+  const arrivalHours =
+    arrival < filterStart
+      ? 14
+      : effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
 
   let arrivalFactor = 0
-  const arrivalHours =
-    effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
 
-  if (arrivalHours < 6) {
+  if (arrivalHours > 0 && arrivalHours < 6) {
     arrivalFactor = 1
-  } else if (arrivalHours < 14) {
+    // arrivalFactor = 1.5
+  } else if (arrivalHours >= 6 && arrivalHours < 14) {
     arrivalFactor = 0.5
-  } else {
-    arrivalFactor = 1
+    // arrivalFactor = 1
+  } else if (arrivalHours >= 14 && arrivalHours < 24) {
+    arrivalFactor = 0
+    // arrivalFactor = 0.5
   }
 
-  arrivalFactor = arrival < filterStart ? 0 : arrivalFactor
+  const departureHours =
+    departure > filterEnd
+      ? 12
+      : effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
 
   let departureFactor = 0
-  const departureHours =
-    effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
 
-  if (departureHours <= 12) {
+  if (departureHours > 0 && departureHours <= 12) {
     departureFactor = 0
-  } else if (departureHours <= 18) {
+    // departureFactor = 0.5
+  } else if (departureHours > 12 && departureHours <= 18) {
     departureFactor = 0.5
-  } else {
+    // departureFactor = 1
+  } else if (departureHours > 18 && departureHours < 24) {
     departureFactor = 1
+    // departureFactor = 1.5
   }
-
-  departureFactor = departure > filterEnd ? 0 : departureFactor
 
   if (dayDifference === 0) {
-    return Math.max(arrivalFactor, departureFactor)
+    // return Math.max(arrivalFactor, departureFactor)
+    return arrivalFactor + (dayDifference + 0.5) + departureFactor
   } else if (dayDifference === 1) {
-    return arrivalFactor + departureFactor
-  } else {
     return arrivalFactor + dayDifference + departureFactor
+  } else {
+    return arrivalFactor + (dayDifference + 1) + departureFactor
   }
+  // return arrivalFactor + (dayDifference - 1) + departureFactor
+  // return arrivalFactor + (dayDifference + 1) + departureFactor
+  // return arrivalFactor + dayDifference + departureFactor
 }
 
 function parseAsLocal(input) {
@@ -544,29 +555,29 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    // const hotelA = a.hotel?.name || ""
-    // const hotelB = b.hotel?.name || ""
-    // const hotelCmp = hotelA.localeCompare(hotelB, "ru")
-    // if (hotelCmp !== 0) return hotelCmp
+    const hotelA = a.hotel?.name || ""
+    const hotelB = b.hotel?.name || ""
+    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    if (hotelCmp !== 0) return hotelCmp
 
-    // const catOrder = [
-    //   "studio",
-    //   "apartment",
-    //   "luxe",
-    //   "onePlace",
-    //   "twoPlace",
-    //   "threePlace",
-    //   "fourPlace",
-    //   "fivePlace",
-    //   "sixPlace",
-    //   "sevenPlace",
-    //   "eightPlace",
-    //   "ninePlace",
-    //   "tenPlace"
-    // ]
-    // const catA = catOrder.indexOf(a.roomCategory)
-    // const catB = catOrder.indexOf(b.roomCategory)
-    // if (catA !== catB) return catA - catB
+    const catOrder = [
+      "studio",
+      "apartment",
+      "luxe",
+      "onePlace",
+      "twoPlace",
+      "threePlace",
+      "fourPlace",
+      "fivePlace",
+      "sixPlace",
+      "sevenPlace",
+      "eightPlace",
+      "ninePlace",
+      "tenPlace"
+    ]
+    const catA = catOrder.indexOf(a.roomCategory)
+    const catB = catOrder.indexOf(b.roomCategory)
+    if (catA !== catB) return catA - catB
 
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
