@@ -9,18 +9,12 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { deleteFiles } from "../../exports/uploadFiles.js"
-import { error, log } from "console"
 
 const reportResolver = {
   Query: {
     getAirlineReport: async (_, { filter }, context) => {
       const { user } = context
       airlineAdminMiddleware(context)
-
-      console.log(
-        "\n filter: " + filter,
-        "\n filter str: " + JSON.stringify(filter)
-      )
 
       if (filter && filter.hotelId) {
         throw new Error("Cannot fetch hotel reports in getAirlineReport")
@@ -283,14 +277,6 @@ const applyCreateFilters = (filter) => {
   } = filter
   const where = {}
 
-  // console.log(
-  //   "\n create filters: ",
-  //   "\n startDate - " + startDate,
-  //   "\n new date startDate - " + new Date(startDate),
-  //   "\n endDate - " + endDate,
-  //   "\n new date endDate - " + new Date(endDate)
-  // )
-
   if (startDate || endDate) {
     where.OR = [
       {
@@ -352,9 +338,9 @@ const applyFilters = (filter) => {
   const where = {}
 
   if (startDate)
-    where.createdAt = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.startDate = { gte: new Date(startDate), lte: new Date(endDate) }
   if (endDate)
-    where.createdAt = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.endDate = { gte: new Date(startDate), lte: new Date(endDate) }
   if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
