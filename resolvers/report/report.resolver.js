@@ -17,7 +17,12 @@ const reportResolver = {
       const { user } = context
       airlineAdminMiddleware(context)
 
-      if (filter.hotelId) {
+      console.log(
+        "\n filter: " + filter,
+        "\n filter str: " + JSON.stringify(filter)
+      )
+
+      if (filter && filter.hotelId) {
         throw new Error("Cannot fetch hotel reports in getAirlineReport")
       }
 
@@ -28,7 +33,7 @@ const reportResolver = {
           separator,
           ...applyFilters(filter),
           airlineId: { not: null },
-          ...(filter.airlineId
+          ...(filter && filter.airlineId
             ? { airlineId: filter.airlineId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
             ? {}
@@ -50,7 +55,7 @@ const reportResolver = {
       return [
         {
           airlineId:
-            filter.airlineId ||
+            filter && filter.airlineId ||
             (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? null
               : user.airlineId),
@@ -330,6 +335,9 @@ const applyCreateFilters = (filter) => {
 }
 
 const applyFilters = (filter) => {
+  if (filter == null || filter == undefined) {
+    return
+  }
   const {
     startDate,
     endDate,
@@ -340,6 +348,7 @@ const applyFilters = (filter) => {
     positionId,
     region
   } = filter
+
   const where = {}
 
   if (startDate)
