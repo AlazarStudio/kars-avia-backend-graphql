@@ -503,9 +503,11 @@ const calculateEffectiveCostDaysWithPartial = (
   if (dayDifference === 0) {
     // return Math.max(arrivalFactor, departureFactor)
     return arrivalFactor + (dayDifference + 0.5) + departureFactor
-  } else if (dayDifference === 1) {
-    return arrivalFactor + dayDifference + departureFactor
-  } else {
+  } 
+  // else if (dayDifference === 1) {
+  //   return arrivalFactor + dayDifference + departureFactor
+  // }
+   else {
     return arrivalFactor + (dayDifference + 1) + departureFactor
   }
   // return arrivalFactor + (dayDifference - 1) + departureFactor
