@@ -299,6 +299,7 @@ input RoomInput {
   reserve: Boolean
   description: String
   descriptionSecond: String
+  square: String
   roomKindId: ID
   images: [Upload!]
   type: RoomType
@@ -310,6 +311,7 @@ input RoomKindInput {
   name: String
   description: String
   category: Category
+  square: String
   price: Float
   images: [String]
 }
