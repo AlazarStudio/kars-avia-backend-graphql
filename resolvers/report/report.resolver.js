@@ -49,7 +49,7 @@ const reportResolver = {
       return [
         {
           airlineId:
-            filter && filter.airlineId ||
+            (filter && filter.airlineId) ||
             (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? null
               : user.airlineId),
@@ -487,6 +487,19 @@ const calculateEffectiveCostDaysWithPartial = (
     // departureFactor = 1.5
   }
 
+  // console.log(
+  //   "\n ",
+  //   "\n effectiveArrival: " + effectiveArrival,
+  //   "\n effectiveDeparture: " + effectiveDeparture,
+  //   "\n arrivalMidnight: " + arrivalMidnight,
+  //   "\n departureMidnight: " + departureMidnight,
+  //   "\n dayDifference: " + dayDifference,
+  //   "\n arrivalHours: " + arrivalHours,
+  //   "\n arrivalFactor: " + arrivalFactor,
+  //   "\n departureHours: " + departureHours,
+  //   "\n departureFactor: " + departureFactor
+  // )
+
   if (dayDifference === 0) {
     // return Math.max(arrivalFactor, departureFactor)
     return arrivalFactor + (dayDifference + 0.5) + departureFactor
@@ -657,12 +670,13 @@ const aggregateRequestReports = (
       hotelName: request.hotel?.name || "Не указано",
       arrival: formatLocalDate(effectiveArrival),
       departure: formatLocalDate(effectiveDeparture),
-      totalDays: calculateEffectiveCostDaysWithPartial(
-        rawIn,
-        rawOut,
-        filterStart,
-        filterEnd
-      ),
+      totalDays: effectiveDays,
+      // totalDays: calculateEffectiveCostDaysWithPartial(
+      //   rawIn,
+      //   rawOut,
+      //   filterStart,
+      //   filterEnd
+      // ),
       category: categoryMapping[request.roomCategory] || request.roomCategory,
       personName: request.person?.name || "Не указано",
       personPosition: request.person?.position?.name || "Не указано",

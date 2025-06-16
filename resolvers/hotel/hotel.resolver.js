@@ -758,6 +758,7 @@ const hotelResolver = {
                 name: room.name,
                 roomKindId: room.roomKindId,
                 category: roomCategory,
+                square: room.square,
                 reserve: room.reserve,
                 active: room.active,
                 beds: room.beds,
@@ -815,6 +816,7 @@ const hotelResolver = {
                   name: room.name,
                   roomKindId: room.roomKindId,
                   category: roomCategory,
+                  square: room.square,
                   reserve: room.reserve,
                   active: room.active,
                   beds: room.beds,
@@ -856,6 +858,7 @@ const hotelResolver = {
               const updatedRoomData = {
                 name: room.name,
                 description: room.description,
+                square: room.square,
                 price: room.price,
                 category: room.category,
                 ...(roomKindImages && { images: imagePaths })
@@ -876,6 +879,7 @@ const hotelResolver = {
                   hotelId: id,
                   name: room.name,
                   description: room.description,
+                  square: room.square,
                   price: room.price,
                   category: room.category,
                   images: imagePaths

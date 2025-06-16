@@ -200,6 +200,7 @@ type Room {
   roomKind: RoomKind
   description: String
   descriptionSecond: String
+  square: String
   images: [String!]
   type: RoomType
   price: Float
@@ -210,6 +211,7 @@ type RoomKind {
   name: String!
   description: String
   category: Category
+  square: String
   price: Float!
   images: [String]
   hotel: Hotel

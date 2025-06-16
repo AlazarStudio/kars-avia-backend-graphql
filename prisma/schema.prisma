@@ -301,6 +301,7 @@ model Room {
   hotelId           String       @db.ObjectId
   description       String?
   descriptionSecond String?
+  square            String?
   images            String[]
   category          Category
   places            Float?
@@ -318,6 +319,7 @@ model RoomKind {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String?
   description String?
+  square      String?
   category    Category
   price       Float
   images      String[]
