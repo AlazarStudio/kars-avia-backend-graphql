@@ -1215,6 +1215,10 @@ const requestResolver = {
         () => pubsub.asyncIterator(REQUEST_CREATED),
         (payload, variables, context) => {
           const user = context.user
+
+          if (user.role === "SUPERADMIN") {
+            return true
+          }
           if (user.dispatcher === true) {
             return true
           }

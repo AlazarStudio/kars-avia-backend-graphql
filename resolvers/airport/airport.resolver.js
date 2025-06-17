@@ -3,7 +3,7 @@ import { prisma } from "../../prisma.js"
 const airportResolver = {
   Query: {
     airports: async () => {
-      return prisma.airport.findMany({orderBy: { name: "asc" }})
+      return prisma.airport.findMany({orderBy: { city: "asc" }})
     },
     airport: async (_, { airportId }) => {
       return prisma.airport.findUnique({

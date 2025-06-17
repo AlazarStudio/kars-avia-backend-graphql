@@ -646,6 +646,9 @@ const chatResolver = {
           const user = context.user
           const message = payload.requestUpdated
 
+          if (user.role === "SUPERADMIN") {
+            return true
+          }
           if (user.dispatcher === true) {
             return true
           }
