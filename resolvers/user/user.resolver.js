@@ -520,7 +520,7 @@ const userResolver = {
     // Обновление (refresh) токенов аутентификации.
     // На основании действующего refreshToken генерируется новый accessToken и новый refreshToken.
     refreshToken: async (_, { refreshToken, fingerprint }) => {
-      const user = await prisma.user.findUnique({ where: { refreshToken } })
+      const user = await prisma.user.findFirst({ where: { refreshToken } })
       if (!user) {
         throw new Error("Invalid refresh token")
       }
