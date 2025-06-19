@@ -239,7 +239,7 @@ const userResolver = {
           airlineId: newUser.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24d" }
+        { expiresIn: "24h" }
       )
 
       pubsub.publish(USER_CREATED, { userCreated: newUser })
@@ -253,7 +253,7 @@ const userResolver = {
 
     // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
-      const { login, password, token2FA } = input
+      const { login, password, fingerprint, token2FA } = input
       // Ищем пользователя по логину
       const user = await prisma.user.findUnique({ where: { login } })
       // Проверка корректности пароля с помощью argon2.verify
@@ -294,11 +294,17 @@ const userResolver = {
           airlineId: user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24d" }
+        { expiresIn: "24h" }
       )
+      const refreshToken = uuidv4()
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken, fingerprint }
+      })
       return {
         ...user,
-        token
+        token,
+        refreshToken
       }
     },
 
@@ -513,10 +519,13 @@ const userResolver = {
 
     // Обновление (refresh) токенов аутентификации.
     // На основании действующего refreshToken генерируется новый accessToken и новый refreshToken.
-    refreshToken: async (_, { refreshToken }) => {
+    refreshToken: async (_, { refreshToken, fingerprint }) => {
       const user = await prisma.user.findUnique({ where: { refreshToken } })
       if (!user) {
         throw new Error("Invalid refresh token")
+      }
+      if (fingerprint != user.fingerprint) {
+        throw new Error("Invalid fingerprint")
       }
       const newAccessToken = jwt.sign(
         {
@@ -524,7 +533,7 @@ const userResolver = {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24d" }
+        { expiresIn: "24h" }
       )
       const newRefreshToken = uuidv4()
       await prisma.user.update({
@@ -542,7 +551,7 @@ const userResolver = {
       if (!context.user) throw new Error("Not authenticated")
       await prisma.user.update({
         where: { id: context.user.id },
-        data: { refreshToken: null }
+        data: { refreshToken: null, fingerprint: null }
       })
       return { message: "Logged out successfully" }
     },

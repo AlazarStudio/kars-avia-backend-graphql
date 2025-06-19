@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/client"
+  // output   = "../generated/client"
 }
 
 datasource db {
@@ -189,7 +189,8 @@ model User {
   logs                 Log[]
   dispatcher           Boolean?           @default(false)
   support              Boolean?           @default(false)
-  refreshToken         String?
+  refreshToken         String?            @unique
+  fingerprint          String?
   is2FAEnabled         Boolean            @default(false)
   twoFASecret          String?
   twoFAMethod          TwoFAMethod?

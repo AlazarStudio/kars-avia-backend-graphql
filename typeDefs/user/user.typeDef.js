@@ -38,6 +38,8 @@ type User {
   airlineDepartmentId: ID
   support: Boolean
   active: Boolean
+  refreshToken: String
+  fingerprint: String
 }
 
 type Position {
@@ -67,7 +69,7 @@ type Mutation {
   updateUser(input: UpdateUserInput!, images: [Upload!]): AuthPayload
   logout: LogoutResponse
   deleteUser(id: ID!): User!
-  refreshToken(refreshToken: String!): AuthPayload
+  refreshToken(refreshToken: String!, fingerprint: String!): AuthPayload
   enable2FA(input: TwoFAMethodInput): QRCodeResponse
   verify2FA(token: String!): SuccessResponse
   requestResetPassword(email: String!): String!
@@ -84,6 +86,7 @@ input SignUpInput {
 input SignInInput {
   login: String!
   password: String!
+  fingerprint: String!
   token2FA: String
 }
 
