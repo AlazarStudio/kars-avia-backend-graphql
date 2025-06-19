@@ -189,7 +189,7 @@ model User {
   logs                 Log[]
   dispatcher           Boolean?           @default(false)
   support              Boolean?           @default(false)
-  refreshToken         String?            @unique
+  refreshToken         String?            @unique @default("")
   fingerprint          String?
   is2FAEnabled         Boolean            @default(false)
   twoFASecret          String?
