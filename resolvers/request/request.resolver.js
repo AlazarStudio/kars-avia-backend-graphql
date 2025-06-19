@@ -563,7 +563,7 @@ const requestResolver = {
             }
           })
 
-          if (request.hotelChess) {
+          if (request.hotelChess.length != 0) {
             await prisma.hotelChess.update({
               where: { id: request.hotelChess[0].id },
               data: { client: { connect: { id: input.personId } } }
