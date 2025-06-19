@@ -18,6 +18,7 @@ import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { sendEmail } from "../../utils/sendMail.js"
+import { logger } from "../../utils/logger.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -540,6 +541,9 @@ const userResolver = {
         where: { id: user.id },
         data: { refreshToken: newRefreshToken }
       })
+
+      logger.info("Обновление токена", newRefreshToken) // Убрать до релиза!!! 
+      
       return {
         token: newAccessToken,
         refreshToken: newRefreshToken
