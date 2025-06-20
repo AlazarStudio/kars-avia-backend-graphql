@@ -80,6 +80,7 @@ const getDynamicContext = async (ctx, msg, args) => {
       } catch (e) {
         logger.error('Ошибка токена', e)
         console.error("Error verifying token:", e)
+        throw new Error("Invalid token", e)
       }
     }
     return { user }
@@ -163,6 +164,7 @@ app.use(
         } catch (e) {
           logger.error('Ошибка токена', e)
           console.error("Error verifying token:", e)
+          throw new Error("Invalid token", e)
         }
       }
       return { user }

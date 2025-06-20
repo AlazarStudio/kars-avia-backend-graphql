@@ -153,7 +153,7 @@ app.use(
           })
         } catch (e) {
           logger.error("Ошибка токена", e)
-          console.error("Error verifying token:", e + "\n user ")
+          console.error("Error verifying token:", e)
           throw new Error("Invalid token", e)
         }
       }

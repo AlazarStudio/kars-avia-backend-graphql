@@ -544,12 +544,6 @@ const userResolver = {
         data: { refreshToken: newRefreshToken }
       })
 
-      logger.info(
-        "Обновление токена: " + newRefreshToken,
-        "\n user: " + user.name,
-        "\n finger: " + fingerprint
-      ) // Убрать до релиза!!!
-
       return {
         token: newAccessToken,
         refreshToken: newRefreshToken
