@@ -973,6 +973,15 @@ const hotelResolver = {
       return createdRooms
     },
 
+    reorderRoomKindImages: async (_, { id, imagesArray }, context) => {
+      hotelAdminMiddleware(context)
+      const updatedRoomKind = await prisma.roomKind.update({
+        where: { id },
+        data: { images: imagesArray }
+      })
+      return updatedRoomKind
+    },
+
     // Удаление отеля.
     // Требуется права супер-администратора. Выполняется удаление отеля,
     // логирование действия и, если есть изображения, их удаление.
