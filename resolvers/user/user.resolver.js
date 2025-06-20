@@ -240,7 +240,7 @@ const userResolver = {
           airlineId: newUser.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "1h" }
       )
 
       pubsub.publish(USER_CREATED, { userCreated: newUser })
@@ -295,7 +295,7 @@ const userResolver = {
           airlineId: user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "1h" }
       )
       const refreshToken = uuidv4()
       await prisma.user.update({
@@ -534,7 +534,7 @@ const userResolver = {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "1h" }
       )
       const newRefreshToken = uuidv4()
       await prisma.user.update({
@@ -542,8 +542,12 @@ const userResolver = {
         data: { refreshToken: newRefreshToken }
       })
 
-      logger.info("Обновление токена", newRefreshToken) // Убрать до релиза!!! 
-      
+      logger.info(
+        "Обновление токена: " + newRefreshToken,
+        "\n user: " + user.name,
+        "\n finger: " + fingerprint
+      ) // Убрать до релиза!!!
+
       return {
         token: newAccessToken,
         refreshToken: newRefreshToken
