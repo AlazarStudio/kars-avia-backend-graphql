@@ -264,6 +264,7 @@ model Hotel {
   // position        Position[]
   Notification    Notification[]
   active          Boolean        @default(true)
+  access          Boolean        @default(false)
   type            HotelType      @default(hotel)
   gallery         String[]
   airport         Airport?       @relation(fields: [airportId], references: [id])

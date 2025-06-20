@@ -158,6 +158,7 @@ type Hotel {
   chat: [Chat]
   prices: Price
   active: Boolean
+  access: Boolean
   type: HotelType
   # position: [Position]
   gallery: [String]
@@ -272,6 +273,7 @@ input UpdateHotelInput {
   usStars: String
   airportDistance: String
   prices: PriceInput
+  access: Boolean
 }
 
 input HotelChessInput {
