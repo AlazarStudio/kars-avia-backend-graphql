@@ -29,9 +29,34 @@ const authMiddleware = async (req, res, next) => {
 // ----------------------------------------------------------------
 
 // Универсальный мидлвар для проверки ролей
+
+/*
+
 export const roleMiddleware = (context, allowedRoles) => {
   const { user } = context
   if (!user || !allowedRoles.includes(user.role)) {
+    throw new Error("Access forbidden: Insufficient rights.")
+  }
+}
+  
+*/
+
+export const roleMiddleware = (context, allowedRoles) => {
+  const authHeader = context.req?.headers?.authorization
+  if (!authHeader) {
+    throw new Error("Access forbidden: No token provided.")
+  }
+  const token = authHeader.split(" ")[1] 
+  if (!token) {
+    throw new Error("Access forbidden: Invalid token format.")
+  }
+  let decoded
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET)
+  } catch (err) {
+    throw new Error("Access forbidden: Invalid or expired token.")
+  }
+  if (!decoded.role || !allowedRoles.includes(decoded.role)) {
     throw new Error("Access forbidden: Insufficient rights.")
   }
 }
