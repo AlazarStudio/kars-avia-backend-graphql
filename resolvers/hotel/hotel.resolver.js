@@ -1075,6 +1075,7 @@ const hotelResolver = {
       }
       return deletedRoomKind
     },
+
     updateAllRoomKindCount: async (_, { __ }, context) => {
       const hotels = await prisma.hotel.findMany({
         select: { roomKind: true }

@@ -240,7 +240,7 @@ const userResolver = {
           airlineId: newUser.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "24h" }
       )
 
       pubsub.publish(USER_CREATED, { userCreated: newUser })
@@ -295,7 +295,7 @@ const userResolver = {
           airlineId: user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "24h" }
       )
       const refreshToken = uuidv4()
       await prisma.user.update({
@@ -531,10 +531,12 @@ const userResolver = {
       const newAccessToken = jwt.sign(
         {
           userId: user.id,
-          role: user.role
+          role: user.role,
+          hotelId: user.hotelId,
+          airlineId: user.airlineId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "24h" }
       )
       const newRefreshToken = uuidv4()
       await prisma.user.update({
