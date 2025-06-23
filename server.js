@@ -83,7 +83,7 @@ const getDynamicContext = async (ctx, msg, args) => {
         throw new Error("Invalid token", e)
       }
     }
-    return { user }
+    return { user, authHeader }
   }
   // Otherwise let our resolvers know we don't have a current user
   // return { user: null }
@@ -167,7 +167,7 @@ app.use(
           throw new Error("Invalid token", e)
         }
       }
-      return { user }
+      return { user, authHeader }
     }
   })
 )
