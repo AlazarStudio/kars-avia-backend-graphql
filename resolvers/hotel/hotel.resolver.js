@@ -1,7 +1,7 @@
 // Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { uploadImage } from "../../exports/uploadImage.js"
+import { deleteImage, uploadImage } from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import {
   superAdminMiddleware,
