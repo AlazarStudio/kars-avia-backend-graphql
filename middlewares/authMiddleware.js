@@ -42,8 +42,6 @@ export const roleMiddleware = (context, allowedRoles) => {
 */
 
 export const roleMiddleware = (context, allowedRoles) => {
-  console.log("\n context: " + context)
-  console.log("\n context str: " + JSON.stringify(context))
   const authHeader = context.authHeader
   if (!authHeader) {
     throw new Error("Access forbidden: No token provided.")
