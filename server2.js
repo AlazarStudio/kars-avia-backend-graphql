@@ -49,7 +49,7 @@ const getDynamicContext = async (ctx, msg, args) => {
       ? authHeader.slice(7, authHeader.length)
       : authHeader
     let user = null
-    // if (token) {
+    if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
         user = await prisma.user.findUnique({
@@ -69,14 +69,11 @@ const getDynamicContext = async (ctx, msg, args) => {
           }
         })
       } catch (e) {
-        if (e.name === "TokenExpiredError") {
-          logger.warn("Просроченный токен")
-          throw new Error("Token expired")
-        }
         logger.error("Ошибка токена", e)
-        throw new Error("Invalid token")
+        console.error("Error verifying token:", e)
+        throw new Error("Invalid token", e)
       }
-    // }
+    }
     return { user, authHeader }
   }
   // Otherwise let our resolvers know we don't have a current user
@@ -135,34 +132,31 @@ app.use(
         ? authHeader.slice(7, authHeader.length)
         : authHeader
       let user = null
-      // if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        user = await prisma.user.findUnique({
-          where: { id: decoded.userId },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            number: true,
-            role: true,
-            position: true,
-            airlineId: true,
-            airlineDepartmentId: true,
-            hotelId: true,
-            dispatcher: true,
-            support: true
-          }
-        })
-      } catch (e) {
-        if (e.name === "TokenExpiredError") {
-          logger.warn("Просроченный токен")
-          throw new Error("Token expired")
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET)
+          user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              number: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true,
+              support: true
+            }
+          })
+        } catch (e) {
+          logger.error("Ошибка токена", e)
+          console.error("Error verifying token:", e)
+          throw new Error("Invalid token", e)
         }
-        logger.error("Ошибка токена", e)
-        throw new Error("Invalid token")
       }
-      // }
       return { user, authHeader }
     }
   })
