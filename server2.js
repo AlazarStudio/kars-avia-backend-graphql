@@ -1,8 +1,6 @@
-import fs from "fs"
 import jwt from "jsonwebtoken"
 import cors from "cors"
 import http from "http"
-import https from "https"
 import dotenv from "dotenv"
 import express from "express"
 import { prisma } from "./prisma.js"
@@ -14,16 +12,12 @@ import { useServer } from "graphql-ws/lib/use/ws"
 import { makeExecutableSchema } from "@graphql-tools/schema"
 import mergedTypeDefs from "./typeDefs/typedefs.js"
 import mergedResolvers from "./resolvers/resolvers.js"
-import authMiddleware, {
-  adminMiddleware
-} from "./middlewares/authMiddleware.js"
-import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
-import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
+// import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import {
-  ApolloServerPluginLandingPageLocalDefault,
-  ApolloServerPluginLandingPageProductionDefault
+  ApolloServerPluginLandingPageLocalDefault
+  // ApolloServerPluginLandingPageProductionDefault
 } from "@apollo/server/plugin/landingPage/default"
 import { logger } from "./utils/logger.js"
 
@@ -68,6 +62,12 @@ const getDynamicContext = async (ctx, msg, args) => {
             support: true
           }
         })
+        // --------------------------------------------------------------------------------------------------------------------------------
+        await prisma.user.update({
+          where: { id: decoded.userId },
+          data: { lastSeen: new Date() }
+        })
+        // --------------------------------------------------------------------------------------------------------------------------------
       } catch (e) {
         if (e.name === "TokenExpiredError") {
           logger.warn("Просроченный токен")
@@ -154,6 +154,12 @@ app.use(
               support: true
             }
           })
+          // --------------------------------------------------------------------------------------------------------------------------------
+          await prisma.user.update({
+            where: { id: decoded.userId },
+            data: { lastSeen: new Date() }
+          })
+          // --------------------------------------------------------------------------------------------------------------------------------
         } catch (e) {
           if (e.name === "TokenExpiredError") {
             logger.warn("Просроченный токен")

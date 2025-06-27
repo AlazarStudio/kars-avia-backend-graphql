@@ -1,4 +1,5 @@
 const userTypeDef = `#graphql
+scalar Date
 
 enum Role {
   SUPERADMIN
@@ -21,6 +22,7 @@ enum TwoFAMethod {
 
 type User {
   id: ID!
+  lastSeen: Date
   name: String!
   email: String!
   login: String!

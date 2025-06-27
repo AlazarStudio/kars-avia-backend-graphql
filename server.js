@@ -15,10 +15,6 @@ import { useServer } from "graphql-ws/lib/use/ws"
 import { makeExecutableSchema } from "@graphql-tools/schema"
 import mergedTypeDefs from "./typeDefs/typedefs.js"
 import mergedResolvers from "./resolvers/resolvers.js"
-import authMiddleware, {
-  adminMiddleware
-} from "./middlewares/authMiddleware.js"
-import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import { startArchivingJob } from "./utils/request/cronTasks.js"
 import { logger } from "./utils/logger.js"
