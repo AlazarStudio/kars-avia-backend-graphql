@@ -73,8 +73,14 @@ const getDynamicContext = async (ctx, msg, args) => {
             support: true
           }
         })
+        // --------------------------------------------------------------------------------------------------------------------------------
+        await prisma.user.update({
+          where: { id: decoded.userId },
+          data: { lastSeen: new Date() }
+        })
+        // --------------------------------------------------------------------------------------------------------------------------------
       } catch (e) {
-        logger.error('Ошибка токена', e)
+        logger.error("Ошибка токена", e)
         console.error("Error verifying token:", e)
         throw new Error("Invalid token", e)
       }
@@ -158,11 +164,17 @@ app.use(
             }
           })
         } catch (e) {
-          logger.error('Ошибка токена', e)
+          logger.error("Ошибка токена", e)
           console.error("Error verifying token:", e)
           throw new Error("Invalid token", e)
         }
       }
+      // --------------------------------------------------------------------------------------------------------------------------------
+      await prisma.user.update({
+        where: { id: decoded.userId },
+        data: { lastSeen: new Date() }
+      })
+      // --------------------------------------------------------------------------------------------------------------------------------
       return { user, authHeader }
     }
   })
