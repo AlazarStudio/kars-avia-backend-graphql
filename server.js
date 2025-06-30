@@ -74,10 +74,10 @@ const getDynamicContext = async (ctx, msg, args) => {
           }
         })
         // --------------------------------------------------------------------------------------------------------------------------------
-        await prisma.user.update({
-          where: { id: decoded.userId },
-          data: { lastSeen: new Date() }
-        })
+        // await prisma.user.update({
+        //   where: { id: decoded.userId },
+        //   data: { lastSeen: new Date() }
+        // })
         // --------------------------------------------------------------------------------------------------------------------------------
       } catch (e) {
         logger.error("Ошибка токена", e)
@@ -170,10 +170,10 @@ app.use(
         }
       }
       // --------------------------------------------------------------------------------------------------------------------------------
-      await prisma.user.update({
-        where: { id: decoded.userId },
-        data: { lastSeen: new Date() }
-      })
+      // await prisma.user.update({
+      //   where: { id: decoded.userId },
+      //   data: { lastSeen: new Date() }
+      // })
       // --------------------------------------------------------------------------------------------------------------------------------
       return { user, authHeader }
     }
