@@ -72,36 +72,41 @@ export const roleMiddleware = async (context, allowedRoles) => {
 }
 
 export const roleMiddlewareS = async (context, allowedRoles) => {
-  console.log(
-    "\n context - " + context,
-    "\n context str - " + JSON.stringify(context)
-  )
-  // const authHeader = context.authHeader
-  // if (!authHeader) {
-  //   throw new Error("Access forbidden: No token provided.")
-  // }
-  // const token = authHeader.split(" ")[1]
-  // if (!token) {
-  //   throw new Error("Access forbidden: Invalid token format.")
-  // }
-  // let decoded
-  // try {
-  //   decoded = jwt.verify(token, process.env.JWT_SECRET)
-  // } catch (err) {
-  //   throw new Error("Access forbidden: Invalid or expired token.")
-  // }
-  // if (!decoded.role || !allowedRoles.includes(decoded.role)) {
-  //   throw new Error("Access forbidden: Insufficient rights.")
-  // }
-  // const { user } = context
-  // try {
-  //   await prisma.user.update({
-  //     where: { id: user.id },
-  //     data: { lastSeen: new Date() }
-  //   })
-  // } catch (e) {
-  //   throw new Error("error" + e)
-  // }
+  // console.log(
+  //   "\n context - " + context,
+  //   "\n context str - " + JSON.stringify(context)
+  // )
+  const authHeader = context.authHeader
+  if (!authHeader) {
+    console.error("Access forbidden: No token provided.")
+    // throw new Error("Access forbidden: No token provided.")
+  }
+  const token = authHeader.split(" ")[1]
+  if (!token) {
+    console.error("Access forbidden: Invalid token format.")
+    // throw new Error("Access forbidden: Invalid token format.")
+  }
+  let decoded
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET)
+  } catch (err) {
+    console.error("Access forbidden: Invalid or expired token.")
+    // throw new Error("Access forbidden: Invalid or expired token.")
+  }
+  if (!decoded.role || !allowedRoles.includes(decoded.role)) {
+    console.error("Access forbidden: Insufficient rights.")
+    // throw new Error("Access forbidden: Insufficient rights.")
+  }
+  const { user } = context
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeen: new Date() }
+    })
+  } catch (e) {
+    console.error("error" + e)
+    // throw new Error("error" + e)
+  }
 }
 
 //
