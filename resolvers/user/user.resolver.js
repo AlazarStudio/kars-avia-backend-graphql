@@ -9,6 +9,7 @@ import {
   adminHotelAirMiddleware,
   adminMiddleware,
   airlineAdminMiddleware,
+  allMiddleware,
   hotelAdminMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -19,6 +20,7 @@ import { v4 as uuidv4 } from "uuid"
 import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
 import { sendEmail } from "../../utils/sendMail.js"
 import { logger } from "../../utils/logger.js"
+import { subscribe } from "diagnostics_channel"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -39,6 +41,7 @@ const userResolver = {
   Query: {
     // Получение всех пользователей, сортированных по имени (возвращает всех)
     users: async (_, __, context) => {
+      allMiddleware(context)
       return prisma.user.findMany({
         where: { active: true },
         orderBy: { name: "asc" },
@@ -47,6 +50,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId }, context) => {
+      allMiddleware(context)
       return prisma.user.findMany({
         where: { airlineId, active: true },
         orderBy: { name: "asc" },
@@ -55,6 +59,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId }, context) => {
+      allMiddleware(context)
       return prisma.user.findMany({
         where: { hotelId, active: true },
         orderBy: { name: "asc" },
@@ -63,6 +68,7 @@ const userResolver = {
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, __, context) => {
+      allMiddleware(context)
       return prisma.user.findMany({
         where: { dispatcher: true, active: true },
         orderBy: { name: "asc" },
@@ -71,6 +77,7 @@ const userResolver = {
     },
     // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
+      allMiddleware(context)
       return prisma.user.findUnique({
         where: { id: userId },
         include: { position: true }
@@ -631,6 +638,9 @@ const userResolver = {
     // Подписка на событие создания нового пользователя
     userCreated: {
       subscribe: () => pubsub.asyncIterator([USER_CREATED])
+    },
+    userOnline: {
+      subscribe: () => pubsub.asyncIterator([USER_ONLINE])
     }
   },
   User: {
@@ -641,6 +651,26 @@ const userResolver = {
         })
       }
       return null
+    },
+    online: async (parent) => {
+      const user = await prisma.user.findUnique({
+        where: { id: parent.id },
+        select: { lastSeen: true }
+      })
+
+      const lastSeenDate =
+        user.lastSeen instanceof Date ? user.lastSeen : new Date(user.lastSeen)
+
+      const now = new Date()
+
+      const fiveMinutesInMs = 5 * 60 * 1000
+      const lastSeenPlus5 = new Date(lastSeenDate.getTime() + fiveMinutesInMs)
+
+      if (now <= lastSeenPlus5) {
+        return true
+      } else {
+        return false
+      }
     }
   }
 }

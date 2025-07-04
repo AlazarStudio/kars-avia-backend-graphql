@@ -3,11 +3,13 @@ import { finished } from "stream/promises"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { createWriteStream } from "fs"
 import path from "path" // Импортируем модуль path
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
 const fileResolver = {
   Upload: GraphQLUpload,
   Mutation: {
     singleUpload: async (_, { file }, context) => {
+      allMiddleware(context)
       const { createReadStream, filename, mimetype, encoding } = await file
       // Определяем путь для сохранения файла в папке uploads
       const uploadPath = path.join(process.cwd(), "uploads", filename)

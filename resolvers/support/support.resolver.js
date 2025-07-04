@@ -1,19 +1,22 @@
 // Импорт Prisma для работы с базой данных и PubSub для публикации событий в реальном времени
 import { prisma } from "../../prisma.js"
 import { pubsub } from "../../exports/pubsub.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
 // Резольвер для поддержки (support) чатов.
 // Этот резольвер отвечает за получение списка чатов поддержки, создание нового чата поддержки для пользователя,
 // а также за поиск чата поддержки, связанного с конкретным пользователем.
 const supportResolver = {
   Query: {
-    getAllPatchNotes: async () => {
+    getAllPatchNotes: async (_, __, context) => {
+      allMiddleware(context)
       return await prisma.patchNote.findMany({
         orderBy: { date: "desc" }
       })
     },
 
-    getPatchNote: async (_, { id }) => {
+    getPatchNote: async (_, { id }, context) => {
+      allMiddleware(context)
       return await prisma.patchNote.findUnique({
         where: { id }
       })
@@ -22,7 +25,9 @@ const supportResolver = {
     // Возвращает список всех чатов поддержки.
     // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
     // Каждый чат включает участников (participants) с данными о пользователе и сообщения (messages).
-    supportChats: async (_, __, { user }) => {
+    supportChats: async (_, __, context) => {
+      allMiddleware(context)
+      const { user } = context.user
       // Если у текущего пользователя нет прав поддержки, выбрасываем ошибку
       if (!user.support) {
         throw new Error("Access denied")
@@ -57,7 +62,8 @@ const supportResolver = {
     // Query: userSupportChat
     // Возвращает чат поддержки, связанный с указанным userId.
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
-    userSupportChat: async (_, { userId }, { user }) => {
+    userSupportChat: async (_, { userId }, context) => {
+      allMiddleware(context)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -136,13 +142,15 @@ const supportResolver = {
   },
 
   Mutation: {
-    createPatchNote: async (_, { data }) => {
+    createPatchNote: async (_, { data }, context) => {
+      allMiddleware(context)
       return await prisma.patchNote.create({
         data
       })
     },
 
-    updatePatchNote: async (_, { id, data }) => {
+    updatePatchNote: async (_, { id, data }, context) => {
+      allMiddleware(context)
       return await prisma.patchNote.update({
         where: { id },
         data
@@ -152,7 +160,8 @@ const supportResolver = {
     // Создает чат поддержки для указанного пользователя (userId).
     // Если чат уже существует для данного пользователя, возвращается существующий чат.
     // Если чат отсутствует, создается новый, куда добавляются указанный пользователь и все агенты поддержки.
-    createSupportChat: async (_, { userId }, { user }) => {
+    createSupportChat: async (_, { userId }, context) => {
+      allMiddleware(context)
       // Проверяем, существует ли уже чат поддержки для данного userId
       const existingChat = await prisma.chat.findFirst({
         where: {

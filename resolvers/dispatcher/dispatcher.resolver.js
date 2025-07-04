@@ -16,11 +16,15 @@ import {
   // USER_CREATED,
   NOTIFICATION
 } from "../../exports/pubsub.js"
-import { superAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  allMiddleware,
+  superAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 
 const dispatcherResolver = {
   Query: {
     getAllNotifications: async (_, { pagination }, context) => {
+      allMiddleware(context)
       const { user } = context
       const { skip, take, type, status } = pagination
       let filter
@@ -72,28 +76,37 @@ const dispatcherResolver = {
       return { totalPages, totalCount, notifications }
     },
     getAllPositions: async (_, {}, context) => {
+      allMiddleware(context)
       return await prisma.position.findMany({})
     },
     getAirlinePositions: async (_, {}, context) => {
+      allMiddleware(context)
       return await prisma.position.findMany({ where: { separator: "airline" } })
     },
     getAirlineUserPositions: async (_, {}, context) => {
-      return await prisma.position.findMany({ where: { separator: "airlineUser" } })
+      allMiddleware(context)
+      return await prisma.position.findMany({
+        where: { separator: "airlineUser" }
+      })
     },
     getHotelPositions: async (_, {}, context) => {
+      allMiddleware(context)
       return await prisma.position.findMany({ where: { separator: "hotel" } })
     },
     getDispatcherPositions: async (_, {}, context) => {
+      allMiddleware(context)
       return await prisma.position.findMany({
         where: { separator: "dispatcher" }
       })
     },
     getPosition: async (_, { id }, context) => {
+      allMiddleware(context)
       return await prisma.position.findUnique({ where: { id } })
     }
   },
   Mutation: {
     createPosition: async (_, { input }, context) => {
+      allMiddleware(context)
       const { name, separator } = input
       const position = await prisma.position.create({
         data: {
@@ -104,6 +117,7 @@ const dispatcherResolver = {
       return position
     },
     updatePosition: async (_, { input }, context) => {
+      allMiddleware(context)
       const { name } = input
       const position = await prisma.position.update({
         where: { id: pos.id },

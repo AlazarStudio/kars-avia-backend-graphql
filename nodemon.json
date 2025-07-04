@@ -1,4 +1,4 @@
 {
-    "ignore": ["uploads/*", "reports/*", "reserve_files/*"]
+    "ignore": ["uploads/*", "reports/*", "reserve_files/*", "logs/*"]
   }
   

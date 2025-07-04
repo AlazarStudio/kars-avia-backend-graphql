@@ -18,7 +18,7 @@ import { startArchivingJob } from "./utils/request/cronTasks.js"
 import {
   ApolloServerPluginLandingPageLocalDefault
   // ApolloServerPluginLandingPageProductionDefault
-} from "@apollo/server/plugin/landingPage/default"
+} from "@apollo/server/plugin/landingPage/default"  
 import { logger } from "./utils/logger.js"
 
 dotenv.config()
@@ -63,10 +63,10 @@ const getDynamicContext = async (ctx, msg, args) => {
           }
         })
         // --------------------------------------------------------------------------------------------------------------------------------
-        await prisma.user.update({
-          where: { id: decoded.userId },
-          data: { lastSeen: new Date() }
-        })
+        // await prisma.user.update({
+        //   where: { id: decoded.userId },
+        //   data: { lastSeen: new Date() }
+        // })
         // --------------------------------------------------------------------------------------------------------------------------------
       } catch (e) {
         if (e.name === "TokenExpiredError") {
@@ -155,10 +155,10 @@ app.use(
             }
           })
           // --------------------------------------------------------------------------------------------------------------------------------
-          await prisma.user.update({
-            where: { id: decoded.userId },
-            data: { lastSeen: new Date() }
-          })
+          // await prisma.user.update({
+          //   where: { id: decoded.userId },
+          //   data: { lastSeen: new Date() }
+          // })
           // --------------------------------------------------------------------------------------------------------------------------------
         } catch (e) {
           if (e.name === "TokenExpiredError") {

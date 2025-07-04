@@ -42,6 +42,7 @@ type User {
   active: Boolean
   refreshToken: String
   fingerprint: String
+  online: Boolean
 }
 
 type Position {
@@ -160,6 +161,7 @@ type LogoutResponse {
 
 type Subscription {
   userCreated: User!
+  userOnline: Boolean
 }
 `
 

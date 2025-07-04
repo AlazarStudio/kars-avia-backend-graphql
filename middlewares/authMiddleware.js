@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
 import { logger } from "../utils/logger.js"
+import { error } from "console"
 
 // Общий мидлвар для авторизации
 const authMiddleware = async (req, res, next) => {
@@ -41,12 +42,12 @@ export const roleMiddleware = (context, allowedRoles) => {
   
 */
 
-export const roleMiddleware = (context, allowedRoles) => {
+export const roleMiddleware = async (context, allowedRoles) => {
   const authHeader = context.authHeader
   if (!authHeader) {
     throw new Error("Access forbidden: No token provided.")
   }
-  const token = authHeader.split(" ")[1] 
+  const token = authHeader.split(" ")[1]
   if (!token) {
     throw new Error("Access forbidden: Invalid token format.")
   }
@@ -58,6 +59,15 @@ export const roleMiddleware = (context, allowedRoles) => {
   }
   if (!decoded.role || !allowedRoles.includes(decoded.role)) {
     throw new Error("Access forbidden: Insufficient rights.")
+  }
+  const { user } = context
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeen: new Date() }
+    })
+  } catch (e) {
+    throw new Error("error" + e)
   }
 }
 
@@ -136,6 +146,21 @@ export const airlineMiddleware = (context) =>
     "AIRLINEADMIN",
     "AIRLINEMODERATOR",
     "AIRLINEUSER"
+  ])
+
+export const allMiddleware = (context) =>
+  roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "AIRLINEADMIN",
+    "DISPATCHERMODERATOR",
+    "HOTELMODERATOR",
+    "AIRLINEMODERATOR",
+    "DISPATCHERUSER",
+    "HOTELUSER",
+    "AIRLINEUSER",
+    "USER"
   ])
 
 // ----------------------------------------------------------------

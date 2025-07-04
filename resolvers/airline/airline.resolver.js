@@ -4,7 +4,8 @@ import { uploadImage } from "../../exports/uploadImage.js"
 import logAction from "../../exports/logaction.js"
 import {
   adminMiddleware,
-  airlineAdminMiddleware
+  airlineAdminMiddleware,
+  allMiddleware
 } from "../../middlewares/authMiddleware.js"
 import {
   pubsub,
@@ -17,6 +18,7 @@ const airlineResolver = {
 
   Query: {
     airlines: async (_, { pagination }, context) => {
+      allMiddleware(context)
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.airline.count({ where: { active: true } })
       const airlines = all
@@ -45,6 +47,7 @@ const airlineResolver = {
     },
 
     airline: async (_, { id }, context) => {
+      allMiddleware(context)
       return await prisma.airline.findUnique({
         where: { id },
         include: {
@@ -58,6 +61,7 @@ const airlineResolver = {
     },
 
     airlineStaff: async (_, { id }, context) => {
+      allMiddleware(context)
       return await prisma.airlinePersonal.findUnique({
         where: { id },
         include: { hotelChess: true, position: true }
@@ -65,6 +69,7 @@ const airlineResolver = {
     },
 
     airlineStaffs: async (_, { airlineId }, context) => {
+      allMiddleware(context)
       return await prisma.airlinePersonal.findMany({
         where: { airlineId, active: true },
         include: { hotelChess: true, position: true },
@@ -144,7 +149,7 @@ const airlineResolver = {
       const { department, staff, prices, ...restInput } = input
       try {
         const previousAirlineData = await prisma.airline.findUnique({
-          where: { id },
+          where: { id }
           // select: { mealPrice: true }
         })
 

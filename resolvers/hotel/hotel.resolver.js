@@ -8,7 +8,8 @@ import {
   adminMiddleware,
   hotelAdminMiddleware,
   hotelModerMiddleware,
-  hotelMiddleware
+  hotelMiddleware,
+  allMiddleware
 } from "../../middlewares/authMiddleware.js"
 import nodemailer from "nodemailer"
 import {
@@ -65,6 +66,7 @@ const hotelResolver = {
     // Получение списка отелей с возможностью пагинации.
     // При запросе возвращаются отели с включением связанных комнат (rooms) и записей hotelChesses.
     hotels: async (_, { pagination }, context) => {
+      allMiddleware(context)
       const { skip, take, all } = pagination || {}
       // Получаем общее количество отелей
       const totalCount = await prisma.hotel.count({ where: { active: true } })
@@ -111,6 +113,7 @@ const hotelResolver = {
 
     // Получение данных одного отеля по его id с включением связанных комнат, hotelChesses и логов
     hotel: async (_, { id }, context) => {
+      allMiddleware(context)
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -920,6 +923,7 @@ const hotelResolver = {
     },
 
     createManyRooms: async (_, { input }, context) => {
+      hotelAdminMiddleware(context)
       const {
         hotelId,
         roomKindId,
@@ -1077,6 +1081,7 @@ const hotelResolver = {
     },
 
     updateAllRoomKindCount: async (_, { __ }, context) => {
+      allMiddleware(context)
       const hotels = await prisma.hotel.findMany({
         select: { roomKind: true }
       })

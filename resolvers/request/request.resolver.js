@@ -21,6 +21,7 @@ import {
   adminHotelAirMiddleware,
   airlineAdminMiddleware,
   airlineModerMiddleware,
+  allMiddleware,
   dispatcherModerMiddleware,
   moderatorMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -51,6 +52,7 @@ const requestResolver = {
     // Если у пользователя задан airlineId, добавляется фильтр по нему.
     // Исключаются архивные заявки (archive: true).
     requests: async (_, { pagination }, context) => {
+      allMiddleware(context)
       const { user } = context
       const {
         skip = 0,
@@ -241,6 +243,7 @@ const requestResolver = {
     // Включает связанные данные: airline, airport, hotel, hotelChess, logs.
     // Если заявка имеет статус "created" и пользователь является диспетчером, статус обновляется на "opened".
     request: async (_, { id }, context) => {
+      allMiddleware(context)
       const { user } = context
       const request = await prisma.request.findUnique({
         where: { id },
@@ -323,6 +326,8 @@ const requestResolver = {
       const departureDate = departure.split("T")[0]
       // Проверяем, существует ли уже заявка с такими же параметрами (исключая отмененные).
       let existingRequest = null
+      let personExist = null
+
       if (personId) {
         existingRequest = await prisma.request.findFirst({
           where: {
@@ -342,6 +347,26 @@ const requestResolver = {
             }
           }
         })
+
+        personExist = await prisma.request.findFirst({
+          where: {
+            personId,
+            airlineId,
+            arrival: {
+              gte: new Date(arrivalDate),
+              lte: new Date(departureDate)
+            },
+            departure: {
+              gte: new Date(arrivalDate),
+              lte: new Date(departureDate)
+            }
+          }
+        })
+        if (personExist != null) {
+          console.error(
+            `person already exist in: ${personExist} \n requestId: ${personExist.requestId}`
+          )
+        }
         // console.log("\n existingRequest", existingRequest)
       }
       if (existingRequest != null) {
@@ -788,6 +813,7 @@ const requestResolver = {
     // Изменение ежедневного плана питания заявки.
     // Вызывает функцию updateDailyMeals для обновления плана питания и логирует действие.
     modifyDailyMeals: async (_, { input }, context) => {
+      moderatorMiddleware(context)
       const { user } = context
       const { requestId, dailyMeals } = input
       const request = await prisma.request.findUnique({

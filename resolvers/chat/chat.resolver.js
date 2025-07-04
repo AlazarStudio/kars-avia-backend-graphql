@@ -8,6 +8,7 @@ import {
 } from "../../exports/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import { subscribe } from "graphql"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -17,6 +18,7 @@ const chatResolver = {
     // Возвращает чаты по указанным параметрам: requestId или reserveId.
     // Если передан reserveId, дополнительно проверяется наличие hotelId у пользователя.
     chat: async (_, { chatId }, context) => {
+      allMiddleware(context)
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -61,6 +63,7 @@ const chatResolver = {
       return chat
     },
     chats: async (_, { requestId, reserveId }, context) => {
+      allMiddleware(context)
       // Извлекаем идентификатор отеля из контекста пользователя
       const hotelId = context.user.hotelId
       // Инициализируем условие запроса с массивом для OR-условий
@@ -94,7 +97,8 @@ const chatResolver = {
 
     // Возвращает список сообщений для заданного чата (chatId),
     // которые ещё не прочитаны указанным пользователем (userId).
-    unreadMessages: async (_, { chatId, userId }) => {
+    unreadMessages: async (_, { chatId, userId }, context) => {
+      allMiddleware(context)
       const unreadMessages = await prisma.message.findMany({
         where: {
           chatId,
@@ -128,7 +132,8 @@ const chatResolver = {
     // Подсчитывает количество непрочитанных сообщений в чате для конкретного пользователя.
     // Сначала извлекаются все сообщения чата, затем – сообщения, которые пользователь уже прочитал,
     // и, наконец, вычисляется разница.
-    unreadMessagesCount: async (_, { chatId, userId }) => {
+    unreadMessagesCount: async (_, { chatId, userId }, context) => {
+      allMiddleware(context)
       const unreadMessages = await prisma.message.count({
         where: {
           chatId,
@@ -146,6 +151,7 @@ const chatResolver = {
 
     // Возвращает все сообщения для указанного чата с включением информации об отправителе.
     messages: async (_, { chatId }, context) => {
+      allMiddleware(context)
       return await prisma.message.findMany({
         where: { chatId },
         include: {
@@ -300,6 +306,7 @@ const chatResolver = {
     // },
 
     sendMessage: async (_, { chatId, senderId, text }, context) => {
+      allMiddleware(context)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -451,6 +458,7 @@ const chatResolver = {
     // },
 
     markMessageAsRead: async (_, { messageId, userId }, context) => {
+      allMiddleware(context)
       const currentTime = new Date()
 
       // Обновляем статус прочтения конкретного сообщения
@@ -544,6 +552,7 @@ const chatResolver = {
     // },
 
     markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
+      allMiddleware(context)
       const currentTime = new Date()
 
       // Обновляем дату последнего прочтения сообщений для пользователя в данном чате
@@ -611,6 +620,7 @@ const chatResolver = {
     // Создает новый чат, связанный с конкретной заявкой (requestId),
     // и добавляет указанных пользователей (userIds) в качестве участников.
     createChat: async (_, { requestId, userIds }, context) => {
+      allMiddleware(context)
       // Создаем чат, привязанный к заявке
       const chat = await prisma.chat.create({
         data: {
