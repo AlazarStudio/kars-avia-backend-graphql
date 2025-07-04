@@ -182,7 +182,7 @@ export const airlineMiddleware = (context) =>
   ])
 
 export const allMiddleware = (context) =>
-  roleMiddleware(context, [
+  roleMiddlewareS(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",
