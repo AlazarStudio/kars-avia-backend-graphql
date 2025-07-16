@@ -508,29 +508,29 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    // const hotelA = a.hotel?.name || ""
-    // const hotelB = b.hotel?.name || ""
-    // const hotelCmp = hotelA.localeCompare(hotelB, "ru")
-    // if (hotelCmp !== 0) return hotelCmp
+    const hotelA = a.hotel?.name || ""
+    const hotelB = b.hotel?.name || ""
+    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    if (hotelCmp !== 0) return hotelCmp
 
-    // const catOrder = [
-    //   "studio",
-    //   "apartment",
-    //   "luxe",
-    //   "onePlace",
-    //   "twoPlace",
-    //   "threePlace",
-    //   "fourPlace",
-    //   "fivePlace",
-    //   "sixPlace",
-    //   "sevenPlace",
-    //   "eightPlace",
-    //   "ninePlace",
-    //   "tenPlace"
-    // ]
-    // const catA = catOrder.indexOf(a.roomCategory)
-    // const catB = catOrder.indexOf(b.roomCategory)
-    // if (catA !== catB) return catA - catB
+    const catOrder = [
+      "studio",
+      "apartment",
+      "luxe",
+      "onePlace",
+      "twoPlace",
+      "threePlace",
+      "fourPlace",
+      "fivePlace",
+      "sixPlace",
+      "sevenPlace",
+      "eightPlace",
+      "ninePlace",
+      "tenPlace"
+    ]
+    const catA = catOrder.indexOf(a.roomCategory)
+    const catB = catOrder.indexOf(b.roomCategory)
+    if (catA !== catB) return catA - catB
 
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
@@ -572,15 +572,6 @@ const aggregateRequestReports = (
       filterStart,
       filterEnd
     )
-
-    // const breakdown = calculateDaysBreakdown(
-    //   rawIn,
-    //   rawOut,
-    //   filterStart,
-    //   filterEnd
-    // )
-
-    // console.log(breakdown)
 
     const totalLivingCost = calculateLivingCost(
       request,
@@ -631,7 +622,6 @@ const aggregateRequestReports = (
       //   filterStart,
       //   filterEnd
       // ),
-      // breakdown: breakdown,
       category: categoryMapping[request.roomCategory] || request.roomCategory,
       personName: request.person?.name || "Не указано",
       personPosition: request.person?.position?.name || "Не указано",
@@ -656,60 +646,169 @@ const calculateTotalDays = (start, end) => {
   return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
 }
 
+const calculateEffectiveCostDaysWithPartial = (
+  arrival,
+  departure,
+  filterStart,
+  filterEnd
+) => {
+  const effectiveArrival = arrival < filterStart ? filterStart : arrival
+  const effectiveDeparture = departure > filterEnd ? filterEnd : departure
+
+  if (effectiveDeparture <= effectiveArrival) return 0
+
+  const arrivalMidnight = new Date(
+    effectiveArrival.getFullYear(),
+    effectiveArrival.getMonth(),
+    effectiveArrival.getDate()
+  )
+  const departureMidnight = new Date(
+    effectiveDeparture.getFullYear(),
+    effectiveDeparture.getMonth(),
+    effectiveDeparture.getDate()
+  )
+
+  const dayDifference =
+    (departureMidnight - arrivalMidnight) / (1000 * 60 * 60 * 24)
+
+  const arrivalHours =
+    arrival < filterStart
+      ? 14
+      : effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
+
+  let arrivalFactor = 0
+
+  if (arrivalHours > 0 && arrivalHours < 6) {
+    arrivalFactor = 1
+    // arrivalFactor = 1.5
+  } else if (arrivalHours >= 6 && arrivalHours < 14) {
+    arrivalFactor = 0.5
+    // arrivalFactor = 1
+  } else if (arrivalHours >= 14 && arrivalHours < 24) {
+    arrivalFactor = 0
+    // arrivalFactor = 0.5
+  }
+
+  const departureHours =
+    departure > filterEnd
+      ? 12
+      : effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
+
+  let departureFactor = 0
+
+  if (departureHours > 0 && departureHours <= 12) {
+    departureFactor = 0
+    // departureFactor = 0.5
+  } else if (departureHours > 12 && departureHours <= 18) {
+    departureFactor = 0.5
+    // departureFactor = 1
+  } else if (departureHours > 18 && departureHours < 24) {
+    departureFactor = 1
+    // departureFactor = 1.5
+  }
+
+  // console.log(
+  //   "\n ",
+  //   "\n effectiveArrival: " + effectiveArrival,
+  //   "\n effectiveDeparture: " + effectiveDeparture,
+  //   "\n arrivalMidnight: " + arrivalMidnight,
+  //   "\n departureMidnight: " + departureMidnight,
+  //   "\n dayDifference: " + dayDifference,
+  //   "\n arrivalHours: " + arrivalHours,
+  //   "\n arrivalFactor: " + arrivalFactor,
+  //   "\n departureHours: " + departureHours,
+  //   "\n departureFactor: " + departureFactor
+  // )
+
+  if (dayDifference === 0) {
+    // return Math.max(arrivalFactor, departureFactor)
+    return arrivalFactor + (dayDifference + 0.5) + departureFactor
+    // return arrivalFactor + (dayDifference + 1) + departureFactor
+  }
+  // else if (dayDifference === 1) {
+  //   return arrivalFactor + dayDifference + departureFactor
+  // }
+  else {
+    return arrivalFactor + (dayDifference + 1) + departureFactor
+  }
+  // return arrivalFactor + (dayDifference - 1) + departureFactor
+  // return arrivalFactor + (dayDifference + 1) + departureFactor
+  // return arrivalFactor + dayDifference + departureFactor
+}
+
 /**
- * Возвращает подробный breakdown расчёта для одного интервала.
- * @param {string} checkInStr   — ISO-строка фактического заезда
- * @param {string} checkOutStr  — ISO-строка фактического выезда
- * @param {string} filterStartStr — ISO-строка начала отчётного периода
- * @param {string} filterEndStr   — ISO-строка конца отчётного периода
+ * dateUtils.js
+ *
+ * Utility for calculating “cost days” (full + partial) within an arbitrary report period.
+ * Implements a “guaranteed overlap” fix: any non‐empty stay segment gives at least 0.5 days.
  */
-function calculateDaysBreakdown(
+
+/**
+ * Считает «дни» для отчёта kars-avia (full + partial) за заданный период.
+ *
+ * Правила:
+ * 1) Если заявка целиком выходит за границы отчётного периода
+ *    (checkIn < periodStart && checkOut > periodEnd) —
+ *    возвращаем Math.ceil((periodEnd – periodStart)/MS_DAY).
+ *
+ * 2) Иначе «усекаем» интервал по границам:
+ *      effArr = max(checkIn, periodStart)
+ *      effDep = min(checkOut,  periodEnd)
+ *
+ *    а) arrivalPartial по effArr:
+ *         – arrH <  6  → +1.0
+ *         – иначе     → +0.5
+ *
+ *    b) departurePartial по effDep:
+ *         – depH > 12 → +0.5
+ *         – иначе    → +0.0
+ *
+ *    c) fullDays между effArr@14:00 и effDep@12:00:
+ *         – startFull = date(effArr) @14:00 (сдвиг вперёд, если effArr > 14:00)
+ *         – endFull   = date(effDep) @12:00 (сдвиг назад, если effDep < 12:00)
+ *         – rawFull   = (endFull – startFull)/MS_DAY
+ *         – fullDays  = rawFull > 0 ? Math.floor(rawFull) : 0
+ *
+ *    d) overlapPartial = effDep > effArr ? 0.5 : 0.0
+ *
+ * Итог: arrivalPartial + fullDays + departurePartial + overlapPartial
+ *
+ * @param {string} checkInStr     ISO-строка времени заезда
+ * @param {string} checkOutStr    ISO-строка времени выезда
+ * @param {string} filterStartStr ISO-строка начала отчётного периода
+ * @param {string} filterEndStr   ISO-строка конца отчётного периода
+ * @returns {number} дробное число суток
+ */
+export function calculateEffectiveCostDaysWithPartial_1(
   checkInStr,
   checkOutStr,
   filterStartStr,
   filterEndStr
 ) {
-  const msInDay = 1000 * 60 * 60 * 24
+  const MS_DAY = 1000 * 60 * 60 * 24
   const checkIn = new Date(checkInStr)
   const checkOut = new Date(checkOutStr)
-  const filterStart = new Date(filterStartStr)
-  const filterEnd = new Date(filterEndStr)
+  const periodStart = new Date(filterStartStr)
+  const periodEnd = new Date(filterEndStr)
 
-  // 1) полный выход за границы
-  if (checkIn < filterStart && checkOut > filterEnd) {
-    const rawDays = (filterEnd - filterStart) / msInDay
-    const days = Math.ceil(rawDays)
-    return {
-      type: "fully_outside",
-      rawDays,
-      days
-    }
+  // 1) Полностью за пределы отчёта?
+  if (checkIn < periodStart && checkOut > periodEnd) {
+    return Math.ceil((periodEnd - periodStart) / MS_DAY)
   }
 
-  // 2) «Обрезаем» по границам
-  const effArr =
-    checkIn < filterStart ? new Date(filterStart) : new Date(checkIn)
-  const effDep = checkOut > filterEnd ? new Date(filterEnd) : new Date(checkOut)
+  // 2) Усечение интервала
+  const effArr = checkIn < periodStart ? periodStart : checkIn
+  const effDep = checkOut > periodEnd ? periodEnd : checkOut
 
-  // 3) ранний заезд по effectiveArrival
+  // 3a) Partial заезд по effArr
   const arrH = effArr.getHours() + effArr.getMinutes() / 60
-  let arrivalPartial = 0
-  if (arrH < 6) {
-    arrivalPartial = 1.0
-  } else if (arrH < 14) {
-    arrivalPartial = 0.5
-  }
+  const arrivalPartial = arrH < 6 ? 1.0 : 0.5
 
-  // 4) поздний выезд по effectiveDeparture
+  // 3b) Partial выезд по effDep
   const depH = effDep.getHours() + effDep.getMinutes() / 60
-  let departurePartial = 0
-  if (depH > 18) {
-    departurePartial = 1.0
-  } else if (depH > 12) {
-    departurePartial = 0.5
-  }
+  const departurePartial = depH > 12 ? 0.5 : 0.0
 
-  // 5) полный день(дни) по «14:00→12:00»
+  // 4) Полные дни между effArr@14:00 и effDep@12:00
   const startFull = new Date(effArr)
   startFull.setHours(14, 0, 0, 0)
   if (effArr > startFull) startFull.setDate(startFull.getDate() + 1)
@@ -718,216 +817,15 @@ function calculateDaysBreakdown(
   endFull.setHours(12, 0, 0, 0)
   if (effDep < endFull) endFull.setDate(endFull.getDate() - 1)
 
-  const rawFullMs = endFull - startFull
-  const rawFullDays = rawFullMs > 0 ? rawFullMs / msInDay : 0
-  const fullDays = Math.floor(rawFullDays)
+  const rawFull = (endFull - startFull) / MS_DAY
+  const fullDays = rawFull > 0 ? Math.floor(rawFull) : 0
 
-  // 6) итог
-  const totalDays = arrivalPartial + fullDays + departurePartial
+  // 5) Минимальный overlapPartial
+  const overlapPartial = effDep > effArr ? 0.5 : 0.0
 
-  return {
-    type: "partial",
-    checkIn: checkIn.toISOString(),
-    checkOut: checkOut.toISOString(),
-    effectiveArrival: effArr.toISOString(),
-    effectiveDeparture: effDep.toISOString(),
-    arrivalPartial,
-    rawFullDays,
-    fullDays,
-    departurePartial,
-    totalDays
-  }
+  // 6) Итоговое число суток
+  return arrivalPartial + fullDays + departurePartial + overlapPartial
 }
-
-// calculateEffectiveCostDaysWithPartial
-
-/**
- * Calculate chargeable days for a hotel stay, with partial day adjustments.
- * @param {Date|string} checkIn - Actual check-in datetime (ISO string or Date)
- * @param {Date|string} checkOut - Actual check-out datetime (ISO string or Date)
- * @param {Date|string} [periodStart] - Start of reporting period (inclusive)
- * @param {Date|string} [periodEnd] - End of reporting period (inclusive)
- * @return {number} Number of days (can be 0.5 increments) to charge for the stay.
- */
-function calculateEffectiveCostDaysWithPartial_v2(
-  checkIn,
-  checkOut,
-  periodStart = null,
-  periodEnd = null
-) {
-  const MS_PER_DAY = 24 * 60 * 60 * 1000
-  // Convert inputs to Date objects
-  let inDate = checkIn instanceof Date ? new Date(checkIn) : new Date(checkIn)
-  let outDate =
-    checkOut instanceof Date ? new Date(checkOut) : new Date(checkOut)
-  if (periodStart) {
-    const start =
-      periodStart instanceof Date ? periodStart : new Date(periodStart)
-    if (inDate < start) {
-      // If arrival is before reporting period, clamp to period start
-      inDate = new Date(start)
-      // Treat clamped arrival as standard 14:00 (ignore early check-in for out-of-period part)
-      inDate.setHours(14, 0, 0, 0)
-    }
-  }
-  if (periodEnd) {
-    const end = periodEnd instanceof Date ? periodEnd : new Date(periodEnd)
-    if (outDate > end) {
-      // If departure is after reporting period, clamp to period end
-      outDate = new Date(end)
-      // Treat clamped departure as standard 12:00 (ignore late check-out beyond period)
-      outDate.setHours(12, 0, 0, 0)
-    }
-  }
-  // If after clamping the dates there's no stay interval:
-  if (outDate <= inDate) return 0
-
-  // Calculate hours of day for arrival and departure
-  const inHour = inDate.getHours() + inDate.getMinutes() / 60
-  const outHour = outDate.getHours() + outDate.getMinutes() / 60
-
-  // Determine early check-in partial charge
-  let earlyCharge = 0
-  if (inHour < 6) {
-    earlyCharge = 1.0
-  } else if (inHour < 14) {
-    earlyCharge = 0.5
-  }
-
-  // Determine late check-out partial charge
-  let lateCharge = 0
-  if (outHour > 18) {
-    lateCharge = 1.0
-  } else if (outHour > 12) {
-    lateCharge = 0.5
-  }
-
-  // Determine full day count (14:00 of check-in day to 12:00 of check-out day cycles)
-  // Set the starting point at 14:00 on the check-in date (or next day if check-in was after 14:00).
-  let startFull = new Date(inDate)
-  startFull.setHours(14, 0, 0, 0)
-  if (inDate > startFull) {
-    // If actual check-in was after 14:00, start count from the next day's 14:00
-    startFull.setDate(startFull.getDate() + 1)
-  }
-  // Set the ending point at 12:00 on the check-out date (or previous day if check-out was before 12:00).
-  let endFull = new Date(outDate)
-  endFull.setHours(12, 0, 0, 0)
-  if (outDate < endFull) {
-    // If actual check-out was before 12:00, count full days up to the previous day's noon
-    endFull.setDate(endFull.getDate() - 1)
-  }
-  // Calculate number of full 24h cycles between startFull and endFull
-  let fullDays = 0
-  if (endFull >= startFull) {
-    const diffMs = endFull.getTime() - startFull.getTime()
-    fullDays = Math.floor(diffMs / MS_PER_DAY)
-  }
-
-  // Special-case adjustments for stays on the same calendar day (no overnight full days):
-  const sameDayStay = inDate.toDateString() === outDate.toDateString()
-  if (sameDayStay) {
-    // If arrived after midnight (early <6) and left by around noon, minimal charge 0.5 day
-    if (inHour < 6 && outHour <= 12.5) {
-      return 0.5
-    }
-    // If arrived in the morning (after 6) and left in afternoon (before 18) on same day
-    if (inHour >= 6 && inHour < 14 && outHour > 12 && outHour <= 18) {
-      return 1.5
-    }
-    // Note: Other same-day scenarios will naturally compute correctly below (at least 0.5 day).
-  }
-
-  // Compute total days = full days + early + late, with a minimum of 0.5 if any stay exists
-  let totalDays = fullDays + earlyCharge + lateCharge
-  if (totalDays < 0.5 && (fullDays > 0 || earlyCharge > 0 || lateCharge > 0)) {
-    totalDays = 0.5
-  }
-  return totalDays
-}
-
-// utils/dateUtils.ts
-
-/**
- * Рассчитывает плату за дни проживания по правилам:
- *
- * 1. Стандартный заезд — 14:00, выезд — 12:00.
- * 2. Ранний заезд:
- *    • before 06:00 → +1.0 суток
- *    • 06:00–14:00 → +0.5 суток
- * 3. Поздний выезд:
- *    • 12:00–18:00 → +0.5 суток
- *    • after 18:00 → +1.0 суток
- * 4. Если arrival < periodStart, считать arrival = periodStart@14:00.
- * 5. Если departure > periodEnd, считать departure = periodEnd@12:00.
- * 6. Базовые ночи = ceil((depDateOnly – arrDateOnly) / 1d).
- * 7. Минимум за любое присутствие = 0.5 суток.
- *
- * @param checkIn      фактический заезд (ISO-строка или Date)
- * @param checkOut     фактический выезд (ISO-строка или Date)
- * @param periodStart начало отчётного периода (ISO-строка/Date), необязательно
- * @param periodEnd   конец отчётного периода (ISO-строка/Date), необязательно
- * @returns дробное число суток (0.5, 1.0, 1.5…)
- */
-
-// ts
-/*
-export function calculateStayDays(
-  checkIn: string | Date,
-  checkOut: string | Date,
-  periodStart?: string | Date,
-  periodEnd?: string | Date
-): number {
-  const MS_DAY = 24 * 60 * 60 * 1000
-
-  // 1) Приводим к Date
-  let inDt = checkIn instanceof Date ? new Date(checkIn) : new Date(checkIn)
-  let outDt = checkOut instanceof Date ? new Date(checkOut) : new Date(checkOut)
-
-  // 2) Усекать по периоду
-  if (periodStart) {
-    const ps = periodStart instanceof Date ? periodStart : new Date(periodStart)
-    // arrival до начала → считать как начало@14:00
-    if (inDt < ps) {
-      inDt = new Date(ps)
-      inDt.setHours(14, 0, 0, 0)
-    }
-  }
-  if (periodEnd) {
-    const pe = periodEnd instanceof Date ? periodEnd : new Date(periodEnd)
-    // departure после конца → считать как конец@12:00
-    if (outDt > pe) {
-      outDt = new Date(pe)
-      outDt.setHours(12, 0, 0, 0)
-    }
-  }
-  // 3) Если после усечения интервал пустой или отрицательный
-  if (outDt <= inDt) return 0
-
-  // 4) Базовые ночи: ceil разницы по датам (дни без времени)
-  const arrDay = new Date(inDt);  arrDay.setHours(0, 0, 0, 0)
-  const depDay = new Date(outDt); depDay.setHours(0, 0, 0, 0)
-  const rawDays = (depDay.getTime() - arrDay.getTime()) / MS_DAY
-  const baseNights = Math.ceil(rawDays)
-
-  // 5) Ранний заезд
-  const inHour = inDt.getHours() + inDt.getMinutes() / 60
-  let earlyCharge = 0
-  if      (inHour <  6) earlyCharge = 1.0
-  else if (inHour < 14) earlyCharge = 0.5
-
-  // 6) Поздний выезд
-  const outHour = outDt.getHours() + outDt.getMinutes() / 60
-  let lateCharge = 0
-  if      (outHour > 18) lateCharge = 1.0
-  else if (outHour > 12) lateCharge = 0.5
-
-  // 7) Итог + минимум
-  let total = baseNights + earlyCharge + lateCharge
-  if (total > 0 && total < 0.5) total = 0.5
-  return total
-}
-*/
 
 // Функции для подсчёта дней ---------------- ↑↑↑↑
 

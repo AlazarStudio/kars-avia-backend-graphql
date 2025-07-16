@@ -23,6 +23,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
     { header: "Дата/время заезда", key: "arrival", width: 25 },
     { header: "Дата/время выезда", key: "departure", width: 25 },
     { header: "кол-во суток", key: "totalDays", width: 10 },
+    // { header: "Full log", key: "breakdown", width: 400 },
     { header: "Категория ном.", key: "category", width: 30 },
     { header: "ФИО", key: "personName", width: 30 },
     { header: "Должность", key: "personPosition", width: 20 },
@@ -43,6 +44,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
       arrival: row.arrival,
       departure: row.departure,
       totalDays: row.totalDays,
+      // breakdown: row.breakdown,
       category: row.category,
       personName: row.personName,
       personPosition: row.personPosition,
@@ -100,25 +102,25 @@ export const generateExcelAvia = async (reportData, filePath) => {
         right: { style: "thin" }
       }
       // ---------------------------------------------------------------- ↓↓↓↓
-      // if (row.hasValues) {
-      //   const isOdd = row.number % 2 === 1
-      //   const fillColor = isOdd ? "FFEEEEEE" : "FFCCCCCC"
+      if (row.hasValues) {
+        const isOdd = row.number % 2 === 1
+        const fillColor = isOdd ? "FFEEEEEE" : "FFCCCCCC"
 
-      //   row.eachCell((cell) => {
-      //     cell.font = { name: "Times New Roman", size: 12 }
-      //     cell.border = {
-      //       top: { style: "thin" },
-      //       left: { style: "thin" },
-      //       bottom: { style: "thin" },
-      //       right: { style: "thin" }
-      //     }
-      //     cell.fill = {
-      //       type: "pattern",
-      //       pattern: "solid",
-      //       fgColor: { argb: fillColor }
-      //     }
-      //   })
-      // }
+        row.eachCell((cell) => {
+          cell.font = { name: "Times New Roman", size: 12 }
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" }
+          }
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: fillColor }
+          }
+        })
+      }
       // ---------------------------------------------------------------- ↑↑↑↑
     })
   })
@@ -128,16 +130,16 @@ export const generateExcelAvia = async (reportData, filePath) => {
   headerRow.height = 30
 
   // ---------------------------------------------------------------- ↓↓↓↓
-  // const header = sheet.getRow(1)
-  // header.font = { name: "Times New Roman", size: 12, bold: true }
-  // header.height = 30
-  // header.eachCell((cell) => {
-  //   cell.fill = {
-  //     type: "pattern",
-  //     pattern: "solid",
-  //     fgColor: { argb: "FF999999" }
-  //   }
-  // })
+  const header = sheet.getRow(1)
+  header.font = { name: "Times New Roman", size: 12, bold: true }
+  header.height = 30
+  header.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF999999" }
+    }
+  })
   // ---------------------------------------------------------------- ↑↑↑↑
 
   await workbook.xlsx.writeFile(filePath)
