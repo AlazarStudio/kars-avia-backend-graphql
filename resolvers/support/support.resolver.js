@@ -18,7 +18,7 @@ const supportResolver = {
     getAllDocumentations: async (_, __, context) => {
       allMiddleware(context)
       return await prisma.documentation.findMany({
-        orderBy: { date: "desc" }
+        orderBy: { name: "desc" }
       })
     },
 
