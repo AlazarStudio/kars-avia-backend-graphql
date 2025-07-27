@@ -679,3 +679,12 @@ model PatchNote {
   description String
   files       String[]
 }
+
+model Documentation {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  chapter     String
+  category    String
+  name        String
+  description String
+  files       String[]
+}

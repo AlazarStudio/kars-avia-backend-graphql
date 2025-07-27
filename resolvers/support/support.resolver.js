@@ -15,9 +15,23 @@ const supportResolver = {
       })
     },
 
+    getAllDocumentations: async (_, __, context) => {
+      allMiddleware(context)
+      return await prisma.documentation.findMany({
+        orderBy: { date: "desc" }
+      })
+    },
+
     getPatchNote: async (_, { id }, context) => {
       allMiddleware(context)
       return await prisma.patchNote.findUnique({
+        where: { id }
+      })
+    },
+
+    getDocumentation: async (_, { id }, context) => {
+      allMiddleware(context)
+      return await prisma.documentation.findUnique({
         where: { id }
       })
     },
@@ -152,6 +166,21 @@ const supportResolver = {
     updatePatchNote: async (_, { id, data }, context) => {
       allMiddleware(context)
       return await prisma.patchNote.update({
+        where: { id },
+        data
+      })
+    },
+
+    createDocumentation: async (_, { data }, context) => {
+      allMiddleware(context)
+      return await prisma.documentation.create({
+        data
+      })
+    },
+
+    updateDocumentation: async (_, { id, data }, context) => {
+      allMiddleware(context)
+      return await prisma.documentation.update({
         where: { id },
         data
       })
