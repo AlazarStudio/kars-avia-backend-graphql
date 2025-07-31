@@ -78,24 +78,24 @@ export const roleMiddlewareS = async (context, allowedRoles) => {
   // )
   const authHeader = context.authHeader
   if (!authHeader) {
-    console.error("Access forbidden: No token provided.")
-    // throw new Error("Access forbidden: No token provided.")
+    // console.error("Access forbidden: No token provided.")
+    throw new Error("Access forbidden: No token provided.")
   }
   const token = authHeader.split(" ")[1]
   if (!token) {
-    console.error("Access forbidden: Invalid token format.")
-    // throw new Error("Access forbidden: Invalid token format.")
+    // console.error("Access forbidden: Invalid token format.")
+    throw new Error("Access forbidden: Invalid token format.")
   }
   let decoded
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET)
   } catch (err) {
-    console.error("Access forbidden: Invalid or expired token.")
-    // throw new Error("Access forbidden: Invalid or expired token.")
+    // console.error("Access forbidden: Invalid or expired token.")
+    throw new Error("Access forbidden: Invalid or expired token.")
   }
   if (!decoded.role || !allowedRoles.includes(decoded.role)) {
-    console.error("Access forbidden: Insufficient rights.")
-    // throw new Error("Access forbidden: Insufficient rights.")
+    // console.error("Access forbidden: Insufficient rights.")
+    throw new Error("Access forbidden: Insufficient rights.")
   }
   const { user } = context
   try {
