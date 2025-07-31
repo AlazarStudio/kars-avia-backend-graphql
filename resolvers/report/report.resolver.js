@@ -871,13 +871,13 @@ function calculateEffectiveCostDaysWithPartial_v2(
  */
 
 // ts
-/*
-export function calculateStayDays(
-  checkIn: string | Date,
-  checkOut: string | Date,
-  periodStart?: string | Date,
-  periodEnd?: string | Date
-): number {
+
+export function calculateEffectiveCostDaysWithPartial(
+  checkIn,
+  checkOut,
+  periodStart,
+  periodEnd
+) {
   const MS_DAY = 24 * 60 * 60 * 1000
 
   // 1) Приводим к Date
@@ -927,7 +927,7 @@ export function calculateStayDays(
   if (total > 0 && total < 0.5) total = 0.5
   return total
 }
-*/
+
 
 // Функции для подсчёта дней ---------------- ↑↑↑↑
 

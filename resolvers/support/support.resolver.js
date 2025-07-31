@@ -41,7 +41,8 @@ const supportResolver = {
     // Каждый чат включает участников (participants) с данными о пользователе и сообщения (messages).
     supportChats: async (_, __, context) => {
       allMiddleware(context)
-      const { user } = context.user
+      const { user } = context
+
       // Если у текущего пользователя нет прав поддержки, выбрасываем ошибку
       if (!user.support) {
         throw new Error("Access denied")
