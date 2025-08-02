@@ -44,7 +44,7 @@ export const roleMiddleware = (context, allowedRoles) => {
 
 export const roleMiddleware = async (context, allowedRoles) => {
   const authHeader = context.authHeader
-  if (!authHeader) {
+  if (authHeader === undefined || authHeader === null || !authHeader ) {
     throw new Error("Access forbidden: No token provided.")
   }
   const token = authHeader.split(" ")[1]

@@ -47,7 +47,6 @@ input DocumentationUpdateInput {
   name: String
   description: String
   files: [String!]
-  date: Date
 }
 
 type Query {
