@@ -112,7 +112,7 @@ const hotelResolver = {
     },
 
     // Получение данных одного отеля по его id с включением связанных комнат, hotelChesses и логов
-    hotel: async (_, { id, hcPagination }, context) => {
+    hotel: async (_, { id }, context) => {
       allMiddleware(context)
       return await prisma.hotel.findUnique({
         where: { id },
@@ -1119,24 +1119,32 @@ const hotelResolver = {
       })
     },
     // Получение связанных записей hotelChesses с включением данных клиента
-    hotelChesses: async (parent, { hcPagination }) => {
+    hotelChesses: async (parent, args) => {
+      const hcPagination = args?.hcPagination || {}
       const { start, end } = hcPagination
-      return await prisma.hotelChess.findMany({
-        where: {
-          hotelId: parent.id,
-          ...(start && {
+
+      const where = {
+        hotelId: parent.id
+      }
+
+      if (start && end) {
+        // фильтрация по пересечению диапазонов
+        where.AND = [
+          {
             start: {
-              gte: new Date(start),
-              lte: new Date(new Date(end).getTime() + 24 * 60 * 60 * 1000)
+              lte: new Date(end)
             }
-          }),
-          ...(end && {
+          },
+          {
             end: {
-              gte: new Date(start),
-              lte: new Date(new Date(end).getTime() + 24 * 60 * 60 * 1000)
+              gte: new Date(start)
             }
-          })
-        },
+          }
+        ]
+      }
+
+      return await prisma.hotelChess.findMany({
+        where,
         include: { client: true }
       })
     },
