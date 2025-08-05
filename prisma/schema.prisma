@@ -221,6 +221,7 @@ model Position {
   id                String                 @id @default(auto()) @map("_id") @db.ObjectId
   name              String
   separator         String?
+  category          String?
   user              User[]
   airlinePersonal   AirlinePersonal[]
   airlineDepartment PositionOnDepartment[]

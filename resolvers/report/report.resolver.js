@@ -818,11 +818,26 @@ function calculateEffectiveCostDaysWithPartial(
 
         countDays = innerDays
       } else {
-        if (departureHour - standartArrivalTime < 0) {
-          countDays = 0.5
-        } else {
-          countDays = 1
+        // if (departureHour - standartArrivalTime < 0) {
+        //   countDays = 0.5
+        // } else {
+        //   countDays = 1
+        // }
+
+        if (departureHour >= 18) {
+          if (departureHour == 18 && departureMinute == 0) {
+            innerDays = innerDays + 1
+          } else {
+            innerDays = innerDays + 1
+          }
+        } else if (departureHour >= 12) {
+          if (departureHour == 12 && departureMinute == 0) {
+            innerDays = innerDays + 0.5
+          } else {
+            innerDays = innerDays + 0.5
+          }
         }
+
       }
     }
 

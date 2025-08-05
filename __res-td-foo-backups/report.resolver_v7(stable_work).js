@@ -9,7 +9,6 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
 import { deleteFiles } from "../../exports/uploadFiles.js"
-import { error } from "console"
 
 const reportResolver = {
   Query: {
@@ -17,7 +16,7 @@ const reportResolver = {
       const { user } = context
       airlineAdminMiddleware(context)
 
-      if (filter.hotelId) {
+      if (filter && filter.hotelId) {
         throw new Error("Cannot fetch hotel reports in getAirlineReport")
       }
 
@@ -28,7 +27,7 @@ const reportResolver = {
           separator,
           ...applyFilters(filter),
           airlineId: { not: null },
-          ...(filter.airlineId
+          ...(filter && filter.airlineId
             ? { airlineId: filter.airlineId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
             ? {}
@@ -50,7 +49,7 @@ const reportResolver = {
       return [
         {
           airlineId:
-            filter.airlineId ||
+            (filter && filter.airlineId) ||
             (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? null
               : user.airlineId),
@@ -260,9 +259,7 @@ const reportResolver = {
   }
 }
 
-/* ================================= */
-/* Функции для формирования фильтров */
-/* ================================= */
+// Функции для формирования фильтров ---------------- ↓↓↓↓
 
 const applyCreateFilters = (filter) => {
   const {
@@ -277,14 +274,6 @@ const applyCreateFilters = (filter) => {
     region
   } = filter
   const where = {}
-
-  // console.log(
-  //   "\n create filters: ",
-  //   "\n startDate - " + startDate,
-  //   "\n new date startDate - " + new Date(startDate),
-  //   "\n endDate - " + endDate,
-  //   "\n new date endDate - " + new Date(endDate)
-  // )
 
   if (startDate || endDate) {
     where.OR = [
@@ -330,6 +319,9 @@ const applyCreateFilters = (filter) => {
 }
 
 const applyFilters = (filter) => {
+  if (filter == null || filter == undefined) {
+    return
+  }
   const {
     startDate,
     endDate,
@@ -340,12 +332,13 @@ const applyFilters = (filter) => {
     positionId,
     region
   } = filter
+
   const where = {}
 
   if (startDate)
-    where.arrival = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.startDate = { gte: new Date(startDate), lte: new Date(endDate) }
   if (endDate)
-    where.departure = { gte: new Date(startDate), lte: new Date(endDate) }
+    where.endDate = { gte: new Date(startDate), lte: new Date(endDate) }
   if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
@@ -360,6 +353,38 @@ const applyFilters = (filter) => {
   }
 
   return where
+}
+
+// Функции для формирования фильтров ---------------- ↑↑↑↑
+
+// Функции для подсчёта цен ---------------- ↓↓↓↓
+
+const calculateLivingCost = (request, type, days) => {
+  const roomCategory = request.roomCategory
+  let pricePerDay = 0
+
+  if (type === "airline") {
+    pricePerDay = getAirlinePriceForCategory(request, roomCategory)
+  } else if (type === "hotel") {
+    const hotelPriceMapping = {
+      studio: request.hotelChess[0]?.room?.price || 1,
+      apartment: request.hotelChess[0]?.room?.price || 1,
+      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
+    }
+    pricePerDay = hotelPriceMapping[roomCategory] || 0
+  }
+
+  return days > 0 ? days * pricePerDay : 0
 }
 
 const getAirlinePriceForCategory = (request, category) => {
@@ -425,70 +450,9 @@ const getAirlineMealPrice = (request) => {
   return 0
 }
 
-const calculateTotalDays = (start, end) => {
-  if (!start || !end) return 0
-  const differenceInMilliseconds = new Date(end) - new Date(start)
-  return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
-}
+// Функции для подсчёта цен ---------------- ↑↑↑↑
 
-const calculateEffectiveCostDaysWithPartial = (
-  arrival,
-  departure,
-  filterStart,
-  filterEnd
-) => {
-  const effectiveArrival = arrival < filterStart ? filterStart : arrival
-  const effectiveDeparture = departure > filterEnd ? filterEnd : departure
-
-  if (effectiveDeparture <= effectiveArrival) return 0
-
-  const arrivalMidnight = new Date(
-    effectiveArrival.getFullYear(),
-    effectiveArrival.getMonth(),
-    effectiveArrival.getDate()
-  )
-  const departureMidnight = new Date(
-    effectiveDeparture.getFullYear(),
-    effectiveDeparture.getMonth(),
-    effectiveDeparture.getDate()
-  )
-
-  const dayDifference = Math.round(
-    (departureMidnight - arrivalMidnight) / (1000 * 60 * 60 * 24)
-  )
-
-  let arrivalFactor = 0
-  const arrivalHours =
-    effectiveArrival.getHours() + effectiveArrival.getMinutes() / 60
-
-  if (arrivalHours < 6) {
-    arrivalFactor = 1
-  } else if (arrivalHours < 14) {
-    arrivalFactor = 0.5
-  } else {
-    arrivalFactor = 1
-  }
-
-  let departureFactor = 0
-  const departureHours =
-    effectiveDeparture.getHours() + effectiveDeparture.getMinutes() / 60
-
-  if (departureHours <= 12) {
-    departureFactor = 0
-  } else if (departureHours <= 18) {
-    departureFactor = 0.5
-  } else {
-    departureFactor = 1
-  }
-
-  if (dayDifference === 0) {
-    return Math.max(arrivalFactor, departureFactor)
-  } else if (dayDifference === 1) {
-    return arrivalFactor + departureFactor
-  } else {
-    return arrivalFactor + dayDifference + departureFactor
-  }
-}
+// Функции обработки дат ---------------- ↓↓↓↓
 
 function parseAsLocal(input) {
   let year, monthIndex, day, hour, minute, second
@@ -528,6 +492,24 @@ const formatLocalDate = (date) => {
   return `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`
 }
 
+function formatDateToISO(dateInput) {
+  const date = new Date(dateInput)
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0") // месяцы с 0
+  const day = String(date.getDate()).padStart(2, "0")
+
+  const hours = String(date.getHours()).padStart(2, "0")
+  const minutes = String(date.getMinutes()).padStart(2, "0")
+  const seconds = String(date.getSeconds()).padStart(2, "0")
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
+// Функции обработки дат ---------------- ↑↑↑↑
+
+// Функции агрегации заяврк ---------------- ↓↓↓↓
+
 const aggregateRequestReports = (
   requests,
   reportType,
@@ -540,29 +522,29 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    const hotelA = a.hotel?.name || ""
-    const hotelB = b.hotel?.name || ""
-    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
-    if (hotelCmp !== 0) return hotelCmp
+    // const hotelA = a.hotel?.name || ""
+    // const hotelB = b.hotel?.name || ""
+    // const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    // if (hotelCmp !== 0) return hotelCmp
 
-    const catOrder = [
-      "studio",
-      "apartment",
-      "luxe",
-      "onePlace",
-      "twoPlace",
-      "threePlace",
-      "fourPlace",
-      "fivePlace",
-      "sixPlace",
-      "sevenPlace",
-      "eightPlace",
-      "ninePlace",
-      "tenPlace"
-    ]
-    const catA = catOrder.indexOf(a.roomCategory)
-    const catB = catOrder.indexOf(b.roomCategory)
-    if (catA !== catB) return catA - catB
+    // const catOrder = [
+    //   "studio",
+    //   "apartment",
+    //   "luxe",
+    //   "onePlace",
+    //   "twoPlace",
+    //   "threePlace",
+    //   "fourPlace",
+    //   "fivePlace",
+    //   "sixPlace",
+    //   "sevenPlace",
+    //   "eightPlace",
+    //   "ninePlace",
+    //   "tenPlace"
+    // ]
+    // const catA = catOrder.indexOf(a.roomCategory)
+    // const catB = catOrder.indexOf(b.roomCategory)
+    // if (catA !== catB) return catA - catB
 
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
@@ -597,13 +579,23 @@ const aggregateRequestReports = (
       tenPlace: "Десятиместный"
     }
 
+
     const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
     const effectiveDays = calculateEffectiveCostDaysWithPartial(
-      effectiveArrival,
-      effectiveDeparture,
-      filterStart,
-      filterEnd
+      formatDateToISO(effectiveArrival),
+      formatDateToISO(effectiveDeparture),
+      formatDateToISO(filterStart),
+      formatDateToISO(filterEnd)
     )
+
+    // const breakdown = calculateDaysBreakdown(
+    //   rawIn,
+    //   rawOut,
+    //   filterStart,
+    //   filterEnd
+    // )
+
+    // console.log(breakdown)
 
     const totalLivingCost = calculateLivingCost(
       request,
@@ -647,12 +639,14 @@ const aggregateRequestReports = (
       hotelName: request.hotel?.name || "Не указано",
       arrival: formatLocalDate(effectiveArrival),
       departure: formatLocalDate(effectiveDeparture),
-      totalDays: calculateEffectiveCostDaysWithPartial(
-        effectiveArrival,
-        effectiveDeparture,
-        filterStart,
-        filterEnd
-      ),
+      totalDays: effectiveDays,
+      // totalDays: calculateEffectiveCostDaysWithPartial(
+      //   rawIn,
+      //   rawOut,
+      //   filterStart,
+      //   filterEnd
+      // ),
+      // breakdown: breakdown,
       category: categoryMapping[request.roomCategory] || request.roomCategory,
       personName: request.person?.name || "Не указано",
       personPosition: request.person?.position?.name || "Не указано",
@@ -667,32 +661,281 @@ const aggregateRequestReports = (
   })
 }
 
-const calculateLivingCost = (request, type, days) => {
-  const roomCategory = request.roomCategory
-  let pricePerDay = 0
+// Функции агрегации заяврк ---------------- ↑↑↑↑
 
-  if (type === "airline") {
-    pricePerDay = getAirlinePriceForCategory(request, roomCategory)
-  } else if (type === "hotel") {
-    const hotelPriceMapping = {
-      studio: request.hotelChess[0]?.room?.price || 1,
-      apartment: request.hotelChess[0]?.room?.price || 1,
-      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
+// Функции для подсчёта дней ---------------- ↓↓↓↓
+
+const calculateTotalDays = (start, end) => {
+  if (!start || !end) return 0
+  const differenceInMilliseconds = new Date(end) - new Date(start)
+  return Math.ceil(differenceInMilliseconds / (1000 * 60 * 60 * 24))
+}
+
+/**
+ * Возвращает подробный breakdown расчёта для одного интервала.
+ * @param {string} checkInStr   — ISO-строка фактического заезда
+ * @param {string} checkOutStr  — ISO-строка фактического выезда
+ * @param {string} filterStartStr — ISO-строка начала отчётного периода
+ * @param {string} filterEndStr   — ISO-строка конца отчётного периода
+ */
+function calculateDaysBreakdown(
+  checkInStr,
+  checkOutStr,
+  filterStartStr,
+  filterEndStr
+) {
+  const msInDay = 1000 * 60 * 60 * 24
+  const checkIn = new Date(checkInStr)
+  const checkOut = new Date(checkOutStr)
+  const filterStart = new Date(filterStartStr)
+  const filterEnd = new Date(filterEndStr)
+
+  // 1) полный выход за границы
+  if (checkIn < filterStart && checkOut > filterEnd) {
+    const rawDays = (filterEnd - filterStart) / msInDay
+    const days = Math.ceil(rawDays)
+    return {
+      type: "fully_outside",
+      rawDays,
+      days
     }
-    pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
 
-  return days > 0 ? days * pricePerDay : 0
+  // 2) «Обрезаем» по границам
+  const effArr =
+    checkIn < filterStart ? new Date(filterStart) : new Date(checkIn)
+  const effDep = checkOut > filterEnd ? new Date(filterEnd) : new Date(checkOut)
+
+  // 3) ранний заезд по effectiveArrival
+  const arrH = effArr.getHours() + effArr.getMinutes() / 60
+  let arrivalPartial = 0
+  if (arrH < 6) {
+    arrivalPartial = 1.0
+  } else if (arrH < 14) {
+    arrivalPartial = 0.5
+  }
+
+  // 4) поздний выезд по effectiveDeparture
+  const depH = effDep.getHours() + effDep.getMinutes() / 60
+  let departurePartial = 0
+  if (depH > 18) {
+    departurePartial = 1.0
+  } else if (depH > 12) {
+    departurePartial = 0.5
+  }
+
+  // 5) полный день(дни) по «14:00→12:00»
+  const startFull = new Date(effArr)
+  startFull.setHours(14, 0, 0, 0)
+  if (effArr > startFull) startFull.setDate(startFull.getDate() + 1)
+
+  const endFull = new Date(effDep)
+  endFull.setHours(12, 0, 0, 0)
+  if (effDep < endFull) endFull.setDate(endFull.getDate() - 1)
+
+  const rawFullMs = endFull - startFull
+  const rawFullDays = rawFullMs > 0 ? rawFullMs / msInDay : 0
+  const fullDays = Math.floor(rawFullDays)
+
+  // 6) итог
+  const totalDays = arrivalPartial + fullDays + departurePartial
+
+  return {
+    type: "partial",
+    checkIn: checkIn.toISOString(),
+    checkOut: checkOut.toISOString(),
+    effectiveArrival: effArr.toISOString(),
+    effectiveDeparture: effDep.toISOString(),
+    arrivalPartial,
+    rawFullDays,
+    fullDays,
+    departurePartial,
+    totalDays
+  }
 }
+
+function calculateEffectiveCostDaysWithPartial(
+  arrivalStr,
+  departureStr,
+  reportStart,
+  reportEnd
+) {
+
+  let reportStartDay = +reportStart.split("T")[0].split("-")[2]
+  let reportStartHour = +reportStart.split("T")[1].split(":")[0]
+  let reportStartMinute = +reportStart.split("T")[1].split(":")[1]
+
+  let reportEndDay = +reportEnd.split("T")[0].split("-")[2]
+  let reportEndHour = +reportEnd.split("T")[1].split(":")[0]
+  let reportEndMinute = +reportEnd.split("T")[1].split(":")[1]
+
+  let arrivalDay = +arrivalStr.split("T")[0].split("-")[2]
+  let arrivalHour = +arrivalStr.split("T")[1].split(":")[0]
+  let arrivalMinute = +arrivalStr.split("T")[1].split(":")[1]
+
+  let departureDay = +departureStr.split("T")[0].split("-")[2]
+  let departureHour = +departureStr.split("T")[1].split(":")[0]
+  let departureMinute = +departureStr.split("T")[1].split(":")[1]
+
+  let countDays = 0
+  let standartArrivalTime = 14
+  let standartDepartureTime = 12
+
+  if (
+    reportStartDay == arrivalDay &&
+    reportStartHour == arrivalHour &&
+    reportStartMinute == arrivalMinute &&
+    reportEndDay == departureDay &&
+    reportEndHour == departureHour &&
+    reportEndMinute == departureMinute
+  ) {
+    countDays = departureDay - arrivalDay + 1
+  } else {
+    if (
+      reportStartDay == arrivalDay &&
+      reportStartHour == arrivalHour &&
+      reportStartMinute == arrivalMinute &&
+      (reportEndDay != departureDay ||
+        reportEndHour != departureHour ||
+        reportEndMinute != departureMinute)
+    ) {
+      let innerDays = departureDay - arrivalDay
+
+      if (innerDays > 0) {
+        if (departureHour >= 18) {
+          if (departureHour == 18 && departureMinute == 0) {
+            innerDays = innerDays + 1
+          } else {
+            innerDays = innerDays + 1
+          }
+        } else if (departureHour >= 12) {
+          if (departureHour == 12 && departureMinute == 0) {
+            innerDays = innerDays + 0
+          } else {
+            innerDays = innerDays + 0.5
+          }
+        }
+
+        countDays = innerDays
+      } else {
+        if (departureHour - standartArrivalTime < 0) {
+          countDays = 0.5
+        } else {
+          countDays = 1
+        }
+      }
+    }
+
+    if (
+      reportEndDay == departureDay &&
+      reportEndHour == departureHour &&
+      reportEndMinute == departureMinute &&
+      (reportStartDay != arrivalDay ||
+        reportStartHour != arrivalHour ||
+        reportStartMinute != arrivalMinute)
+    ) {
+      let innerDays = departureDay - arrivalDay
+
+      if (arrivalHour <= 6) {
+        if (arrivalHour == 6 && arrivalMinute >= 0) {
+          innerDays = innerDays + 0.5
+        } else {
+          innerDays = innerDays + 1
+        }
+      } else if (arrivalHour <= 14) {
+        if (arrivalHour == 14 && arrivalMinute >= 0) {
+          innerDays = innerDays + 0
+        } else {
+          innerDays = innerDays + 0.5
+        }
+      }
+
+      countDays = innerDays + 1
+    }
+
+    if (
+      (reportStartDay != arrivalDay ||
+        reportStartHour != arrivalHour ||
+        reportStartMinute != arrivalMinute) &&
+      (reportEndDay != departureDay ||
+        reportEndHour != departureHour ||
+        reportEndMinute != departureMinute)
+    ) {
+      let innerDays = departureDay - arrivalDay
+
+      if (innerDays > 0) {
+        if (departureHour >= 18) {
+          if (departureHour == 18 && departureMinute == 0) {
+            innerDays = innerDays + 1
+          } else {
+            innerDays = innerDays + 1
+          }
+        } else if (departureHour >= 12) {
+          if (departureHour == 12 && departureMinute == 0) {
+            innerDays = innerDays + 0
+          } else {
+            innerDays = innerDays + 0.5
+          }
+        }
+
+        if (arrivalHour <= 6) {
+          if (arrivalHour == 6 && arrivalMinute >= 0) {
+            innerDays = innerDays + 0.5
+          } else {
+            innerDays = innerDays + 1
+          }
+        } else if (arrivalHour <= 14) {
+          if (arrivalHour == 14 && arrivalMinute >= 0) {
+            innerDays = innerDays + 0
+          } else {
+            innerDays = innerDays + 0.5
+          }
+        }
+
+        countDays = innerDays
+      } else {
+        // if (departureHour >= 18) {
+        //     if (departureHour == 18 && departureMinute == 0) {
+        //         innerDays = innerDays + 0.5
+        //     } else {
+        //         innerDays = innerDays + 1
+        //     }
+        // }
+        // else
+        //     if (departureHour >= 12) {
+        //         if (departureHour == 12 && departureMinute == 0) {
+        //             innerDays = innerDays + 0
+        //         } else {
+        //             innerDays = innerDays + 0.5
+        //         }
+        //     }
+
+        if (departureHour < standartArrivalTime) {
+          innerDays = innerDays - 0.5
+        }
+
+        if (arrivalHour <= 6) {
+          if (arrivalHour == 6 && arrivalMinute >= 0) {
+            innerDays = innerDays + 0.5
+          } else {
+            innerDays = innerDays + 1
+          }
+        } else if (arrivalHour <= 14) {
+          if (arrivalHour == 14 && arrivalMinute >= 0) {
+            innerDays = innerDays + 0
+          } else {
+            innerDays = innerDays + 0.5
+          }
+        }
+
+        countDays = innerDays + 1
+      }
+    }
+  }
+
+  return countDays
+}
+
+// Функции для подсчёта дней ---------------- ↑↑↑↑
 
 export default reportResolver

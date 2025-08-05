@@ -49,6 +49,7 @@ type Position {
   id: ID!
   name: String!
   separator: String!
+  category: String
   user: [User]
   airlinePersonal: [AirlinePersonal]
   airlineDepartment: [AirlineDepartment]
@@ -96,6 +97,7 @@ input SignInInput {
 input PositionInput {
   name: String!
   separator: String
+  category: String
   # hotelId: ID
   # airlineId: ID
   # airlineDepartmentId: ID

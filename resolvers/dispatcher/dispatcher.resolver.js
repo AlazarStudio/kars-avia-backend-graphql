@@ -111,7 +111,8 @@ const dispatcherResolver = {
       const position = await prisma.position.create({
         data: {
           name,
-          separator
+          separator,
+          category
         }
       })
       return position
@@ -122,7 +123,8 @@ const dispatcherResolver = {
       const position = await prisma.position.update({
         where: { id: pos.id },
         data: {
-          name
+          name,
+          category
         }
       })
       return position
