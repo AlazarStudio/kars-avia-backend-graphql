@@ -142,7 +142,7 @@ type Hotel {
   quote: Int
   capacity: Int
   images: [String!]!
-  hotelChesses: [HotelChess!]
+  hotelChesses(hcPagination: HotelChessPaginationInput): [HotelChess!]
   rooms: [Room!]!
   roomKind: [RoomKind]
   breakfast: MealTime
@@ -290,6 +290,11 @@ input HotelChessInput {
   requestId: ID
   reserveId: ID
   status: String
+}
+
+input HotelChessPaginationInput {
+  start: Date
+  end: Date
 }
 
 input RoomInput {
