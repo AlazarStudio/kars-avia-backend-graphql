@@ -18,7 +18,7 @@ const airlineResolver = {
 
   Query: {
     airlines: async (_, { pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.airline.count({ where: { active: true } })
       const airlines = all
@@ -47,7 +47,7 @@ const airlineResolver = {
     },
 
     airline: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.airline.findUnique({
         where: { id },
         include: {
@@ -61,7 +61,7 @@ const airlineResolver = {
     },
 
     airlineStaff: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.airlinePersonal.findUnique({
         where: { id },
         include: { hotelChess: true, position: true }
@@ -69,7 +69,7 @@ const airlineResolver = {
     },
 
     airlineStaffs: async (_, { airlineId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.airlinePersonal.findMany({
         where: { airlineId, active: true },
         include: { hotelChess: true, position: true },
@@ -81,7 +81,7 @@ const airlineResolver = {
   Mutation: {
     createAirline: async (_, { input, images }, context) => {
       const { user } = context
-      adminMiddleware(context)
+      await adminMiddleware(context)
       // const defaultMealPrice = { breakfast: 0, lunch: 0, dinner: 0 }
 
       // Для цен теперь ожидаем массив тарифных договоров
@@ -138,7 +138,7 @@ const airlineResolver = {
 
     updateAirline: async (_, { id, input, images }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
@@ -447,7 +447,7 @@ const airlineResolver = {
 
     deleteAirline: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
-      adminMiddleware(context)
+      await adminMiddleware(context)
       // Удаляем авиакомпанию и возвращаем связанные с ней данные (например, персонал)
       const deletedAirline = await prisma.airline.update({
         where: { id },
@@ -474,7 +474,7 @@ const airlineResolver = {
     // Удаление департамента авиакомпании
     deleteAirlineDepartment: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
       // Удаляем департамент и возвращаем связанные с ним данные (например, персонал)
       const department = await prisma.airlineDepartment.delete({
         where: { id },
@@ -496,7 +496,7 @@ const airlineResolver = {
     // Удаление сотрудника авиакомпании
     deleteAirlineStaff: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
       // Удаляем данные о сотруднике
       const person = await prisma.airlinePersonal.update({
         where: { id },

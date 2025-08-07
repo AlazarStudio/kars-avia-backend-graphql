@@ -66,7 +66,7 @@ const hotelResolver = {
     // Получение списка отелей с возможностью пагинации.
     // При запросе возвращаются отели с включением связанных комнат (rooms) и записей hotelChesses.
     hotels: async (_, { pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { skip, take, all } = pagination || {}
       // Получаем общее количество отелей
       const totalCount = await prisma.hotel.count({ where: { active: true } })
@@ -113,7 +113,7 @@ const hotelResolver = {
 
     // Получение данных одного отеля по его id с включением связанных комнат, hotelChesses и логов
     hotel: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -134,7 +134,7 @@ const hotelResolver = {
     createHotel: async (_, { input, images, gallery }, context) => {
       const { user } = context
       // Проверка доступа: требуется администратор
-      adminMiddleware(context)
+      await adminMiddleware(context)
 
       // Значения по умолчанию для цен на питание (mealPrice)
       const defaultMealPrice = {
@@ -231,7 +231,7 @@ const hotelResolver = {
       // hotelAdminMiddleware(context)
 
       if (input.hotelChesses && input.hotelChesses.length > 0) {
-        hotelModerMiddleware(context) // Если обновляются hotelChesses → проверяем права модератора
+        await hotelModerMiddleware(context) // Если обновляются hotelChesses → проверяем права модератора
       } else {
         hotelAdminMiddleware(context) // В остальных случаях → права администратора отеля
       }
@@ -991,7 +991,7 @@ const hotelResolver = {
     // логирование действия и, если есть изображения, их удаление.
     deleteHotel: async (_, { id }, context) => {
       // Проверка прав: только супер-администратор может удалять отели
-      adminMiddleware(context)
+      await adminMiddleware(context)
       const hotelToDelete = await prisma.hotel.findUnique({
         where: { id }
       })
@@ -1081,7 +1081,7 @@ const hotelResolver = {
     },
 
     updateAllRoomKindCount: async (_, { __ }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const hotels = await prisma.hotel.findMany({
         select: { roomKind: true }
       })

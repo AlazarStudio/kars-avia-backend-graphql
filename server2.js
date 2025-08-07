@@ -37,7 +37,7 @@ const getDynamicContext = async (ctx, msg, args) => {
   if (ctx.connectionParams.Authorization) {
     const authHeader = ctx.connectionParams.Authorization
     if (!authHeader) {
-      return { user: null }
+      return { user: null, authHeader: null }
     }
     const token = authHeader.startsWith("Bearer ")
       ? authHeader.slice(7, authHeader.length)
@@ -129,7 +129,7 @@ app.use(
     context: async ({ req, res }) => {
       const authHeader = req.headers.authorization
       if (!authHeader) {
-        return { user: null }
+        return { user: null, authHeader: null }
       }
       const token = authHeader.startsWith("Bearer ")
         ? authHeader.slice(7, authHeader.length)

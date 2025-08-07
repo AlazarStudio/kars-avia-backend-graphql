@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
 import { logger } from "../utils/logger.js"
+import { GraphQLError } from "graphql"
 import { error } from "console"
 
 // Общий мидлвар для авторизации
@@ -43,75 +44,32 @@ export const roleMiddleware = (context, allowedRoles) => {
 */
 
 export const roleMiddleware = async (context, allowedRoles) => {
-  const authHeader = context.authHeader
-  if (authHeader === undefined || authHeader === null || !authHeader ) {
-    throw new Error("Access forbidden: No token provided.")
-  }
-  const token = authHeader.split(" ")[1]
-  if (!token) {
-    throw new Error("Access forbidden: Invalid token format.")
-  }
-  let decoded
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET)
-  } catch (err) {
-    throw new Error("Access forbidden: Invalid or expired token.")
-  }
-  if (!decoded.role || !allowedRoles.includes(decoded.role)) {
-    throw new Error("Access forbidden: Insufficient rights.")
-  }
-  const { user } = context
-  try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastSeen: new Date() }
+  const user = context.user
+  if (!user) {
+    throw new GraphQLError("Access forbidden: No user provided.", {
+      extensions: {
+        code: "UNAUTHORIZED"
+      }
     })
-  } catch (e) {
-    throw new Error("error" + e)
   }
-}
 
-export const roleMiddlewareS = async (context, allowedRoles) => {
-  // console.log(
-  //   "\n context - " + context,
-  //   "\n context str - " + JSON.stringify(context)
-  // )
-  const authHeader = context.authHeader
-  if (!authHeader) {
-    // console.error("Access forbidden: No token provided.")
-    throw new Error("Access forbidden: No token provided.")
-  }
-  const token = authHeader.split(" ")[1]
-  if (!token) {
-    // console.error("Access forbidden: Invalid token format.")
-    throw new Error("Access forbidden: Invalid token format.")
-  }
-  let decoded
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET)
-  } catch (err) {
-    // console.error("Access forbidden: Invalid or expired token.")
-    throw new Error("Access forbidden: Invalid or expired token.")
-  }
-  if (!decoded.role || !allowedRoles.includes(decoded.role)) {
-    // console.error("Access forbidden: Insufficient rights.")
-    throw new Error("Access forbidden: Insufficient rights.")
-  }
-  const { user } = context
-  try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastSeen: new Date() }
+  if (!allowedRoles.includes(user.role)) {
+    throw new GraphQLError("Access forbidden: Insufficient rights.", {
+      extensions: {
+        code: "FORBIDDEN"
+      }
     })
-  } catch (e) {
-    console.error("error" + e)
-    // throw new Error("error" + e)
   }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastSeen: new Date() }
+  })
 }
 
 //
-export const dispatcherModerMiddleware = (context) => {
-  roleMiddleware(context, [
+export const dispatcherModerMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "DISPATCHERMODERATOR"
@@ -119,22 +77,23 @@ export const dispatcherModerMiddleware = (context) => {
 }
 
 // Специфичные мидлвары для ролей на основе универсального
-export const superAdminMiddleware = (context) =>
-  roleMiddleware(context, ["SUPERADMIN"])
+export const superAdminMiddleware = async (context) => {
+  await roleMiddleware(context, ["SUPERADMIN"])
+}
+export const adminMiddleware = async (context) =>
+  await roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN"])
 
-export const adminMiddleware = (context) =>
-  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN"])
-
-export const adminHotelAirMiddleware = (context) =>
-  roleMiddleware(context, [
+export const adminHotelAirMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",
     "AIRLINEADMIN"
   ])
+}
 
-export const moderatorMiddleware = (context) =>
-  roleMiddleware(context, [
+export const moderatorMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",
@@ -143,51 +102,62 @@ export const moderatorMiddleware = (context) =>
     "HOTELMODERATOR",
     "AIRLINEMODERATOR"
   ])
+}
 
-export const hotelAdminMiddleware = (context) =>
-  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "HOTELADMIN"])
+export const hotelAdminMiddleware = async (context) => {
+  await roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "HOTELADMIN"])
+}
 
-export const hotelModerMiddleware = (context) =>
-  roleMiddleware(context, [
+export const hotelModerMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "DISPATCHERMODERATOR",
     "HOTELADMIN",
     "HOTELMODERATOR"
   ])
+}
 
-export const hotelMiddleware = (context) =>
-  roleMiddleware(context, [
+export const hotelMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",
     "HOTELMODERATOR",
     "HOTELUSER"
   ])
+}
 
-export const airlineAdminMiddleware = (context) =>
-  roleMiddleware(context, ["SUPERADMIN", "DISPATCHERADMIN", "AIRLINEADMIN"])
+export const airlineAdminMiddleware = async (context) => {
+  await roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "AIRLINEADMIN"
+  ])
+}
 
-export const airlineModerMiddleware = (context) =>
-  roleMiddleware(context, [
+export const airlineModerMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "DISPATCHERMODERATOR",
     "AIRLINEADMIN",
     "AIRLINEMODERATOR"
   ])
+}
 
-export const airlineMiddleware = (context) =>
-  roleMiddleware(context, [
+export const airlineMiddleware = async (context) => {
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "AIRLINEADMIN",
     "AIRLINEMODERATOR",
     "AIRLINEUSER"
   ])
+}
 
-export const allMiddleware = (context) =>
-  roleMiddlewareS(context, [
+export const allMiddleware = async (context) => {
+  roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",
@@ -200,6 +170,7 @@ export const allMiddleware = (context) =>
     "AIRLINEUSER",
     "USER"
   ])
+}
 
 // ----------------------------------------------------------------
 

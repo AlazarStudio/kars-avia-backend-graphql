@@ -52,7 +52,7 @@ const requestResolver = {
     // Если у пользователя задан airlineId, добавляется фильтр по нему.
     // Исключаются архивные заявки (archive: true).
     requests: async (_, { pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       const {
         skip = 0,
@@ -147,7 +147,7 @@ const requestResolver = {
     // Доступно только для администраторов авиалиний (airlineAdminMiddleware).
     requestArchive: async (_, { pagination }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
 
       const {
         skip = 0,
@@ -243,7 +243,7 @@ const requestResolver = {
     // Включает связанные данные: airline, airport, hotel, hotelChess, logs.
     // Если заявка имеет статус "created" и пользователь является диспетчером, статус обновляется на "opened".
     request: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       const request = await prisma.request.findUnique({
         where: { id },
@@ -262,7 +262,7 @@ const requestResolver = {
       // Если заявка находится в архиве, для доступа требуется проверка прав администратора.
 
       // if (request.archive === true) {
-      //   airlineAdminMiddleware(context)
+      //   await airlineAdminMiddleware(context)
       // }
 
       // Если пользователь является диспетчером, при первом открытии заявки (status === "created")
@@ -308,7 +308,7 @@ const requestResolver = {
     // загрузка файлов, создание записи в базе, создание чата для заявки и логирование действия.
     createRequest: async (_, { input, files }, context) => {
       const { user } = context
-      airlineModerMiddleware(context)
+      await airlineModerMiddleware(context)
       const {
         personId,
         airportId,
@@ -549,8 +549,8 @@ const requestResolver = {
 
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
-      // airlineModerMiddleware(context)
-      moderatorMiddleware(context)
+      // await airlineModerMiddleware(context)
+      await moderatorMiddleware(context)
 
       try {
         const currentTime = new Date()
@@ -813,7 +813,7 @@ const requestResolver = {
     // Изменение ежедневного плана питания заявки.
     // Вызывает функцию updateDailyMeals для обновления плана питания и логирует действие.
     modifyDailyMeals: async (_, { input }, context) => {
-      moderatorMiddleware(context)
+      await moderatorMiddleware(context)
       const { user } = context
       const { requestId, dailyMeals } = input
       const request = await prisma.request.findUnique({
@@ -843,8 +843,8 @@ const requestResolver = {
     // Если диспетчер, обновляются даты в hotelChess, пересчитывается план питания и обновляется заявка.
     extendRequestDates: async (_, { input }, context) => {
       const { user } = context
-      // airlineModerMiddleware(context)
-      moderatorMiddleware(context)
+      // await airlineModerMiddleware(context)
+      await moderatorMiddleware(context)
 
       try {
         const currentTime = new Date()
@@ -1092,7 +1092,7 @@ const requestResolver = {
     // Если дата отбытия меньше текущей и статус заявки не "archived", меняем статус на "archived".
     archivingRequest: async (_, input, context) => {
       const { user } = context
-      dispatcherModerMiddleware(context)
+      await dispatcherModerMiddleware(context)
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId }
@@ -1125,7 +1125,7 @@ const requestResolver = {
     // Обновляем статус заявки на "canceled", удаляем связанные hotelChess и логируем действие.
     cancelRequest: async (_, input, context) => {
       const { user } = context
-      airlineModerMiddleware(context)
+      await airlineModerMiddleware(context)
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId },
@@ -1265,6 +1265,9 @@ const requestResolver = {
         () => pubsub.asyncIterator(REQUEST_UPDATED),
         (payload, variables, context) => {
           const user = context.user
+          if (user.role === "SUPERADMIN") {
+            return true
+          }
           if (user.dispatcher === true) {
             return true
           }

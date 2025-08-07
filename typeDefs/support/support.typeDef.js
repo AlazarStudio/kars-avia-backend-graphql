@@ -10,13 +10,25 @@ type PatchNote {
   files: [String]
 }
 
+# type Documentation {
+#   id: ID!
+#   chapter: String
+#   category: String
+#   name: String!
+#   description: String!
+#   files: [String]
+# }
+
 type Documentation {
   id: ID!
-  chapter: String
-  category: String
+  parentId: ID
+  parent: Documentation
+  children: [Documentation!]!
+  order: Int
+  type: String
   name: String!
-  description: String!
-  files: [String]
+  description: String
+  files: [String!]!
 }
 
 input PatchNoteInput {
@@ -33,17 +45,35 @@ input PatchNoteUpdateInput {
   date: Date
 }
 
+# input DocumentationInput {
+#   chapter: String
+#   category: String
+#   name: String!
+#   description: String!
+#   files: [String!]
+# }
+
 input DocumentationInput {
-  chapter: String
-  category: String
+  parentId: ID
+  order: Int
+  type: String
   name: String!
-  description: String!
+  description: String
   files: [String!]
 }
 
+# input DocumentationUpdateInput {
+#   chapter: String
+#   category: String
+#   name: String
+#   description: String
+#   files: [String!]
+# }
+
 input DocumentationUpdateInput {
-  chapter: String
-  category: String
+  parentId: ID
+  order: Int
+  type: String
   name: String
   description: String
   files: [String!]
@@ -52,6 +82,7 @@ input DocumentationUpdateInput {
 type Query {
   getAllPatchNotes: [PatchNote!]!
   getAllDocumentations: [Documentation!]!
+  documentationTree: [Documentation!]!
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
   supportChats: [Chat!]! # Для поддержки: все чаты с пользователями
@@ -64,6 +95,8 @@ type Mutation {
   createDocumentation(data: DocumentationInput!): Documentation!
   updatePatchNote(id: ID!, data: PatchNoteUpdateInput!): PatchNote!
   updateDocumentation(id: ID!, data: DocumentationUpdateInput!): Documentation!
+  moveDocumentation(id: ID!, newParentId: ID, newOrder: Int): Documentation!
+  deleteDocumentation(id: ID!): Documentation
 }
 
 `

@@ -75,7 +75,7 @@ import { convertXlsxToPdf } from "../../exports/exporter.js";
 Mutation: {
   createAirlineReport: async (_, { input }, context) => {
     const { user } = context;
-    airlineAdminMiddleware(context);
+    await airlineAdminMiddleware(context);
     const { filter, format } = input;
 
     if (!user) {

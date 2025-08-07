@@ -40,7 +40,7 @@ const userResolver = {
   Query: {
     // Получение всех пользователей, сортированных по имени (возвращает всех)
     users: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.user.findMany({
         where: { active: true },
         orderBy: { name: "asc" },
@@ -49,7 +49,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.user.findMany({
         where: { airlineId, active: true },
         orderBy: { name: "asc" },
@@ -58,7 +58,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.user.findMany({
         where: { hotelId, active: true },
         orderBy: { name: "asc" },
@@ -67,7 +67,7 @@ const userResolver = {
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.user.findMany({
         where: { dispatcher: true, active: true },
         orderBy: { name: "asc" },
@@ -76,7 +76,7 @@ const userResolver = {
     },
     // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.user.findUnique({
         where: { id: userId },
         include: { position: true }
@@ -88,7 +88,7 @@ const userResolver = {
     // Регистрация пользователя (используется админами отелей/авиакомпаний)
     registerUser: async (_, { input, images }, context) => {
       // Проверка прав: доступ разрешен только администраторам отелей/авиакомпаний
-      adminHotelAirMiddleware(context)
+      await adminHotelAirMiddleware(context)
 
       const {
         name,
@@ -331,7 +331,7 @@ const userResolver = {
         airlineDepartmentId
       } = input
       // Если обновляет не сам пользователь, разрешено только админам
-      if (context.user.id !== id && adminHotelAirMiddleware(context)) {
+      if (context.user.id !== id && await adminHotelAirMiddleware(context)) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
       // Получаем текущие данные пользователя из базы
@@ -344,7 +344,7 @@ const userResolver = {
       if (role !== undefined) {
         // Разрешаем изменение роли только администраторам
         if (role !== currentUser.role) {
-          adminHotelAirMiddleware(context)
+          await adminHotelAirMiddleware(context)
           updatedData.role = role
         }
       }
@@ -585,7 +585,7 @@ const userResolver = {
 
       // Если пользователь привязан к авиакомпании – проверяем права авиадминистратора
       if (userForDelete.airlineId) {
-        airlineAdminMiddleware(context)
+        await airlineAdminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
           for (const imagePath of userForDelete.images) {
             await deleteImage(imagePath)
@@ -617,7 +617,7 @@ const userResolver = {
 
       // Если пользователь является диспетчером, требуется административный доступ
       if (userForDelete.dispatcher) {
-        adminMiddleware(context)
+        await adminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
           for (const imagePath of userForDelete.images) {
             await deleteImage(imagePath)

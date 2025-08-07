@@ -38,7 +38,7 @@ const reserveResolver = {
     // Получение списка резервов с пагинацией и фильтрацией по статусу.
     // Включаются связанные данные: airline, airport, пассажиры, hotel, hotelChess, chat, logs.
     reserves: async (_, { pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { skip, take, status } = pagination
       // Если статус не указан или содержит "all", фильтр по статусу не применяется.
       const statusFilter =
@@ -84,7 +84,7 @@ const reserveResolver = {
 
     // Получение архивных резервов (archive: true). Доступно только администраторам авиалиний.
     reserveArchive: async (_, { pagination }, context) => {
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
       const { skip, take, status } = pagination
       const statusFilter =
         status && status.includes("all") ? {} : { status: { in: status } }
@@ -124,7 +124,7 @@ const reserveResolver = {
 
     // Получение одного резерва по ID с включением всех связанных данных.
     reserve: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const reserve = await prisma.reserve.findUnique({
         where: { id },
         include: {
@@ -180,7 +180,7 @@ const reserveResolver = {
 
     // Получение списка резервных отелей (reserveHotel) для данного резерва по его ID.
     reservationHotels: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
         include: {
@@ -195,7 +195,7 @@ const reserveResolver = {
 
     // Получение одного резервного отеля (reserveHotel) по его ID.
     reservationHotel: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.reserveHotel.findUnique({
         where: { id },
         include: {
@@ -210,7 +210,7 @@ const reserveResolver = {
 
     // Получение списка пассажиров, связанных с резервом по ID резерва.
     reservationPassengers: async (_, { reservationId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.passenger.findMany({
         where: { reserveId: reservationId },
         include: {
@@ -229,7 +229,7 @@ const reserveResolver = {
       // console.log("\n createReserve log")
       // process.stdout.write(`\n createReserve stdout `)
       const { user } = context
-      airlineModerMiddleware(context)
+      await airlineModerMiddleware(context)
       const {
         airportId,
         arrival,
@@ -374,7 +374,7 @@ const reserveResolver = {
     updateReserve: async (_, { id, input, files }, context) => {
       const { user } = context
       const { arrival, departure, status } = input
-      airlineModerMiddleware(context)
+      await airlineModerMiddleware(context)
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -589,7 +589,7 @@ const reserveResolver = {
       { reservationId, hotelId, capacity },
       context
     ) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       try {
         const reserveHotel = await prisma.reserveHotel.create({
@@ -661,7 +661,7 @@ const reserveResolver = {
       { reservationId, input, hotelId, capacity },
       context
     ) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       const { name, number, gender, child, animal } = input
       const reserve = await prisma.reserve.findUnique({
@@ -716,7 +716,7 @@ const reserveResolver = {
     // Удаление пассажира из резерва.
     // После удаления возвращается обновленная информация о соответствующем reserveHotel.
     deletePassengerFromReserve: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       const deletedPassenger = await prisma.passenger.delete({
         where: { id }
@@ -731,7 +731,7 @@ const reserveResolver = {
 
     // Генерация файла (например, Excel) с данными о пассажирах резерва.
     generateReservePassengerFile: async (_, { reserveId, format }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       // Получаем данные о резерве, включая информацию об отеле и пассажирах.
       const reserve = await prisma.reserve.findUnique({
         where: { id: reserveId },
@@ -793,7 +793,7 @@ const reserveResolver = {
     // Резерв архивируется, если дата вылета меньше текущей и статус не равен "archived".
     archivingReserve: async (_, input, context) => {
       const { user } = context
-      dispatcherModerMiddleware(context)
+      await dispatcherModerMiddleware(context)
       const reserveId = input.id
       const reserve = await prisma.reserve.findUnique({
         where: { id: reserveId }

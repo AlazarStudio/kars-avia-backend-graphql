@@ -1,7 +1,11 @@
 // Импорт Prisma для работы с базой данных и PubSub для публикации событий в реальном времени
 import { prisma } from "../../prisma.js"
+import { GraphQLError } from "graphql"
 import { pubsub } from "../../exports/pubsub.js"
-import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  allMiddleware,
+  superAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 
 // Резольвер для поддержки (support) чатов.
 // Этот резольвер отвечает за получение списка чатов поддержки, создание нового чата поддержки для пользователя,
@@ -9,38 +13,60 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 const supportResolver = {
   Query: {
     getAllPatchNotes: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.patchNote.findMany({
         orderBy: { date: "desc" }
       })
     },
 
     getAllDocumentations: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.documentation.findMany({
         orderBy: { name: "desc" }
       })
     },
 
     getPatchNote: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.patchNote.findUnique({
         where: { id }
       })
     },
 
     getDocumentation: async (_, { id }, context) => {
-      allMiddleware(context)
-      return await prisma.documentation.findUnique({
-        where: { id }
+      await allMiddleware(context)
+      const doc = await prisma.documentation.findUnique({ where: { id } })
+      if (!doc) throw new GraphQLError("Документация не найдена")
+      return doc
+    },
+    documentationTree: async () => {
+      const allDocs = await prisma.documentation.findMany({
+        orderBy: { order: "asc" }
       })
+
+      const map = {}
+      allDocs.forEach((doc) => {
+        map[doc.id] = { ...doc, children: [] }
+      })
+
+      const tree = []
+
+      for (const doc of allDocs) {
+        if (doc.parentId) {
+          map[doc.parentId]?.children.push(map[doc.id])
+        } else {
+          tree.push(map[doc.id])
+        }
+      }
+
+      return tree
     },
     // Query: supportChats
     // Возвращает список всех чатов поддержки.
     // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
     // Каждый чат включает участников (participants) с данными о пользователе и сообщения (messages).
     supportChats: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
 
       // Если у текущего пользователя нет прав поддержки, выбрасываем ошибку
@@ -78,7 +104,7 @@ const supportResolver = {
     // Возвращает чат поддержки, связанный с указанным userId.
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
     userSupportChat: async (_, { userId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -158,14 +184,14 @@ const supportResolver = {
 
   Mutation: {
     createPatchNote: async (_, { data }, context) => {
-      allMiddleware(context)
+      await superAdminMiddleware(context)
       return await prisma.patchNote.create({
         data
       })
     },
 
     updatePatchNote: async (_, { id, data }, context) => {
-      allMiddleware(context)
+      await superAdminMiddleware(context)
       return await prisma.patchNote.update({
         where: { id },
         data
@@ -173,25 +199,110 @@ const supportResolver = {
     },
 
     createDocumentation: async (_, { data }, context) => {
-      allMiddleware(context)
+      await superAdminMiddleware(context)
       return await prisma.documentation.create({
         data
       })
     },
 
     updateDocumentation: async (_, { id, data }, context) => {
-      allMiddleware(context)
+      await superAdminMiddleware(context)
+      const exists = await prisma.documentation.findUnique({ where: { id } })
+      if (!exists) throw new GraphQLError("Документация не найдена")
+
+      if (data.parentId && data.parentId === id) {
+        throw new GraphQLError("Элемент не может быть своим же родителем")
+      }
+
+      if (input.parentId) {
+        const descendants = await getDescendantIds(id)
+        if (descendants.includes(input.parentId)) {
+          throw new GraphQLError(
+            "Нельзя установить потомка в качестве родителя"
+          )
+        }
+      }
+
       return await prisma.documentation.update({
         where: { id },
         data
       })
     },
-    // Mutation: createSupportChat
-    // Создает чат поддержки для указанного пользователя (userId).
-    // Если чат уже существует для данного пользователя, возвращается существующий чат.
-    // Если чат отсутствует, создается новый, куда добавляются указанный пользователь и все агенты поддержки.
+    // 🔁 Переместить элемент
+    moveDocumentation: async (_, { id, newParentId, newOrder }, context) => {
+      await superAdminMiddleware(context)
+      const doc = await prisma.documentation.findUnique({ where: { id } })
+      if (!doc) throw new GraphQLError("Документация не найдена")
+
+      // 🛑 Сам себе родитель
+      if (newParentId === id) {
+        throw new GraphQLError("Элемент не может быть своим же родителем")
+      }
+
+      // 🛑 Потомок как родитель
+      if (newParentId) {
+        const descendants = await getDescendantIds(id)
+        if (descendants.includes(newParentId)) {
+          throw new GraphQLError(
+            "Нельзя установить потомка в качестве родителя"
+          )
+        }
+      }
+
+      // 1. Получаем всех соседей нового родителя, кроме текущего элемента
+      const siblings = await prisma.documentation.findMany({
+        where: {
+          parentId: newParentId ?? null,
+          NOT: { id }
+        },
+        orderBy: { order: "asc" }
+      })
+
+      // 2. Вставляем наш элемент на позицию newOrder, остальным — сдвиг
+      const reordered = [
+        ...siblings.slice(0, newOrder),
+        { ...doc, id }, // временно вставляем текущий, для понимания позиции
+        ...siblings.slice(newOrder)
+      ]
+
+      // 3. Обновляем порядок у всех
+      const updatePromises = reordered.map((item, index) => {
+        return prisma.documentation.update({
+          where: { id: item.id },
+          data: { order: index }
+        })
+      })
+
+      await Promise.all(updatePromises)
+
+      // 4. Обновляем parentId (отдельно, если он изменился)
+      const updated = await prisma.documentation.update({
+        where: { id },
+        data: {
+          parentId: newParentId ?? null
+        }
+      })
+
+      return updated
+    },
+    deleteDocumentation: async (_, { id }) => {
+      await superAdminMiddleware(context)
+      const exists = await prisma.documentation.findUnique({ where: { id } })
+      if (!exists) throw new GraphQLError("Документация не найдена")
+
+      // Опционально: каскадно удалить детей — не забудь, что Prisma не делает это по умолчанию
+      const children = await prisma.documentation.findMany({
+        where: { parentId: id }
+      })
+      if (children.length > 0) {
+        throw new GraphQLError("Сначала удалите дочерние элементы")
+      }
+
+      await prisma.documentation.delete({ where: { id } })
+      return true
+    },
     createSupportChat: async (_, { userId }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       // Проверяем, существует ли уже чат поддержки для данного userId
       const existingChat = await prisma.chat.findFirst({
         where: {
@@ -251,6 +362,19 @@ const supportResolver = {
       return chat
     }
   }
+}
+
+// рекурсивно получаем всех потомков
+async function getDescendantIds(id) {
+  const children = await prisma.documentation.findMany({
+    where: { parentId: id }
+  })
+  let ids = children.map((c) => c.id)
+  for (const child of children) {
+    const childDescendants = await getDescendantIds(child.id)
+    ids = ids.concat(childDescendants)
+  }
+  return ids
 }
 
 export default supportResolver

@@ -3,7 +3,7 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 const logResolver = {
   Query: {
     logs: async (_, { requestId, pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({

@@ -315,22 +315,24 @@ model Room {
   hotelChess        HotelChess[]
   type              RoomType     @default(room)
   price             Float?
+  priceForAirline   Float?
   roomKind          RoomKind?    @relation(fields: [roomKindId], references: [id])
   roomKindId        String?      @db.ObjectId
 }
 
 model RoomKind {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String?
-  description String?
-  square      String?
-  category    Category
-  price       Float
-  images      String[]
-  room        Room[]
-  roomsCount  Int?
-  hotel       Hotel    @relation(fields: [hotelId], references: [id])
-  hotelId     String   @db.ObjectId
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  description     String?
+  square          String?
+  category        Category
+  price           Float
+  priceForAirline Float?
+  images          String[]
+  room            Room[]
+  roomsCount      Int?
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  hotelId         String   @db.ObjectId
 }
 
 // model Tariff {
@@ -368,16 +370,29 @@ model Airline {
   Notification          Notification[]
   active                Boolean                 @default(true)
   airportOnAirlinePrice AirportOnAirlinePrice[]
+  AirlinePriceCategory  AirlinePriceCategory[]
+}
+
+model AirlinePriceCategory {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  airline       Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId     String         @db.ObjectId
+  name          String
+  // files                  String[]
+  airlinePrices AirlinePrice[]
 }
 
 model AirlinePrice {
-  id        String                  @id @default(auto()) @map("_id") @db.ObjectId
-  airline   Airline                 @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId String                  @db.ObjectId
-  airports  AirportOnAirlinePrice[]
-  name      String
-  prices    Price?
-  mealPrice MealPrice?
+  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+  airline                Airline                 @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId              String                  @db.ObjectId
+  // files                  String[]
+  airlinePriceCategory   AirlinePriceCategory?   @relation(fields: [airlinePriceCategoryId], references: [id])
+  airlinePriceCategoryId String?                 @db.ObjectId
+  airports               AirportOnAirlinePrice[]
+  name                   String
+  prices                 Price?
+  mealPrice              MealPrice?
 }
 
 model AirportOnAirlinePrice {
@@ -681,11 +696,23 @@ model PatchNote {
   files       String[]
 }
 
+// model Documentation {
+//   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+//   chapter     String
+//   category    String
+//   name        String
+//   description String
+//   files       String[]
+// }
+
 model Documentation {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  chapter     String
-  category    String
+  id       String          @id @default(auto()) @map("_id") @db.ObjectId
+  parentId String?         @db.ObjectId
+  parent   Documentation?  @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children Documentation[] @relation("DocumentationHierarchy")
+  order       Int?
+  type        String?
   name        String
-  description String
+  description String?
   files       String[]
 }

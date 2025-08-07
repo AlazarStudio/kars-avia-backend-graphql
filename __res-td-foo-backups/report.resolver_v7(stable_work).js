@@ -14,7 +14,7 @@ const reportResolver = {
   Query: {
     getAirlineReport: async (_, { filter }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
 
       if (filter && filter.hotelId) {
         throw new Error("Cannot fetch hotel reports in getAirlineReport")
@@ -124,7 +124,7 @@ const reportResolver = {
   Mutation: {
     createAirlineReport: async (_, { input }, context) => {
       const { user } = context
-      airlineAdminMiddleware(context)
+      await airlineAdminMiddleware(context)
       const { filter, format } = input
       const separator = user.airlineId ? "airline" : "dispatcher"
 
@@ -235,10 +235,10 @@ const reportResolver = {
         throw new Error("Report not found")
       }
       if (report.separator === "dispatcher") {
-        adminMiddleware(context)
+        await adminMiddleware(context)
       }
       if (report.separator === "airline") {
-        airlineAdminMiddleware(context)
+        await airlineAdminMiddleware(context)
       }
       if (report.separator === "hotel") {
         hotelAdminMiddleware(context)

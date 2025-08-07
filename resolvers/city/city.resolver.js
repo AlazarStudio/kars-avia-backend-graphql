@@ -4,11 +4,11 @@ import { prisma } from "../../prisma.js"
 const cityResolver = {
   Query: {
     citys: async (_, __, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.city.findMany({ orderBy: { city: "asc" } })
     },
     city: async (_, { city }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return prisma.city.findMany({
         where: { city: { contains: city, mode: "insensitive" } }
       })

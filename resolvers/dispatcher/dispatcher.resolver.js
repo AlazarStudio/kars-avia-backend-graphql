@@ -24,7 +24,7 @@ import {
 const dispatcherResolver = {
   Query: {
     getAllNotifications: async (_, { pagination }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { user } = context
       const { skip, take, type, status } = pagination
       let filter
@@ -76,37 +76,37 @@ const dispatcherResolver = {
       return { totalPages, totalCount, notifications }
     },
     getAllPositions: async (_, {}, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findMany({})
     },
     getAirlinePositions: async (_, {}, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findMany({ where: { separator: "airline" } })
     },
     getAirlineUserPositions: async (_, {}, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findMany({
         where: { separator: "airlineUser" }
       })
     },
     getHotelPositions: async (_, {}, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findMany({ where: { separator: "hotel" } })
     },
     getDispatcherPositions: async (_, {}, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findMany({
         where: { separator: "dispatcher" }
       })
     },
     getPosition: async (_, { id }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       return await prisma.position.findUnique({ where: { id } })
     }
   },
   Mutation: {
     createPosition: async (_, { input }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { name, separator } = input
       const position = await prisma.position.create({
         data: {
@@ -118,7 +118,7 @@ const dispatcherResolver = {
       return position
     },
     updatePosition: async (_, { input }, context) => {
-      allMiddleware(context)
+      await allMiddleware(context)
       const { name } = input
       const position = await prisma.position.update({
         where: { id: pos.id },
@@ -130,7 +130,7 @@ const dispatcherResolver = {
       return position
     }
     // allDataUpdate: async (_, {}, context) => {
-    //   superAdminMiddleware(context)
+    //   await superAdminMiddleware(context)
     //   await prisma.airline.updateMany({
     //     data: { active: true }
     //   })
