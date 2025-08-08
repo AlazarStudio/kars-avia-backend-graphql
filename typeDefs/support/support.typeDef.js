@@ -45,14 +45,6 @@ input PatchNoteUpdateInput {
   date: Date
 }
 
-# input DocumentationInput {
-#   chapter: String
-#   category: String
-#   name: String!
-#   description: String!
-#   files: [String!]
-# }
-
 input DocumentationInput {
   parentId: ID
   order: Int
@@ -60,15 +52,8 @@ input DocumentationInput {
   name: String!
   description: String
   files: [String]
+  children: [DocumentationInput]
 }
-
-# input DocumentationUpdateInput {
-#   chapter: String
-#   category: String
-#   name: String
-#   description: String
-#   files: [String!]
-# }
 
 input DocumentationUpdateInput {
   parentId: ID
@@ -77,6 +62,7 @@ input DocumentationUpdateInput {
   name: String
   description: String
   files: [String]
+  children: [DocumentationInput]
 }
 
 type Query {

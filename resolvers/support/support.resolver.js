@@ -199,14 +199,20 @@ const supportResolver = {
       })
     },
 
-    createDocumentation: async (_, { input }, context) => {
+    createDocumentation: async (_, { data: input }, context) => {
       await superAdminMiddleware(context)
+
+      const data = prepareCreateInput(input)
+
+      if (!data.name) {
+        throw new GraphQLError("Поле 'name' обязательно")
+      }
+
       return await prisma.documentation.create({
         data,
         include: { children: true, parent: true }
       })
     },
-
     updateDocumentation: async (_, { id, data }, context) => {
       await superAdminMiddleware(context)
       const exists = await prisma.documentation.findUnique({ where: { id } })
@@ -391,6 +397,26 @@ async function getDescendantIds(id) {
     ids = ids.concat(childDescendants)
   }
   return ids
+}
+
+function prepareCreateInput(node) {
+  if (!node || typeof node !== "object") return {}
+
+  const { children, ...rest } = node
+
+  const cleaned = {
+    ...rest,
+    children:
+      Array.isArray(children) && children.length > 0
+        ? {
+            create: children
+              .map(prepareCreateInput)
+              .filter((child) => child && child.name)
+          }
+        : undefined
+  }
+
+  return cleaned
 }
 
 export default supportResolver
