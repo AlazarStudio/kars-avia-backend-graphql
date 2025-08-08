@@ -23,25 +23,25 @@ type Documentation {
   id: ID!
   parentId: ID
   parent: Documentation
-  children: [Documentation!]!
+  children: [Documentation]
   order: Int
   type: String
   name: String!
   description: String
-  files: [String!]!
+  files: [String]
 }
 
 input PatchNoteInput {
   date: Date
   name: String!
   description: String!
-  files: [String!]
+  files: [String]
 }
 
 input PatchNoteUpdateInput {
   name: String
   description: String
-  files: [String!]
+  files: [String]
   date: Date
 }
 
@@ -59,7 +59,7 @@ input DocumentationInput {
   type: String
   name: String!
   description: String
-  files: [String!]
+  files: [String]
 }
 
 # input DocumentationUpdateInput {
@@ -76,7 +76,7 @@ input DocumentationUpdateInput {
   type: String
   name: String
   description: String
-  files: [String!]
+  files: [String]
 }
 
 type Query {
