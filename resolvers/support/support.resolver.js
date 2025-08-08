@@ -22,7 +22,8 @@ const supportResolver = {
     getAllDocumentations: async (_, __, context) => {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
-        orderBy: { name: "desc" }
+        orderBy: { name: "desc" },
+        include: { children: true, parent: true }
       })
     },
 
@@ -198,10 +199,11 @@ const supportResolver = {
       })
     },
 
-    createDocumentation: async (_, { data }, context) => {
+    createDocumentation: async (_, { input }, context) => {
       await superAdminMiddleware(context)
       return await prisma.documentation.create({
-        data
+        data,
+        include: { children: true, parent: true }
       })
     },
 
@@ -360,6 +362,20 @@ const supportResolver = {
       })
 
       return chat
+    }
+  },
+  Documentation: {
+    parent: async (doc) => {
+      if (!doc.parentId) return null
+      return await prisma.documentation.findUnique({
+        where: { id: doc.parentId }
+      })
+    },
+    children: async (doc) => {
+      return await prisma.documentation.findMany({
+        where: { parentId: doc.id },
+        orderBy: { order: "asc" }
+      })
     }
   }
 }
