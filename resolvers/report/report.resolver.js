@@ -780,6 +780,7 @@ function calculateEffectiveCostDaysWithPartial(
   let countDays = 0
   let standartArrivalTime = 14
   let standartDepartureTime = 12
+  console.log("\n arrivalDay " + arrivalDay, "\n departureDay " + departureDay)
 
   if (
     reportStartDay == arrivalDay &&
