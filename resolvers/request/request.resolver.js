@@ -395,7 +395,7 @@ const requestResolver = {
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
         orderBy: { createdAt: "desc" }
       })
-      console.log("lastRequest - " + lastRequest)
+      console.log("lastRequest - " + lastRequest.requestNumber)
       // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
