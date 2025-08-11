@@ -363,7 +363,9 @@ const requestResolver = {
           }
         })
         if (personExist != null) {
-          console.error(`person already exist in: ${personExist} \n requestId: ${personExist.requestId}`)
+          console.error(
+            `person already exist in: ${personExist} \n requestId: ${personExist.requestId}`
+          )
         }
         // console.log("\n existingRequest", existingRequest)
       }
@@ -391,25 +393,27 @@ const requestResolver = {
       // Поиск последней созданной заявки в текущем месяце
       const lastRequest = await prisma.request.findFirst({
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
-        orderBy: { createdAt: "asc" }
+        orderBy: { createdAt: "desc" }
       })
+      console.log("lastRequest - " + lastRequest)
       // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
         const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
         sequenceNumber = String(lastNumber + 1).padStart(4, "0")
       } else {
-        sequenceNumber = "00001"
+        sequenceNumber = "0001"
       }
       // Получение данных об аэропорте для формирования кода заявки
       const airport = await prisma.airport.findUnique({
-        where: { id: airportId }
+        where: { id: airportId }  
       })
       if (!airport) {
         throw new Error("Airport not found")
       }
       // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
-      const requestNumber = `${sequenceNumber}${airport.code}${month}${year}eeeeeee`
+      const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
+      console.log("requestNumber - " + requestNumber)
       // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {
