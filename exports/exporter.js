@@ -19,7 +19,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   sheet.columns = [
     { header: "п/п", key: "index", width: 6 },
-    // { header: "id", key: "id", width: 30 },
+    { header: "id", key: "id", width: 30 },
     { header: "Дата/время заезда", key: "arrival", width: 25 },
     { header: "Дата/время выезда", key: "departure", width: 25 },
     { header: "кол-во суток", key: "totalDays", width: 10 },
@@ -40,7 +40,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
   reportData.forEach((row) => {
     sheet.addRow({
       index: row.index,
-      // id: row.id,
+      id: row.id,
       arrival: row.arrival,
       departure: row.departure,
       totalDays: row.totalDays,

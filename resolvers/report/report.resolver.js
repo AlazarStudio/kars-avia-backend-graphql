@@ -799,6 +799,7 @@ function calculateEffectiveCostDaysWithPartial(
         reportEndHour != departureHour ||
         reportEndMinute != departureMinute)
     ) {
+      console.log("ghjdthrf")
       let innerDays = departureDay - arrivalDay
 
       if (innerDays > 0) {
