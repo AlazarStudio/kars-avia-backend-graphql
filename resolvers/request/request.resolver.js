@@ -363,9 +363,8 @@ const requestResolver = {
           }
         })
         if (personExist != null) {
-          console.error(
-            `person already exist in: ${personExist} \n requestId: ${personExist.requestId}`
-          )
+          throw new Error(`Request already exists with id: ${existingRequest.id}`)
+          // console.error(`person already exist in: ${personExist} \n requestId: ${personExist.requestId}`)
         }
         // console.log("\n existingRequest", existingRequest)
       }
