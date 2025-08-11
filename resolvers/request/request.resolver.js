@@ -392,12 +392,13 @@ const requestResolver = {
       )
       // Поиск последней созданной заявки в текущем месяце
       const lastRequest = await prisma.request.findFirst({
-        where: {
-          arrival: { gte: startOfMonth, lte: endOfMonth },
-          departure: { gte: startOfMonth, lte: endOfMonth }
-        },
-        orderBy: { createdAt: "desc" }
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        orderBy: { createdAt: "asc" }
       })
+      console.log(
+        "\n lastRequest " + lastRequest,
+        "\n lastRequest str " + JSON.stringify(lastRequest)
+      )
       // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
