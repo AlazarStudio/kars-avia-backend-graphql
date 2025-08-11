@@ -780,7 +780,6 @@ function calculateEffectiveCostDaysWithPartial(
   let countDays = 0
   let standartArrivalTime = 14
   let standartDepartureTime = 12
-  console.log("\n arrivalDay " + arrivalDay, "\n departureDay " + departureDay)
 
   if (
     reportStartDay == arrivalDay &&
@@ -827,18 +826,18 @@ function calculateEffectiveCostDaysWithPartial(
 
         if (departureHour >= 18) {
           if (departureHour == 18 && departureMinute == 0) {
-            innerDays = innerDays + 1
+            innerDays = 1
           } else {
-            innerDays = innerDays + 1
+            innerDays = 1
           }
         } else if (departureHour >= 12) {
           if (departureHour == 12 && departureMinute == 0) {
-            innerDays = innerDays + 0.5
+            innerDays = 0.5
           } else {
-            innerDays = innerDays + 0.5
+            innerDays = 0.5
           }
         } else {
-          innerDays = innerDays + 0.5
+          innerDays = 0.5
         }
       }
     }
