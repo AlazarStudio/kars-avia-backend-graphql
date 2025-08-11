@@ -298,6 +298,9 @@ const requestResolver = {
         pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
         return updatedRequest
       }
+      // if (request.hotelChess) {
+
+      // }
       return request
     }
   },
@@ -406,7 +409,7 @@ const requestResolver = {
       }
       // Получение данных об аэропорте для формирования кода заявки
       const airport = await prisma.airport.findUnique({
-        where: { id: airportId }  
+        where: { id: airportId }
       })
       if (!airport) {
         throw new Error("Airport not found")
@@ -807,8 +810,8 @@ const requestResolver = {
         pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
         return updatedRequest
       } catch (error) {
-        logger.error("Ошибка при обновлении заявки", error)
-        throw new Error("Не удалось обновить заявку. Попробуйте позже.")
+        logger.error("Ошибка при обновлении заявки. ", error)
+        throw new Error("Не удалось обновить заявку. ", error)
       }
     },
 

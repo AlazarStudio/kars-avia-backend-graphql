@@ -581,7 +581,6 @@ const aggregateRequestReports = (
       tenPlace: "Десятиместный"
     }
 
-
     const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
     const effectiveDays = calculateEffectiveCostDaysWithPartial(
       formatDateToISO(effectiveArrival),
@@ -762,7 +761,6 @@ function calculateEffectiveCostDaysWithPartial(
   reportStart,
   reportEnd
 ) {
-
   let reportStartDay = +reportStart.split("T")[0].split("-")[2]
   let reportStartHour = +reportStart.split("T")[1].split(":")[0]
   let reportStartMinute = +reportStart.split("T")[1].split(":")[1]
@@ -838,8 +836,9 @@ function calculateEffectiveCostDaysWithPartial(
           } else {
             innerDays = innerDays + 0.5
           }
+        } else {
+          innerDays = innerDays + 0.5
         }
-
       }
     }
 
