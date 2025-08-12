@@ -272,6 +272,7 @@ const dispatcherResolver = {
   },
   PriceCategory: {
     airlinePrices: async (parent) => {
+      console.log(parent)
       return await prisma.airlinePrice.findMany({
         where: { airlineId: parent.id },
         include: {
