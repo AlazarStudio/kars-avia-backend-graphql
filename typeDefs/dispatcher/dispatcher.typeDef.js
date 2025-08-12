@@ -115,7 +115,7 @@ type PriceCategory {
   hotel: Hotel
   company: Company
   name: String
-  prices: [AirlinePrice]
+  airlinePrices: [AirlinePrice]
 }
 
 input PriceCategoryInput {
@@ -124,7 +124,7 @@ input PriceCategoryInput {
   hotelId: ID
   companyId: ID
   name: String
-  prices: [ID!]
+  airlinePrices: [ID!]
 }
 
 input PriceCategoryFilterInput {
