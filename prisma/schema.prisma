@@ -13,6 +13,7 @@ datasource db {
 
 // Airline
 // AirlinePersonal
+// Company
 // Hotel
 // HotelChess
 // Log
@@ -80,6 +81,12 @@ enum RoomType {
 enum HotelType {
   hotel
   apartment
+}
+
+enum DocumentationType {
+  documentation
+  update
+  etc
 }
 
 // enum  ---------------- ↑↑↑↑
@@ -238,7 +245,7 @@ model Position {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
   name            String
   provision       Int?
   quote           Int?
@@ -265,13 +272,15 @@ model Hotel {
   prices          Price?
   // position        Position[]
   Notification    Notification[]
-  active          Boolean        @default(true)
-  access          Boolean        @default(false)
-  type            HotelType      @default(hotel)
+  active          Boolean         @default(true)
+  access          Boolean         @default(false)
+  type            HotelType       @default(hotel)
   gallery         String[]
-  airport         Airport?       @relation(fields: [airportId], references: [id])
-  airportId       String?        @db.ObjectId
+  airport         Airport?        @relation(fields: [airportId], references: [id])
+  airportId       String?         @db.ObjectId
+  priceCategory   PriceCategory[]
   // tariff          Tariff[]
+  AirlinePrice    AirlinePrice[]
 }
 
 model HotelChess {
@@ -370,29 +379,35 @@ model Airline {
   Notification          Notification[]
   active                Boolean                 @default(true)
   airportOnAirlinePrice AirportOnAirlinePrice[]
-  AirlinePriceCategory  AirlinePriceCategory[]
+  airlinePriceCategory  PriceCategory[]
 }
 
-model AirlinePriceCategory {
+model PriceCategory {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   airline       Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId     String         @db.ObjectId
+  hotel         Hotel?         @relation(fields: [hotelId], references: [id])
+  hotelId       String?        @db.ObjectId
+  company       Company?       @relation(fields: [companyId], references: [id])
+  companyId     String?        @db.ObjectId
   name          String
-  // files                  String[]
   airlinePrices AirlinePrice[]
+  // files                  String[]
 }
 
 model AirlinePrice {
   id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
-  airline                Airline                 @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId              String                  @db.ObjectId
-  // files                  String[]
-  airlinePriceCategory   AirlinePriceCategory?   @relation(fields: [airlinePriceCategoryId], references: [id])
+  airline                Airline?                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId              String?                 @db.ObjectId
+  hotel                  Hotel?                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId                String?                 @db.ObjectId
+  airlinePriceCategory   PriceCategory?          @relation(fields: [airlinePriceCategoryId], references: [id])
   airlinePriceCategoryId String?                 @db.ObjectId
   airports               AirportOnAirlinePrice[]
   name                   String
   prices                 Price?
   mealPrice              MealPrice?
+  // files                  String[]
 }
 
 model AirportOnAirlinePrice {
@@ -441,6 +456,17 @@ model AirlinePersonal {
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
+
+// Компании  ---------------- ↑↑↑↑
+
+model Company {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  priceCategory PriceCategory[]
+  information   Information?
+}
+
+// Компании  ---------------- ↑↑↑↑
 
 model Airport {
   id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
@@ -706,12 +732,12 @@ model PatchNote {
 // }
 
 model Documentation {
-  id       String          @id @default(auto()) @map("_id") @db.ObjectId
-  parentId String?         @db.ObjectId
-  parent   Documentation?  @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children Documentation[] @relation("DocumentationHierarchy")
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  parentId    String?           @db.ObjectId
+  parent      Documentation?    @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Documentation[]   @relation("DocumentationHierarchy")
   order       Int?
-  type        String?
+  type        DocumentationType
   name        String
   description String?
   files       String[]

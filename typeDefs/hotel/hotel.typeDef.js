@@ -28,40 +28,6 @@ enum HotelType {
   apartment
 }
 
-# Составной тип для контактной информации и реквизитов отеля
-type Information {
-  country: String
-  city: String
-  address: String
-  index: String
-  email: String
-  number: String
-  inn: String
-  ogrn: String
-  rs: String
-  bank: String
-  bik: String
-  link: String
-  description: String
-}
-
-input InformationInput {
-  country: String
-  city: String
-  address: String
-  index: String
-  email: String
-  number: String
-  inn: String
-  ogrn: String
-  rs: String
-  bank: String
-  bik: String
-  link: String
-  description: String
-  # airport: String
-}
-
 # Типы для времени питания
 type MealTime {
   start: String!
@@ -71,65 +37,6 @@ type MealTime {
 input MealTimeInput {
   start: String!
   end: String!
-}
-
-# Тип и входной тип для цены питания
-type MealPrice {
-  breakfast: Float
-  lunch: Float
-  dinner: Float
-}
-
-input MealPriceInput {
-  breakfast: Float
-  lunch: Float
-  dinner: Float
-}
-
-# Тип плана питания (в случае, если структура фиксирована)
-type MealPlan {
-  included: Boolean
-  breakfastEnabled: Boolean
-  breakfast: Int
-  lunchEnabled: Boolean
-  lunch: Int
-  dinnerEnabled: Boolean 
-  dinner: Int
-  dailyMeals: [DailyMeal]
-}
-
-type DailyMeal {
-  date: Date
-  breakfast: Int
-  lunch: Int
-  dinner: Int
-}
-
-# Составной тип для тарифного прайс-листа
-type Price {
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
-  priceFiveCategory: Float
-  priceSixCategory: Float
-  priceSevenCategory: Float
-  priceEightCategory: Float
-  priceNineCategory: Float
-  priceTenCategory: Float
-}
-
-input PriceInput {
-  priceOneCategory: Float
-  priceTwoCategory: Float
-  priceThreeCategory: Float
-  priceFourCategory: Float
-  priceFiveCategory: Float
-  priceSixCategory: Float
-  priceSevenCategory: Float
-  priceEightCategory: Float
-  priceNineCategory: Float
-  priceTenCategory: Float
 }
 
 # Основной тип отеля, отражающий актуальную структуру базы данных
@@ -360,6 +267,7 @@ type Subscription {
   hotelCreated: Hotel!
   hotelUpdated: Hotel!
 }
+
 `
 
 export default hotelTypeDef

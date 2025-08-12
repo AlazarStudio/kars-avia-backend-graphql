@@ -5,7 +5,7 @@ import { createWriteStream } from "fs"
 import path from "path" // Импортируем модуль path
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
-const fileResolver = {
+const globalResolver = {
   Upload: GraphQLUpload,
   Mutation: {
     singleUpload: async (_, { file }, context) => {
@@ -24,4 +24,4 @@ const fileResolver = {
   }
 }
 
-export default fileResolver
+export default globalResolver

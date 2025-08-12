@@ -23,6 +23,50 @@ import {
 
 const dispatcherResolver = {
   Query: {
+    // getAllPriceCategory: async (_, {}, context) => {
+    //   await allMiddleware(context)
+    //   return await prisma.priceCategory.findMany({
+    //     include: {
+    //       airline: true,
+    //       hotel: true,
+    //       company: true,
+    //       airlinePrices: true
+    //     }
+    //   })
+    // },
+    getAllPriceCategory: async (_, { filter }, context) => {
+      await allMiddleware(context)
+
+      const { companyId, airlineId, hotelId } = filter || {}
+
+      const where = {
+        ...(companyId && { companyId }),
+        ...(airlineId && { airlineId }),
+        ...(hotelId && { hotelId })
+      }
+
+      return await prisma.priceCategory.findMany({
+        where,
+        include: {
+          airline: true,
+          hotel: true,
+          company: true,
+          airlinePrices: true
+        }
+      })
+    },
+    getPriceCategory: async (_, id, context) => {
+      await allMiddleware(context)
+      return await prisma.priceCategory.findUnique({
+        where: { id },
+        include: {
+          airline: true,
+          hotel: true,
+          company: true,
+          airlinePrices: true
+        }
+      })
+    },
     getAllNotifications: async (_, { pagination }, context) => {
       await allMiddleware(context)
       const { user } = context
@@ -105,6 +149,58 @@ const dispatcherResolver = {
     }
   },
   Mutation: {
+    createCompany: async (_, { input }, context) => {
+      await allMiddleware(context)
+      return await prisma.company.create({
+        data: { name: input.name }
+      })
+    },
+    updateCompany: async (_, { input }, context) => {
+      await allMiddleware(context)
+      return await prisma.company.update({
+        where: { id: input.id },
+        data: { name: input.name }
+      })
+    },
+    createPriceCategory: async (_, { input }, context) => {
+      await allMiddleware(context)
+
+      const priceCategory = await prisma.priceCategory.create({
+        data: {
+          airlineId: input.airlineId,
+          hotelId: input.hotelId,
+          companyId: input.companyId,
+          name: input.name,
+          airlinePrices: input.airlinePrices?.length
+            ? {
+                connect: input.airlinePrices.map((id) => ({ id }))
+              }
+            : undefined
+        },
+        include: {
+          airline: true,
+          hotel: true,
+          company: true,
+          airlinePrices: true
+        }
+      })
+
+      return priceCategory
+    },
+    updatePriceCategory: async (_, { input }, context) => {
+      await allMiddleware(context)
+
+      const priceCategory = await prisma.priceCategory.update({
+        where: { id: input.id },
+        data: {
+          airlineId: input.airlineId,
+          hotelId: input.hotelId,
+          companyId: input.companyId,
+          name: input.name
+        }
+      })
+      return priceCategory
+    },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context)
       const { name, separator } = input
@@ -121,7 +217,7 @@ const dispatcherResolver = {
       await allMiddleware(context)
       const { name } = input
       const position = await prisma.position.update({
-        where: { id: pos.id },
+        where: { id: input.id },
         data: {
           name,
           category

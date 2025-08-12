@@ -102,7 +102,47 @@ type ExtendRequestNotification {
   airline: Airline
 }
 
+type Company {
+  id: ID
+  name: String
+  priceCategory: [PriceCategory]
+  information: Information
+}
+
+type PriceCategory {
+  id: ID
+  airline: Airline
+  hotel: Hotel
+  company: Company
+  name: String
+  prices: [AirlinePrice]
+}
+
+input PriceCategoryInput {
+  id: ID
+  airlineId: ID
+  hotelId: ID
+  companyId: ID
+  name: String
+  airlinePrices: [ID!]
+}
+
+input PriceCategoryFilterInput {
+  companyId: ID
+  airlineId: ID
+  hotelId: ID
+}
+
+input CompanyInput {
+  id: ID
+  name: String
+  information: InformationInput
+}
+
 type Query {
+  # getAllPriceCategory: [PriceCategory]
+  getAllPriceCategory(filter: PriceCategoryFilterInput): [PriceCategory]
+  getPriceCategory(id:ID!): PriceCategory
   # getAllNotifications: Notification
   getPosition(id:ID!): Position
   getAllPositions: [Position]
@@ -114,6 +154,10 @@ type Query {
 }
 
 type Mutation {
+  createCompany(input: CompanyInput): Company
+  updateCompany(input: CompanyInput): Company
+  createPriceCategory(input: PriceCategoryInput): PriceCategory
+  updatePriceCategory(input: PriceCategoryInput): PriceCategory
   createPosition(input: PositionInput): Position
   updatePosition(input: PositionInput): Position
   allDataUpdate: Boolean
@@ -122,7 +166,6 @@ type Mutation {
 type Subscription {
   notification: NotificationPayload!
 }
-
 
 `
 

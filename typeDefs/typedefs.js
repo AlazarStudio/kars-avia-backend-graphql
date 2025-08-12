@@ -2,10 +2,11 @@ import { mergeTypeDefs } from "@graphql-tools/merge"
 
 import airlineTypeDef from "./airline/airline.typeDef.js"
 import airportTypeDef from "./airport/airport.typeDef.js"
+// import analyticsTypeDef from "./analytics/analytics.typeDef.js"
 import chatTypeDef from "./chat/chat.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
-import fileTypeDef from "./file/file.typeDef.js"
+import globalTypeDef from "./global/global.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
 import logTypeDef from "./log/log.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
@@ -17,10 +18,11 @@ import supportTypeDef from "./support/support.typeDef.js"
 const mergedTypeDefs = mergeTypeDefs([
   airlineTypeDef,
   airportTypeDef,
+  // analyticsTypeDef,
   chatTypeDef,
   cityTypeDef,
   dispatcherTypeDef,
-  fileTypeDef,
+  globalTypeDef,
   hotelTypeDef,
   logTypeDef,
   reportTypeDef,
