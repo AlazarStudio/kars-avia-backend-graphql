@@ -384,8 +384,8 @@ model Airline {
 
 model PriceCategory {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
-  airline       Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId     String         @db.ObjectId
+  airline       Airline?       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId     String?        @db.ObjectId
   hotel         Hotel?         @relation(fields: [hotelId], references: [id])
   hotelId       String?        @db.ObjectId
   company       Company?       @relation(fields: [companyId], references: [id])

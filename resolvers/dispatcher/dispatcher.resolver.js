@@ -165,11 +165,11 @@ const dispatcherResolver = {
     createPriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
 
-      const priceCategory = await prisma.priceCategory.create({
+      return await prisma.priceCategory.create({
         data: {
-          airlineId: input.airlineId,
-          hotelId: input.hotelId,
-          companyId: input.companyId,
+          airlineId: input.airlineId || undefined,
+          hotelId: input.hotelId || undefined,
+          companyId: input.companyId || undefined,
           name: input.name,
           airlinePrices: input.airlinePrices?.length
             ? {
@@ -184,22 +184,43 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
-
-      return priceCategory
     },
     updatePriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
 
-      const priceCategory = await prisma.priceCategory.update({
-        where: { id: input.id },
-        data: {
-          airlineId: input.airlineId,
-          hotelId: input.hotelId,
-          companyId: input.companyId,
-          name: input.name
+      const { id, airlineId, hotelId, companyId, name, airlinePrices } = input
+
+      // Формируем объект `data` динамически
+      const data = {
+        ...(airlineId !== undefined && { airlineId }),
+        ...(hotelId !== undefined && { hotelId }),
+        ...(companyId !== undefined && { companyId }),
+        ...(name !== undefined && { name }),
+        ...(airlinePrices?.length
+          ? {
+              airlinePrices: {
+                set: airlinePrices.map((id) => ({ id })) // заменит все связи
+              }
+            }
+          : airlinePrices?.length === 0
+          ? {
+              airlinePrices: {
+                set: [] // удалит все связи, если передан пустой массив
+              }
+            }
+          : {})
+      }
+
+      return await prisma.priceCategory.update({
+        where: { id },
+        data,
+        include: {
+          airline: true,
+          hotel: true,
+          company: true,
+          airlinePrices: true
         }
       })
-      return priceCategory
     },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context)
