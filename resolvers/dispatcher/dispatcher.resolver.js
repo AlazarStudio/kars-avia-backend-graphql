@@ -30,7 +30,7 @@ const dispatcherResolver = {
     //       airline: true,
     //       hotel: true,
     //       company: true,
-    //       airlinePrices: true
+    //       prices: true
     //     }
     //   })
     // },
@@ -51,7 +51,7 @@ const dispatcherResolver = {
           airline: true,
           hotel: true,
           company: true,
-          airlinePrices: true
+          prices: true
         }
       })
     },
@@ -63,7 +63,7 @@ const dispatcherResolver = {
           airline: true,
           hotel: true,
           company: true,
-          airlinePrices: true
+          prices: true
         }
       })
     },
@@ -171,9 +171,9 @@ const dispatcherResolver = {
           hotelId: input.hotelId || undefined,
           companyId: input.companyId || undefined,
           name: input.name,
-          airlinePrices: input.airlinePrices?.length
+          prices: input.prices?.length
             ? {
-                connect: input.airlinePrices.map((id) => ({ id }))
+                connect: input.prices.map((id) => ({ id }))
               }
             : undefined
         },
@@ -181,14 +181,15 @@ const dispatcherResolver = {
           airline: true,
           hotel: true,
           company: true,
-          airlinePrices: true
+          prices: true
+          
         }
       })
     },
     updatePriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
 
-      const { id, airlineId, hotelId, companyId, name, airlinePrices } = input
+      const { id, airlineId, hotelId, companyId, name, prices } = input
 
       // Формируем объект `data` динамически
       const data = {
@@ -196,15 +197,15 @@ const dispatcherResolver = {
         ...(hotelId !== undefined && { hotelId }),
         ...(companyId !== undefined && { companyId }),
         ...(name !== undefined && { name }),
-        ...(airlinePrices?.length
+        ...(prices?.length
           ? {
-              airlinePrices: {
-                set: airlinePrices.map((id) => ({ id })) // заменит все связи
+              prices: {
+                set: prices.map((id) => ({ id })) // заменит все связи
               }
             }
-          : airlinePrices?.length === 0
+          : prices?.length === 0
           ? {
-              airlinePrices: {
+              prices: {
                 set: [] // удалит все связи, если передан пустой массив
               }
             }
@@ -218,7 +219,7 @@ const dispatcherResolver = {
           airline: true,
           hotel: true,
           company: true,
-          airlinePrices: true
+          prices: true
         }
       })
     },
@@ -271,7 +272,7 @@ const dispatcherResolver = {
     }
   },
   PriceCategory: {
-    airlinePrices: async (parent) => {
+    prices: async (parent) => {
       return await prisma.airlinePrice.findMany({
         where: { airlineId: parent.id },
         include: {

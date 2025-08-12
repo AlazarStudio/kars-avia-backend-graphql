@@ -124,7 +124,7 @@ input PriceCategoryInput {
   hotelId: ID
   companyId: ID
   name: String
-  airlinePrices: [ID!]
+  prices: [ID!]
 }
 
 input PriceCategoryFilterInput {
