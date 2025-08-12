@@ -55,7 +55,7 @@ const dispatcherResolver = {
         }
       })
     },
-    getPriceCategory: async (_, id, context) => {
+    getPriceCategory: async (_, { id }, context) => {
       await allMiddleware(context)
       return await prisma.priceCategory.findUnique({
         where: { id },
@@ -268,6 +268,18 @@ const dispatcherResolver = {
   Subscription: {
     notification: {
       subscribe: () => pubsub.asyncIterator([NOTIFICATION])
+    }
+  },
+  PriceCategory: {
+    prices: async (parent) => {
+      return await prisma.airlinePrice.findMany({
+        where: { airlineId: parent.id },
+        include: {
+          airports: {
+            include: { airport: true }
+          }
+        }
+      })
     }
   }
 }
