@@ -11,6 +11,7 @@ const analyticsResolver = {
   Analytics: {}
 }
 
+/* 
 
 const airlineAnalytics = await prisma.application.aggregate({
   where: {
@@ -122,7 +123,7 @@ const cancelleHoteldApplications = await prisma.application.count({
 })
 
 
-
+*/
 
 
 export default analyticsResolver
