@@ -28,7 +28,6 @@ const dispatcherResolver = {
       await allMiddleware(context)
 
       return await prisma.company.findMany({
-        where,
         include: {
           priceCategory: true
         }
@@ -228,16 +227,15 @@ const dispatcherResolver = {
 
         // Обработка airlinePrices
         ...(airlinePrices !== undefined && {
-          airlinePrices: airlinePrices?.length
+          airlinePrices: airlinePrices.length
             ? {
-                set: airlinePrices.map((id) => ({ id }))
+                connect: airlinePrices.map((id) => ({ id })) // подключаем новые
               }
-            : {
-                set: undefined
-              }
+            : {} // Если массив пустой, не обновляем старые связи
         })
       }
 
+      // Если airlinePrices не передан, удаляем это поле из update
       if (airlinePrices === undefined) {
         delete data.airlinePrices
       }
