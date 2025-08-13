@@ -185,9 +185,10 @@ const dispatcherResolver = {
     },
     updateCompany: async (_, { input }, context) => {
       await allMiddleware(context)
+      const { id, ...data } = input // Убираем id из data
       return await prisma.company.update({
-        where: { id: input.id },
-        data: { ...input }
+        where: { id },
+        data: { ...data } // Передаём только те данные, которые нужно обновить
       })
     },
     createPriceCategory: async (_, { input }, context) => {

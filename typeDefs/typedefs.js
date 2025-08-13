@@ -2,7 +2,7 @@ import { mergeTypeDefs } from "@graphql-tools/merge"
 
 import airlineTypeDef from "./airline/airline.typeDef.js"
 import airportTypeDef from "./airport/airport.typeDef.js"
-// import analyticsTypeDef from "./analytics/analytics.typeDef.js"
+import analyticsTypeDef from "./analytics/analytics.typeDef.js"
 import chatTypeDef from "./chat/chat.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"

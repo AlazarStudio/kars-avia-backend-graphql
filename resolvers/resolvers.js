@@ -2,7 +2,7 @@ import { mergeResolvers } from "@graphql-tools/merge"
 
 import airlineResolver from "./airline/airline.resolver.js"
 import airportResolver from "./airport/airport.resolver.js"
-// import analyticsResolver from "./analytics/analytics.resolver.js"
+import analyticsResolver from "./analytics/analytics.resolver.js"
 import chatResolver from "./chat/chat.resolver.js"
 import cityResolver from "./city/city.resolver.js"
 import dispatcherResolver from "./dispatcher/dispatcher.resolver.js"
