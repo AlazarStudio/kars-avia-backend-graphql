@@ -180,14 +180,14 @@ const dispatcherResolver = {
     createCompany: async (_, { input }, context) => {
       await allMiddleware(context)
       return await prisma.company.create({
-        data: { name: input.name }
+        data: { ...input }
       })
     },
     updateCompany: async (_, { input }, context) => {
       await allMiddleware(context)
       return await prisma.company.update({
         where: { id: input.id },
-        data: { name: input.name }
+        data: { ...input }
       })
     },
     createPriceCategory: async (_, { input }, context) => {
