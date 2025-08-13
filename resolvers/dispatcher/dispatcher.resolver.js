@@ -20,9 +20,38 @@ import {
   allMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
+import { GraphQLError } from "graphql"
 
 const dispatcherResolver = {
   Query: {
+    getAllCompany: async (_, {}, context) => {
+      await allMiddleware(context)
+
+      return await prisma.company.findMany({
+        where,
+        include: {
+          priceCategory: true
+        }
+      })
+    },
+    getCompany: async (_, { id }, context) => {
+      await allMiddleware(context)
+
+      const company = await prisma.company.findUnique({
+        where: { id },
+        include: {
+          priceCategory: true
+        }
+      })
+
+      if (!company) {
+        throw new GraphQLError("Компания не найдена", {
+          extensions: { code: "NOT_FOUND" }
+        })
+      }
+
+      return company
+    },
     // getAllPriceCategory: async (_, {}, context) => {
     //   await allMiddleware(context)
     //   return await prisma.priceCategory.findMany({
@@ -196,19 +225,21 @@ const dispatcherResolver = {
         ...(hotelId !== undefined && { hotelId }),
         ...(companyId !== undefined && { companyId }),
         ...(name !== undefined && { name }),
-        ...(airlinePrices?.length
-          ? {
-              airlinePrices: {
-                set: airlinePrices.map((id) => ({ id })) // заменит все связи
+
+        // Обработка airlinePrices
+        ...(airlinePrices !== undefined && {
+          airlinePrices: airlinePrices?.length
+            ? {
+                set: airlinePrices.map((id) => ({ id }))
               }
-            }
-          : airlinePrices?.length === 0
-          ? {
-              airlinePrices: {
-                set: [] // удалит все связи, если передан пустой массив
+            : {
+                set: undefined
               }
-            }
-          : {})
+        })
+      }
+
+      if (airlinePrices === undefined) {
+        delete data.airlinePrices
       }
 
       return await prisma.priceCategory.update({

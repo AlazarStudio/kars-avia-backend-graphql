@@ -140,6 +140,8 @@ input CompanyInput {
 }
 
 type Query {
+  getAllCompany: [Company]
+  getCompany(id:ID): Company
   # getAllPriceCategory: [PriceCategory]
   getAllPriceCategory(filter: PriceCategoryFilterInput): [PriceCategory]
   getPriceCategory(id:ID!): PriceCategory
