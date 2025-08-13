@@ -193,18 +193,23 @@ const dispatcherResolver = {
     createPriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
 
-      return await prisma.priceCategory.create({
-        data: {
-          airlineId: input.airlineId || undefined,
-          hotelId: input.hotelId || undefined,
-          companyId: input.companyId || undefined,
-          name: input.name,
-          airlinePrices: input.airlinePrices?.length
-            ? {
+      const data = {
+        airlineId: input.airlineId || undefined,
+        hotelId: input.hotelId || undefined,
+        companyId: input.companyId || undefined,
+        name: input.name,
+
+        ...(input.airlinePrices?.length
+          ? {
+              airlinePrices: {
                 connect: input.airlinePrices.map((id) => ({ id }))
               }
-            : undefined
-        },
+            }
+          : {})
+      }
+
+      return await prisma.priceCategory.create({
+        data,
         include: {
           airline: true,
           hotel: true,
