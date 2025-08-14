@@ -7,7 +7,7 @@ import {
 
 const analyticsResolver = {
   Query: {
-    analiticsAirlineRequests: async (_, { input }, context) => {
+    analyticsAirlineRequests: async (_, { input }, context) => {
       const { airlineId, startDate, endDate } = input
 
       const createdByPeriodData = await createdByPeriod(
@@ -32,7 +32,7 @@ const analyticsResolver = {
         totalCancelledRequests: totalCancelledRequestsCount
       }
     },
-    analiticsHotelRequests: async (_, { input }, context) => {
+    analyticsHotelRequests: async (_, { input }, context) => {
       const { hotelId, startDate, endDate } = input
 
       const createdByPeriodData = await createdByPeriodForHotel(
@@ -57,7 +57,7 @@ const analyticsResolver = {
         totalCancelledRequests: totalCancelledRequestsCount
       }
     },
-    analiticsHotelRequests: async (_, { input }, context) => {
+    analyticsHotelRequests: async (_, { input }, context) => {
       const { hotelId, startDate, endDate } = input
 
       const receivedRequestsCount = await receivedRequests(

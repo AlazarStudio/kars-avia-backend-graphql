@@ -25,8 +25,8 @@ input AnalyticsInput {
 }
 
 type Query {
-  analiticsAirlineRequests(input: AnalyticsInput): Analytics
-  analiticsHotelRequests(input: AnalyticsInput): Analytics
+  analyticsAirlineRequests(input: AnalyticsInput): Analytics
+  analyticsHotelRequests(input: AnalyticsInput): Analytics
 }
 
 `
