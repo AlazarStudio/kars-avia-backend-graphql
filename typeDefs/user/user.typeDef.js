@@ -60,6 +60,7 @@ type Position {
 input UserPaginationInput {
   skip: Int
   take: Int
+  all: Boolean
   search: String
 }
 

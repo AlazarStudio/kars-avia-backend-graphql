@@ -42,7 +42,7 @@ const userResolver = {
     users: async (_, { pagination }, context) => {
       await allMiddleware(context)
 
-      const { skip = 0, take = 10, search } = pagination
+      const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
             OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
@@ -58,22 +58,27 @@ const userResolver = {
 
       const totalCount = await prisma.user.count({ where })
 
-      const totalPages = Math.ceil(totalCount / take)
+      const users = all
+        ? prisma.user.findMany({
+            where,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+        : prisma.user.findMany({
+            where,
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
 
-      const users = prisma.user.findMany({
-        where,
-        skip: skip * take,
-        take,
-        orderBy: { name: "asc" },
-        include: { position: true }
-      })
-
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
       return { users, totalCount, totalPages }
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId, pagination }, context) => {
       await allMiddleware(context)
-      const { skip = 0, take = 10, search } = pagination
+      const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
             OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
@@ -89,21 +94,26 @@ const userResolver = {
 
       const totalCount = await prisma.user.count({ where })
 
-      const totalPages = Math.ceil(totalCount / take)
-
-      const users = prisma.user.findMany({
-        where,
-        skip: skip * take,
-        take,
-        orderBy: { name: "asc" },
-        include: { position: true }
-      })
+      const users = all
+        ? prisma.user.findMany({
+            where,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+        : prisma.user.findMany({
+            where,
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
       return { users, totalCount, totalPages }
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId, pagination }, context) => {
       await allMiddleware(context)
-      const { skip = 0, take = 10, search } = pagination
+      const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
             OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
@@ -119,21 +129,26 @@ const userResolver = {
 
       const totalCount = await prisma.user.count({ where })
 
-      const totalPages = Math.ceil(totalCount / take)
-
-      const users = prisma.user.findMany({
-        where,
-        skip: skip * take,
-        take,
-        orderBy: { name: "asc" },
-        include: { position: true }
-      })
+      const users = all
+        ? prisma.user.findMany({
+            where,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+        : prisma.user.findMany({
+            where,
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
       return { users, totalCount, totalPages }
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, { pagination }, context) => {
       await allMiddleware(context)
-      const { skip = 0, take = 10, search } = pagination
+      const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
             OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
@@ -149,15 +164,20 @@ const userResolver = {
 
       const totalCount = await prisma.user.count({ where })
 
-      const totalPages = Math.ceil(totalCount / take)
-
-      const users = prisma.user.findMany({
-        where,
-        skip: skip * take,
-        take,
-        orderBy: { name: "asc" },
-        include: { position: true }
-      })
+      const users = all
+        ? prisma.user.findMany({
+            where,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+        : prisma.user.findMany({
+            where,
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            orderBy: { name: "asc" },
+            include: { position: true }
+          })
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
       return { users, totalCount, totalPages }
     },
     // Получение одного пользователя по его ID
