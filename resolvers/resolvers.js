@@ -18,7 +18,7 @@ import supportResolver from "./support/support.resolver.js"
 const mergedResolvers = mergeResolvers([
   airlineResolver,
   airportResolver,
-  // analyticsResolver,
+  analyticsResolver,
   chatResolver,
   cityResolver,
   dispatcherResolver,

@@ -18,7 +18,7 @@ import supportTypeDef from "./support/support.typeDef.js"
 const mergedTypeDefs = mergeTypeDefs([
   airlineTypeDef,
   airportTypeDef,
-  // analyticsTypeDef,
+  analyticsTypeDef,
   chatTypeDef,
   cityTypeDef,
   dispatcherTypeDef,
