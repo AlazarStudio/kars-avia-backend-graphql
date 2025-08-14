@@ -37,7 +37,8 @@ type AirlinePersonal {
   gender: String
   airline: Airline
   department: AirlineDepartment
-  hotelChess: [HotelChess!]
+  # hotelChess: [HotelChess!]
+  hotelChess(hcPagination: HotelChessPaginationInput): [HotelChess!]
   active: Boolean
 }
 

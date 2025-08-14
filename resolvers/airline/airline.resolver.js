@@ -598,12 +598,41 @@ const airlineResolver = {
   },
 
   AirlinePersonal: {
-    hotelChess: async (parent) => {
-      const hotelChessEntries = await prisma.hotelChess.findMany({
-        where: { clientId: parent.id },
-        include: { hotel: true }
+    // hotelChess: async (parent) => {
+    //   const hotelChessEntries = await prisma.hotelChess.findMany({
+    //     where: { clientId: parent.id },
+    //     include: { hotel: true }
+    //   })
+    //   return hotelChessEntries
+    // },
+    hotelChess: async (parent, args) => {
+      const hcPagination = args?.hcPagination || {}
+      const { start, end } = hcPagination
+
+      const where = {
+        clientId: parent.id
+      }
+
+      if (start && end) {
+        // фильтрация по пересечению диапазонов
+        where.AND = [
+          {
+            start: {
+              lte: new Date(end)
+            }
+          },
+          {
+            end: {
+              gte: new Date(start)
+            }
+          }
+        ]
+      }
+
+      return await prisma.hotelChess.findMany({
+        where,
+        include: { client: true }
       })
-      return hotelChessEntries
     },
     position: async (parent) => {
       if (parent.positionId) {
