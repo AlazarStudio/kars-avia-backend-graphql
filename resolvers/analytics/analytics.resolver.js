@@ -1,27 +1,26 @@
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
-import {
-  allMiddleware,
-  superAdminMiddleware
-} from "../../middlewares/authMiddleware.js"
 
 const analyticsResolver = {
   Query: {
-    analyticsAirlineRequests: async (_, { input }, context) => {
-      const { airlineId, startDate, endDate } = input
+    analyticsEntityRequests: async (_, { input }, context) => {
+      const { startDate, endDate, filters } = input
 
-      const createdByPeriodData = await createdByPeriod(
-        airlineId,
+      // Формируем условия фильтрации
+      const whereConditions = buildWhereConditions(filters, startDate, endDate)
+
+      const createdByPeriodData = await createdByPeriodForEntity(
+        whereConditions,
         startDate,
         endDate
       )
       const totalCreatedRequestsCount = await totalCreatedRequests(
-        airlineId,
+        whereConditions,
         startDate,
         endDate
       )
       const totalCancelledRequestsCount = await totalCancelledRequests(
-        airlineId,
+        whereConditions,
         startDate,
         endDate
       )
@@ -31,75 +30,10 @@ const analyticsResolver = {
         totalCreatedRequests: totalCreatedRequestsCount,
         totalCancelledRequests: totalCancelledRequestsCount
       }
-    },
-    analyticsHotelRequests: async (_, { input }, context) => {
-      const { hotelId, startDate, endDate } = input
-
-      const createdByPeriodData = await createdByPeriodForHotel(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const totalReceivedRequestsCount = await totalReceivedRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const totalCancelledRequestsCount = await totalCancelledHotelRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-
-      return {
-        createdByPeriod: createdByPeriodData,
-        totalReceivedRequests: totalReceivedRequestsCount,
-        totalCancelledRequests: totalCancelledRequestsCount
-      }
-    },
-    analyticsHotelRequests: async (_, { input }, context) => {
-      const { hotelId, startDate, endDate } = input
-
-      const receivedRequestsCount = await receivedRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const acceptedRequestsCount = await acceptedRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const cancelledRequestsCount = await cancelledHotelRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const totalReceivedRequestsCount = await totalReceivedRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-      const totalCancelledRequestsCount = await totalCancelledHotelRequests(
-        hotelId,
-        startDate,
-        endDate
-      )
-
-      return {
-        receivedRequests: receivedRequestsCount,
-        acceptedRequests: acceptedRequestsCount,
-        cancelledRequests: cancelledRequestsCount,
-        totalReceivedRequests: totalReceivedRequestsCount,
-        totalCancelledRequests: totalCancelledRequestsCount
-      }
     }
-  },
-  Mutation: {},
-  Analytics: {}
+  }
 }
 
-// /*
 ;("created")
 ;("opened")
 ;("done")
@@ -110,15 +44,31 @@ const analyticsResolver = {
 ;("archived")
 ;("canceled")
 
-const createdByPeriod = async (airlineId, startDate, endDate) => {
+// Функция для построения условий фильтрации
+const buildWhereConditions = (filters, startDate, endDate) => {
+  const whereConditions = {
+    createdAt: {
+      gte: new Date(startDate),
+      lte: new Date(endDate)
+    }
+  }
+
+  // Динамически добавляем фильтры
+  if (filters.airlineId) whereConditions.airlineId = filters.airlineId
+  if (filters.hotelId) whereConditions.hotelId = filters.hotelId
+  if (filters.personId) whereConditions.personId = filters.personId
+
+  return whereConditions
+}
+
+// Получение данных по периодам с фильтрацией
+const createdByPeriodForEntity = async (
+  whereConditions,
+  startDate,
+  endDate
+) => {
   const requests = await prisma.request.findMany({
-    where: {
-      airlineId: airlineId,
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    },
+    where: whereConditions,
     select: {
       createdAt: true,
       status: true
@@ -155,132 +105,21 @@ const createdByPeriod = async (airlineId, startDate, endDate) => {
   return result
 }
 
-const cancelledAirlineRequests = async (airlineId, startDate, endDate) => {
+// Общее количество созданных заявок для всех фильтров
+const totalCreatedRequests = async (whereConditions, startDate, endDate) => {
+  return await prisma.request.count({
+    where: whereConditions
+  })
+}
+
+// Общее количество отменённых заявок для всех фильтров
+const totalCancelledRequests = async (whereConditions, startDate, endDate) => {
   return await prisma.request.count({
     where: {
-      airlineId: airlineId,
-      status: "canceled", // фильтрация по статусу "canceled"
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
+      ...whereConditions,
+      status: "canceled" // фильтрация по статусу "canceled"
     }
   })
 }
-
-const totalCreatedRequests = async (airlineId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      airlineId: airlineId,
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-// Подсчёт общего количества отменённых заявок за период
-const totalCancelledRequests = async (airlineId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      airlineId: airlineId,
-      status: "canceled", // фильтрация по статусу "canceled"
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-// Для гостиницы (аналогичные функции)
-const totalReceivedRequests = async (hotelId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      hotelId: hotelId,
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-const totalCancelledHotelRequests = async (hotelId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      hotelId: hotelId,
-      status: "canceled",
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-const averageProcessingTime = async (airlineId, startDate, endDate) => {
-  return await prisma.request.aggregate({
-    where: {
-      airlineId: airlineId,
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-    // _avg: {
-    //   processingTime: true
-    // }
-  })
-}
-
-const receivedRequests = async (hotelId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      hotelId: hotelId, // фильтрация по гостинице
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-const acceptedRequests = async (hotelId, startDate, endDate) => {
-  const statuses = [
-    "done",
-    "reduced",
-    "extended",
-    "transferred",
-    "archiving",
-    "archived"
-  ]
-  return await prisma.request.count({
-    where: {
-      hotelId: hotelId,
-      status: { in: statuses }, // фильтрация по статусу "ACCEPTED"
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-const cancelledHotelRequests = async (hotelId, startDate, endDate) => {
-  return await prisma.request.count({
-    where: {
-      hotelId: hotelId,
-      status: "canceled", // фильтрация по статусу "canceled"
-      createdAt: {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
-  })
-}
-
-// */
 
 export default analyticsResolver

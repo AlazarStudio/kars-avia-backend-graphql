@@ -2,6 +2,12 @@ const analyticsTypeDef = `#graphql
 scalar Upload
 scalar Date
 
+enum entityType {
+  dispatcher
+  airline
+  hotel
+}
+
 type Analytics {
   createdByPeriod: [PeriodCount]
   totalCreatedRequests: Int
@@ -18,16 +24,22 @@ type PeriodCount {
 }
 
 input AnalyticsInput {
-  airlineId: String
-  hotelId: String
   startDate: Date
   endDate: Date
+  filters: FiltersInput
+}
+
+input FiltersInput {
+  airlineId: String
+  hotelId: String
+  personId: String
 }
 
 type Query {
-  analyticsAirlineRequests(input: AnalyticsInput): Analytics
-  analyticsHotelRequests(input: AnalyticsInput): Analytics
+  analyticsEntityRequests(input: AnalyticsInput): Analytics
 }
+
+
 
 `
 
