@@ -25,10 +25,17 @@ const analyticsResolver = {
         endDate
       )
 
+      const statusCounts = await countRequestsByStatus(whereConditions)
+
+      // const statusCountsArray = Object.entries(statusCounts).map(
+      //   ([status, count]) => ({ status, count })
+      // )
+
       return {
         createdByPeriod: createdByPeriodData,
         totalCreatedRequests: totalCreatedRequestsCount,
-        totalCancelledRequests: totalCancelledRequestsCount
+        totalCancelledRequests: totalCancelledRequestsCount,
+        statusCounts
       }
     }
   }
@@ -120,6 +127,26 @@ const totalCancelledRequests = async (whereConditions, startDate, endDate) => {
       status: "canceled" // фильтрация по статусу "canceled"
     }
   })
+}
+
+const countRequestsByStatus = async (whereConditions) => {
+  // Получаем все заявки по фильтру
+  const requests = await prisma.request.findMany({
+    where: whereConditions,
+    select: {
+      status: true
+    }
+  })
+
+  // Считаем количество по каждому статусу
+  const statusCount = {}
+  requests.forEach((request) => {
+    const status = request.status || "unknown"
+    if (!statusCount[status]) statusCount[status] = 0
+    statusCount[status] += 1
+  })
+
+  return statusCount // { created: 10, canceled: 5, done: 7, ... }
 }
 
 export default analyticsResolver
