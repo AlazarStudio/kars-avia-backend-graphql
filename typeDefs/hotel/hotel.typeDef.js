@@ -112,6 +112,7 @@ type Room {
   images: [String!]
   type: RoomType
   price: Float
+  priceForAirline: Float
 }
 
 type RoomKind {
@@ -121,6 +122,7 @@ type RoomKind {
   category: Category
   square: String
   price: Float!
+  priceForAirline: Float
   images: [String]
   hotel: Hotel
   roomsCount: Float

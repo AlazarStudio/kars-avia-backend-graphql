@@ -370,7 +370,6 @@ const requestResolver = {
             `person already exist in: ${personExist} \n requestId: ${personExist.requestId}`
           )
         }
-        // console.log("\n existingRequest", existingRequest)
       }
       if (existingRequest != null) {
         throw new Error(`Request already exists with id: ${existingRequest.id}`)
@@ -398,7 +397,6 @@ const requestResolver = {
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
         orderBy: { createdAt: "desc" }
       })
-      console.log("lastRequest - " + lastRequest.requestNumber)
       // Формирование последовательного номера заявки
       let sequenceNumber
       if (lastRequest) {
@@ -416,7 +414,6 @@ const requestResolver = {
       }
       // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
       const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
-      console.log("requestNumber - " + requestNumber)
       // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {

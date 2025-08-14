@@ -39,40 +39,126 @@ const userResolver = {
 
   Query: {
     // Получение всех пользователей, сортированных по имени (возвращает всех)
-    users: async (_, __, context) => {
+    users: async (_, { pagination }, context) => {
       await allMiddleware(context)
-      return prisma.user.findMany({
-        where: { active: true },
+
+      const { skip = 0, take = 10, search } = pagination
+      const searchFilter = search
+        ? {
+            OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
+          }
+        : null
+      const filters = [
+        { active: true },
+        ...(searchFilter ? [searchFilter] : [])
+      ]
+      const where = {
+        AND: filters
+      }
+
+      const totalCount = await prisma.user.count({ where })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      const users = prisma.user.findMany({
+        where,
+        skip: skip * take,
+        take,
         orderBy: { name: "asc" },
         include: { position: true }
       })
+
+      return { users, totalCount, totalPages }
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
-    airlineUsers: async (_, { airlineId }, context) => {
+    airlineUsers: async (_, { airlineId, pagination }, context) => {
       await allMiddleware(context)
-      return prisma.user.findMany({
-        where: { airlineId, active: true },
+      const { skip = 0, take = 10, search } = pagination
+      const searchFilter = search
+        ? {
+            OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
+          }
+        : null
+      const filters = [
+        { airlineId, active: true },
+        ...(searchFilter ? [searchFilter] : [])
+      ]
+      const where = {
+        AND: filters
+      }
+
+      const totalCount = await prisma.user.count({ where })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      const users = prisma.user.findMany({
+        where,
+        skip: skip * take,
+        take,
         orderBy: { name: "asc" },
         include: { position: true }
       })
+      return { users, totalCount, totalPages }
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
-    hotelUsers: async (_, { hotelId }, context) => {
+    hotelUsers: async (_, { hotelId, pagination }, context) => {
       await allMiddleware(context)
-      return prisma.user.findMany({
-        where: { hotelId, active: true },
+      const { skip = 0, take = 10, search } = pagination
+      const searchFilter = search
+        ? {
+            OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
+          }
+        : null
+      const filters = [
+        { hotelId, active: true },
+        ...(searchFilter ? [searchFilter] : [])
+      ]
+      const where = {
+        AND: filters
+      }
+
+      const totalCount = await prisma.user.count({ where })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      const users = prisma.user.findMany({
+        where,
+        skip: skip * take,
+        take,
         orderBy: { name: "asc" },
         include: { position: true }
       })
+      return { users, totalCount, totalPages }
     },
     // Получение пользователей-диспетчеров
-    dispatcherUsers: async (_, __, context) => {
+    dispatcherUsers: async (_, { pagination }, context) => {
       await allMiddleware(context)
-      return prisma.user.findMany({
-        where: { dispatcher: true, active: true },
+      const { skip = 0, take = 10, search } = pagination
+      const searchFilter = search
+        ? {
+            OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
+          }
+        : null
+      const filters = [
+        { dispatcher: true, active: true },
+        ...(searchFilter ? [searchFilter] : [])
+      ]
+      const where = {
+        AND: filters
+      }
+
+      const totalCount = await prisma.user.count({ where })
+
+      const totalPages = Math.ceil(totalCount / take)
+
+      const users = prisma.user.findMany({
+        where,
+        skip: skip * take,
+        take,
         orderBy: { name: "asc" },
         include: { position: true }
       })
+      return { users, totalCount, totalPages }
     },
     // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
@@ -331,7 +417,7 @@ const userResolver = {
         airlineDepartmentId
       } = input
       // Если обновляет не сам пользователь, разрешено только админам
-      if (context.user.id !== id && await adminHotelAirMiddleware(context)) {
+      if (context.user.id !== id && (await adminHotelAirMiddleware(context))) {
         throw new Error("Access forbidden: Admins only or self-update allowed.")
       }
       // Получаем текущие данные пользователя из базы

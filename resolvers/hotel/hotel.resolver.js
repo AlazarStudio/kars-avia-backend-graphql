@@ -769,6 +769,7 @@ const hotelResolver = {
                 descriptionSecond: room.descriptionSecond,
                 places: places,
                 price: room.price,
+                priceForAirline: room.priceForAirline,
                 ...(roomImages && { images: imagePaths })
               }
               await prisma.room.update({
@@ -828,7 +829,8 @@ const hotelResolver = {
                   images: imagePaths,
                   places: places,
                   type: room.type,
-                  price: room.price
+                  price: room.price,
+                  priceForAirline: room.priceForAirline
                 }
               })
 
@@ -863,6 +865,7 @@ const hotelResolver = {
                 description: room.description,
                 square: room.square,
                 price: room.price,
+                priceForAirline: room.priceForAirline,
                 category: room.category,
                 ...(roomKindImages && { images: imagePaths })
               }
@@ -884,6 +887,7 @@ const hotelResolver = {
                   description: room.description,
                   square: room.square,
                   price: room.price,
+                  priceForAirline: room.priceForAirline,
                   category: room.category,
                   images: imagePaths
                 }

@@ -57,13 +57,25 @@ type Position {
   # airlineId: ID
 }
 
+input UserPaginationInput {
+  skip: Int
+  take: Int
+  search: String
+}
+
+type UserConnection {
+  totalPages: Int!
+  totalCount: Int!
+  users: [User!]!
+}
+
 type Query {
-  users: [User!]
+  users(pagination: UserPaginationInput): UserConnection!
   authUser: User
   user(userId: ID!): User
-  hotelUsers(hotelId: ID!): [User!]
-  airlineUsers(airlineId: ID!): [User!]
-  dispatcherUsers: [User!]
+  hotelUsers(pagination: UserPaginationInput, hotelId: ID!): UserConnection!
+  airlineUsers(pagination: UserPaginationInput, airlineId: ID!): UserConnection!
+  dispatcherUsers(pagination: UserPaginationInput): UserConnection!
 }
 
 type Mutation {
