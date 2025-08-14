@@ -228,7 +228,7 @@ const dispatcherResolver = {
       })
 
       pubsub.publish(PRICECATEGORY_CHANGED, {
-        priceCategoryChanged: company
+        priceCategoryChanged: priceCategory
       })
 
       return priceCategory
@@ -272,7 +272,7 @@ const dispatcherResolver = {
       })
 
       pubsub.publish(PRICECATEGORY_CHANGED, {
-        priceCategoryChanged: company
+        priceCategoryChanged: priceCategory
       })
 
       return priceCategory
