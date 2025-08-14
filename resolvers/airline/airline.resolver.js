@@ -631,7 +631,7 @@ const airlineResolver = {
 
       return await prisma.hotelChess.findMany({
         where,
-        include: { client: true }
+        include: { hotel: true }
       })
     },
     position: async (parent) => {
