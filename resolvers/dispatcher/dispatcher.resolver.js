@@ -179,17 +179,25 @@ const dispatcherResolver = {
   Mutation: {
     createCompany: async (_, { input }, context) => {
       await allMiddleware(context)
-      return await prisma.company.create({
+      const company = await prisma.company.create({
         data: { ...input }
       })
+      pubsub.publish(COMPANY_CHANGED, {
+        companyChanged: company
+      })
+      return company
     },
     updateCompany: async (_, { input }, context) => {
       await allMiddleware(context)
       const { id, ...data } = input // Убираем id из data
-      return await prisma.company.update({
+      const company = await prisma.company.update({
         where: { id },
         data: { ...data } // Передаём только те данные, которые нужно обновить
       })
+      pubsub.publish(COMPANY_CHANGED, {
+        companyChanged: company
+      })
+      return company
     },
     createPriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
@@ -209,7 +217,7 @@ const dispatcherResolver = {
           : {})
       }
 
-      return await prisma.priceCategory.create({
+      const priceCategory = await prisma.priceCategory.create({
         data,
         include: {
           airline: true,
@@ -218,6 +226,12 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
+
+      pubsub.publish(PRICECATEGORY_CHANGED, {
+        priceCategoryChanged: company
+      })
+
+      return priceCategory
     },
     updatePriceCategory: async (_, { input }, context) => {
       await allMiddleware(context)
@@ -246,7 +260,7 @@ const dispatcherResolver = {
         delete data.airlinePrices
       }
 
-      return await prisma.priceCategory.update({
+      const priceCategory = await prisma.priceCategory.update({
         where: { id },
         data,
         include: {
@@ -256,6 +270,12 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
+
+      pubsub.publish(PRICECATEGORY_CHANGED, {
+        priceCategoryChanged: company
+      })
+
+      return priceCategory
     },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context)
@@ -303,6 +323,12 @@ const dispatcherResolver = {
   Subscription: {
     notification: {
       subscribe: () => pubsub.asyncIterator([NOTIFICATION])
+    },
+    companyChanged: {
+      subscribe: () => pubsub.asyncIterator([COMPANY_CHANGED])
+    },
+    priceCategoryChanged: {
+      subscribe: () => pubsub.asyncIterator([PRICECATEGORY_CHANGED])
     }
   },
   PriceCategory: {

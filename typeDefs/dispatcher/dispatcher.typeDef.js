@@ -167,6 +167,8 @@ type Mutation {
 
 type Subscription {
   notification: NotificationPayload!
+  companyChanged: Company
+  priceCategoryChanged: PriceCategory
 }
 
 `
