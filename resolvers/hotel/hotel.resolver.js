@@ -24,7 +24,6 @@ import { sendEmail } from "../../utils/sendMail.js"
 import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../utils/logger.js"
-import { connect } from "pm2"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
