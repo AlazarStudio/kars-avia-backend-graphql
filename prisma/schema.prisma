@@ -209,6 +209,7 @@ model User {
   active               Boolean            @default(true)
   position             Position?          @relation(fields: [positionId], references: [id])
   positionId           String?            @db.ObjectId
+  postedRequests       Request[]          @relation(name: "posted")
 }
 
 model PositionOnDepartment {
@@ -510,6 +511,8 @@ model Request {
   hotelId       String?          @db.ObjectId
   receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
   receiverId    String?          @db.ObjectId
+  posted        User?            @relation(name: "posted", fields: [postedId], references: [id])
+  postedId      String?          @db.ObjectId
   chat          Chat[]
   status        String           @default("created")
   hotelChess    HotelChess[]
