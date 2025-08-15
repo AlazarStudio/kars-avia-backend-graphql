@@ -1,4 +1,5 @@
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { prisma } from "../../prisma.js"
 
 const logResolver = {
   Query: {

@@ -491,6 +491,7 @@ model Request {
   id            String           @id @default(auto()) @map("_id") @db.ObjectId
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
+  placementAt   DateTime         @map("placement_at")
   sender        User             @relation(name: "sender", fields: [senderId], references: [id])
   senderId      String           @db.ObjectId
   airport       Airport?         @relation(fields: [airportId], references: [id])

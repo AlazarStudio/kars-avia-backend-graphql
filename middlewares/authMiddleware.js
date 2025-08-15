@@ -157,7 +157,7 @@ export const airlineMiddleware = async (context) => {
 }
 
 export const allMiddleware = async (context) => {
-  roleMiddleware(context, [
+  await roleMiddleware(context, [
     "SUPERADMIN",
     "DISPATCHERADMIN",
     "HOTELADMIN",

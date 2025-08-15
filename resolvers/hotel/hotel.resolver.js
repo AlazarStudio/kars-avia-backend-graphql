@@ -610,6 +610,11 @@ const hotelResolver = {
                 //   "\n !id dupl" + dupl,
                 //   "\n !id dupl str" + JSON.stringify(dupl)
                 // )
+                const currentTime = new Date()
+                const adjustedTime = new Date(
+                  currentTime.getTime() + 3 * 60 * 60 * 1000
+                )
+                const formattedTime = adjustedTime.toISOString()
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {
@@ -637,6 +642,7 @@ const hotelResolver = {
                     status: "done",
                     hotel: { connect: { id } },
                     mealPlan: mealPlanData,
+                    placementAt: formattedTime,
                     roomCategory: room?.category,
                     roomNumber: room?.name
                   },
@@ -695,7 +701,7 @@ const hotelResolver = {
 
                 await logAction({
                   context,
-                  action: "update_hotel_chess",
+                  action: "create_hotel_chess",
                   description: `<span style='color:#545873'>${
                     updatedRequest.person
                       ? updatedRequest.person.name
