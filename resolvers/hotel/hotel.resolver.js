@@ -611,10 +611,10 @@ const hotelResolver = {
                 //   "\n !id dupl str" + JSON.stringify(dupl)
                 // )
                 const currentTime = new Date()
-                const adjustedTime = new Date(
-                  currentTime.getTime() + 3 * 60 * 60 * 1000
-                )
-                const formattedTime = adjustedTime.toISOString()
+                // const adjustedTime = new Date(
+                //   currentTime.getTime() + 3 * 60 * 60 * 1000
+                // )
+                const formattedTime = currentTime.toISOString()
 
                 const newHotelChess = await prisma.hotelChess.create({
                   data: {
