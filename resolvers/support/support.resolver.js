@@ -48,7 +48,7 @@ const supportResolver = {
       })
 
       const map = {}
-      allDocs.forEach((doc) => {
+      allDocs.children.forEach((doc) => {
         map[doc.id] = { ...doc, children: [] }
       })
 
