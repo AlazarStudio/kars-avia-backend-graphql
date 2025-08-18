@@ -44,7 +44,7 @@ const supportResolver = {
       // const allDocs = await prisma.documentation.findMany({
       const allDocs = await prisma.documentation.findUnique({
         where: id,
-        orderBy: { order: "asc" }
+        // orderBy: { order: "asc" }
       })
 
       const map = {}
