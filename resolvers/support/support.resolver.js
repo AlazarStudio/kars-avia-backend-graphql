@@ -43,7 +43,7 @@ const supportResolver = {
     documentationTree: async (_, { id }, context) => {
       // const allDocs = await prisma.documentation.findMany({
       const allDocs = await prisma.documentation.findUnique({
-        where: id,
+        where: { id }
         // orderBy: { order: "asc" }
       })
 
