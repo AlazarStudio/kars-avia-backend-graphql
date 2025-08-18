@@ -10,6 +10,13 @@ type PatchNote {
   files: [String]
 }
 
+enum DocumentationType {
+  documentation
+  update
+  etc
+}
+
+
 # type Documentation {
 #   id: ID!
 #   chapter: String
@@ -25,7 +32,7 @@ type Documentation {
   parent: Documentation
   children: [Documentation]
   order: Int
-  type: String
+  type: DocumentationType
   name: String!
   description: String
   files: [String]
@@ -48,7 +55,7 @@ input PatchNoteUpdateInput {
 input DocumentationInput {
   parentId: ID
   order: Int
-  type: String
+  type: DocumentationType
   name: String!
   description: String
   files: [String]
@@ -58,7 +65,7 @@ input DocumentationInput {
 input DocumentationUpdateInput {
   parentId: ID
   order: Int
-  type: String
+  type: DocumentationType
   name: String
   description: String
   files: [String]
@@ -68,7 +75,8 @@ input DocumentationUpdateInput {
 type Query {
   getAllPatchNotes: [PatchNote!]!
   getAllDocumentations: [Documentation!]!
-  documentationTree: [Documentation!]!
+  # documentationTree: [Documentation!]!
+  documentationTree(id: ID!): [Documentation!]!
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
   supportChats: [Chat!]! # Для поддержки: все чаты с пользователями

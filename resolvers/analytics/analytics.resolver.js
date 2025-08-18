@@ -7,9 +7,9 @@ const analyticsResolver = {
       const { startDate, endDate, filters } = input
 
       // Формируем условия фильтрации
-      const whereConditions = buildWhereConditions(filters, startDate, endDate)
+      const whereConditions = buildWhereConditionsRequests(filters, startDate, endDate)
 
-      const createdByPeriodData = await createdByPeriodForEntity(
+      const createdByPeriodData = await createdByPeriodForEntityRequests(
         whereConditions,
         startDate,
         endDate
@@ -37,7 +37,14 @@ const analyticsResolver = {
         totalCancelledRequests: totalCancelledRequestsCount,
         statusCounts
       }
-    }
+    },
+    // analyticsEntityUsers: async (_, { input }, context) => {
+    //   const { filters, startDate, endDate } = input 
+
+    //   const whereConditions = buildWhereConditionsUsers(filters, startDate, endDate)
+
+
+    // }
   }
 }
 
@@ -52,7 +59,23 @@ const analyticsResolver = {
 ;("canceled")
 
 // Функция для построения условий фильтрации
-const buildWhereConditions = (filters, startDate, endDate) => {
+const buildWhereConditionsRequests = (filters, startDate, endDate) => {
+  const whereConditions = {
+    createdAt: {
+      gte: new Date(startDate),
+      lte: new Date(endDate)
+    }
+  }
+
+  // Динамически добавляем фильтры
+  if (filters.airlineId) whereConditions.airlineId = filters.airlineId
+  if (filters.hotelId) whereConditions.hotelId = filters.hotelId
+  if (filters.personId) whereConditions.personId = filters.personId
+
+  return whereConditions
+}
+
+const buildWhereConditionsUsers = (filters, startDate, endDate) => {
   const whereConditions = {
     createdAt: {
       gte: new Date(startDate),
@@ -69,7 +92,7 @@ const buildWhereConditions = (filters, startDate, endDate) => {
 }
 
 // Получение данных по периодам с фильтрацией
-const createdByPeriodForEntity = async (
+const createdByPeriodForEntityRequests = async (
   whereConditions,
   startDate,
   endDate
