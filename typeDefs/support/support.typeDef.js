@@ -76,7 +76,7 @@ type Query {
   getAllPatchNotes: [PatchNote!]!
   getAllDocumentations: [Documentation!]!
   # documentationTree: [Documentation!]!
-  documentationTree(id: ID!): [Documentation!]!
+  documentationTree: [Documentation!]!
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
   supportChats: [Chat!]! # Для поддержки: все чаты с пользователями

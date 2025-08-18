@@ -40,15 +40,13 @@ const supportResolver = {
       if (!doc) throw new GraphQLError("Документация не найдена")
       return doc
     },
-    documentationTree: async (_, { id }, context) => {
-      // const allDocs = await prisma.documentation.findMany({
-      const allDocs = await prisma.documentation.findUnique({
-        where: { id }
-        // orderBy: { order: "asc" }
+    documentationTree: async () => {
+      const allDocs = await prisma.documentation.findMany({
+        orderBy: { order: "asc" }
       })
 
       const map = {}
-      allDocs.children.forEach((doc) => {
+      allDocs.forEach((doc) => {
         map[doc.id] = { ...doc, children: [] }
       })
 
