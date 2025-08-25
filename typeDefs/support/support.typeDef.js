@@ -16,16 +16,6 @@ enum DocumentationType {
   etc
 }
 
-
-# type Documentation {
-#   id: ID!
-#   chapter: String
-#   category: String
-#   name: String!
-#   description: String!
-#   files: [String]
-# }
-
 type Documentation {
   id: ID!
   parentId: ID
@@ -75,8 +65,7 @@ input DocumentationUpdateInput {
 type Query {
   getAllPatchNotes: [PatchNote!]!
   getAllDocumentations: [Documentation!]!
-  # documentationTree: [Documentation!]!
-  documentationTree: [Documentation!]!
+  documentationTree(id: ID!): Json
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
   supportChats: [Chat!]! # Для поддержки: все чаты с пользователями

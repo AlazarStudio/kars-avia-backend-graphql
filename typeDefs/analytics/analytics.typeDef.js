@@ -20,6 +20,11 @@ type Analytics {
   acceptedRequests: Int
 }
 
+type AnalyticsUser {
+  createdRequests: Int
+  processedRequests: Int
+}
+
 type PeriodCount {
   date: String
   count_created: Int
@@ -37,6 +42,12 @@ input AnalyticsInput {
   filters: FiltersInput
 }
 
+input AnalyticsUserInput {
+  filters: FiltersInput
+  startDate: Date
+  endDate: Date
+}
+
 input FiltersInput {
   airlineId: String
   hotelId: String
@@ -45,6 +56,7 @@ input FiltersInput {
 
 type Query {
   analyticsEntityRequests(input: AnalyticsInput): Analytics
+  analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
 }
 
 

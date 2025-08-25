@@ -741,7 +741,7 @@ model Documentation {
   parent      Documentation?    @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children    Documentation[]   @relation("DocumentationHierarchy")
   order       Int?
-  type        DocumentationType
+  type        DocumentationType?
   name        String
   description String?
   files       String[]

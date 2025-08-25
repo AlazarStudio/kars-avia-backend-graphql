@@ -40,27 +40,10 @@ const supportResolver = {
       if (!doc) throw new GraphQLError("Документация не найдена")
       return doc
     },
-    documentationTree: async () => {
-      const allDocs = await prisma.documentation.findMany({
-        orderBy: { order: "asc" }
-      })
-
-      const map = {}
-      allDocs.forEach((doc) => {
-        map[doc.id] = { ...doc, children: [] }
-      })
-
-      const tree = []
-
-      for (const doc of allDocs) {
-        if (doc.parentId) {
-          map[doc.parentId]?.children.push(map[doc.id])
-        } else {
-          tree.push(map[doc.id])
-        }
-      }
-
-      return tree
+    documentationTree: async (_, { id }, context) => {
+      await allMiddleware(context) // проверка авторизации
+      const tree = await buildDocumentationTree(id)
+      return tree // возвращаем JSON
     },
     // Query: supportChats
     // Возвращает список всех чатов поддержки.
@@ -397,6 +380,43 @@ async function getDescendantIds(id) {
     ids = ids.concat(childDescendants)
   }
   return ids
+}
+
+async function buildDocumentationTree(id) {
+  const rootDoc = await prisma.documentation.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      parentId: true,
+      name: true,
+      description: true,
+      type: true,
+      order: true,
+      files: true
+    }
+  })
+
+  if (!rootDoc) return null
+
+  const children = await prisma.documentation.findMany({
+    where: { parentId: rootDoc.id },
+    select: {
+      id: true,
+      parentId: true,
+      name: true,
+      description: true,
+      type: true,
+      order: true,
+      files: true
+    },
+    orderBy: { order: "asc" }
+  })
+
+  const childrenTree = await Promise.all(
+    children.map((child) => buildDocumentationTree(child.id))
+  )
+
+  return { ...rootDoc, children: childrenTree }
 }
 
 function prepareCreateInput(node) {

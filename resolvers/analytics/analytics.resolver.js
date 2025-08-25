@@ -7,7 +7,11 @@ const analyticsResolver = {
       const { startDate, endDate, filters } = input
 
       // Формируем условия фильтрации
-      const whereConditions = buildWhereConditionsRequests(filters, startDate, endDate)
+      const whereConditions = buildWhereConditionsRequests(
+        filters,
+        startDate,
+        endDate
+      )
 
       const createdByPeriodData = await createdByPeriodForEntityRequests(
         whereConditions,
@@ -38,13 +42,22 @@ const analyticsResolver = {
         statusCounts
       }
     },
-    // analyticsEntityUsers: async (_, { input }, context) => {
-    //   const { filters, startDate, endDate } = input 
+    analyticsEntityUsers: async (_, { input }) => {
+      const { filters, startDate, endDate } = input
 
-    //   const whereConditions = buildWhereConditionsUsers(filters, startDate, endDate)
+      if (!filters?.personId) {
+        throw new Error("personId обязателен для аналитики пользователей")
+      }
 
+      const result = await analyticsUserRequests({
+        personId: filters.personId,
+        filters,
+        startDate,
+        endDate
+      })
 
-    // }
+      return result
+    }
   }
 }
 
@@ -75,20 +88,65 @@ const buildWhereConditionsRequests = (filters, startDate, endDate) => {
   return whereConditions
 }
 
-const buildWhereConditionsUsers = (filters, startDate, endDate) => {
-  const whereConditions = {
+const analyticsUserRequests = async ({
+  personId,
+  filters,
+  startDate,
+  endDate
+}) => {
+  // 1. Фильтр по дате
+  const dateFilter = {
     createdAt: {
       gte: new Date(startDate),
       lte: new Date(endDate)
     }
   }
 
-  // Динамически добавляем фильтры
-  if (filters.airlineId) whereConditions.airlineId = filters.airlineId
-  if (filters.hotelId) whereConditions.hotelId = filters.hotelId
-  if (filters.personId) whereConditions.personId = filters.personId
+  // 2. Фильтр по сущностям (авиакомпания, отель)
+  const entityFilter = {}
+  if (filters?.airlineId) entityFilter.airlineId = filters.airlineId
+  if (filters?.hotelId) entityFilter.hotelId = filters.hotelId
 
-  return whereConditions
+  // 3. Созданные заявки (sender)
+  const createdRequestsCount = await prisma.request.count({
+    where: {
+      senderId: personId,
+      ...entityFilter,
+      ...dateFilter
+    }
+  })
+
+  // 4. Обработанные заявки (receiver + posted)
+  const receivedRequests = await prisma.request.findMany({
+    where: {
+      receiverId: personId,
+      ...entityFilter,
+      ...dateFilter
+    },
+    select: { id: true }
+  })
+
+  const postedRequests = await prisma.request.findMany({
+    where: {
+      postedId: personId, // ✅ правильное поле
+      ...entityFilter,
+      ...dateFilter
+    },
+    select: { id: true }
+  })
+
+  // 5. Объединяем и убираем дубликаты
+  const processedIds = new Set([
+    ...receivedRequests.map((r) => r.id),
+    ...postedRequests.map((r) => r.id)
+  ])
+
+  const processedCount = processedIds.size
+
+  return {
+    createdRequests: createdRequestsCount,
+    processedRequests: processedCount
+  }
 }
 
 // Получение данных по периодам с фильтрацией
