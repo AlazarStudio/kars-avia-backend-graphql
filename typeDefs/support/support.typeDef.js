@@ -52,6 +52,7 @@ input DocumentationInput {
   type: DocumentationType
   name: String!
   description: String
+  clientKey: String
   # files: [String]
   # images: [String]
   children: [DocumentationInput]
@@ -63,9 +64,15 @@ input DocumentationUpdateInput {
   type: DocumentationType
   name: String
   description: String
+  clientKey: String
   # files: [String]
   # images: [String]
   children: [DocumentationUpdateInput]
+}
+
+input DocUploadByKeyInput {
+  key: String!
+  images: [Upload!]!
 }
 
 type Query {
@@ -82,8 +89,8 @@ type Mutation {
   createSupportChat(userId: ID!): Chat! # Создает чат между пользователем и поддержкой
   createPatchNote(data: PatchNoteInput!, images: [Upload!]): PatchNote!
   updatePatchNote(id: ID!, data: PatchNoteUpdateInput!, images: [Upload!]): PatchNote!
-  createDocumentation(data: DocumentationInput!, images: [Upload!]): Documentation!
-  updateDocumentation(id: ID!, data: DocumentationUpdateInput!, images: [Upload!]): Documentation!
+  createDocumentation(data: DocumentationInput!,  imageGroupsByKey: [DocUploadByKeyInput!]): Documentation!
+  updateDocumentation(id: ID!, data: DocumentationUpdateInput!,  imageGroupsByKey: [DocUploadByKeyInput!], pruneMissingChildren: Boolean = true): Documentation!
   moveDocumentation(id: ID!, newParentId: ID, newOrder: Int): Documentation!
   deleteDocumentation(id: ID!): Documentation
 }

@@ -746,6 +746,7 @@ model Documentation {
   type        DocumentationType?
   name        String
   description String?
+  clientKey   String?            @unique
   files       String[]
   images      String[]
 }

@@ -2,7 +2,7 @@
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { uploadImage } from "../../exports/uploadImage.js"
+import { deleteImage, uploadImage } from "../../exports/uploadImage.js"
 import { uploadFiles } from "../../exports/uploadFiles.js"
 import { pubsub } from "../../exports/pubsub.js"
 import {
@@ -27,8 +27,17 @@ const supportResolver = {
     getAllDocumentations: async (_, __, context) => {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
-        orderBy: { name: "desc" },
-        include: { children: true, parent: true }
+        where: { parentId: null }, // ← только корневые
+        orderBy: { name: "asc" }, // можно "asc", если нужен алфавит
+        include: {
+          children: {
+            orderBy: { order: "asc" }, // чтобы дети шли в правильном порядке
+            include: {
+              children: true // если нужно сразу подгружать вложенность ещё глубже
+            }
+          },
+          parent: true
+        }
       })
     },
 
@@ -205,66 +214,214 @@ const supportResolver = {
       })
     },
 
-    createDocumentation: async (_, { data: input, images }, context) => {
-      await superAdminMiddleware(context)
+    createDocumentation: async (_, { data: input, imageGroupsByKey }, ctx) => {
+      await superAdminMiddleware(ctx)
 
-      const data = sanitizeTreeInput(input) // вместо prepareCreateInput
+      const keyMap = {}
+      for (const grp of imageGroupsByKey ?? []) {
+        keyMap[grp.key] = []
+        for (const img of grp.images)
+          keyMap[grp.key].push(await uploadImage(img))
+      }
 
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          const uploadedPath = await uploadImage(image)
-          imagePaths.push(uploadedPath)
+      function transform(node) {
+        const { children, clientKey, ...rest } = node
+        const currentImages =
+          clientKey && keyMap[clientKey] ? keyMap[clientKey] : []
+        const out = {
+          ...rest,
+          ...(currentImages.length ? { images: currentImages } : {})
         }
+        if (Array.isArray(children) && children.length) {
+          out.children = { create: children.map(transform) }
+        }
+        return out
       }
 
-      if (!data.name) {
-        throw new GraphQLError("Поле 'name' обязательно")
-      }
-
-      return await prisma.documentation.create({
-        data: { ...data, images: imagePaths /*files: filePath*/ },
+      const data = transform(input)
+      return prisma.documentation.create({
+        data,
         include: { children: true, parent: true }
       })
     },
-    updateDocumentation: async (_, { id, data, images }, context) => {
+
+    updateDocumentation: async (
+      _,
+      { id, data, imageGroupsByKey, pruneMissingChildren },
+      context
+    ) => {
       await superAdminMiddleware(context)
 
-      const exists = await prisma.documentation.findUnique({ where: { id } })
-      if (!exists) throw new GraphQLError("Документация не найдена")
+      const root = await prisma.documentation.findUnique({ where: { id } })
+      if (!root) throw new GraphQLError("Документация не найдена")
 
-      if (data.parentId && data.parentId === id) {
-        throw new GraphQLError("Элемент не может быть своим же родителем")
-      }
-
-      if (data.parentId) {
-        const descendants = await getDescendantIds(id)
-        if (descendants.includes(data.parentId)) {
-          throw new GraphQLError(
-            "Нельзя установить потомка в качестве родителя"
-          )
+      // ---------- 1) Загрузка новых картинок: key -> [url] ----------
+      const keyToNewUrls = {}
+      if (Array.isArray(imageGroupsByKey)) {
+        for (const grp of imageGroupsByKey) {
+          const urls = []
+          for (const img of grp.images ?? []) {
+            urls.push(await uploadImage(img))
+          }
+          keyToNewUrls[grp.key] = urls
         }
       }
 
-      let imagePaths = []
-      if (images?.length) {
-        for (const image of images) {
-          const uploadedPath = await uploadImage(image)
-          imagePaths.push(uploadedPath)
+      // ---------- 2) Снять текущую «снимок» поддерева (clientKey, images, parentId) ----------
+      const existingNodes = await fetchSubtreeByRoot(id) // массив узлов
+      // строим полезные мапы
+      const keyToExisting = new Map()
+      for (const n of existingNodes) {
+        if (n.clientKey) keyToExisting.set(n.clientKey, n)
+      }
+      // также добавим сам корень (вдруг у корня есть clientKey)
+      if (root.clientKey)
+        keyToExisting.set(root.clientKey, {
+          id: root.id,
+          clientKey: root.clientKey,
+          parentId: root.parentId,
+          images: root.images ?? []
+        })
+
+      // ---------- 3) Собрать множество ключей, которые должны ОСТАТЬСЯ ----------
+      const keepKeys = new Set()
+      ;(function collectKeys(node) {
+        if (!node) return
+        if (node.clientKey) keepKeys.add(node.clientKey)
+        for (const ch of node.children ?? []) collectKeys(ch)
+      })(data)
+
+      // ---------- 4) Построить nested upsert по clientKey (с заменой картинок) ----------
+      function buildNestedUpserts(node) {
+        const { children, clientKey, ...rest } = node ?? {}
+        const newUrls =
+          clientKey && keyToNewUrls[clientKey] ? keyToNewUrls[clientKey] : []
+
+        // Для замены изображений используем set; если нужно дополнять — поменяй на push
+        const updateSelf = {
+          ...rest,
+          ...(newUrls.length ? { images: { set: newUrls } } : {})
+        }
+
+        const createSelf = {
+          ...rest,
+          ...(clientKey ? { clientKey } : {}),
+          ...(newUrls.length ? { images: newUrls } : {})
+        }
+
+        let childUpserts = []
+        if (Array.isArray(children) && children.length) {
+          childUpserts = children.map((ch, index) => {
+            const built = buildNestedUpserts(ch)
+            if (!built.clientKey) {
+              throw new GraphQLError(
+                "Для дочерних узлов при обновлении обязателен clientKey"
+              )
+            }
+            // гарантируем order по индексу
+            built.update.order ??= index
+            built.create.order ??= index
+            return {
+              where: { clientKey: built.clientKey },
+              update: built.update,
+              create: built.create
+            }
+          })
+        }
+
+        const update = {
+          ...updateSelf,
+          ...(childUpserts.length ? { children: { upsert: childUpserts } } : {})
+        }
+
+        const create = {
+          ...createSelf,
+          ...(childUpserts.length
+            ? { children: { create: childUpserts.map((u) => u.create) } }
+            : {})
+        }
+
+        return { clientKey, update, create }
+      }
+
+      const built = buildNestedUpserts(data || {})
+
+      // ---------- 5) Посчитать какие ключи/узлы нужно УДАЛИТЬ (если pruneMissingChildren=true) ----------
+      let keysToDelete = []
+      if (pruneMissingChildren) {
+        // Все существующие в поддереве (кроме корня, если у корня нет clientKey)
+        const existingKeys = new Set(
+          existingNodes.map((n) => n.clientKey).filter(Boolean)
+        )
+        // Если у корня есть key — он тоже в existingKeys
+        if (root.clientKey) existingKeys.add(root.clientKey)
+
+        // Удаляем всё, чего нет в keepKeys (НО корень не трогаем)
+        keysToDelete = [...existingKeys].filter((k) => !keepKeys.has(k))
+        // На всякий случай исключим ключ корня
+        if (root.clientKey) {
+          keysToDelete = keysToDelete.filter((k) => k !== root.clientKey)
         }
       }
 
-      // Если хочешь заменить весь массив изображений:
-      const updateData = {
-        ...data,
-        ...(imagePaths.length ? { images: { set: imagePaths } } : {})
+      // ---------- 6) Вычислить список файлов к удалению ----------
+      // 6.1. Файлы удаляемых узлов (включая их потомков)
+      const imagesFromDeletedNodes = []
+      for (const key of keysToDelete) {
+        const node = keyToExisting.get(key)
+        if (node?.images?.length) imagesFromDeletedNodes.push(...node.images)
       }
 
-      return prisma.documentation.update({
-        where: { id },
-        data: updateData,
-        include: { children: true, parent: true }
+      // 6.2. Файлы заменённых картинок у оставшихся узлов: старые - новые
+      const imagesFromReplaced = []
+      for (const [key, newUrls] of Object.entries(keyToNewUrls)) {
+        const node = keyToExisting.get(key)
+        if (!node) continue
+        const oldSet = new Set(node.images ?? [])
+        for (const oldUrl of oldSet) {
+          if (!newUrls.includes(oldUrl)) {
+            imagesFromReplaced.push(oldUrl)
+          }
+        }
+      }
+
+      const imagesToDelete = dedupe([
+        ...imagesFromDeletedNodes,
+        ...imagesFromReplaced
+      ])
+
+      // ---------- 7) Обновление БД: сначала upsert дерева, затем deleteMany по keysToDelete ----------
+      // ВАЖНО: если у тебя есть триггеры/внешние ключи — может понадобиться каскадное удаление в БД
+      const updated = await prisma.$transaction(async (tx) => {
+        // апдейт корня
+        const updatedRoot = await tx.documentation.update({
+          where: { id },
+          data: built.update,
+          include: { children: true, parent: true }
+        })
+
+        // если нужно удалять отсутствующих — делаем это после upsert
+        if (keysToDelete.length) {
+          await tx.documentation.deleteMany({
+            where: {
+              clientKey: { in: keysToDelete }
+            }
+          })
+        }
+
+        return updatedRoot
       })
+
+      // ---------- 8) Удаляем файлы на диске (после успешной транзакции) ----------
+      for (const p of imagesToDelete) {
+        try {
+          await deleteImage(p)
+        } catch (e) {
+          /* логируй при необходимости */
+        }
+      }
+
+      return updated
     },
 
     // 🔁 Переместить элемент
@@ -415,6 +572,28 @@ const supportResolver = {
       })
     }
   }
+}
+
+function dedupe(arr) {
+  return Array.from(new Set(arr.filter(Boolean)))
+}
+
+// Забираем всё поддерево под корнем id (плоским списком)
+async function fetchSubtreeByRoot(rootId) {
+  const out = []
+  const queue = [rootId]
+
+  while (queue.length) {
+    const parentId = queue.shift()
+    const kids = await prisma.documentation.findMany({
+      where: { parentId },
+      select: { id: true, parentId: true, clientKey: true, images: true }
+    })
+    out.push(...kids)
+    for (const k of kids) queue.push(k.id)
+  }
+
+  return out
 }
 
 // рекурсивно получаем всех потомков
