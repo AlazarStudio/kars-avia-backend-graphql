@@ -65,7 +65,7 @@ input DocumentationUpdateInput {
   description: String
   # files: [String]
   # images: [String]
-  children: [DocumentationInput]
+  children: [DocumentationUpdateInput]
 }
 
 type Query {

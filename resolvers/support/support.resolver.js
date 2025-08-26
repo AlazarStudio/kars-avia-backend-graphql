@@ -184,7 +184,7 @@ const supportResolver = {
       }
 
       return await prisma.patchNote.create({
-        data: { data, imagePaths }
+        data: { ...data, images: imagePaths }
       })
     },
 
@@ -201,14 +201,14 @@ const supportResolver = {
 
       return await prisma.patchNote.update({
         where: { id },
-        data: { data, imagePaths }
+        data: { ...data, images: imagePaths }
       })
     },
 
     createDocumentation: async (_, { data: input, images }, context) => {
       await superAdminMiddleware(context)
 
-      const data = prepareCreateInput(input)
+      const data = sanitizeTreeInput(input) // вместо prepareCreateInput
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -223,12 +223,13 @@ const supportResolver = {
       }
 
       return await prisma.documentation.create({
-        data: { data, images: imagePaths /*files: filePath*/ },
+        data: { ...data, images: imagePaths /*files: filePath*/ },
         include: { children: true, parent: true }
       })
     },
     updateDocumentation: async (_, { id, data, images }, context) => {
       await superAdminMiddleware(context)
+
       const exists = await prisma.documentation.findUnique({ where: { id } })
       if (!exists) throw new GraphQLError("Документация не найдена")
 
@@ -236,9 +237,9 @@ const supportResolver = {
         throw new GraphQLError("Элемент не может быть своим же родителем")
       }
 
-      if (input.parentId) {
+      if (data.parentId) {
         const descendants = await getDescendantIds(id)
-        if (descendants.includes(input.parentId)) {
+        if (descendants.includes(data.parentId)) {
           throw new GraphQLError(
             "Нельзя установить потомка в качестве родителя"
           )
@@ -246,18 +247,26 @@ const supportResolver = {
       }
 
       let imagePaths = []
-      if (images && images.length > 0) {
+      if (images?.length) {
         for (const image of images) {
           const uploadedPath = await uploadImage(image)
           imagePaths.push(uploadedPath)
         }
       }
 
-      return await prisma.documentation.update({
+      // Если хочешь заменить весь массив изображений:
+      const updateData = {
+        ...data,
+        ...(imagePaths.length ? { images: { set: imagePaths } } : {})
+      }
+
+      return prisma.documentation.update({
         where: { id },
-        data: { data, imagePaths }
+        data: updateData,
+        include: { children: true, parent: true }
       })
     },
+
     // 🔁 Переместить элемент
     moveDocumentation: async (_, { id, newParentId, newOrder }, context) => {
       await superAdminMiddleware(context)
@@ -431,7 +440,8 @@ async function buildDocumentationTree(id) {
       description: true,
       type: true,
       order: true,
-      files: true
+      files: true,
+      images: true
     }
   })
 
@@ -446,7 +456,8 @@ async function buildDocumentationTree(id) {
       description: true,
       type: true,
       order: true,
-      files: true
+      files: true,
+      images: true
     },
     orderBy: { order: "asc" }
   })
@@ -458,24 +469,15 @@ async function buildDocumentationTree(id) {
   return { ...rootDoc, children: childrenTree }
 }
 
-function prepareCreateInput(node) {
+function sanitizeTreeInput(node) {
   if (!node || typeof node !== "object") return {}
-
-  const { children, ...rest } = node
-
-  const cleaned = {
+  const { images, files, children, ...rest } = node // Вырезаем files/images из input
+  return {
     ...rest,
-    children:
-      Array.isArray(children) && children.length > 0
-        ? {
-            create: children
-              .map(prepareCreateInput)
-              .filter((child) => child && child.name)
-          }
-        : undefined
+    ...(Array.isArray(children) && children.length > 0
+      ? { children: { create: children.map(sanitizeTreeInput) } }
+      : {})
   }
-
-  return cleaned
 }
 
 export default supportResolver
