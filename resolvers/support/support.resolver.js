@@ -29,15 +29,6 @@ const supportResolver = {
       return await prisma.documentation.findMany({
         where: { parentId: null }, // ← только корневые
         orderBy: { name: "asc" }, // можно "asc", если нужен алфавит
-        include: {
-          children: {
-            orderBy: { order: "asc" }, // чтобы дети шли в правильном порядке
-            include: {
-              children: true // если нужно сразу подгружать вложенность ещё глубже
-            }
-          },
-          parent: true
-        }
       })
     },
 
