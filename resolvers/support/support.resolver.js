@@ -27,8 +27,8 @@ const supportResolver = {
     getAllDocumentations: async (_, __, context) => {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
-        where: { parentId: null }, // ← только корневые
-        orderBy: { name: "asc" }, // можно "asc", если нужен алфавит
+        where: { parentId: { not: { not: null } } }, // ← только корневые
+        orderBy: { name: "asc" } // можно "asc", если нужен алфавит
       })
     },
 
