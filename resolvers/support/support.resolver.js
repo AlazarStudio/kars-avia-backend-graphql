@@ -1,6 +1,9 @@
 // Импорт Prisma для работы с базой данных и PubSub для публикации событий в реальном времени
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import { uploadImage } from "../../exports/uploadImage.js"
+import { uploadFiles } from "../../exports/uploadFiles.js"
 import { pubsub } from "../../exports/pubsub.js"
 import {
   allMiddleware,
@@ -11,6 +14,8 @@ import {
 // Этот резольвер отвечает за получение списка чатов поддержки, создание нового чата поддержки для пользователя,
 // а также за поиск чата поддержки, связанного с конкретным пользователем.
 const supportResolver = {
+  Upload: GraphQLUpload,
+
   Query: {
     getAllPatchNotes: async (_, __, context) => {
       await allMiddleware(context)
@@ -167,36 +172,62 @@ const supportResolver = {
   },
 
   Mutation: {
-    createPatchNote: async (_, { data }, context) => {
+    createPatchNote: async (_, { data, images }, context) => {
       await superAdminMiddleware(context)
+
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image)
+          imagePaths.push(uploadedPath)
+        }
+      }
+
       return await prisma.patchNote.create({
-        data
+        data: { data, imagePaths }
       })
     },
 
-    updatePatchNote: async (_, { id, data }, context) => {
+    updatePatchNote: async (_, { id, data, images }, context) => {
       await superAdminMiddleware(context)
+
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image)
+          imagePaths.push(uploadedPath)
+        }
+      }
+
       return await prisma.patchNote.update({
         where: { id },
-        data
+        data: { data, imagePaths }
       })
     },
 
-    createDocumentation: async (_, { data: input }, context) => {
+    createDocumentation: async (_, { data: input, images }, context) => {
       await superAdminMiddleware(context)
 
       const data = prepareCreateInput(input)
+
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image)
+          imagePaths.push(uploadedPath)
+        }
+      }
 
       if (!data.name) {
         throw new GraphQLError("Поле 'name' обязательно")
       }
 
       return await prisma.documentation.create({
-        data,
+        data: { data, images: imagePaths /*files: filePath*/ },
         include: { children: true, parent: true }
       })
     },
-    updateDocumentation: async (_, { id, data }, context) => {
+    updateDocumentation: async (_, { id, data, images }, context) => {
       await superAdminMiddleware(context)
       const exists = await prisma.documentation.findUnique({ where: { id } })
       if (!exists) throw new GraphQLError("Документация не найдена")
@@ -214,9 +245,17 @@ const supportResolver = {
         }
       }
 
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image)
+          imagePaths.push(uploadedPath)
+        }
+      }
+
       return await prisma.documentation.update({
         where: { id },
-        data
+        data: { data, imagePaths }
       })
     },
     // 🔁 Переместить элемент

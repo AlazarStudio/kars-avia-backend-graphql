@@ -8,6 +8,7 @@ type PatchNote {
   name: String!
   description: String!
   files: [String]
+  images: [String]
 }
 
 enum DocumentationType {
@@ -26,6 +27,7 @@ type Documentation {
   name: String!
   description: String
   files: [String]
+  images: [String]
 }
 
 input PatchNoteInput {
@@ -33,13 +35,15 @@ input PatchNoteInput {
   name: String!
   description: String!
   files: [String]
+  images: [String]
 }
 
 input PatchNoteUpdateInput {
+  date: Date
   name: String
   description: String
   files: [String]
-  date: Date
+  images: [String]
 }
 
 input DocumentationInput {
@@ -49,6 +53,7 @@ input DocumentationInput {
   name: String!
   description: String
   files: [String]
+  images: [String]
   children: [DocumentationInput]
 }
 
@@ -59,6 +64,7 @@ input DocumentationUpdateInput {
   name: String
   description: String
   files: [String]
+  images: [String]
   children: [DocumentationInput]
 }
 
@@ -74,10 +80,10 @@ type Query {
 
 type Mutation {
   createSupportChat(userId: ID!): Chat! # Создает чат между пользователем и поддержкой
-  createPatchNote(data: PatchNoteInput!): PatchNote!
-  createDocumentation(data: DocumentationInput!): Documentation!
-  updatePatchNote(id: ID!, data: PatchNoteUpdateInput!): PatchNote!
-  updateDocumentation(id: ID!, data: DocumentationUpdateInput!): Documentation!
+  createPatchNote(data: PatchNoteInput!, images: [Upload!]): PatchNote!
+  updatePatchNote(id: ID!, data: PatchNoteUpdateInput!, images: [Upload!]): PatchNote!
+  createDocumentation(data: DocumentationInput!, images: [Upload!]): Documentation!
+  updateDocumentation(id: ID!, data: DocumentationUpdateInput!, images: [Upload!]): Documentation!
   moveDocumentation(id: ID!, newParentId: ID, newOrder: Int): Documentation!
   deleteDocumentation(id: ID!): Documentation
 }

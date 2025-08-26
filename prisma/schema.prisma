@@ -14,6 +14,7 @@ datasource db {
 // Airline
 // AirlinePersonal
 // Company
+// Documentation
 // Hotel
 // HotelChess
 // Log
@@ -724,6 +725,7 @@ model PatchNote {
   name        String
   description String
   files       String[]
+  images      String[]
 }
 
 // model Documentation {
@@ -736,13 +738,14 @@ model PatchNote {
 // }
 
 model Documentation {
-  id          String            @id @default(auto()) @map("_id") @db.ObjectId
-  parentId    String?           @db.ObjectId
-  parent      Documentation?    @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children    Documentation[]   @relation("DocumentationHierarchy")
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  parentId    String?            @db.ObjectId
+  parent      Documentation?     @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Documentation[]    @relation("DocumentationHierarchy")
   order       Int?
   type        DocumentationType?
   name        String
   description String?
   files       String[]
+  images      String[]
 }
