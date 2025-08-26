@@ -34,16 +34,16 @@ input PatchNoteInput {
   date: Date
   name: String!
   description: String!
-  files: [String]
-  images: [String]
+  # files: [String]
+  # images: [String]
 }
 
 input PatchNoteUpdateInput {
   date: Date
   name: String
   description: String
-  files: [String]
-  images: [String]
+  # files: [String]
+  # images: [String]
 }
 
 input DocumentationInput {
@@ -52,8 +52,8 @@ input DocumentationInput {
   type: DocumentationType
   name: String!
   description: String
-  files: [String]
-  images: [String]
+  # files: [String]
+  # images: [String]
   children: [DocumentationInput]
 }
 
@@ -63,8 +63,8 @@ input DocumentationUpdateInput {
   type: DocumentationType
   name: String
   description: String
-  files: [String]
-  images: [String]
+  # files: [String]
+  # images: [String]
   children: [DocumentationInput]
 }
 
