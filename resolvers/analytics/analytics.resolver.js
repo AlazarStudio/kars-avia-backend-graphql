@@ -135,7 +135,19 @@ const analyticsUserRequests = async ({
     select: { id: true }
   })
 
-  // 5. Объединяем и убираем дубликаты
+  // 5. Отменённые заявки
+  const cancelledRequests = await prisma.request.findMany({
+    where: {
+      senderId: personId,
+      receiverId: personId,
+      postedId: personId,
+      ...entityFilter,
+      ...dateFilter,
+      status: "canceled"
+    }
+  })
+
+  // ~. Объединяем и убираем дубликаты
   const processedIds = new Set([
     ...receivedRequests.map((r) => r.id),
     ...postedRequests.map((r) => r.id)
@@ -146,6 +158,7 @@ const analyticsUserRequests = async ({
   return {
     createdRequests: createdRequestsCount,
     processedRequests: processedCount
+    // cancelledRequests: cancelledRequests
   }
 }
 

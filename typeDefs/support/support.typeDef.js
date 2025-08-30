@@ -77,7 +77,7 @@ input DocUploadByKeyInput {
 
 type Query {
   getAllPatchNotes: [PatchNote!]!
-  getAllDocumentations: [Documentation!]!
+  getAllDocumentations(type: DocumentationType): [Documentation!]!
   documentationTree(id: ID!): Json
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation

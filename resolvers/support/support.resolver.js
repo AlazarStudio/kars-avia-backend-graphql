@@ -24,10 +24,10 @@ const supportResolver = {
       })
     },
 
-    getAllDocumentations: async (_, __, context) => {
+    getAllDocumentations: async (_, { type }, context) => {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
-        where: { parent: { is: null } },
+        where: { type, parent: { is: null } },
         orderBy: { name: "asc" }
       })
     },
@@ -45,6 +45,7 @@ const supportResolver = {
       if (!doc) throw new GraphQLError("Документация не найдена")
       return doc
     },
+    
     documentationTree: async (_, { id }, context) => {
       await allMiddleware(context) // проверка авторизации
       const tree = await buildDocumentationTree(id)
