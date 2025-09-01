@@ -73,17 +73,25 @@ const hotelResolver = {
       // Получаем общее количество отелей
       let whereFilter
       if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-        whereFilter = { active: true }
+        whereFilter = [{ active: true }]
       } else {
-        whereFilter = { active: true, show: true }
+        whereFilter = [{ active: true }, { show: true }]
       }
-       console.log("whereFilter " + whereFilter, "\n whereFilter str " + JSON.stringify(whereFilter))
-      const totalCount = await prisma.hotel.count({ where: whereFilter })
+      console.log(
+        "whereFilter " + whereFilter,
+        "\n whereFilter str " + JSON.stringify(whereFilter)
+      )
+
+      const where = {
+        AND: whereFilter
+      }
+
+      const totalCount = await prisma.hotel.count({ where })
 
       // Если передан флаг all, возвращаем все отели, иначе – с учетом пагинации
       const hotels = all
         ? await prisma.hotel.findMany({
-            where: whereFilter,
+            where,
             include: {
               rooms: true,
               hotelChesses: true
@@ -95,7 +103,7 @@ const hotelResolver = {
             }
           })
         : await prisma.hotel.findMany({
-            where: whereFilter,
+            where,
             skip: skip ? skip * take : undefined,
             take: take || undefined,
             include: {
