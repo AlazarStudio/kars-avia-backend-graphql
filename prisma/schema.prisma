@@ -275,6 +275,8 @@ model Hotel {
   // position        Position[]
   Notification    Notification[]
   active          Boolean         @default(true)
+  show            Boolean         @default(true)
+  meal            Boolean         @default(true)
   access          Boolean         @default(false)
   type            HotelType       @default(hotel)
   gallery         String[]

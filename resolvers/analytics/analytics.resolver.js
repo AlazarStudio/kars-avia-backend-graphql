@@ -136,7 +136,7 @@ const analyticsUserRequests = async ({
   })
 
   // 5. Отменённые заявки
-  const cancelledRequests = await prisma.request.findMany({
+  const cancelledRequests = await prisma.request.count({
     where: {
       senderId: personId,
       receiverId: personId,
@@ -157,8 +157,8 @@ const analyticsUserRequests = async ({
 
   return {
     createdRequests: createdRequestsCount,
-    processedRequests: processedCount
-    // cancelledRequests: cancelledRequests
+    processedRequests: processedCount,
+    cancelledRequests: cancelledRequests
   }
 }
 

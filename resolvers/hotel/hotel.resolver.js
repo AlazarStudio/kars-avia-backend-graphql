@@ -67,14 +67,23 @@ const hotelResolver = {
     // При запросе возвращаются отели с включением связанных комнат (rooms) и записей hotelChesses.
     hotels: async (_, { pagination }, context) => {
       await allMiddleware(context)
+      const { user } = context
       const { skip, take, all } = pagination || {}
+
       // Получаем общее количество отелей
-      const totalCount = await prisma.hotel.count({ where: { active: true } })
+      let whereFilter
+      if (user.role === "SUPERADMIN" || user.dispatcher === true) {
+        whereFilter = { active: true }
+      } else {
+        whereFilter = { active: true, show: true }
+      }
+
+      const totalCount = await prisma.hotel.count({ where: whereFilter })
 
       // Если передан флаг all, возвращаем все отели, иначе – с учетом пагинации
       const hotels = all
         ? await prisma.hotel.findMany({
-            where: { active: true },
+            where: whereFilter,
             include: {
               rooms: true,
               hotelChesses: true
@@ -86,7 +95,7 @@ const hotelResolver = {
             }
           })
         : await prisma.hotel.findMany({
-            where: { active: true },
+            where: whereFilter,
             skip: skip ? skip * take : undefined,
             take: take || undefined,
             include: {

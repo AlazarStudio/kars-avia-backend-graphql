@@ -23,6 +23,7 @@ type Analytics {
 type AnalyticsUser {
   createdRequests: Int
   processedRequests: Int
+  cancelledRequests: Int
 }
 
 type PeriodCount {
