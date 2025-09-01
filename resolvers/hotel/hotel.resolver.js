@@ -95,6 +95,8 @@ const hotelResolver = {
         orderBy: { information: { city: "asc" } }
       })
 
+      console.log("totalCount " + totalCount)
+
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
       return { hotels, totalCount, totalPages }
