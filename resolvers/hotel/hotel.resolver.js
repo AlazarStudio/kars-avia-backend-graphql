@@ -77,7 +77,7 @@ const hotelResolver = {
       } else {
         whereFilter = { active: true, show: true }
       }
-
+       console.log("whereFilter " + whereFilter, "\n whereFilter str " + JSON.stringify(whereFilter))
       const totalCount = await prisma.hotel.count({ where: whereFilter })
 
       // Если передан флаг all, возвращаем все отели, иначе – с учетом пагинации
