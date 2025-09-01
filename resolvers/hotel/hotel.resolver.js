@@ -95,6 +95,10 @@ const hotelResolver = {
         orderBy: { information: { city: "asc" } }
       })
 
+      await prisma.hotel.updateMany({ data: { show: false, meal: false } })
+      
+      // await prisma.hotel.updateMany({ data: { show: true, meal: true } })
+
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
       return { hotels, totalCount, totalPages }
