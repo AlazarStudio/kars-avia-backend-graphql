@@ -94,8 +94,8 @@ const hotelResolver = {
         },
         orderBy: { information: { city: "asc" } }
       })
-
-      console.log("totalCount " + totalCount)
+      await prisma.hotel.updateMany({ data: { show: false } })
+      await prisma.hotel.updateMany({ data: { show: true } })
 
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
