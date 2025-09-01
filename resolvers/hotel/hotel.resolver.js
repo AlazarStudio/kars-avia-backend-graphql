@@ -70,64 +70,35 @@ const hotelResolver = {
       const { user } = context
       const { skip, take, all } = pagination || {}
 
-      // Получаем общее количество отелей
-      let whereFilter
-      if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-        whereFilter = [{ active: true }]
-      } else {
-        whereFilter = [{ active: true }, { show: true }]
-      }
-      console.log(
-        "whereFilter " + whereFilter,
-        "\n whereFilter str " + JSON.stringify(whereFilter)
-      )
+      const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
 
-      const where = {
-        AND: whereFilter
-      }
+      const where = isSuper ? { active: true } : { active: true, show: true }
 
       const totalCount = await prisma.hotel.count({ where })
 
-      // Если передан флаг all, возвращаем все отели, иначе – с учетом пагинации
-      const hotels = all
-        ? await prisma.hotel.findMany({
-            where,
-            include: {
-              rooms: true,
-              hotelChesses: true
-            },
-            orderBy: {
-              information: {
-                city: "asc"
-              }
-            }
-          })
-        : await prisma.hotel.findMany({
-            where,
-            skip: skip ? skip * take : undefined,
-            take: take || undefined,
-            include: {
-              rooms: true,
-              airport: true,
-              hotelChesses: true
-            },
-            orderBy: {
-              information: {
-                city: "asc"
-              }
-            }
-          })
+      const hotels = await prisma.hotel.findMany({
+        where,
+        ...(all
+          ? {}
+          : {
+              skip:
+                typeof skip === "number" && typeof take === "number"
+                  ? skip * take
+                  : undefined,
+              take: typeof take === "number" ? take : undefined
+            }),
+        include: {
+          rooms: true,
+          airport: true,
+          hotelChesses: true
+        },
+        orderBy: { information: { city: "asc" } }
+      })
 
-      // Расчет общего количества страниц при наличии пагинации
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
-      return {
-        hotels,
-        totalCount,
-        totalPages
-      }
+      return { hotels, totalCount, totalPages }
     },
-
     // Получение данных одного отеля по его id с включением связанных комнат, hotelChesses и логов
     hotel: async (_, { id }, context) => {
       await allMiddleware(context)
