@@ -90,6 +90,13 @@ enum DocumentationType {
   etc
 }
 
+enum DocumentationFilter {
+  airline
+  hotel
+  dispatcher
+  etc
+}
+
 // enum  ---------------- ↑↑↑↑
 
 // type  ---------------- ↓↓↓↓
@@ -746,6 +753,7 @@ model Documentation {
   children    Documentation[]    @relation("DocumentationHierarchy")
   order       Int?
   type        DocumentationType?
+  filter      DocumentationFilter?
   name        String
   description String?
   clientKey   String?

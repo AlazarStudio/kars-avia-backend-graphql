@@ -24,10 +24,10 @@ const supportResolver = {
       })
     },
 
-    getAllDocumentations: async (_, { type }, context) => {
+    getAllDocumentations: async (_, { type, filter }, context) => {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
-        where: { type, parent: { is: null } },
+        where: { type, filter, parent: { is: null } },
         orderBy: { name: "asc" }
       })
     },

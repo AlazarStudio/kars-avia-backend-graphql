@@ -17,6 +17,13 @@ enum DocumentationType {
   etc
 }
 
+enum DocumentationFilter {
+  airline
+  hotel
+  dispatcher
+  etc
+}
+
 type Documentation {
   id: ID!
   parentId: ID
@@ -24,6 +31,7 @@ type Documentation {
   children: [Documentation]
   order: Int
   type: DocumentationType
+  filter: DocumentationFilter
   name: String!
   description: String
   files: [String]
@@ -50,6 +58,7 @@ input DocumentationInput {
   parentId: ID
   order: Int
   type: DocumentationType
+  filter: DocumentationFilter
   name: String!
   description: String
   clientKey: String
@@ -62,6 +71,7 @@ input DocumentationUpdateInput {
   parentId: ID
   order: Int
   type: DocumentationType
+  filter: DocumentationFilter
   name: String
   description: String
   clientKey: String
@@ -77,7 +87,7 @@ input DocUploadByKeyInput {
 
 type Query {
   getAllPatchNotes: [PatchNote!]!
-  getAllDocumentations(type: DocumentationType): [Documentation!]!
+  getAllDocumentations(type: DocumentationType, filter: DocumentationFilter): [Documentation!]!
   documentationTree(id: ID!): Json
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
