@@ -5,6 +5,7 @@ import airportResolver from "./airport/airport.resolver.js"
 import analyticsResolver from "./analytics/analytics.resolver.js"
 import chatResolver from "./chat/chat.resolver.js"
 import cityResolver from "./city/city.resolver.js"
+import contractResolver from "./contract/contract.resolver.js"
 import dispatcherResolver from "./dispatcher/dispatcher.resolver.js"
 import globalResolver from "./global/global.resolver.js"
 import hotelResolver from "./hotel/hotel.resolver.js"
@@ -21,6 +22,7 @@ const mergedResolvers = mergeResolvers([
   analyticsResolver,
   chatResolver,
   cityResolver,
+  contractResolver,
   dispatcherResolver,
   globalResolver,
   hotelResolver,

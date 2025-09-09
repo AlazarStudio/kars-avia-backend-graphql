@@ -292,6 +292,7 @@ model Hotel {
   priceCategory   PriceCategory[]
   // tariff          Tariff[]
   AirlinePrice    AirlinePrice[]
+  hotelContract   hotelContract[]
 }
 
 model HotelChess {
@@ -391,6 +392,7 @@ model Airline {
   active                Boolean                 @default(true)
   airportOnAirlinePrice AirportOnAirlinePrice[]
   airlinePriceCategory  PriceCategory[]
+  airlineContract       airlineContract[]
 }
 
 model PriceCategory {
@@ -468,13 +470,61 @@ model AirlinePersonal {
 
 // Авиакомпании  ---------------- ↑↑↑↑
 
-// Компании  ---------------- ↑↑↑↑
+// Компании  ---------------- ↓↓↓↓
 
 model Company {
-  id            String          @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  priceCategory PriceCategory[]
-  information   Information?
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  priceCategory   PriceCategory[]
+  information     Information?
+  airlineContract airlineContract[]
+  hotelContract   hotelContract[]
+}
+
+model airlineContract {
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  company              Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId            String?               @db.ObjectId
+  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId            String?               @db.ObjectId
+  date                 DateTime?
+  contractNumber       String?
+  region               String?
+  applicationType      String?
+  notes                String?
+  additionalAgreements additionalAgreement[]
+  files                String[]
+}
+
+model additionalAgreement {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id])
+  airlineContractId String?          @db.ObjectId
+  date              DateTime?
+  contractNumber    String?
+  itemAgreement     String?
+  notes             String?
+  files             String[]
+}
+
+model hotelContract {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  company         Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId       String?   @db.ObjectId
+  hotel           Hotel?    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId         String?   @db.ObjectId
+  date            DateTime?
+  contractNumber  String?
+  region          City      @relation(fields: [cityId], references: [id])
+  cityId          String    @db.ObjectId
+  notes           String?
+  legalEntity     String?
+  signatureMark   String?
+  completionMark  String?
+  normativeAct    String?
+  applicationType String?
+  executor        String?
+  files           String[]
 }
 
 // Компании  ---------------- ↑↑↑↑
@@ -491,9 +541,10 @@ model Airport {
 }
 
 model City {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  city   String
-  region String
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  city          String
+  region        String
+  hotelContract hotelContract[]
 }
 
 // Заявка  ---------------- ↓↓↓↓
@@ -747,10 +798,10 @@ model PatchNote {
 // }
 
 model Documentation {
-  id          String             @id @default(auto()) @map("_id") @db.ObjectId
-  parentId    String?            @db.ObjectId
-  parent      Documentation?     @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children    Documentation[]    @relation("DocumentationHierarchy")
+  id          String               @id @default(auto()) @map("_id") @db.ObjectId
+  parentId    String?              @db.ObjectId
+  parent      Documentation?       @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Documentation[]      @relation("DocumentationHierarchy")
   order       Int?
   type        DocumentationType?
   filter      DocumentationFilter?

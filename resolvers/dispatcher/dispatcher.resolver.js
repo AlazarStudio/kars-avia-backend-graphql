@@ -1,21 +1,8 @@
 import { prisma } from "../../prisma.js"
 import {
   pubsub,
-  // AIRLINE_CREATED,
-  // AIRLINE_UPDATED,
   COMPANY_CHANGED,
-  // MESSAGE_SENT,
-  // HOTEL_CREATED,
-  // HOTEL_UPDATED,
   PRICECATEGORY_CHANGED,
-  // REPORT_CREATED,
-  // REQUEST_CREATED,
-  // REQUEST_UPDATED,
-  // RESERVE_CREATED,
-  // RESERVE_HOTEL,
-  // RESERVE_UPDATED,
-  // RESERVE_PERSONS,
-  // USER_CREATED,
   NOTIFICATION
 } from "../../exports/pubsub.js"
 import {
@@ -84,7 +71,7 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
-    },
+    }, 
     getPriceCategory: async (_, { id }, context) => {
       await allMiddleware(context)
       return await prisma.priceCategory.findUnique({
@@ -96,7 +83,7 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
-    },
+    }, 
     getAllNotifications: async (_, { pagination }, context) => {
       await allMiddleware(context)
       const { user } = context

@@ -5,6 +5,7 @@ import airportTypeDef from "./airport/airport.typeDef.js"
 import analyticsTypeDef from "./analytics/analytics.typeDef.js"
 import chatTypeDef from "./chat/chat.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
+import contractTypeDef from "./contract/contract.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
 import globalTypeDef from "./global/global.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
@@ -21,6 +22,7 @@ const mergedTypeDefs = mergeTypeDefs([
   analyticsTypeDef,
   chatTypeDef,
   cityTypeDef,
+  contractTypeDef,
   dispatcherTypeDef,
   globalTypeDef,
   hotelTypeDef,
