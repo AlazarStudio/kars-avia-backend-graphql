@@ -206,6 +206,11 @@ type Mutation {
   deleteHotelContract(id: ID!): Boolean!
 }
 
+type Subscription {
+  сontractAirline: AirlineContract!
+  сontractHotel: HotelContract!
+}
+
 
 `
 

@@ -1,6 +1,10 @@
 // src/resolvers/contracts.resolvers.js
 import { prisma } from "../../prisma.js"
-import { pubsub } from "../../exports/pubsub.js"
+import {
+  pubsub,
+  CONTRACT_AIRLINE,
+  CONTRACT_HOTEL
+} from "../../exports/pubsub.js"
 import {
   allMiddleware,
   superAdminMiddleware
@@ -105,7 +109,7 @@ const contractResolver = {
     },
 
     airlineContract: async (_, { id }) => {
-      return prisma.airlineContract.findUnique({
+      return await prisma.airlineContract.findUnique({
         where: { id },
         include: {
           company: true,
@@ -137,7 +141,7 @@ const contractResolver = {
     },
 
     hotelContract: async (_, { id }) => {
-      return prisma.hotelContract.findUnique({
+      return await prisma.hotelContract.findUnique({
         where: { id },
         include: {
           company: true,
@@ -148,7 +152,7 @@ const contractResolver = {
     },
 
     additionalAgreements: async (_, { airlineContractId }) => {
-      return prisma.additionalAgreement.findMany({
+      return await prisma.additionalAgreement.findMany({
         where: airlineContractId ? { airlineContractId } : undefined,
         orderBy: { date: "desc" },
         include: { airlineContract: true }
@@ -167,7 +171,7 @@ const contractResolver = {
         }
       }
 
-      return prisma.airlineContract.create({
+      const contract = await prisma.airlineContract.create({
         data: {
           companyId: input.companyId ?? null,
           airlineId: input.airlineId ?? null,
@@ -184,6 +188,8 @@ const contractResolver = {
           additionalAgreements: true
         }
       })
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      return contract
     },
 
     updateAirlineContract: async (_, { id, input, files }) => {
@@ -220,7 +226,7 @@ const contractResolver = {
         updatedData.notes = input.notes
       }
 
-      return prisma.airlineContract.update({
+      const contract = await prisma.airlineContract.update({
         where: { id },
         data: updatedData,
         include: {
@@ -229,10 +235,16 @@ const contractResolver = {
           additionalAgreements: true
         }
       })
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      return contract
     },
 
     deleteAirlineContract: async (_, { id }) => {
-      await prisma.airlineContract.delete({ where: { id } })
+      const contract = await prisma.airlineContract.delete({ where: { id } })
+      if (contract.files) {
+        await deleteFiles(contract.files)
+      }
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
       return true
     },
 
@@ -250,7 +262,7 @@ const contractResolver = {
         }
       }
 
-      return prisma.additionalAgreement.create({
+      const contract = await prisma.additionalAgreement.create({
         data: {
           airlineContractId: input.airlineContractId,
           date: input.date ?? null,
@@ -261,6 +273,8 @@ const contractResolver = {
         },
         include: { airlineContract: true }
       })
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      return contract
     },
 
     updateAdditionalAgreement: async (_, { id, input, files }) => {
@@ -291,15 +305,23 @@ const contractResolver = {
         updatedData.notes = input.notes
       }
 
-      return prisma.additionalAgreement.update({
+      const contract = await prisma.additionalAgreement.update({
         where: { id },
         data: updatedData,
         include: { airlineContract: true }
       })
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      return contract
     },
 
     deleteAdditionalAgreement: async (_, { id }) => {
-      await prisma.additionalAgreement.delete({ where: { id } })
+      const contract = await prisma.additionalAgreement.delete({
+        where: { id }
+      })
+      if (contract.files) {
+        await deleteFiles(contract.files)
+      }
+      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
       return true
     },
 
@@ -313,7 +335,7 @@ const contractResolver = {
         }
       }
 
-      return prisma.hotelContract.create({
+      const contract = await prisma.hotelContract.create({
         data: {
           companyId: input.companyId ?? null,
           hotelId: input.hotelId ?? null,
@@ -335,6 +357,8 @@ const contractResolver = {
           region: true
         }
       })
+      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
+      return contract
     },
 
     updateHotelContract: async (_, { id, input, files }) => {
@@ -386,7 +410,7 @@ const contractResolver = {
         updatedData.executor = input.executor
       }
 
-      return prisma.hotelContract.update({
+      const contract = await prisma.hotelContract.update({
         where: { id },
         data: updatedData,
         include: {
@@ -395,11 +419,27 @@ const contractResolver = {
           region: true
         }
       })
+      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
+      return contract
     },
 
     deleteHotelContract: async (_, { id }) => {
-      await prisma.hotelContract.delete({ where: { id } })
+      const contract = await prisma.hotelContract.delete({ where: { id } })
+      if (contract.files) {
+        await deleteFiles(contract.files)
+      }
+      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
       return true
+    }
+  },
+
+  Subscription: {
+    // Подписка на событие создания нового пользователя
+    сontractAirline: {
+      subscribe: () => pubsub.asyncIterator([CONTRACT_AIRLINE])
+    },
+    сontractHotel: {
+      subscribe: () => pubsub.asyncIterator([CONTRACT_HOTEL])
     }
   },
 
