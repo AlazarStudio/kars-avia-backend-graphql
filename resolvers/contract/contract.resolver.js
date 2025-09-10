@@ -198,25 +198,25 @@ const contractResolver = {
         updatedData.files = filesPath
       }
 
-      if (companyId != undefined) {
+      if (input.companyId != undefined) {
         updatedData.companyId = input.companyId
       }
-      if (airlineId != undefined) {
+      if (input.airlineId != undefined) {
         updatedData.airlineId = input.airlineId
       }
-      if (date != undefined) {
+      if (input.date != undefined) {
         updatedData.date = input.date
       }
-      if (contractNumber != undefined) {
+      if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
       }
-      if (region != undefined) {
+      if (input.region != undefined) {
         updatedData.region = input.region
       }
-      if (applicationType != undefined) {
+      if (input.applicationType != undefined) {
         updatedData.applicationType = input.applicationType
       }
-      if (notes != undefined) {
+      if (input.notes != undefined) {
         updatedData.notes = input.notes
       }
 
@@ -275,19 +275,19 @@ const contractResolver = {
         updatedData.files = filesPath
       }
 
-      if (airlineContractId != undefined) {
+      if (input.airlineContractId != undefined) {
         updatedData.airlineContractId = input.airlineContractId
       }
-      if (date != undefined) {
+      if (input.date != undefined) {
         updatedData.date = input.date
       }
-      if (contractNumber != undefined) {
+      if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
       }
-      if (itemAgreement != undefined) {
+      if (input.itemAgreement != undefined) {
         updatedData.itemAgreement = input.itemAgreement
       }
-      if (notes != undefined) {
+      if (input.notes != undefined) {
         updatedData.notes = input.notes
       }
 
@@ -349,40 +349,40 @@ const contractResolver = {
         updatedData.files = filesPath
       }
 
-      if (companyId != undefined) {
+      if (input.companyId != undefined) {
         updatedData.companyId = input.companyId
       }
-      if (hotelId != undefined) {
+      if (input.hotelId != undefined) {
         updatedData.hotelId = input.hotelId
       }
-      if (cityId != undefined) {
+      if (input.cityId != undefined) {
         updatedData.cityId = input.cityId
       }
-      if (date != undefined) {
+      if (input.date != undefined) {
         updatedData.date = input.date
       }
-      if (contractNumber != undefined) {
+      if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
       }
-      if (notes != undefined) {
+      if (input.notes != undefined) {
         updatedData.notes = input.notes
       }
-      if (legalEntity != undefined) {
+      if (input.legalEntity != undefined) {
         updatedData.legalEntity = input.legalEntity
       }
-      if (signatureMark != undefined) {
+      if (input.signatureMark != undefined) {
         updatedData.signatureMark = input.signatureMark
       }
-      if (completionMark != undefined) {
+      if (input.completionMark != undefined) {
         updatedData.completionMark = input.completionMark
       }
-      if (normativeAct != undefined) {
+      if (input.normativeAct != undefined) {
         updatedData.normativeAct = input.normativeAct
       }
-      if (applicationType != undefined) {
+      if (input.applicationType != undefined) {
         updatedData.applicationType = input.applicationType
       }
-      if (executor != undefined) {
+      if (input.executor != undefined) {
         updatedData.executor = input.executor
       }
 
