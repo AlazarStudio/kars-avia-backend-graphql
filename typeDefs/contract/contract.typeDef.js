@@ -46,11 +46,13 @@ input HotelContractFilter {
 type AirlineContractConnection {
   items: [AirlineContract!]!
   totalCount: Int!
+  totalPages: Int
 }
 
 type HotelContractConnection {
   items: [HotelContract!]!
   totalCount: Int!
+  totalPages: Int
 }
 
 #  ===== DOMAIN TYPES ===== 
@@ -109,7 +111,7 @@ input AdditionalAgreementInput {
   contractNumber: String
   itemAgreement: String
   notes: String
-  files: [String!]
+  files: [Upload!]
 }
 
 input AirlineContractCreateInput {
@@ -120,7 +122,7 @@ input AirlineContractCreateInput {
   region: String
   applicationType: String
   notes: String
-  files: [String!]
+  files: [Upload!]
 }
 
 input AirlineContractUpdateInput {
@@ -131,7 +133,7 @@ input AirlineContractUpdateInput {
   region: String
   applicationType: String
   notes: String
-  files: [String!]
+  files: [Upload!]
 }
 
 input HotelContractCreateInput {
@@ -147,7 +149,7 @@ input HotelContractCreateInput {
   normativeAct: String
   applicationType: String
   executor: String
-  files: [String!]
+  files: [Upload!]
 }
 
 input HotelContractUpdateInput {
@@ -163,7 +165,7 @@ input HotelContractUpdateInput {
   normativeAct: String
   applicationType: String
   executor: String
-  files: [String!]
+  files: [Upload!]
 }
 
 #  ===== ROOT ===== 
@@ -191,16 +193,16 @@ type Query {
 }
 
 type Mutation {
-  createAirlineContract(input: AirlineContractCreateInput!): AirlineContract!
-  updateAirlineContract(id: ID!, input: AirlineContractUpdateInput!): AirlineContract!
+  createAirlineContract(input: AirlineContractCreateInput!, files: [Upload!]): AirlineContract!
+  updateAirlineContract(id: ID!, input: AirlineContractUpdateInput!, files: [Upload!]): AirlineContract!
   deleteAirlineContract(id: ID!): Boolean!
 
-  createAdditionalAgreement(input: AdditionalAgreementInput!): AdditionalAgreement!
-  updateAdditionalAgreement(id: ID!, input: AdditionalAgreementInput!): AdditionalAgreement!
+  createAdditionalAgreement(input: AdditionalAgreementInput!, files: [Upload!]): AdditionalAgreement!
+  updateAdditionalAgreement(id: ID!, input: AdditionalAgreementInput!, files: [Upload!]): AdditionalAgreement!
   deleteAdditionalAgreement(id: ID!): Boolean!
 
-  createHotelContract(input: HotelContractCreateInput!): HotelContract!
-  updateHotelContract(id: ID!, input: HotelContractUpdateInput!): HotelContract!
+  createHotelContract(input: HotelContractCreateInput!, files: [Upload!]): HotelContract!
+  updateHotelContract(id: ID!, input: HotelContractUpdateInput!, files: [Upload!]): HotelContract!
   deleteHotelContract(id: ID!): Boolean!
 }
 

@@ -5,6 +5,7 @@ import {
   allMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
+import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 
 /* ---------- Helpers ---------- */
 function buildAirlineContractWhere(filter) {
@@ -99,8 +100,8 @@ const contractResolver = {
           additionalAgreements: true
         }
       })
-
-      return { items, totalCount }
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+      return { items, totalCount, totalPages }
     },
 
     airlineContract: async (_, { id }) => {
@@ -131,8 +132,8 @@ const contractResolver = {
           region: true // City
         }
       })
-
-      return { items, totalCount }
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+      return { items, totalCount, totalPages }
     },
 
     hotelContract: async (_, { id }) => {
@@ -157,7 +158,15 @@ const contractResolver = {
 
   Mutation: {
     // AIRLINE
-    createAirlineContract: async (_, { input }) => {
+    createAirlineContract: async (_, { input, files }) => {
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
+
       return prisma.airlineContract.create({
         data: {
           companyId: input.companyId ?? null,
@@ -167,7 +176,7 @@ const contractResolver = {
           region: input.region ?? null,
           applicationType: input.applicationType ?? null,
           notes: input.notes ?? null,
-          files: input.files ?? []
+          files: filesPath
         },
         include: {
           company: true,
@@ -177,19 +186,43 @@ const contractResolver = {
       })
     },
 
-    updateAirlineContract: async (_, { id, input }) => {
+    updateAirlineContract: async (_, { id, input, files }) => {
+      const updatedData = {}
+
+      if (files && files.length > 0) {
+        let filesPath = []
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+        updatedData.files = filesPath
+      }
+
+      if (companyId != undefined) {
+        updatedData.companyId = input.companyId
+      }
+      if (airlineId != undefined) {
+        updatedData.airlineId = input.airlineId
+      }
+      if (date != undefined) {
+        updatedData.date = input.date
+      }
+      if (contractNumber != undefined) {
+        updatedData.contractNumber = input.contractNumber
+      }
+      if (region != undefined) {
+        updatedData.region = input.region
+      }
+      if (applicationType != undefined) {
+        updatedData.applicationType = input.applicationType
+      }
+      if (notes != undefined) {
+        updatedData.notes = input.notes
+      }
+
       return prisma.airlineContract.update({
         where: { id },
-        data: {
-          companyId: input.companyId ?? undefined,
-          airlineId: input.airlineId ?? undefined,
-          date: input.date ?? undefined,
-          contractNumber: input.contractNumber ?? undefined,
-          region: input.region ?? undefined,
-          applicationType: input.applicationType ?? undefined,
-          notes: input.notes ?? undefined,
-          files: input.files ?? undefined
-        },
+        data: updatedData,
         include: {
           company: true,
           airline: true,
@@ -204,10 +237,19 @@ const contractResolver = {
     },
 
     // ADDITIONAL AGREEMENTS
-    createAdditionalAgreement: async (_, { input }) => {
+    createAdditionalAgreement: async (_, { input, files }) => {
       if (!input.airlineContractId) {
         throw new Error("airlineContractId обязателен для AdditionalAgreement")
       }
+
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
+
       return prisma.additionalAgreement.create({
         data: {
           airlineContractId: input.airlineContractId,
@@ -215,23 +257,43 @@ const contractResolver = {
           contractNumber: input.contractNumber ?? null,
           itemAgreement: input.itemAgreement ?? null,
           notes: input.notes ?? null,
-          files: input.files ?? []
+          files: filesPath
         },
         include: { airlineContract: true }
       })
     },
 
-    updateAdditionalAgreement: async (_, { id, input }) => {
+    updateAdditionalAgreement: async (_, { id, input, files }) => {
+      const updatedData = {}
+
+      if (files && files.length > 0) {
+        let filesPath = []
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+        updatedData.files = filesPath
+      }
+
+      if (airlineContractId != undefined) {
+        updatedData.airlineContractId = input.airlineContractId
+      }
+      if (date != undefined) {
+        updatedData.date = input.date
+      }
+      if (contractNumber != undefined) {
+        updatedData.contractNumber = input.contractNumber
+      }
+      if (itemAgreement != undefined) {
+        updatedData.itemAgreement = input.itemAgreement
+      }
+      if (notes != undefined) {
+        updatedData.notes = input.notes
+      }
+
       return prisma.additionalAgreement.update({
         where: { id },
-        data: {
-          airlineContractId: input.airlineContractId ?? undefined,
-          date: input.date ?? undefined,
-          contractNumber: input.contractNumber ?? undefined,
-          itemAgreement: input.itemAgreement ?? undefined,
-          notes: input.notes ?? undefined,
-          files: input.files ?? undefined
-        },
+        data: updatedData,
         include: { airlineContract: true }
       })
     },
@@ -242,7 +304,15 @@ const contractResolver = {
     },
 
     // HOTEL
-    createHotelContract: async (_, { input }) => {
+    createHotelContract: async (_, { input, files }) => {
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
+
       return prisma.hotelContract.create({
         data: {
           companyId: input.companyId ?? null,
@@ -257,7 +327,7 @@ const contractResolver = {
           normativeAct: input.normativeAct ?? null,
           applicationType: input.applicationType ?? null,
           executor: input.executor ?? null,
-          files: input.files ?? []
+          files: filesPath
         },
         include: {
           company: true,
@@ -267,24 +337,58 @@ const contractResolver = {
       })
     },
 
-    updateHotelContract: async (_, { id, input }) => {
+    updateHotelContract: async (_, { id, input, files }) => {
+      const updatedData = {}
+
+      if (files && files.length > 0) {
+        let filesPath = []
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+        updatedData.files = filesPath
+      }
+
+      if (companyId != undefined) {
+        updatedData.companyId = input.companyId
+      }
+      if (hotelId != undefined) {
+        updatedData.hotelId = input.hotelId
+      }
+      if (cityId != undefined) {
+        updatedData.cityId = input.cityId
+      }
+      if (date != undefined) {
+        updatedData.date = input.date
+      }
+      if (contractNumber != undefined) {
+        updatedData.contractNumber = input.contractNumber
+      }
+      if (notes != undefined) {
+        updatedData.notes = input.notes
+      }
+      if (legalEntity != undefined) {
+        updatedData.legalEntity = input.legalEntity
+      }
+      if (signatureMark != undefined) {
+        updatedData.signatureMark = input.signatureMark
+      }
+      if (completionMark != undefined) {
+        updatedData.completionMark = input.completionMark
+      }
+      if (normativeAct != undefined) {
+        updatedData.normativeAct = input.normativeAct
+      }
+      if (applicationType != undefined) {
+        updatedData.applicationType = input.applicationType
+      }
+      if (executor != undefined) {
+        updatedData.executor = input.executor
+      }
+
       return prisma.hotelContract.update({
         where: { id },
-        data: {
-          companyId: input.companyId ?? undefined,
-          hotelId: input.hotelId ?? undefined,
-          cityId: input.cityId ?? undefined,
-          date: input.date ?? undefined,
-          contractNumber: input.contractNumber ?? undefined,
-          notes: input.notes ?? undefined,
-          legalEntity: input.legalEntity ?? undefined,
-          signatureMark: input.signatureMark ?? undefined,
-          completionMark: input.completionMark ?? undefined,
-          normativeAct: input.normativeAct ?? undefined,
-          applicationType: input.applicationType ?? undefined,
-          executor: input.executor ?? undefined,
-          files: input.files ?? undefined
-        },
+        data: updatedData,
         include: {
           company: true,
           hotel: true,
@@ -337,6 +441,5 @@ const contractResolver = {
         : null)
   }
 }
-
 
 export default contractResolver
