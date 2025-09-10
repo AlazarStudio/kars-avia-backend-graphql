@@ -188,7 +188,7 @@ const contractResolver = {
           additionalAgreements: true
         }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -235,7 +235,7 @@ const contractResolver = {
           additionalAgreements: true
         }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -244,7 +244,7 @@ const contractResolver = {
       if (contract.files) {
         await deleteFiles(contract.files)
       }
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
 
@@ -273,7 +273,7 @@ const contractResolver = {
         },
         include: { airlineContract: true }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -310,7 +310,7 @@ const contractResolver = {
         data: updatedData,
         include: { airlineContract: true }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -321,7 +321,7 @@ const contractResolver = {
       if (contract.files) {
         await deleteFiles(contract.files)
       }
-      pubsub.publish(CONTRACT_AIRLINE, { сontractAirline: contract })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
 
@@ -357,7 +357,7 @@ const contractResolver = {
           region: true
         }
       })
-      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return contract
     },
 
@@ -419,7 +419,7 @@ const contractResolver = {
           region: true
         }
       })
-      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return contract
     },
 
@@ -428,17 +428,17 @@ const contractResolver = {
       if (contract.files) {
         await deleteFiles(contract.files)
       }
-      pubsub.publish(CONTRACT_HOTEL, { сontractHotel: contract })
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return true
     }
   },
 
   Subscription: {
     // Подписка на событие создания нового пользователя
-    сontractAirline: {
+    contractAirline: {
       subscribe: () => pubsub.asyncIterator([CONTRACT_AIRLINE])
     },
-    сontractHotel: {
+    contractHotel: {
       subscribe: () => pubsub.asyncIterator([CONTRACT_HOTEL])
     }
   },
