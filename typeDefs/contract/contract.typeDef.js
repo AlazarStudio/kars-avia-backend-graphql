@@ -207,8 +207,8 @@ type Mutation {
 }
 
 type Subscription {
-  сontractAirline: AirlineContract!
-  сontractHotel: HotelContract!
+  contractAirline: AirlineContract!
+  contractHotel: HotelContract!
 }
 
 
