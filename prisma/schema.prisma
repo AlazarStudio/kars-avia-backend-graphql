@@ -87,6 +87,7 @@ enum HotelType {
 enum DocumentationType {
   documentation
   update
+  patch
   etc
 }
 
@@ -256,6 +257,7 @@ model Position {
 model Hotel {
   id              String          @id @default(auto()) @map("_id") @db.ObjectId
   name            String
+  nameFull        String?
   provision       Int?
   quote           Int?
   capacity        Int?

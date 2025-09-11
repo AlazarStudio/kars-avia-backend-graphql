@@ -14,6 +14,7 @@ type PatchNote {
 enum DocumentationType {
   documentation
   update
+  patch
   etc
 }
 

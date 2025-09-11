@@ -43,6 +43,7 @@ input MealTimeInput {
 type Hotel {
   id: ID!
   name: String!
+  nameFull: String
   airport: Airport
   information: Information
   provision: Int
@@ -148,6 +149,7 @@ type HotelConnection {
 # Входные типы для создания/обновления отеля
 input CreateHotelInput {
   name: String!
+  nameFull: String
   airportId: ID
   information: InformationInput
   provision: Int
@@ -170,6 +172,7 @@ input CreateHotelInput {
 
 input UpdateHotelInput {
   name: String
+  nameFull: String
   airportId: ID
   information: InformationInput
   provision: Int
