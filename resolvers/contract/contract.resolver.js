@@ -240,18 +240,22 @@ const contractResolver = {
     },
 
     deleteAirlineContract: async (_, { id }) => {
-      const contract = await prisma.airlineContract.delete({ where: { id } })
-      if (contract.files) {
-        await deleteFiles(contract.files)
+      const contract = await prisma.airlineContract.findUnique({
+        where: { id }
+      })
+      if (contract.files && contract.files.length > 0) {
+        for (const filePath of contract.images) {
+          await deleteFiles(filePath)
+        }
       }
+      await prisma.airlineContract.delete({ where: { id } })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
 
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }) => {
-
-      // add middleware 
+      // add middleware
 
       let filesPath = []
       if (files && files.length > 0) {
@@ -334,12 +338,15 @@ const contractResolver = {
     },
 
     deleteAdditionalAgreement: async (_, { id }) => {
-      const contract = await prisma.additionalAgreement.delete({
+      const contract = await prisma.additionalAgreement.findUnique({
         where: { id }
       })
-      if (contract.files) {
-        await deleteFiles(contract.files)
+      if (contract.files && contract.files.length > 0) {
+        for (const filePath of contract.images) {
+          await deleteFiles(filePath)
+        }
       }
+      await prisma.additionalAgreement.delete({ where: { id } })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
@@ -443,10 +450,15 @@ const contractResolver = {
     },
 
     deleteHotelContract: async (_, { id }) => {
-      const contract = await prisma.hotelContract.delete({ where: { id } })
-      if (contract.files) {
-        await deleteFiles(contract.files)
+      const contract = await prisma.hotelContract.findUnique({
+        where: { id }
+      })
+      if (contract.files && contract.files.length > 0) {
+        for (const filePath of contract.images) {
+          await deleteFiles(filePath)
+        }
       }
+      await prisma.hotelContract.delete({ where: { id } })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return true
     }

@@ -500,9 +500,9 @@ model airlineContract {
 
 model additionalAgreement {
   id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id])
+  airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
   airlineContractId String?          @db.ObjectId
-  hotelContract     hotelContract?   @relation(fields: [hotelContractId], references: [id])
+  hotelContract     hotelContract?   @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
   hotelContractId   String?          @db.ObjectId
   date              DateTime?
   contractNumber    String?
