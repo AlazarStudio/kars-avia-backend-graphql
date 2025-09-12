@@ -522,15 +522,16 @@ const contractResolver = {
               where: { id: parent.airlineContractId }
             })
           : null)
+    },
+
+    hotelContract: async (parent) => {
+      parent.hotelContract ??
+        (parent.hotelContractId
+          ? await prisma.hotelContract.findUnique({
+              where: { id: parent.hotelContractId }
+            })
+          : null)
     }
-  },
-  hotelContract: async (parent) => {
-    parent.hotelContract ??
-      (parent.hotelContractId
-        ? await prisma.hotelContract.findUnique({
-            where: { id: parent.hotelContractId }
-          })
-        : null)
   }
 }
 
