@@ -250,8 +250,10 @@ const contractResolver = {
 
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }) => {
-      if (!input.airlineContractId) {
-        throw new Error("airlineContractId обязателен для AdditionalAgreement")
+      if (!input.airlineContractId || !input.hotelContractId) {
+        throw new Error(
+          "airlineContractId/hotelContractId обязателен для AdditionalAgreement"
+        )
       }
 
       let filesPath = []
@@ -264,16 +266,26 @@ const contractResolver = {
 
       const contract = await prisma.additionalAgreement.create({
         data: {
-          airlineContractId: input.airlineContractId,
+          airlineContractId: input.airlineContractId
+            ? input.airlineContractId
+            : null,
+          hotelContractId: input.hotelContractId ? input.hotelContractId : null,
           date: input.date ?? null,
           contractNumber: input.contractNumber ?? null,
           itemAgreement: input.itemAgreement ?? null,
           notes: input.notes ?? null,
           files: filesPath
         },
-        include: { airlineContract: true }
+        include: { airlineContract: true, hotelContract: true }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      if (input.airlineContractId != undefined) {
+        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      }
+      if (input.hotelContractId != undefined) {
+        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -292,6 +304,9 @@ const contractResolver = {
       if (input.airlineContractId != undefined) {
         updatedData.airlineContractId = input.airlineContractId
       }
+      if (input.hotelContractId != undefined) {
+        updatedData.hotelContractId = input.hotelContractId
+      }
       if (input.date != undefined) {
         updatedData.date = input.date
       }
@@ -308,9 +323,16 @@ const contractResolver = {
       const contract = await prisma.additionalAgreement.update({
         where: { id },
         data: updatedData,
-        include: { airlineContract: true }
+        include: { airlineContract: true, hotelContract: true }
       })
-      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      if (input.airlineContractId != undefined) {
+        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      }
+      if (input.hotelContractId != undefined) {
+        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
     },
 
@@ -447,36 +469,66 @@ const contractResolver = {
      Обычно Prisma include уже подтягивает реляции. Эти поля можно
      опустить, но оставляю примеры для явного маппинга. */
   AirlineContract: {
-    company: (parent, _, __) =>
-      parent.company ??
-      prisma.company.findUnique({ where: { id: parent.companyId } }),
-    airline: (parent, _, __) =>
-      parent.airline ??
-      prisma.airline.findUnique({ where: { id: parent.airlineId } }),
-    additionalAgreements: (parent, _, __) =>
-      parent.additionalAgreements ??
-      prisma.additionalAgreement.findMany({
+    company: async (parent) => {
+      if (parent.companyId) {
+        return await prisma.company.findUnique({
+          where: { id: parent.companyId }
+        })
+      }
+    },
+    airline: async (parent) => {
+      if (parent.airlineId) {
+        return await prisma.airline.findUnique({
+          where: { id: parent.airlineId }
+        })
+      }
+    },
+    additionalAgreements: async (parent) => {
+      return await prisma.additionalAgreement.findMany({
         where: { airlineContractId: parent.id }
       })
+    }
   },
 
   HotelContract: {
-    company: (parent, _, __) =>
-      parent.company ??
-      prisma.company.findUnique({ where: { id: parent.companyId } }),
-    hotel: (parent, _, __) =>
-      parent.hotel ??
-      prisma.hotel.findUnique({ where: { id: parent.hotelId } }),
-    region: (parent, _, __) =>
-      parent.region ?? prisma.city.findUnique({ where: { id: parent.cityId } })
+    company: async (parent) => {
+      if (parent.companyId) {
+        return await prisma.company.findUnique({
+          where: { id: parent.companyId }
+        })
+      }
+    },
+    hotel: async (parent) => {
+      if (parent.hotelId) {
+        return await prisma.hotel.findUnique({
+          where: { id: parent.hotelId }
+        })
+      }
+    },
+    additionalAgreements: async (parent) => {
+      return await prisma.additionalAgreement.findMany({
+        where: { hotelContractId: parent.id }
+      })
+    }
+    // region: (parent, _, __) =>
+    //   parent.region ?? prisma.city.findUnique({ where: { id: parent.cityId } })
   },
 
   AdditionalAgreement: {
-    airlineContract: (parent) =>
+    airlineContract: async (parent) => {
       parent.airlineContract ??
-      (parent.airlineContractId
-        ? prisma.airlineContract.findUnique({
-            where: { id: parent.airlineContractId }
+        (parent.airlineContractId
+          ? await prisma.airlineContract.findUnique({
+              where: { id: parent.airlineContractId }
+            })
+          : null)
+    }
+  },
+  hotelContract: async (parent) => {
+    parent.hotelContract ??
+      (parent.hotelContractId
+        ? await prisma.hotelContract.findUnique({
+            where: { id: parent.hotelContractId }
           })
         : null)
   }

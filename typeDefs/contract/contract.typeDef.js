@@ -61,6 +61,8 @@ type AdditionalAgreement {
   id: ID!
   airlineContractId: ID
   airlineContract: AirlineContract
+  hotelContractId: ID
+  hotelContract: HotelContract
   date: Date
   contractNumber: String
   itemAgreement: String
@@ -101,12 +103,14 @@ type HotelContract {
   applicationType: String
   executor: String
   files: [String!]!
+  additionalAgreements: [AdditionalAgreement!]!
 }
 
 #  ===== INPUTS ===== 
 
 input AdditionalAgreementInput {
   airlineContractId: ID
+  hotelContractId: ID
   date: Date
   contractNumber: String
   itemAgreement: String

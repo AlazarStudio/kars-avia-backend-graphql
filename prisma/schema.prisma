@@ -502,6 +502,8 @@ model additionalAgreement {
   id                String           @id @default(auto()) @map("_id") @db.ObjectId
   airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id])
   airlineContractId String?          @db.ObjectId
+  hotelContract     hotelContract?   @relation(fields: [hotelContractId], references: [id])
+  hotelContractId   String?          @db.ObjectId
   date              DateTime?
   contractNumber    String?
   itemAgreement     String?
@@ -510,23 +512,24 @@ model additionalAgreement {
 }
 
 model hotelContract {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  company         Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId       String?   @db.ObjectId
-  hotel           Hotel?    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId         String?   @db.ObjectId
-  date            DateTime?
-  contractNumber  String?
-  region          City      @relation(fields: [cityId], references: [id])
-  cityId          String    @db.ObjectId
-  notes           String?
-  legalEntity     String?
-  signatureMark   String?
-  completionMark  String?
-  normativeAct    String?
-  applicationType String?
-  executor        String?
-  files           String[]
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId           String?               @db.ObjectId
+  hotel               Hotel?                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId             String?               @db.ObjectId
+  date                DateTime?
+  contractNumber      String?
+  region              City?                 @relation(fields: [cityId], references: [id])
+  cityId              String?               @db.ObjectId
+  notes               String?
+  legalEntity         String?
+  signatureMark       String?
+  completionMark      String?
+  normativeAct        String?
+  applicationType     String?
+  executor            String?
+  files               String[]
+  additionalAgreement additionalAgreement[]
 }
 
 // Компании  ---------------- ↑↑↑↑
