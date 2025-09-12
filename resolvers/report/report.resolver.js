@@ -524,33 +524,39 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    // const hotelA = a.hotel?.name || ""
-    // const hotelB = b.hotel?.name || ""
-    // const hotelCmp = hotelA.localeCompare(hotelB, "ru")
-    // if (hotelCmp !== 0) return hotelCmp
+    //  hotel name sort ---------------- ↓↓↓↓
+    const hotelA = a.hotel?.name || ""
+    const hotelB = b.hotel?.name || ""
+    const hotelCmp = hotelA.localeCompare(hotelB, "ru")
+    if (hotelCmp !== 0) return hotelCmp
+    //  hotel name sort ---------------- ↑↑↑↑
 
-    // const catOrder = [
-    //   "studio",
-    //   "apartment",
-    //   "luxe",
-    //   "onePlace",
-    //   "twoPlace",
-    //   "threePlace",
-    //   "fourPlace",
-    //   "fivePlace",
-    //   "sixPlace",
-    //   "sevenPlace",
-    //   "eightPlace",
-    //   "ninePlace",
-    //   "tenPlace"
-    // ]
-    // const catA = catOrder.indexOf(a.roomCategory)
-    // const catB = catOrder.indexOf(b.roomCategory)
-    // if (catA !== catB) return catA - catB
+    // room category sort ---------------- ↓↓↓↓
+    const catOrder = [
+      "studio",
+      "apartment",
+      "luxe",
+      "onePlace",
+      "twoPlace",
+      "threePlace",
+      "fourPlace",
+      "fivePlace",
+      "sixPlace",
+      "sevenPlace",
+      "eightPlace",
+      "ninePlace",
+      "tenPlace"
+    ]
+    const catA = catOrder.indexOf(a.roomCategory)
+    const catB = catOrder.indexOf(b.roomCategory)
+    if (catA !== catB) return catA - catB
+    // room category sort ---------------- ↑↑↑↑
 
+    // person name sort ---------------- ↓↓↓↓
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
     return nameA.localeCompare(nameB, "ru")
+    // person name sort ---------------- ↑↑↑↑
   })
 
   return filtered.map((request, index) => {

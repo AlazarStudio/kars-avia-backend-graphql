@@ -250,11 +250,8 @@ const contractResolver = {
 
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }) => {
-      if (!input.airlineContractId || !input.hotelContractId) {
-        throw new Error(
-          "airlineContractId/hotelContractId обязателен для AdditionalAgreement"
-        )
-      }
+
+      // add middleware 
 
       let filesPath = []
       if (files && files.length > 0) {
@@ -523,7 +520,6 @@ const contractResolver = {
             })
           : null)
     },
-
     hotelContract: async (parent) => {
       parent.hotelContract ??
         (parent.hotelContractId

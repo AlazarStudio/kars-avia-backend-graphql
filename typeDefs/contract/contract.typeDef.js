@@ -143,7 +143,7 @@ input AirlineContractUpdateInput {
 input HotelContractCreateInput {
   companyId: ID
   hotelId: ID
-  cityId: ID!
+  cityId: ID
   date: Date
   contractNumber: String
   notes: String
