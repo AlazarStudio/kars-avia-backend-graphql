@@ -244,7 +244,7 @@ const contractResolver = {
         where: { id }
       })
       if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.images) {
+        for (const filePath of contract.files) {
           await deleteFiles(filePath)
         }
       }
@@ -342,7 +342,7 @@ const contractResolver = {
         where: { id }
       })
       if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.images) {
+        for (const filePath of contract.files) {
           await deleteFiles(filePath)
         }
       }
@@ -454,7 +454,7 @@ const contractResolver = {
         where: { id }
       })
       if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.images) {
+        for (const filePath of contract.files) {
           await deleteFiles(filePath)
         }
       }
