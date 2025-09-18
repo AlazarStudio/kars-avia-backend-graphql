@@ -37,7 +37,8 @@ function buildAirlineContractWhere(filter) {
         { region: { contains: s, mode: "insensitive" } },
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
-        { airline: { name: { contains: s, mode: "insensitive" } } }
+        { airline: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } },
       ]
     })
   }
@@ -70,7 +71,8 @@ function buildHotelContractWhere(filter) {
         { legalEntity: { contains: s, mode: "insensitive" } },
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
-        { hotel: { name: { contains: s, mode: "insensitive" } } }
+        { hotel: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } },
       ]
     })
   }
