@@ -14,12 +14,13 @@ import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
 /* ---------- Helpers ---------- */
 function buildAirlineContractWhere(filter) {
   if (!filter) return {}
-  const { companyId, airlineId, dateFrom, dateTo, search } = filter
+  const { companyId, airlineId, applicationType, dateFrom, dateTo, search } = filter
 
   const AND = []
 
   if (companyId) AND.push({ companyId })
   if (airlineId) AND.push({ airlineId })
+  if (applicationType) AND.push({ applicationType: { contains: applicationType.trim(), mode: "insensitive" } })
   if (dateFrom || dateTo) {
     AND.push({
       date: {
@@ -36,8 +37,7 @@ function buildAirlineContractWhere(filter) {
         { region: { contains: s, mode: "insensitive" } },
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
-        { airline: { name: { contains: search, mode: "insensitive" } } },
-        {}
+        { airline: { name: { contains: s, mode: "insensitive" } } }
       ]
     })
   }
@@ -70,7 +70,7 @@ function buildHotelContractWhere(filter) {
         { legalEntity: { contains: s, mode: "insensitive" } },
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
-        { hotel: { name: { contains: search, mode: "insensitive" } } },
+        { hotel: { name: { contains: s, mode: "insensitive" } } }
       ]
     })
   }

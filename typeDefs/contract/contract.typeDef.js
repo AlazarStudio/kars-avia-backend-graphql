@@ -3,7 +3,7 @@ scalar Date
 scalar Upload
 
 
-input PaginationInput {
+input ContractPaginationInput {
   skip: Int
   take: Int
   all: Boolean
@@ -31,6 +31,7 @@ input AirlineContractFilter {
   airlineId: ID
   dateFrom: Date
   dateTo: Date
+  applicationType: String
   search: String
 }
 
@@ -176,7 +177,7 @@ input HotelContractUpdateInput {
 
 type Query {
   airlineContracts(
-    pagination: PaginationInput
+    pagination: ContractPaginationInput
     filter: AirlineContractFilter
     orderBy: AirlineContractOrderByInput
   ): AirlineContractConnection!
@@ -184,7 +185,7 @@ type Query {
   airlineContract(id: ID!): AirlineContract
 
   hotelContracts(
-    pagination: PaginationInput
+    pagination: ContractPaginationInput
     filter: HotelContractFilter
     orderBy: HotelContractOrderByInput
   ): HotelContractConnection!
