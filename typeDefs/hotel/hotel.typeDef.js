@@ -229,6 +229,7 @@ input RoomInput {
   images: [Upload!]
   type: RoomType
   price: Float
+  priceForAirline: Float
 }
 
 input RoomKindInput {
@@ -238,6 +239,7 @@ input RoomKindInput {
   category: Category
   square: String
   price: Float
+  priceForAirline: Float
   images: [String]
 }
 
