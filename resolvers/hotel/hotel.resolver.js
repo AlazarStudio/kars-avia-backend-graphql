@@ -97,7 +97,7 @@ const hotelResolver = {
 
       // await prisma.hotel.updateMany({ data: { show: false, meal: false } })
       // await prisma.hotel.updateMany({ data: { show: true, meal: true } })
-      
+
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
       return { hotels, totalCount, totalPages }
@@ -1176,6 +1176,12 @@ const hotelResolver = {
       const totalPages = Math.ceil(totalCount / take)
 
       return { totalCount, totalPages, logs }
+    },
+    // Определяем резольвер для поля hotelContract
+    hotelContract: async (parent) => {
+      return await prisma.hotelContract.findMany({
+        where: { hotelId: parent.id }
+      })
     }
   },
 

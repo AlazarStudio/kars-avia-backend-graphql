@@ -80,9 +80,12 @@ const getDynamicContext = async (ctx, msg, args) => {
         // })
         // --------------------------------------------------------------------------------------------------------------------------------
       } catch (e) {
+        if (e.name === "TokenExpiredError") {
+          logger.warn("Просроченный токен")
+          throw new Error("Token expired")
+        }
         logger.error("Ошибка токена", e)
-        console.error("Error verifying token:", e)
-        throw new Error("Invalid token", e)
+        throw new Error("Invalid token")
       }
     }
     return { user, authHeader }
@@ -164,9 +167,12 @@ app.use(
             }
           })
         } catch (e) {
+          if (e.name === "TokenExpiredError") {
+            logger.warn("Просроченный токен")
+            throw new Error("Token expired")
+          }
           logger.error("Ошибка токена", e)
-          console.error("Error verifying token:", e)
-          throw new Error("Invalid token", e)
+          throw new Error("Invalid token")
         }
       }
       // --------------------------------------------------------------------------------------------------------------------------------

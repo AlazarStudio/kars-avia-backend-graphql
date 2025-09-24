@@ -72,6 +72,7 @@ type Hotel {
   type: HotelType
   # position: [Position]
   gallery: [String]
+  hotelContract: [HotelContract]
 }
 
 # Тип бронирования номера (HotelChess)

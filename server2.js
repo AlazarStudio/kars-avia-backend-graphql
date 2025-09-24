@@ -18,7 +18,7 @@ import { startArchivingJob } from "./utils/request/cronTasks.js"
 import {
   ApolloServerPluginLandingPageLocalDefault
   // ApolloServerPluginLandingPageProductionDefault
-} from "@apollo/server/plugin/landingPage/default"  
+} from "@apollo/server/plugin/landingPage/default"
 import { logger } from "./utils/logger.js"
 
 dotenv.config()

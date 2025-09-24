@@ -16,6 +16,7 @@ type Airline {
   active: Boolean
   # position: [Position]
   airportOnAirlinePrice: [AirportOnAirlinePrice]
+  airlineContract: [AirlineContract]
 }
 
 # Остальные типы оставляем без изменений (пример – департамент и персонал)

@@ -567,14 +567,20 @@ const airlineResolver = {
         }
       })
     },
-
     // При необходимости – резольвер для airportOnAirlinePrice
     airportOnAirlinePrice: async (parent) => {
       return await prisma.airportOnAirlinePrice.findMany({
         where: { airlineId: parent.id },
         include: { airport: true }
       })
+    },
+    // Определяем резольвер для поля airlineContract
+    airlineContract: async (parent) => {
+      return await prisma.airlineContract.findMany({
+        where: {airlineId: parent.id}
+      })
     }
+
   },
 
   AirlineDepartment: {
