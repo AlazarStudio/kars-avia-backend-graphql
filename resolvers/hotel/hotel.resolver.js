@@ -240,8 +240,7 @@ const hotelResolver = {
         }
       }
 
-      let galleryPaths = previousHotelData.gallery
-console.log("\n img " + galleryPaths)
+      let galleryPaths = previousHotelData.gallery || []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
           galleryPaths.push(await uploadImage(image))
@@ -740,8 +739,7 @@ console.log("\n img " + galleryPaths)
                 where: { id: room.id }
               })
 
-              let imagePaths = previousRoomData.images
-console.log("\n img " + imagePaths)
+              let imagePaths = previousRoomData.images || []
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
                   imagePaths.push(await uploadImage(image))
@@ -864,8 +862,7 @@ console.log("\n img " + imagePaths)
               const previosRoomKindData = await prisma.roomKind.findUnique({
                 where: { id: room.id }
               })
-              let imagePaths = previosRoomKindData.images
-console.log("\n img " + imagePaths)
+              let imagePaths = previosRoomKindData.images || []
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
                   imagePaths.push(await uploadImage(image))
