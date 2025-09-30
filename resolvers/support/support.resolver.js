@@ -98,14 +98,17 @@ const supportResolver = {
         }
       })
 
-      // Фильтруем участников, чтобы возвращать только тех, кто не является саппортом
+      // После того как чаты получены, фильтруем участников чатов
       const filteredChats = chats.map((chat) => {
-        const nonSupportUsers = chat.participants.filter(
-          (participant) => !participant.user.support
+        // Фильтруем участников чата, оставляя только тех, кто не является саппортом
+        const nonSupportUser = chat.participants.filter(
+          (participant) => !participant.user.support === true
         )
+
+        // Если найден не саппорт, возвращаем только его
         return {
           ...chat,
-          participants: nonSupportUsers // Оставляем только пользователей, не являющихся саппортом
+          participants: nonSupportUser // В чате оставляем только пользователей, которые не являются саппортами
         }
       })
 
