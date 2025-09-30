@@ -64,50 +64,41 @@ const supportResolver = {
         throw new Error("Access denied")
       }
 
-      // Возвращаем все чаты, в которых участвует пользователь, не являющийся саппортом
-      return await prisma.chat
-        .findMany({
-          where: {
-            isSupport: true, // Только чаты, помеченные как поддержка
-            participants: {
-              some: {
-                userId: user.id // Проверяем, есть ли пользователь среди участников чата
+      // Возвращаем все чаты, в которых участвует пользователь (через таблицу ChatUser) и которые помечены как support (isSupport: true)
+      return await prisma.chat.findMany({
+        where: {
+          isSupport: true,
+          participants: {
+            some: {
+              userId: user.id // Проверяем, есть ли пользователь среди участников чата
+            }
+          }
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                },
+                where: {
+                  support: false // Фильтруем участников, чтобы вернуть только того, кто не является саппортом
+                }
               }
             }
           },
-          include: {
-            participants: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    number: true,
-                    images: true,
-                    role: true,
-                    position: true,
-                    airlineId: true,
-                    airlineDepartmentId: true,
-                    hotelId: true,
-                    dispatcher: true
-                  }
-                }
-              }
-            },
-            messages: true
-          }
-        })
-        .then((chats) => {
-          // Фильтруем чаты, чтобы получить только пользователей, которые не являются саппортом
-          return chats
-            .map((chat) => {
-              const nonSupportUser = chat.participants.find(
-                (participant) => !participant.user.support
-              )
-              return nonSupportUser ? nonSupportUser.user : null
-            })
-            .filter((user) => user !== null)
-        })
+          messages: true
+        }
+      })
     },
     // Query: userSupportChat
     // Возвращает чат поддержки, связанный с указанным userId.
