@@ -512,7 +512,7 @@ function formatDateToISO(dateInput) {
 
 // Функции агрегации заяврк ---------------- ↓↓↓↓
 
-// Вставьте эти вспомогательные функции где-нибудь в том же файле
+// Вспомогательные функции (если уже есть — можно оставить, но не дублируйте)
 const startOfDay = (dt) => {
   const d = new Date(dt)
   d.setHours(0, 0, 0, 0)
@@ -525,7 +525,7 @@ const addDays = (dt, n) => {
   return d
 }
 
-// Возвращает массив дат (объект Date, каждая ночь) от start (inclusive) до end (exclusive)
+// Возвращает массив дат (каждая ночь) от start (inclusive) до end (exclusive)
 const listNights = (start, end) => {
   const nights = []
   let cur = startOfDay(start)
@@ -539,7 +539,7 @@ const listNights = (start, end) => {
 
 const dateToKey = (d) => d.toISOString().slice(0, 10) // YYYY-MM-DD
 
-// --------- Основная функция (замена части, где вы формируете reportData) -------------
+// ---- Заменяемая функция aggregateRequestReports ----
 const aggregateRequestReports = (
   requests,
   reportType,
@@ -582,7 +582,7 @@ const aggregateRequestReports = (
     return nameA.localeCompare(nameB, "ru")
   })
 
-  // Сначала подготовим effectiveArrival/effectiveDeparture для каждого запроса
+  // Подготовим effectiveArrival/effectiveDeparture для каждого запроса
   const requestsWithEffective = filtered.map((request) => {
     const hotelChess = request.hotelChess?.[0] || {}
     const rawIn = hotelChess.start
@@ -602,7 +602,7 @@ const aggregateRequestReports = (
     }
   })
 
-  // Группируем по конкретной комнате (если нет room id - группируем по roomName чтобы не терять)
+  // Группируем по комнате (если нет id — используем имя/уникальный ключ)
   const groupsByRoom = {}
   requestsWithEffective.forEach((req) => {
     const roomId =
@@ -615,14 +615,15 @@ const aggregateRequestReports = (
 
   // map requestId -> owned nights count
   const ownedDaysMap = {}
+  // map requestId -> Set of roommate names
+  const roommatesMap = {}
 
   // Проходим по каждой группе комнаты и распределяем ночи по правилам
   Object.values(groupsByRoom).forEach((group) => {
-    // Для устойчивости сортируем по effectiveArrival (ранние заезды первыми)
+    // Сортируем по effectiveArrival (ранние заезды первыми)
     group.sort((a, b) => a._effectiveArrival - b._effectiveArrival)
 
-    // Для этой комнаты строим список всех ночей, которые покрываются кем-либо в группе
-    // Вычислим общий диапазон для удобства: minArrival .. maxDeparture, но ограниченный filterStart/filterEnd
+    // Вычисляем общий диапазон для комнаты (ограничен filterStart/filterEnd)
     let minArr = group.reduce(
       (m, r) => (r._effectiveArrival < m ? r._effectiveArrival : m),
       group[0]._effectiveArrival
@@ -634,33 +635,40 @@ const aggregateRequestReports = (
     if (minArr < filterStart) minArr = filterStart
     if (maxDep > filterEnd) maxDep = filterEnd
 
-    // Получаем список ночей
-    const nights = listNights(minArr, maxDep) // each night corresponds to date starting at 00:00
+    // Получаем список ночей (каждая ночь — интервал [night, night+1))
+    const nights = listNights(minArr, maxDep)
 
     nights.forEach((night) => {
-      // для каждой ночи смотрим, какие запросы покрывают эту ночь
-      // ночь N означает интервал [N 00:00, N+1 00:00) — мы считаем, что если _effectiveArrival < N+1 и _effectiveDeparture > N => покрывает
       const nextDay = addDays(night, 1)
+      // Найдём запросы, которые покрывают эту ночь
       const covering = group.filter((r) => {
         return r._effectiveArrival < nextDay && r._effectiveDeparture > night
       })
 
-      if (covering.length === 0) return // никого нет на эту ночь
+      if (covering.length === 0) return
 
-      // из покрывающих выбираем того, у кого минимальная _effectiveArrival (тот, кто раньше заехал)
+      // Пометим соседей друг другу (всем, кто покрывает ночь, кроме самого себя)
+      covering.forEach((r) => {
+        if (!roommatesMap[r.id]) roommatesMap[r.id] = new Set()
+        covering.forEach((other) => {
+          if (other.id !== r.id && other.person?.name) {
+            roommatesMap[r.id].add(other.person.name)
+          }
+        })
+      })
+
+      // Выбираем владельца ночи — тот, кто заехал раньше
       covering.sort((a, b) => a._effectiveArrival - b._effectiveArrival)
       const owner = covering[0]
       ownedDaysMap[owner.id] = (ownedDaysMap[owner.id] || 0) + 1
     })
   })
 
-  // Теперь формируем итоговый массив, используя ownedDaysMap для расчёта стоимости проживания
+  // Формируем итоговый массив
   return requestsWithEffective.map((request, index) => {
     const hotelChess = request.hotelChess?.[0] || {}
-    // Если ни одной ночи не принадлежит — ownedDays = 0
     const ownedDays = ownedDaysMap[request.id] || 0
 
-    // Если хотите сохранить прежний fullDays / effectiveDays для других расчётов — можно оставить их
     const fullDays = calculateTotalDays(
       request._effectiveArrival,
       request._effectiveDeparture
@@ -672,7 +680,6 @@ const aggregateRequestReports = (
       formatDateToISO(filterEnd)
     )
 
-    // Для стоимости проживания используем ownedDays (целые ночи) × pricePerDay
     const totalLivingCost = calculateLivingCost(request, reportType, ownedDays)
 
     const mealPlan = request.mealPlan || {}
@@ -704,15 +711,19 @@ const aggregateRequestReports = (
     const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
     const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
+    // roommates: превратить Set в массив/строку
+    const roommatesSet = roommatesMap[request.id] || new Set()
+    const roommatesArr = Array.from(roommatesSet)
+    const roommateNames = roommatesArr.join(", ") // все имена через запятую
+    const roommateName = roommatesArr.length > 0 ? roommatesArr[0] : "" // первый сосед
+
     return {
       index: index + 1,
       id: request.id,
       hotelName: request.hotel?.name || "Не указано",
       arrival: formatLocalDate(request._effectiveArrival),
       departure: formatLocalDate(request._effectiveDeparture),
-      // totalDays теперь — это ownedDays (кол-во ночей, которые фактически записаны за этим человеком)
       totalDays: ownedDays,
-      // Сохранил старые поля если нужно для отладки:
       _fullDays: fullDays,
       _effectiveDays: effectiveDays,
       category:
@@ -739,7 +750,9 @@ const aggregateRequestReports = (
       dinnerCount,
       totalMealCost,
       totalLivingCost,
-      totalDebt: totalLivingCost + totalMealCost
+      totalDebt: totalLivingCost + totalMealCost,
+      roommateNames, // все соседи, возможно пустая строка
+      roommateName // первый сосед (можно показывать рядом с именем)
     }
   })
 }
