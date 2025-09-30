@@ -756,7 +756,7 @@ const requestResolver = {
 
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
         }
-        console.log("mealPlanData " + JSON.stringify(mealPlanData))
+
         const updatedRequest = await prisma.request.update({
           where: { id: requestId },
           data: {
@@ -771,6 +771,8 @@ const requestResolver = {
             person: true
           }
         })
+
+        console.log("mealPlanData " + JSON.stringify(updatedRequest.mealPlan))
 
         const mailOptions = {
           to: `${process.env.EMAIL_RESIEVER}`,
