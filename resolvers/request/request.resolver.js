@@ -728,14 +728,12 @@ const requestResolver = {
             lunch: hotel.lunch,
             dinner: hotel.dinner
           }
-          console.log("mealTimes " + JSON.stringify(mealTimes))
           const calculatedMealPlan = calculateMeal(
             updatedStart,
             updatedEnd,
             mealTimes,
             enabledMeals
           )
-          console.log("calculatedMealPlan " + JSON.stringify(calculatedMealPlan))
           mealPlanData = {
             included: request.mealPlan.included,
             breakfast: calculatedMealPlan.totalBreakfast,
@@ -746,7 +744,7 @@ const requestResolver = {
             dinnerEnabled: enabledMeals.dinner,
             dailyMeals: calculatedMealPlan.dailyMeals
           }
-          console.log("mealPlanData " + JSON.stringify(mealPlanData))
+
           const updatedHotelChess = await prisma.hotelChess.update({
             where: { id: request.hotelChess[0].id },
             data: {
@@ -758,7 +756,7 @@ const requestResolver = {
 
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
         }
-
+        console.log("mealPlanData " + JSON.stringify(mealPlanData))
         const updatedRequest = await prisma.request.update({
           where: { id: requestId },
           data: {
