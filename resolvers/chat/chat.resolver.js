@@ -706,6 +706,9 @@ const chatResolver = {
           if (user.dispatcher === true) {
             return true
           }
+          if (user.role === "SUPERADMIN") {
+            return true
+          }
           if (user.airlineId && user.airlineId === message.chat.airlineId) {
             return true
           }
