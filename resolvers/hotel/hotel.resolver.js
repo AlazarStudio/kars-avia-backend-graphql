@@ -859,9 +859,8 @@ const hotelResolver = {
         if (roomKind) {
           for (const room of roomKind) {
             if (room.id) {
-              const previosRoomKindData = await prisma.roomKind.update({
-                where: { id: room.id },
-                data: updatedRoomData
+              const previosRoomKindData = await prisma.roomKind.findUnique({
+                where: { id: room.id }
               })
               let imagePaths = previosRoomKindData.images || []
               if (roomKindImages && roomKindImages.length > 0) {
