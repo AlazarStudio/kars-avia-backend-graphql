@@ -512,34 +512,6 @@ function formatDateToISO(dateInput) {
 
 // Функции агрегации заяврк ---------------- ↓↓↓↓
 
-// Вставьте эти вспомогательные функции где-нибудь в том же файле
-const startOfDay = (dt) => {
-  const d = new Date(dt)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-const addDays = (dt, n) => {
-  const d = new Date(dt)
-  d.setDate(d.getDate() + n)
-  return d
-}
-
-// Возвращает массив дат (объект Date, каждая ночь) от start (inclusive) до end (exclusive)
-const listNights = (start, end) => {
-  const nights = []
-  let cur = startOfDay(start)
-  const last = startOfDay(end)
-  while (cur < last) {
-    nights.push(new Date(cur))
-    cur = addDays(cur, 1)
-  }
-  return nights
-}
-
-const dateToKey = (d) => d.toISOString().slice(0, 10) // YYYY-MM-DD
-
-// --------- Основная функция (замена части, где вы формируете reportData) -------------
 const aggregateRequestReports = (
   requests,
   reportType,
@@ -551,13 +523,15 @@ const aggregateRequestReports = (
     return pos !== "Техник" && pos !== "Инженер"
   })
 
-  // сортировка как у вас (по отелю, категории, ФИО)
   filtered.sort((a, b) => {
+    //  hotel name sort ---------------- ↓↓↓↓
     const hotelA = a.hotel?.name || ""
     const hotelB = b.hotel?.name || ""
     const hotelCmp = hotelA.localeCompare(hotelB, "ru")
     if (hotelCmp !== 0) return hotelCmp
+    //  hotel name sort ---------------- ↑↑↑↑
 
+    // room category sort ---------------- ↓↓↓↓
     const catOrder = [
       "studio",
       "apartment",
@@ -576,14 +550,16 @@ const aggregateRequestReports = (
     const catA = catOrder.indexOf(a.roomCategory)
     const catB = catOrder.indexOf(b.roomCategory)
     if (catA !== catB) return catA - catB
+    // room category sort ---------------- ↑↑↑↑
 
+    // person name sort ---------------- ↓↓↓↓
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
     return nameA.localeCompare(nameB, "ru")
+    // person name sort ---------------- ↑↑↑↑
   })
 
-  // Сначала подготовим effectiveArrival/effectiveDeparture для каждого запроса
-  const requestsWithEffective = filtered.map((request) => {
+  return filtered.map((request, index) => {
     const hotelChess = request.hotelChess?.[0] || {}
     const rawIn = hotelChess.start
       ? parseAsLocal(hotelChess.start)
@@ -595,87 +571,47 @@ const aggregateRequestReports = (
     const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
     const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
 
-    return {
-      ...request,
-      _effectiveArrival: effectiveArrival,
-      _effectiveDeparture: effectiveDeparture
+    const categoryMapping = {
+      studio: "Студия",
+      apartment: "Апартаменты",
+      luxe: "Люкс",
+      onePlace: "Одноместный",
+      twoPlace: "Двухместный",
+      threePlace: "Трёхместный",
+      fourPlace: "Четырёхместный",
+      fivePlace: "Пятиместный",
+      sixPlace: "Шестиместный",
+      sevenPlace: "Семиместный",
+      eightPlace: "Восьмиместный",
+      ninePlace: "Девятиместный",
+      tenPlace: "Десятиместный"
     }
-  })
 
-  // Группируем по конкретной комнате (если нет room id - группируем по roomName чтобы не терять)
-  const groupsByRoom = {}
-  requestsWithEffective.forEach((req) => {
-    const roomId =
-      req.hotelChess?.[0]?.room?.id ||
-      req.hotelChess?.[0]?.room?.name ||
-      `room_unknown_${req.id}`
-    if (!groupsByRoom[roomId]) groupsByRoom[roomId] = []
-    groupsByRoom[roomId].push(req)
-  })
-
-  // map requestId -> owned nights count
-  const ownedDaysMap = {}
-
-  // Проходим по каждой группе комнаты и распределяем ночи по правилам
-  Object.values(groupsByRoom).forEach((group) => {
-    // Для устойчивости сортируем по effectiveArrival (ранние заезды первыми)
-    group.sort((a, b) => a._effectiveArrival - b._effectiveArrival)
-
-    // Для этой комнаты строим список всех ночей, которые покрываются кем-либо в группе
-    // Вычислим общий диапазон для удобства: minArrival .. maxDeparture, но ограниченный filterStart/filterEnd
-    let minArr = group.reduce(
-      (m, r) => (r._effectiveArrival < m ? r._effectiveArrival : m),
-      group[0]._effectiveArrival
-    )
-    let maxDep = group.reduce(
-      (m, r) => (r._effectiveDeparture > m ? r._effectiveDeparture : m),
-      group[0]._effectiveDeparture
-    )
-    if (minArr < filterStart) minArr = filterStart
-    if (maxDep > filterEnd) maxDep = filterEnd
-
-    // Получаем список ночей
-    const nights = listNights(minArr, maxDep) // each night corresponds to date starting at 00:00
-
-    nights.forEach((night) => {
-      // для каждой ночи смотрим, какие запросы покрывают эту ночь
-      // ночь N означает интервал [N 00:00, N+1 00:00) — мы считаем, что если _effectiveArrival < N+1 и _effectiveDeparture > N => покрывает
-      const nextDay = addDays(night, 1)
-      const covering = group.filter((r) => {
-        return r._effectiveArrival < nextDay && r._effectiveDeparture > night
-      })
-
-      if (covering.length === 0) return // никого нет на эту ночь
-
-      // из покрывающих выбираем того, у кого минимальная _effectiveArrival (тот, кто раньше заехал)
-      covering.sort((a, b) => a._effectiveArrival - b._effectiveArrival)
-      const owner = covering[0]
-      ownedDaysMap[owner.id] = (ownedDaysMap[owner.id] || 0) + 1
-    })
-  })
-
-  // Теперь формируем итоговый массив, используя ownedDaysMap для расчёта стоимости проживания
-  return requestsWithEffective.map((request, index) => {
-    const hotelChess = request.hotelChess?.[0] || {}
-    // Если ни одной ночи не принадлежит — ownedDays = 0
-    const ownedDays = ownedDaysMap[request.id] || 0
-
-    // Если хотите сохранить прежний fullDays / effectiveDays для других расчётов — можно оставить их
-    const fullDays = calculateTotalDays(
-      request._effectiveArrival,
-      request._effectiveDeparture
-    )
+    const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
     const effectiveDays = calculateEffectiveCostDaysWithPartial(
-      formatDateToISO(request._effectiveArrival),
-      formatDateToISO(request._effectiveDeparture),
+      formatDateToISO(effectiveArrival),
+      formatDateToISO(effectiveDeparture),
       formatDateToISO(filterStart),
       formatDateToISO(filterEnd)
     )
 
-    // Для стоимости проживания используем ownedDays (целые ночи) × pricePerDay
-    const totalLivingCost = calculateLivingCost(request, reportType, ownedDays)
+    // const breakdown = calculateDaysBreakdown(
+    //   rawIn,
+    //   rawOut,
+    //   filterStart,
+    //   filterEnd
+    // )
+
+    // console.log(breakdown)
+
+    const totalLivingCost = calculateLivingCost(
+      request,
+      reportType,
+      effectiveDays
+    )
 
     const mealPlan = request.mealPlan || {}
+
     const isNoMealCategory = ["apartment", "studio"].includes(
       request.roomCategory
     )
@@ -708,29 +644,17 @@ const aggregateRequestReports = (
       index: index + 1,
       id: request.id,
       hotelName: request.hotel?.name || "Не указано",
-      arrival: formatLocalDate(request._effectiveArrival),
-      departure: formatLocalDate(request._effectiveDeparture),
-      // totalDays теперь — это ownedDays (кол-во ночей, которые фактически записаны за этим человеком)
-      totalDays: ownedDays,
-      // Сохранил старые поля если нужно для отладки:
-      _fullDays: fullDays,
-      _effectiveDays: effectiveDays,
-      category:
-        {
-          studio: "Студия",
-          apartment: "Апартаменты",
-          luxe: "Люкс",
-          onePlace: "Одноместный",
-          twoPlace: "Двухместный",
-          threePlace: "Трёхместный",
-          fourPlace: "Четырёхместный",
-          fivePlace: "Пятиместный",
-          sixPlace: "Шестиместный",
-          sevenPlace: "Семиместный",
-          eightPlace: "Восьмиместный",
-          ninePlace: "Девятиместный",
-          tenPlace: "Десятиместный"
-        }[request.roomCategory] || request.roomCategory,
+      arrival: formatLocalDate(effectiveArrival),
+      departure: formatLocalDate(effectiveDeparture),
+      totalDays: effectiveDays,
+      // totalDays: calculateEffectiveCostDaysWithPartial(
+      //   rawIn,
+      //   rawOut,
+      //   filterStart,
+      //   filterEnd
+      // ),
+      // breakdown: breakdown,
+      category: categoryMapping[request.roomCategory] || request.roomCategory,
       personName: request.person?.name || "Не указано",
       personPosition: request.person?.position?.name || "Не указано",
       roomName: hotelChess.room?.name || "",
