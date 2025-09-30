@@ -961,26 +961,20 @@ function calculateEffectiveCostDaysWithPartial(
 
 // ------------------ helper parsing/даты ------------------
 const parseDDMMYYYY_HHMMSS = (str) => {
-  // ожидает "dd.MM.yyyy HH:mm:ss"
   if (!str) return null
   const [datePart, timePart] = str.split(" ")
   const [dd, mm, yyyy] = datePart.split(".").map(Number)
   const [hh = 0, min = 0, ss = 0] = (timePart || "00:00:00")
     .split(":")
     .map(Number)
-  // создаём локальную дату
   return new Date(yyyy, mm - 1, dd, hh, min, ss)
 }
 
-// ---------------------------------------------
-// helper: сервисный день (граница — час, по умолчанию 12:00)
-// ---------------------------------------------
 const startOfServiceDay = (dt, serviceDayHour = 12) => {
   const d = new Date(dt)
   d.setHours(serviceDayHour, 0, 0, 0)
   return d
 }
-
 const addDays = (dt, n) => {
   const d = new Date(dt)
   d.setDate(d.getDate() + n)
@@ -989,18 +983,12 @@ const addDays = (dt, n) => {
 
 /**
  * Возвращает список "ночей" (сервисных дней) от start (inclusive) до end (exclusive).
- * Каждая "ночь" — это момент начала сервисного дня (например, 12:00).
- * По умолчанию сервисный день начинается в 12:00 (полдень).
+ * Каждая "ночь" — момент начала сервисного дня (например, 12:00).
  */
 const listServiceNights = (start, end, serviceDayHour = 12) => {
   const nights = []
-  // вычисляем первый сервисный момент <= start (если start позже than service moment -> оставим тот же день)
   let cur = startOfServiceDay(start, serviceDayHour)
-  // если фактическое start ранее сервисного часа на той же дате, нам нужен предыдущий сервисный момент
-  if (start < cur) {
-    // берем предыдущий сервисный день (чтобы покрыть ночь, которая началась раньше в тот же календарный день)
-    cur = addDays(cur, -1)
-  }
+  if (start < cur) cur = addDays(cur, -1)
   const last = startOfServiceDay(end, serviceDayHour)
   while (cur < last) {
     nights.push(new Date(cur))
@@ -1009,27 +997,28 @@ const listServiceNights = (start, end, serviceDayHour = 12) => {
   return nights
 }
 
-// ------------------ основная функция ------------------
+// ------------------ основная функция с режимами ------------------
 /**
  * distributeNightsAndRoommates
- * reportRows — массив объектов, каждый объект должен содержать:
- *   id, personName, roomId, arrival (строка "dd.MM.yyyy HH:mm:ss"), departure (строка)
+ * reportRows — массив объектов с необходимыми полями (id, personName, roomId, arrival, departure, totalDays, totalLivingCost, totalMealCost)
  * options:
- *   filterStart, filterEnd — Date (опционально) — границы отчётного периода. Если не указаны, берутся min/max по данным.
- *   getPricePerDay(row) — опциональный колбэк, возвращающий цену за сутки для строки (если не указан — будет computedPrice = totalLivingCost / totalDays)
+ *  - serviceDayHour (default 12)
+ *  - mode: "owner" | "shared_equal" | "shared_proportional" (default "owner")
+ *  - filterStart/filterEnd: Date (опционально)
+ *  - getPricePerDay(row) — optional callback
  *
- * Возвращает новый массив (клонированные объекты) с добавленными полями:
- *   ownedDays (целое), roommateNames (строка), roommateName (первый сосед), totalLivingCost (пересчитанный)
+ * Возвращает новый массив строк с полями ownedDays (может быть дробным), roommateNames, roommateName, totalLivingCost, totalDebt, nightBreakdown (debug)
  */
 function distributeNightsAndRoommates(reportRows, options = {}) {
   const rows = reportRows.map((r) => ({ ...r })) // shallow clone
   const {
+    serviceDayHour = 12,
+    mode = "owner",
     filterStart = null,
     filterEnd = null,
     getPricePerDay = null
   } = options
 
-  // 1) преобразуем arrival/departure в Date и вычислим effective boundaries
   rows.forEach((r) => {
     r.__arrivalDate =
       typeof r.arrival === "string"
@@ -1039,10 +1028,13 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
       typeof r.departure === "string"
         ? parseDDMMYYYY_HHMMSS(r.departure)
         : new Date(r.departure)
-    // нормируем: если arrival >= departure — оставим как есть (пометка)
+    // clamp NaN
+    if (!(r.__arrivalDate instanceof Date) || isNaN(r.__arrivalDate))
+      r.__arrivalDate = new Date(0)
+    if (!(r.__departureDate instanceof Date) || isNaN(r.__departureDate))
+      r.__departureDate = new Date(0)
   })
 
-  // 2) установим global filterStart/filterEnd если не переданы
   let globalStart = filterStart
   let globalEnd = filterEnd
   if (!globalStart) {
@@ -1064,7 +1056,7 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
       ) || new Date()
   }
 
-  // 3) сгруппируем по roomId (если нет roomId — уникальный ключ по roomName+hotelName+index)
+  // group by roomId
   const groups = {}
   rows.forEach((r, idx) => {
     const roomKey =
@@ -1073,12 +1065,13 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
     groups[roomKey].push(r)
   })
 
-  const ownedDaysMap = {} // id -> integer
-  const roommatesMap = {} // id -> Set(names)
+  // accumulators
+  const ownedDaysMap = {} // id -> float
+  const roommatesMap = {} // id -> Set(name)
+  const nightDebugMap = {} // roomKey -> array of nights with coverage info (for debug)
 
-  // 4) для каждой комнаты: соберём общий диапазон, список ночей, и распределим
-  Object.values(groups).forEach((group) => {
-    // рассчитываем effective arrival/departure ограниченные globalStart/globalEnd
+  Object.entries(groups).forEach(([roomKey, group]) => {
+    // compute effective intervals clipped to globalStart/globalEnd
     group.forEach((r) => {
       r.__effArr =
         r.__arrivalDate < globalStart
@@ -1090,10 +1083,10 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
           : new Date(r.__departureDate)
     })
 
-    // сортируем по effective arrival (ранние заезды первыми)
+    // sort by effective arrival so owner mode is deterministic
     group.sort((a, b) => a.__effArr - b.__effArr)
 
-    // общий диапазон
+    // compute overall min/max
     let minArr =
       group.reduce((m, r) => (!m || r.__effArr < m ? r.__effArr : m), null) ||
       globalStart
@@ -1103,17 +1096,18 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
     if (minArr < globalStart) minArr = globalStart
     if (maxDep > globalEnd) maxDep = globalEnd
 
-    // список ночей
-    const nights = listServiceNights(minArr, maxDep, 12) // 12 — граница (можно поставить 14, если хотите)
+    const nights = listServiceNights(minArr, maxDep, serviceDayHour)
+    nightDebugMap[roomKey] = []
 
-    nights.forEach((night) => {
-      const next = addDays(night, 1)
+    nights.forEach((nightStart) => {
+      const nightEnd = addDays(nightStart, 1)
+      // find who covers this night (has overlap with [nightStart, nightEnd))
       const covering = group.filter(
-        (r) => r.__effArr < next && r.__effDep > night
+        (r) => r.__effArr < nightEnd && r.__effDep > nightStart
       )
       if (covering.length === 0) return
 
-      // помечаем соседей друг для друга (всем покрывающим ночь)
+      // record roommates among covering
       covering.forEach((r) => {
         if (!roommatesMap[r.id]) roommatesMap[r.id] = new Set()
         covering.forEach((other) => {
@@ -1122,14 +1116,60 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
         })
       })
 
-      // выбираем владельца ночи — с наименьшим __effArr
-      covering.sort((a, b) => a.__effArr - b.__effArr)
-      const owner = covering[0]
-      ownedDaysMap[owner.id] = (ownedDaysMap[owner.id] || 0) + 1
+      if (mode === "owner") {
+        // owner: give full 1.0 night to earliest arrival
+        covering.sort((a, b) => a.__effArr - b.__effArr)
+        const owner = covering[0]
+        ownedDaysMap[owner.id] = (ownedDaysMap[owner.id] || 0) + 1
+        nightDebugMap[roomKey].push({
+          nightStart: nightStart.toISOString(),
+          nightEnd: nightEnd.toISOString(),
+          mode: "owner",
+          allocated: [{ id: owner.id, name: owner.personName, share: 1 }]
+        })
+      } else if (mode === "shared_equal") {
+        const share = 1 / covering.length
+        covering.forEach((r) => {
+          ownedDaysMap[r.id] = (ownedDaysMap[r.id] || 0) + share
+        })
+        nightDebugMap[roomKey].push({
+          nightStart: nightStart.toISOString(),
+          nightEnd: nightEnd.toISOString(),
+          mode: "shared_equal",
+          allocated: covering.map((r) => ({
+            id: r.id,
+            name: r.personName,
+            share
+          }))
+        })
+      } else if (mode === "shared_proportional") {
+        // compute actual overlap seconds for each covering inside [nightStart, nightEnd)
+        const overlaps = covering.map((r) => {
+          const s = r.__effArr > nightStart ? r.__effArr : nightStart
+          const e = r.__effDep < nightEnd ? r.__effDep : nightEnd
+          const overlapMs = Math.max(0, e - s)
+          return { r, overlapMs }
+        })
+        const totalMs = overlaps.reduce((sum, o) => sum + o.overlapMs, 0) || 1
+        overlaps.forEach((o) => {
+          const share = o.overlapMs / totalMs
+          ownedDaysMap[o.r.id] = (ownedDaysMap[o.r.id] || 0) + share
+        })
+        nightDebugMap[roomKey].push({
+          nightStart: nightStart.toISOString(),
+          nightEnd: nightEnd.toISOString(),
+          mode: "shared_proportional",
+          allocated: overlaps.map((o) => ({
+            id: o.r.id,
+            name: o.r.personName,
+            share: o.overlapMs / totalMs
+          }))
+        })
+      }
     })
   })
 
-  // 5) Заполняем поля в rows: ownedDays, roommateNames, roommateName, пересчёт totalLivingCost
+  // finalize rows: compute pricePerDay and recalc totals, and attach roommates
   const result = rows.map((r) => {
     const owned = ownedDaysMap[r.id] || 0
     const roommatesSet = roommatesMap[r.id] || new Set()
@@ -1137,7 +1177,6 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
     const roommateNames = roommatesArr.join(", ")
     const roommateName = roommatesArr.length > 0 ? roommatesArr[0] : ""
 
-    // получаем pricePerDay: сначала из callback, иначе из имеющейся оценки
     let pricePerDay = 0
     if (typeof getPricePerDay === "function") {
       pricePerDay = Number(getPricePerDay(r)) || 0
@@ -1146,22 +1185,26 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
         Number(r.totalDays) && Number(r.totalDays) !== 0
           ? Number(r.totalDays)
           : 1
-      pricePerDay = Math.round((Number(r.totalLivingCost) || 0) / denom)
+      pricePerDay = (Number(r.totalLivingCost) || 0) / denom
     }
 
-    const newLiving = owned * pricePerDay
+    // round to 2 decimals for money; you can round to integer if needed
+    const newLiving = Math.round(owned * pricePerDay * 100) / 100
 
     return {
       ...r,
-      ownedDays: owned,
+      ownedDays: Math.round(owned * 100) / 100,
       roommateNames,
       roommateName,
       totalLivingCost: newLiving,
-      totalDebt: newLiving + (Number(r.totalMealCost) || 0)
+      totalDebt:
+        Math.round((newLiving + (Number(r.totalMealCost) || 0)) * 100) / 100
+      // debug
+      // nightBreakdown: nightDebugMap[...] // if needed, could attach per room
     }
   })
 
-  return result
+  return { rows: result, debug: { nightDebugMap } }
 }
 
 export default reportResolver

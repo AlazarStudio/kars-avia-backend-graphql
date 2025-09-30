@@ -240,7 +240,9 @@ const hotelResolver = {
         }
       }
 
-      let galleryPaths = previousHotelData.gallery || []
+      let galleryPaths = previousHotelData.gallery
+        ? previousHotelData.gallery
+        : []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
           galleryPaths.push(await uploadImage(image))
@@ -739,7 +741,10 @@ const hotelResolver = {
                 where: { id: room.id }
               })
 
-              let imagePaths = previousRoomData.images || []
+              let imagePaths =
+                previousRoomData.images != undefined
+                  ? previousRoomData.images
+                  : []
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
                   imagePaths.push(await uploadImage(image))
@@ -862,7 +867,10 @@ const hotelResolver = {
               const previosRoomKindData = await prisma.roomKind.findUnique({
                 where: { id: room.id }
               })
-              let imagePaths = previosRoomKindData.images || []
+              let imagePaths =
+                previosRoomKindData.images != undefined
+                  ? previosRoomKindData.images
+                  : []
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
                   imagePaths.push(await uploadImage(image))
@@ -1013,6 +1021,12 @@ const hotelResolver = {
       context
     ) => {
       hotelAdminMiddleware(context)
+      console.log("\n imagesArray - " + imagesArray)
+      console.log("\n imagesToDeleteArray - " + imagesToDeleteArray)
+      console.log("\n imagesArray str - " + JSON.stringify(imagesArray))
+      console.log(
+        "\n imagesToDeleteArray str - " + JSON.stringify(imagesToDeleteArray)
+      )
       const updatedRoomKind = await prisma.hotel.update({
         where: { id },
         data: { gallery: imagesArray }
