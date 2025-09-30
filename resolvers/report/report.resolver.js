@@ -191,8 +191,8 @@ const reportResolver = {
 
       const newRows = distributeNightsAndRoommates(reportData, {})
 
-      console.log("\n reportData: \n " + newRows)
-      console.log("\n reportData stringify: \n " + JSON.stringify(newRows))
+      // console.log("\n reportData: \n " + newRows)
+      // console.log("\n reportData stringify: \n " + JSON.stringify(newRows))
 
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
