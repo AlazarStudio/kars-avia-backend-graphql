@@ -457,6 +457,64 @@ const getAirlineMealPrice = (request) => {
   return 0
 }
 
+const calculateMealCostForReportDays = (
+  request,
+  reportType,
+  effectiveDays,
+  fullDays,
+  mealPlan,
+  startDate,
+  endDate
+) => {
+  // 1. Преобразуем startDate и endDate в Date объекты
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
+  // 2. Инициализация счётчиков пищи
+  let breakfastCount = 0
+  let lunchCount = 0
+  let dinnerCount = 0
+
+  // 3. Проходим по каждому дню в dailyMeals
+  mealPlan.dailyMeals.forEach((mealDay) => {
+    const mealDate = new Date(mealDay.date)
+
+    // Проверяем, попадает ли день в отчётный период
+    if (mealDate >= start && mealDate <= end) {
+      breakfastCount += mealDay.breakfast || 0
+      lunchCount += mealDay.lunch || 0
+      dinnerCount += mealDay.dinner || 0
+    }
+  })
+
+  // 4. Если нет питания (по категории), то обнуляем количество
+  const isNoMealCategory = ["apartment", "studio"].includes(
+    request.roomCategory
+  )
+  if (isNoMealCategory) {
+    breakfastCount = 0
+    lunchCount = 0
+    dinnerCount = 0
+  }
+
+  // 5. Получаем цены на еду в зависимости от типа отчёта
+  let mealPrices
+  if (reportType === "airline") {
+    mealPrices = getAirlineMealPrice(request) // Для авиакомпаний
+  } else if (reportType === "hotel") {
+    mealPrices = request.hotel?.mealPrice // Для отелей
+  }
+
+  // 6. Рассчитываем стоимость пищи
+  const breakfastCost = breakfastCount * (mealPrices?.breakfast || 0)
+  const lunchCost = lunchCount * (mealPrices?.lunch || 0)
+  const dinnerCost = dinnerCount * (mealPrices?.dinner || 0)
+  const totalMealCost = breakfastCost + lunchCost + dinnerCost
+
+  // Возвращаем результаты
+  return { totalMealCost, breakfastCount, lunchCount, dinnerCount }
+}
+
 // Функции для подсчёта цен ---------------- ↑↑↑↑
 
 // Функции обработки дат ---------------- ↓↓↓↓
@@ -621,29 +679,35 @@ const aggregateRequestReports = (
       request.roomCategory
     )
 
-    let breakfastCount = isNoMealCategory ? 0 : mealPlan.breakfast || 0
-    let lunchCount = isNoMealCategory ? 0 : mealPlan.lunch || 0
-    let dinnerCount = isNoMealCategory ? 0 : mealPlan.dinner || 0
+    // let breakfastCount = isNoMealCategory ? 0 : mealPlan.breakfast || 0
+    // let lunchCount = isNoMealCategory ? 0 : mealPlan.lunch || 0
+    // let dinnerCount = isNoMealCategory ? 0 : mealPlan.dinner || 0
 
-    if (fullDays > 0 && effectiveDays < fullDays) {
-      const ratio = effectiveDays / fullDays
-      breakfastCount = Math.round(breakfastCount * ratio)
-      lunchCount = Math.round(lunchCount * ratio)
-      dinnerCount = Math.round(dinnerCount * ratio)
-    }
+    // if (fullDays > 0 && effectiveDays < fullDays) {
+    //   const ratio = effectiveDays / fullDays
+    //   breakfastCount = Math.round(breakfastCount * ratio)
+    //   lunchCount = Math.round(lunchCount * ratio)
+    //   dinnerCount = Math.round(dinnerCount * ratio)
+    // }
 
-    let mealPrices
-    if (reportType === "airline") {
-      mealPrices = getAirlineMealPrice(request)
-    }
-    if (reportType === "hotel") {
-      mealPrices = request.hotel?.mealPrice
-    }
+    // let mealPrices
+    // if (reportType === "airline") {
+    //   mealPrices = getAirlineMealPrice(request)
+    // }
+    // if (reportType === "hotel") {
+    //   mealPrices = request.hotel?.mealPrice
+    // }
 
-    const breakfastCost = breakfastCount * (mealPrices.breakfast || 0)
-    const lunchCost = lunchCount * (mealPrices.lunch || 0)
-    const dinnerCost = dinnerCount * (mealPrices.dinner || 0)
-    const totalMealCost = breakfastCost + lunchCost + dinnerCost
+    const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
+      calculateMealCostForReportDays(
+        request,
+        reportType,
+        effectiveDays,
+        fullDays,
+        request.mealPlan || {},
+        effectiveArrival,
+        effectiveDeparture
+      )
 
     return {
       index: index + 1,
