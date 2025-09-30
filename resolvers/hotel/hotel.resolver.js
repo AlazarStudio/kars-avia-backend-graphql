@@ -1094,7 +1094,7 @@ const hotelResolver = {
       return roomToDelete
     },
 
-    deleteRoomImages: async (_, { id, images }, context) => {},
+    // deleteRoomImages: async (_, { id, images }, context) => {},
 
     updateAllRoomKindCount: async (_, { __ }, context) => {
       await allMiddleware(context)
