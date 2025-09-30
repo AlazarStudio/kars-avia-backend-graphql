@@ -989,12 +989,21 @@ const hotelResolver = {
       return createdRooms
     },
 
-    reorderRoomKindImages: async (_, { id, imagesArray }, context) => {
+    reorderRoomKindImages: async (
+      _,
+      { id, imagesArray, imagesToDeleteArray },
+      context
+    ) => {
       hotelAdminMiddleware(context)
       const updatedRoomKind = await prisma.roomKind.update({
         where: { id },
         data: { images: imagesArray }
       })
+      if (imagesToDeleteArray && imagesToDeleteArray.length > 0) {
+        for (const imagePath of imagesToDeleteArray) {
+          await deleteImage(imagePath)
+        }
+      }
       return updatedRoomKind
     },
 

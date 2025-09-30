@@ -269,7 +269,7 @@ type Query {
 type Mutation { 
   createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
   updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
-  reorderRoomKindImages(id: ID!, imagesArray: [String!]): RoomKind!
+  reorderRoomKindImages(id: ID!, imagesArray: [String!], imagesToDeleteArray: [String!]): RoomKind!
   createManyRooms(input: ManyRoomsInput): [Room]
   deleteHotel(id: ID!): Hotel!
   deleteRoom(id: ID!): Room!
