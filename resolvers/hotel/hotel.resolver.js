@@ -227,6 +227,11 @@ const hotelResolver = {
         hotelAdminMiddleware(context) // В остальных случаях → права администратора отеля
       }
 
+      const previousHotelData = await prisma.hotel.findUnique({
+        where: { id },
+        select: { prices: true, mealPrice: true } // Получаем текущие цены
+      })
+
       // Обработка загрузки новых изображений для отеля
       let imagePaths = []
       if (images && images.length > 0) {
@@ -235,7 +240,7 @@ const hotelResolver = {
         }
       }
 
-      let galleryPaths = []
+      let galleryPaths = previousHotelData.gallery || []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
           galleryPaths.push(await uploadImage(image))
@@ -729,15 +734,17 @@ const hotelResolver = {
             // const places = calculatePlaces(room.category)
             if (room.id) {
               // Если комната существует, обновляем данные
-              let imagePaths = []
+
+              const previousRoomData = await prisma.room.findUnique({
+                where: { id: room.id }
+              })
+
+              let imagePaths = previousRoomData.images || []
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
                   imagePaths.push(await uploadImage(image))
                 }
               }
-              const previousRoomData = await prisma.room.findUnique({
-                where: { id: room.id }
-              })
 
               let roomKind
               if (room.roomKindId != null) {
@@ -852,7 +859,11 @@ const hotelResolver = {
         if (roomKind) {
           for (const room of roomKind) {
             if (room.id) {
-              let imagePaths = []
+              const previosRoomKindData = await prisma.roomKind.update({
+                where: { id: room.id },
+                data: updatedRoomData
+              })
+              let imagePaths = previosRoomKindData.images || []
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
                   imagePaths.push(await uploadImage(image))
@@ -1071,16 +1082,19 @@ const hotelResolver = {
       if (!roomToDelete) {
         throw new Error("Комната не найдена")
       }
-      const deletedRoomKind = await prisma.roomKind.delete({
-        where: { id }
-      })
-      if (deletedRoomKind.images && deletedRoomKind.images.length > 0) {
-        for (const imagePath of deletedRoomKind.images) {
+      if (roomToDelete.images && roomToDelete.images.length > 0) {
+        for (const imagePath of roomToDelete.images) {
           await deleteImage(imagePath)
+
+          await prisma.roomKind.delete({
+            where: { id }
+          })
         }
       }
-      return deletedRoomKind
+      return roomToDelete
     },
+
+    deleteRoomImages: async (_, { id, images }, context) => {},
 
     updateAllRoomKindCount: async (_, { __ }, context) => {
       await allMiddleware(context)
