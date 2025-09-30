@@ -607,6 +607,13 @@ const requestResolver = {
 
           const updatedStart = newStart ? newStart : request.arrival
           const updatedEnd = newEnd ? newEnd : request.departure
+
+          if (updatedEnd < updatedStart) {
+            throw new Error(
+              "the end of an Request cannot be before its beginning"
+            )
+          }
+
           const chat = await prisma.chat.findFirst({
             where: { requestId: requestId, separator: "airline" }
           })
@@ -683,6 +690,12 @@ const requestResolver = {
 
         const updatedStart = newStart ? newStart : request.arrival
         const updatedEnd = newEnd ? newEnd : request.departure
+
+        if (updatedEnd < updatedStart) {
+          throw new Error(
+            "the end of an Request cannot be before its beginning"
+          )
+        }
 
         const enabledMeals = {
           breakfast: request.mealPlan?.breakfastEnabled,
