@@ -772,8 +772,6 @@ const requestResolver = {
           }
         })
 
-        console.log("mealPlanData " + JSON.stringify(updatedRequest.mealPlan))
-
         const mailOptions = {
           to: `${process.env.EMAIL_RESIEVER}`,
           subject: "Request updated",
@@ -818,6 +816,7 @@ const requestResolver = {
         }
 
         pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        console.log("mealPlanData " + JSON.stringify(updatedRequest.mealPlan))
         return updatedRequest
       } catch (error) {
         logger.error("Ошибка при обновлении заявки. ", error)
