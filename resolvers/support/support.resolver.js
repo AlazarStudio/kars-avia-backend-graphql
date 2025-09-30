@@ -64,13 +64,13 @@ const supportResolver = {
         throw new Error("Access denied")
       }
 
-      // Возвращаем все чаты, в которых участвует пользователь, и которые помечены как support (isSupport: true)
+      // Получаем все чаты с участниками, где хотя бы один из участников является текущим пользователем
       const chats = await prisma.chat.findMany({
         where: {
           isSupport: true,
           participants: {
             some: {
-              userId: user.id // Проверяем, есть ли пользователь среди участников чата
+              userId: user.id // Проверяем, есть ли текущий пользователь среди участников чата
             }
           }
         },
@@ -88,7 +88,8 @@ const supportResolver = {
                   airlineId: true,
                   airlineDepartmentId: true,
                   hotelId: true,
-                  dispatcher: true
+                  dispatcher: true,
+                  support: true // Убедитесь, что у пользователя есть поле `support`, чтобы понять, является ли он саппортом
                 }
               }
             }
@@ -97,16 +98,14 @@ const supportResolver = {
         }
       })
 
-      // Фильтруем участников чатов, чтобы вернуть только тех, кто не является саппортом
+      // Фильтруем участников, чтобы возвращать только тех, кто не является саппортом
       const filteredChats = chats.map((chat) => {
-        const nonSupportUser = chat.participants.find(
+        const nonSupportUsers = chat.participants.filter(
           (participant) => !participant.user.support
         )
         return {
           ...chat,
-          participants: chat.participants.filter(
-            (participant) => participant.user.support === false
-          )
+          participants: nonSupportUsers // Оставляем только пользователей, не являющихся саппортом
         }
       })
 
