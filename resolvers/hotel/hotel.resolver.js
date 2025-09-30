@@ -1003,14 +1003,6 @@ const hotelResolver = {
       context
     ) => {
       hotelAdminMiddleware(context)
-      // --------------------------------
-      console.log("\n imagesArray - " + imagesArray)
-      console.log("\n imagesToDeleteArray - " + imagesToDeleteArray)
-      console.log("\n imagesArray str - " + JSON.stringify(imagesArray))
-      console.log(
-        "\n imagesToDeleteArray str - " + JSON.stringify(imagesToDeleteArray)
-      )
-      // --------------------------------
       const updatedRoomKind = await prisma.roomKind.update({
         where: { id },
         data: { images: imagesArray }
@@ -1029,14 +1021,6 @@ const hotelResolver = {
       context
     ) => {
       hotelAdminMiddleware(context)
-      // --------------------------------
-      console.log("\n imagesArray - " + imagesArray)
-      console.log("\n imagesToDeleteArray - " + imagesToDeleteArray)
-      console.log("\n imagesArray str - " + JSON.stringify(imagesArray))
-      console.log(
-        "\n imagesToDeleteArray str - " + JSON.stringify(imagesToDeleteArray)
-      )
-      // --------------------------------
       const updatedRoomKind = await prisma.hotel.update({
         where: { id },
         data: { gallery: imagesArray }
