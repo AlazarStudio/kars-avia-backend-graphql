@@ -86,13 +86,31 @@ input DocUploadByKeyInput {
   images: [Upload!]!
 }
 
+# 
+type SupportChat {
+  id: ID!
+  requestId: ID
+  reserveId: ID
+  messages: [Message!]!
+  participants: [User!]!
+  createdAt: Date!
+  isSupport: Boolean!
+  unreadMessagesCount: Int 
+  separator: String
+  airlineId: ID
+  hotelId: ID
+  hotel: Hotel
+  airline: Airline
+}
+# 
+
 type Query {
   getAllPatchNotes: [PatchNote!]!
   getAllDocumentations(type: DocumentationType, filter: DocumentationFilter): [Documentation!]!
   documentationTree(id: ID!): Json
   getPatchNote(id: ID!): PatchNote
   getDocumentation(id: ID!): Documentation
-  supportChats: [Chat!]! # Для поддержки: все чаты с пользователями
+  supportChats: [SupportChat!]! # Для поддержки: все чаты с пользователями
   userSupportChat(userId: ID!): Chat! # Для пользователя: один чат с поддержкой
 }
 

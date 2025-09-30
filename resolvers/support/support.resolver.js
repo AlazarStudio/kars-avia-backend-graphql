@@ -64,16 +64,9 @@ const supportResolver = {
         throw new Error("Access denied")
       }
 
-      // Получаем все чаты с участниками, где хотя бы один из участников является текущим пользователем
+      // Возвращаем все чаты с участниками и сообщениями
       const chats = await prisma.chat.findMany({
-        where: {
-          isSupport: true,
-          participants: {
-            some: {
-              userId: user.id // Проверяем, есть ли текущий пользователь среди участников чата
-            }
-          }
-        },
+        where: { isSupport: true },
         include: {
           participants: {
             include: {
@@ -89,7 +82,7 @@ const supportResolver = {
                   airlineDepartmentId: true,
                   hotelId: true,
                   dispatcher: true,
-                  support: true // Убедитесь, что у пользователя есть поле `support`, чтобы понять, является ли он саппортом
+                  support: true
                 }
               }
             }
@@ -98,17 +91,15 @@ const supportResolver = {
         }
       })
 
-      // После того как чаты получены, фильтруем участников чатов
+      // Фильтруем участников с support: false для каждого чата
       const filteredChats = chats.map((chat) => {
-        // Фильтруем участников чата, оставляя только тех, кто не является саппортом
-        const nonSupportUser = chat.participants.filter(
-          (participant) => !participant.user.support === true
+        const filteredParticipants = chat.participants.filter(
+          (participant) => !participant.user.support // Оставляем только тех, у кого support: false
         )
 
-        // Если найден не саппорт, возвращаем только его
         return {
           ...chat,
-          participants: nonSupportUser // В чате оставляем только пользователей, которые не являются саппортами
+          participants: filteredParticipants
         }
       })
 
@@ -585,6 +576,96 @@ const supportResolver = {
       return await prisma.documentation.findMany({
         where: { parentId: doc.id },
         orderBy: { order: "asc" }
+      })
+    }
+  },
+  SupportChat: {
+    // Возвращает список участников чата, извлекая данные пользователей из связей в таблице chatUser.
+    participants: async (parent) => {
+      const chatUsers = await prisma.chatUser.findMany({
+        where: {
+          chatId: parent.id,
+          user: {
+            support: false // Фильтруем пользователей, у которых support: false
+          }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true,
+              support: true
+            }
+          }
+        }
+      })
+      return chatUsers.map((chatUser) => chatUser.user)
+    },
+    // Вычисляет количество непрочитанных сообщений в чате для конкретного пользователя.
+    // Для этого определяется время последнего прочтения сообщений и считается число сообщений,
+    // созданных после этого момента.
+    unreadMessagesCount: async (parent, { chatId }, context) => {
+      const { user } = context
+      const response = await prisma.message.count({
+        where: {
+          chatId: chatId ? chatId : parent.id,
+          // Исключаем те сообщения, у которых уже есть запись о прочтении данным пользователем
+          NOT: {
+            readBy: {
+              some: { userId: user.id }
+            }
+          }
+        }
+      })
+      return response
+    },
+
+    // Возвращает все сообщения чата с включением данных об отправителе для каждого сообщения.
+    messages: async (parent) => {
+      return await prisma.message.findMany({
+        where: { chatId: parent.id },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          },
+          readBy: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              }
+            }
+          }
+        }
       })
     }
   }

@@ -757,7 +757,8 @@ const chatResolver = {
               airlineId: true,
               airlineDepartmentId: true,
               hotelId: true,
-              dispatcher: true
+              dispatcher: true,
+              support: true
             }
           }
         }
