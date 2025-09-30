@@ -189,6 +189,9 @@ const reportResolver = {
         )
       }
 
+      console.log("\n reportData: \n " + reportData)
+      console.log("\n reportData stringify: \n " + JSON.stringify(reportData))
+
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
         : `airline_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
