@@ -45,7 +45,7 @@ const supportResolver = {
       if (!doc) throw new GraphQLError("Документация не найдена")
       return doc
     },
-    
+
     documentationTree: async (_, { id }, context) => {
       await allMiddleware(context) // проверка авторизации
       const tree = await buildDocumentationTree(id)
@@ -65,7 +65,7 @@ const supportResolver = {
       }
       // Возвращаем все чаты, помеченные как support (isSupport: true), с включением участников и сообщений
       return await prisma.chat.findMany({
-        where: { isSupport: true },
+        where: { isSupport: true, participants: { userId: user.id } },
         include: {
           participants: {
             include: {

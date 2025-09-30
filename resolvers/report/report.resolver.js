@@ -587,14 +587,14 @@ const aggregateRequestReports = (
   })
 
   filtered.sort((a, b) => {
-    //  hotel name sort ---------------- ↓↓↓↓
+    // Сортировка по отелю ---------------- ↓↓↓↓
     const hotelA = a.hotel?.name || ""
     const hotelB = b.hotel?.name || ""
     const hotelCmp = hotelA.localeCompare(hotelB, "ru")
     if (hotelCmp !== 0) return hotelCmp
-    //  hotel name sort ---------------- ↑↑↑↑
+    // Сортировка по отелю ---------------- ↑↑↑↑
 
-    // room category sort ---------------- ↓↓↓↓
+    // Сортировка по категории номера ---------------- ↓↓↓↓
     const catOrder = [
       "studio",
       "apartment",
@@ -613,13 +613,26 @@ const aggregateRequestReports = (
     const catA = catOrder.indexOf(a.roomCategory)
     const catB = catOrder.indexOf(b.roomCategory)
     if (catA !== catB) return catA - catB
-    // room category sort ---------------- ↑↑↑↑
+    // Сортировка по категории номера ---------------- ↑↑↑↑
 
-    // person name sort ---------------- ↓↓↓↓
+    // Сортировка по номеру и ID номера ---------------- ↓↓↓↓
+    const roomNameA = a.roomName || ""
+    const roomNameB = b.roomName || ""
+
+    // Если roomName одинаков, сортируем по roomId
+    if (roomNameA !== roomNameB) return roomNameA.localeCompare(roomNameB, "ru")
+
+    const roomIdA = a.roomId || ""
+    const roomIdB = b.roomId || ""
+
+    if (roomIdA != roomIdB) return roomIdA.localeCompare(roomIdB, "ru")
+    // Сортировка по номеру и ID номера ---------------- ↑↑↑↑
+
+    // Сортировка по имени проживающего ---------------- ↓↓↓↓
     const nameA = a.person?.name || ""
     const nameB = b.person?.name || ""
     return nameA.localeCompare(nameB, "ru")
-    // person name sort ---------------- ↑↑↑↑
+    // Сортировка по имени проживающего ---------------- ↑↑↑↑
   })
 
   return filtered.map((request, index) => {
@@ -672,31 +685,6 @@ const aggregateRequestReports = (
       reportType,
       effectiveDays
     )
-
-    const mealPlan = request.mealPlan || {}
-
-    const isNoMealCategory = ["apartment", "studio"].includes(
-      request.roomCategory
-    )
-
-    // let breakfastCount = isNoMealCategory ? 0 : mealPlan.breakfast || 0
-    // let lunchCount = isNoMealCategory ? 0 : mealPlan.lunch || 0
-    // let dinnerCount = isNoMealCategory ? 0 : mealPlan.dinner || 0
-
-    // if (fullDays > 0 && effectiveDays < fullDays) {
-    //   const ratio = effectiveDays / fullDays
-    //   breakfastCount = Math.round(breakfastCount * ratio)
-    //   lunchCount = Math.round(lunchCount * ratio)
-    //   dinnerCount = Math.round(dinnerCount * ratio)
-    // }
-
-    // let mealPrices
-    // if (reportType === "airline") {
-    //   mealPrices = getAirlineMealPrice(request)
-    // }
-    // if (reportType === "hotel") {
-    //   mealPrices = request.hotel?.mealPrice
-    // }
 
     const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
       calculateMealCostForReportDays(

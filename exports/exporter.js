@@ -17,6 +17,37 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
 
+  // // Добавляем шапку
+  // sheet.mergeCells("A1:F1") // Объединяем ячейки для заголовка
+  // sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
+  // sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
+  // sheet.getCell("A1").alignment = { horizontal: "center" }
+
+  // sheet.mergeCells("A2:F2") // Объединяем ячейки для следующего текста
+  // sheet.getCell("A2").value = "Приложение №2"
+  // sheet.getCell("A2").font = { name: "Times New Roman", size: 12, bold: true }
+  // sheet.getCell("A2").alignment = { horizontal: "center" }
+
+  // sheet.mergeCells("A3:F3")
+  // sheet.getCell("A3").value = "К договору оказания услуг"
+  // sheet.getCell("A3").font = { name: "Times New Roman", size: 12, bold: true }
+  // sheet.getCell("A3").alignment = { horizontal: "center" }
+
+  // sheet.mergeCells("A4:F4")
+  // sheet.getCell("A4").value = "№ 001 от 01 января 2024г"
+  // sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
+  // sheet.getCell("A4").alignment = { horizontal: "center" }
+
+  // sheet.mergeCells("A5:F5")
+  // sheet.getCell("A5").value =
+  //   'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ "в г. Магнитогорск'
+  // sheet.getCell("A5").font = { name: "Times New Roman", size: 12, bold: true }
+  // sheet.getCell("A5").alignment = { horizontal: "center" }
+
+  // // Пустая строка после шапки
+  // sheet.addRow([])
+
+  // Теперь добавляем таблицу с данными
   sheet.columns = [
     { header: "п/п", key: "index", width: 6 },
     // { header: "id", key: "id", width: 30 },
@@ -63,7 +94,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
     })
   })
 
-  sheet.addRow({})
+  sheet.addRow({}) // Пустая строка
   sheet.addRow({
     personPosition: "ИТОГО:",
     // totalDays: reportData.reduce((sum, row) => sum + row.totalDays, 0),
