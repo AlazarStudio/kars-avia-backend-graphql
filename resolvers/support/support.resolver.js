@@ -63,9 +63,17 @@ const supportResolver = {
       if (!user.support) {
         throw new Error("Access denied")
       }
-      // Возвращаем все чаты, помеченные как support (isSupport: true), с включением участников и сообщений
+
+      // Возвращаем все чаты, в которых участвует пользователь (через таблицу ChatUser) и которые помечены как support (isSupport: true)
       return await prisma.chat.findMany({
-        where: { isSupport: true, participants: { userId: user.id } },
+        where: {
+          isSupport: true,
+          participants: {
+            some: {
+              userId: user.id // Проверяем, есть ли пользователь среди участников чата
+            }
+          }
+        },
         include: {
           participants: {
             include: {
