@@ -189,8 +189,10 @@ const reportResolver = {
         )
       }
 
-      console.log("\n reportData: \n " + reportData)
-      console.log("\n reportData stringify: \n " + JSON.stringify(reportData))
+      const newRows = distributeNightsAndRoommates(reportData, {})
+
+      console.log("\n reportData: \n " + newRows)
+      console.log("\n reportData stringify: \n " + JSON.stringify(newRows))
 
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -970,20 +972,36 @@ const parseDDMMYYYY_HHMMSS = (str) => {
   return new Date(yyyy, mm - 1, dd, hh, min, ss)
 }
 
-const startOfDay = (dt) => {
+// ---------------------------------------------
+// helper: сервисный день (граница — час, по умолчанию 12:00)
+// ---------------------------------------------
+const startOfServiceDay = (dt, serviceDayHour = 12) => {
   const d = new Date(dt)
-  d.setHours(0, 0, 0, 0)
+  d.setHours(serviceDayHour, 0, 0, 0)
   return d
 }
+
 const addDays = (dt, n) => {
   const d = new Date(dt)
   d.setDate(d.getDate() + n)
   return d
 }
-const listNights = (start, end) => {
+
+/**
+ * Возвращает список "ночей" (сервисных дней) от start (inclusive) до end (exclusive).
+ * Каждая "ночь" — это момент начала сервисного дня (например, 12:00).
+ * По умолчанию сервисный день начинается в 12:00 (полдень).
+ */
+const listServiceNights = (start, end, serviceDayHour = 12) => {
   const nights = []
-  let cur = startOfDay(start)
-  const last = startOfDay(end)
+  // вычисляем первый сервисный момент <= start (если start позже than service moment -> оставим тот же день)
+  let cur = startOfServiceDay(start, serviceDayHour)
+  // если фактическое start ранее сервисного часа на той же дате, нам нужен предыдущий сервисный момент
+  if (start < cur) {
+    // берем предыдущий сервисный день (чтобы покрыть ночь, которая началась раньше в тот же календарный день)
+    cur = addDays(cur, -1)
+  }
+  const last = startOfServiceDay(end, serviceDayHour)
   while (cur < last) {
     nights.push(new Date(cur))
     cur = addDays(cur, 1)
@@ -1086,7 +1104,7 @@ function distributeNightsAndRoommates(reportRows, options = {}) {
     if (maxDep > globalEnd) maxDep = globalEnd
 
     // список ночей
-    const nights = listNights(minArr, maxDep)
+    const nights = listServiceNights(minArr, maxDep, 12) // 12 — граница (можно поставить 14, если хотите)
 
     nights.forEach((night) => {
       const next = addDays(night, 1)

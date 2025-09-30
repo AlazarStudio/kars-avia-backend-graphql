@@ -241,6 +241,7 @@ const hotelResolver = {
       }
 
       let galleryPaths = previousHotelData.gallery
+console.log("\n img " + galleryPaths)
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
           galleryPaths.push(await uploadImage(image))
@@ -740,6 +741,7 @@ const hotelResolver = {
               })
 
               let imagePaths = previousRoomData.images
+console.log("\n img " + imagePaths)
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
                   imagePaths.push(await uploadImage(image))
@@ -863,6 +865,7 @@ const hotelResolver = {
                 where: { id: room.id }
               })
               let imagePaths = previosRoomKindData.images
+console.log("\n img " + imagePaths)
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
                   imagePaths.push(await uploadImage(image))
