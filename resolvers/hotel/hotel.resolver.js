@@ -177,6 +177,7 @@ const hotelResolver = {
         ...input,
         airportId,
         mealPrice: input.mealPrice || defaultMealPrice,
+        mealPriceForAir: input.mealPriceForAir || defaultMealPrice,
         prices: input.prices || defaultPrices,
         breakfast: input.breakfast || defaultMealTime.breakfast,
         lunch: input.lunch || defaultMealTime.lunch,
@@ -286,6 +287,10 @@ const hotelResolver = {
             mealPrice: {
               ...previousHotelData.mealPrice, // Оставляем старые значения
               ...input.mealPrice // Обновляем только переданные поля
+            },
+            mealPriceForAir: {
+              ...previousHotelData.mealPriceForAir, // Оставляем старые значения
+              ...input.mealPriceForAir // Обновляем только переданные поля
             },
             ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
             ...(galleryPaths.length > 0 && { gallery: { set: galleryPaths } })

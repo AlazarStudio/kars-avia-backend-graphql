@@ -57,6 +57,7 @@ type Hotel {
   lunch: MealTime
   dinner: MealTime
   mealPrice: MealPrice
+  mealPriceForAir: MealPrice
   stars: String
   usStars: String
   airportDistance: String
@@ -162,6 +163,7 @@ input CreateHotelInput {
   lunch: MealTimeInput
   dinner: MealTimeInput
   mealPrice: MealPriceInput
+  mealPriceForAir: MealPriceInput
   stars: String
   usStars: String
   airportDistance: String
@@ -186,6 +188,7 @@ input UpdateHotelInput {
   lunch: MealTimeInput
   dinner: MealTimeInput
   mealPrice: MealPriceInput
+  mealPriceForAir: MealPriceInput
   stars: String
   usStars: String
   airportDistance: String

@@ -267,6 +267,7 @@ model Hotel {
   dinner          MealTime?
   images          String[]
   mealPrice       MealPrice?
+  mealPriceForAir MealPrice?
   reserveHotel    ReserveHotel[]
   hotelChesses    HotelChess[]
   request         Request[]
