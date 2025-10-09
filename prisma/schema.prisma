@@ -447,7 +447,7 @@ model AirlineDepartment {
   airline    Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId  String                 @db.ObjectId
   active     Boolean                @default(true)
-  accessMenu AccessMenu
+  accessMenu AccessMenu?
   position   PositionOnDepartment[]
 }
 
