@@ -43,6 +43,50 @@ input InformationInput {
   description: String
 }
 
+type AccessMenu {
+  requestMenu: Boolean
+  requestCreate: Boolean
+  requestUpdate: Boolean
+  requestChat: Boolean
+  personalMenu: Boolean
+  personalCreate: Boolean
+  personalUpdate: Boolean
+  reserveMenu: Boolean
+  reserveCreate: Boolean
+  reserveUpdate: Boolean
+  analyticsMenu: Boolean
+  analyticsUpload: Boolean
+  reportMenu: Boolean
+  reportCreate: Boolean
+  userMenu: Boolean
+  userCreate: Boolean
+  userUpdate: Boolean
+  airlineMenu: Boolean
+  airlineUpdate: Boolean
+}
+
+input AccessMenuInput {
+  requestMenu: Boolean
+  requestCreate: Boolean
+  requestUpdate: Boolean
+  requestChat: Boolean
+  personalMenu: Boolean
+  personalCreate: Boolean
+  personalUpdate: Boolean
+  reserveMenu: Boolean
+  reserveCreate: Boolean
+  reserveUpdate: Boolean
+  analyticsMenu: Boolean
+  analyticsUpload: Boolean
+  reportMenu: Boolean
+  reportCreate: Boolean
+  userMenu: Boolean
+  userCreate: Boolean
+  userUpdate: Boolean
+  airlineMenu: Boolean
+  airlineUpdate: Boolean
+}
+
 # Типы для питания
 type MealPrice {
   breakfast: Float

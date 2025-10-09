@@ -27,6 +27,7 @@ type AirlineDepartment {
   staff: [AirlinePersonal!]
   users: [User!]
   active: Boolean
+  accessMenu: AccessMenu
   position: [Position]
 }
 
@@ -67,6 +68,7 @@ input AirlineDepartmentInput {
   id: ID
   name: String
   email: String
+  accessMenu: AccessMenuInput
   userIds: [ID!]
   positionIds: [ID!]
 }

@@ -232,6 +232,7 @@ const airlineResolver = {
                 data: {
                   name: depart.name,
                   email: depart.email,
+                  accessMenu: depart.accessMenu,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
@@ -295,6 +296,7 @@ const airlineResolver = {
                   airlineId: id,
                   name: depart.name,
                   email: depart.email,
+                  accessMenu: depart.accessMenu,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
