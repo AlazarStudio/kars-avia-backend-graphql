@@ -95,7 +95,7 @@ const hotelResolver = {
         orderBy: { information: { city: "asc" } }
       })
 
-      await prisma.roomKind.updateMany({ data: { priceForAirReq: false } })
+      // await prisma.roomKind.updateMany({ data: { priceForAirReq: false } })
       // await prisma.roomKind.updateMany({ data: { priceForAirReq: true } })
 
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
