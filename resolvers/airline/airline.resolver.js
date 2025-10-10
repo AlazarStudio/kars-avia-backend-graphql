@@ -615,7 +615,7 @@ const airlineResolver = {
     // },
     hotelChess: async (parent, args) => {
       const hcPagination = args?.hcPagination || {}
-      const { start, end } = hcPagination
+      const { start, end, city } = hcPagination
 
       const where = {
         clientId: parent.id
@@ -636,6 +636,10 @@ const airlineResolver = {
           }
         ]
       }
+
+      // if (city != undefined) {
+      //   where.
+      // }
 
       return await prisma.hotelChess.findMany({
         where,

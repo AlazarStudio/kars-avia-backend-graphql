@@ -74,6 +74,7 @@ type Hotel {
   # position: [Position]
   gallery: [String]
   hotelContract: [HotelContract]
+  additionalServices: [AdditionalServices]
 }
 
 # Тип бронирования номера (HotelChess)
@@ -133,6 +134,16 @@ type RoomKind {
   roomsCount: Float
 }
 
+type AdditionalServices {
+  id: ID!
+  name: String
+  description: String
+  price: Float!
+  priceForAirline: Float
+  images: [String]
+  hotel: Hotel
+}
+
 # type Tariff {
 #   id: ID!
 #   name: String!
@@ -184,6 +195,7 @@ input UpdateHotelInput {
   hotelChesses: [HotelChessInput!]
   rooms: [RoomInput!]
   roomKind: [RoomKindInput!]
+  additionalServices: [AdditionalServicesInput!]
   breakfast: MealTimeInput
   lunch: MealTimeInput
   dinner: MealTimeInput
@@ -247,6 +259,15 @@ input RoomKindInput {
   images: [String]
 }
 
+input AdditionalServicesInput {
+  id: ID
+  name: String
+  description: String
+  price: Float
+  priceForAirline: Float
+  images: [String]
+}
+
 input HotelPaginationInput {
   skip: Int
   take: Int
@@ -270,8 +291,8 @@ type Query {
 }
 
 type Mutation { 
-  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
-  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!] gallery: [Upload!]): Hotel!
+  createHotel(input: CreateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!], gallery: [Upload!]): Hotel!
+  updateHotel(id: ID!, input: UpdateHotelInput!, images: [Upload!], roomImages: [Upload!], roomKindImages: [Upload!], serviceImages: [Upload!], gallery: [Upload!]): Hotel!
   reorderRoomKindImages(id: ID!, imagesArray: [String!], imagesToDeleteArray: [String!]): RoomKind!
   reorderHotelGalleryImages(id: ID!, imagesArray: [String!], imagesToDeleteArray: [String!]): Hotel!
   createManyRooms(input: ManyRoomsInput): [Room]

@@ -110,6 +110,7 @@ const hotelResolver = {
         include: {
           rooms: true,
           roomKind: true,
+          additionalServices: true,
           hotelChesses: true,
           airport: true,
           logs: true
@@ -215,7 +216,15 @@ const hotelResolver = {
     // - обработка информации о комнатах (rooms) и обновление количества мест в отеле.
     updateHotel: async (
       _,
-      { id, input, images, roomImages, roomKindImages, gallery },
+      {
+        id,
+        input,
+        images,
+        roomImages,
+        roomKindImages,
+        serviceImages,
+        gallery
+      },
       context
     ) => {
       const { user } = context
@@ -255,6 +264,7 @@ const hotelResolver = {
         tariffs,
         rooms,
         roomKind,
+        additionalServices,
         hotelChesses,
         airportId,
         ...restInput
@@ -917,6 +927,58 @@ const hotelResolver = {
           }
         }
 
+        if (additionalServices) {
+          for (const service of additionalServices) {
+            if (service.id) {
+              const previosServiceData =
+                await prisma.additionalServices.findUnique({
+                  where: { id: service.id }
+                })
+              let imagePaths =
+                previosServiceData.images != undefined
+                  ? previosServiceData.images
+                  : []
+              if (serviceImages && serviceImages.length > 0) {
+                for (const image of serviceImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
+              const updatedRoomData = {
+                name: service.name,
+                description: service.description,
+                square: service.square,
+                price: service.price,
+                priceForAirline: service.priceForAirline,
+                category: service.category,
+                ...(serviceImages && { images: imagePaths })
+              }
+              await prisma.additionalServices.update({
+                where: { id: service.id },
+                data: updatedRoomData
+              })
+            } else {
+              let imagePaths = []
+              if (serviceImages && serviceImages.length > 0) {
+                for (const image of serviceImages) {
+                  imagePaths.push(await uploadImage(image))
+                }
+              }
+              await prisma.additionalServices.create({
+                data: {
+                  hotelId: id,
+                  name: service.name,
+                  description: service.description,
+                  square: service.square,
+                  price: service.price,
+                  priceForAirline: service.priceForAirline,
+                  category: service.category,
+                  images: imagePaths
+                }
+              })
+            }
+          }
+        }
+
         // Логирование обновления отеля
         await logAction({
           context,
@@ -932,7 +994,8 @@ const hotelResolver = {
           include: {
             rooms: true,
             hotelChesses: true,
-            roomKind: true
+            roomKind: true,
+            additionalServices: true
           }
         })
         // Публикуем событие обновления отеля для подписчиков
@@ -1168,6 +1231,11 @@ const hotelResolver = {
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
+        where: { hotelId: parent.id }
+      })
+    },
+    additionalServices: async (parent) => {
+      return await prisma.additionalServices.findMany({
         where: { hotelId: parent.id }
       })
     },

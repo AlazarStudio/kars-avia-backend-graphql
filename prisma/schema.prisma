@@ -255,47 +255,48 @@ model Position {
 // Отели  ---------------- ↓↓↓↓
 
 model Hotel {
-  id              String          @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  nameFull        String?
-  provision       Int?
-  quote           Int?
-  capacity        Int?
-  information     Information?
-  breakfast       MealTime?
-  lunch           MealTime?
-  dinner          MealTime?
-  images          String[]
-  mealPrice       MealPrice?
-  mealPriceForAir MealPrice?
-  reserveHotel    ReserveHotel[]
-  hotelChesses    HotelChess[]
-  request         Request[]
-  rooms           Room[]
-  roomKind        RoomKind[]
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  nameFull           String?
+  provision          Int?
+  quote              Int?
+  capacity           Int?
+  information        Information?
+  breakfast          MealTime?
+  lunch              MealTime?
+  dinner             MealTime?
+  images             String[]
+  mealPrice          MealPrice?
+  mealPriceForAir    MealPrice?
+  reserveHotel       ReserveHotel[]
+  hotelChesses       HotelChess[]
+  request            Request[]
+  rooms              Room[]
+  roomKind           RoomKind[]
   // Общая инеформация по номерам
-  user            User[]
-  logs            Log[]
-  stars           String?
-  usStars         String?
-  airportDistance String?
-  savedReport     SavedReport[]
-  chat            Chat[]
-  prices          Price?
+  user               User[]
+  logs               Log[]
+  stars              String?
+  usStars            String?
+  airportDistance    String?
+  savedReport        SavedReport[]
+  chat               Chat[]
+  prices             Price?
   // position        Position[]
-  Notification    Notification[]
-  active          Boolean         @default(true)
-  show            Boolean         @default(true)
-  meal            Boolean         @default(true)
-  access          Boolean         @default(false)
-  type            HotelType       @default(hotel)
-  gallery         String[]
-  airport         Airport?        @relation(fields: [airportId], references: [id])
-  airportId       String?         @db.ObjectId
-  priceCategory   PriceCategory[]
+  Notification       Notification[]
+  active             Boolean              @default(true)
+  show               Boolean              @default(true)
+  meal               Boolean              @default(true)
+  access             Boolean              @default(false)
+  type               HotelType            @default(hotel)
+  gallery            String[]
+  airport            Airport?             @relation(fields: [airportId], references: [id])
+  airportId          String?              @db.ObjectId
+  priceCategory      PriceCategory[]
   // tariff          Tariff[]
-  AirlinePrice    AirlinePrice[]
-  hotelContract   hotelContract[]
+  AirlinePrice       AirlinePrice[]
+  hotelContract      hotelContract[]
+  additionalServices AdditionalServices[]
 }
 
 model HotelChess {
@@ -352,9 +353,21 @@ model RoomKind {
   category        Category
   price           Float
   priceForAirline Float?
+  priceForAirReq  Boolean  @default(false)
   images          String[]
   room            Room[]
   roomsCount      Int?
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  hotelId         String   @db.ObjectId
+}
+
+model AdditionalServices {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  description     String?
+  price           Float
+  priceForAirline Float?
+  images          String[]
   hotel           Hotel    @relation(fields: [hotelId], references: [id])
   hotelId         String   @db.ObjectId
 }
@@ -439,16 +452,17 @@ model AirportOnAirlinePrice {
 }
 
 model AirlineDepartment {
-  id         String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  email      String?
-  staff      AirlinePersonal[]
-  users      User[]
-  airline    Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId  String                 @db.ObjectId
-  active     Boolean                @default(true)
-  accessMenu AccessMenu?
-  position   PositionOnDepartment[]
+  id        String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String?
+  staff     AirlinePersonal[]
+  users     User[]
+  airline   Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId String                 @db.ObjectId
+  active    Boolean                @default(true)
+  accessMenu       AccessMenu?
+  notificationMenu NotificationMenu?
+  position  PositionOnDepartment[]
 }
 
 type AccessMenu {
@@ -471,6 +485,11 @@ type AccessMenu {
   userUpdate      Boolean @default(true)
   airlineMenu     Boolean @default(true)
   airlineUpdate   Boolean @default(true)
+  contracts       Boolean @default(true)
+}
+
+type NotificationMenu {
+  request Boolean @default(true)
 }
 
 model AirlinePersonal {
