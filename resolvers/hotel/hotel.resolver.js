@@ -889,6 +889,7 @@ const hotelResolver = {
                 square: room.square,
                 price: room.price,
                 priceForAirline: room.priceForAirline,
+                priceForAirReq: room.priceForAirReq,
                 category: room.category,
                 ...(roomKindImages && { images: imagePaths })
               }
@@ -911,6 +912,7 @@ const hotelResolver = {
                   square: room.square,
                   price: room.price,
                   priceForAirline: room.priceForAirline,
+                  priceForAirReq: room.priceForAirReq,
                   category: room.category,
                   images: imagePaths
                 }
