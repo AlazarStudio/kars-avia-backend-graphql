@@ -452,17 +452,17 @@ model AirportOnAirlinePrice {
 }
 
 model AirlineDepartment {
-  id        String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String?
-  staff     AirlinePersonal[]
-  users     User[]
-  airline   Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId String                 @db.ObjectId
-  active    Boolean                @default(true)
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  email            String?
+  staff            AirlinePersonal[]
+  users            User[]
+  airline          Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId        String                 @db.ObjectId
+  active           Boolean                @default(true)
   accessMenu       AccessMenu?
   notificationMenu NotificationMenu?
-  position  PositionOnDepartment[]
+  position         PositionOnDepartment[]
 }
 
 type AccessMenu {

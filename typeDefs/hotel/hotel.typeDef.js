@@ -129,6 +129,7 @@ type RoomKind {
   square: String
   price: Float!
   priceForAirline: Float
+  priceForAirReq: Boolean
   images: [String]
   hotel: Hotel
   roomsCount: Float
@@ -256,6 +257,7 @@ input RoomKindInput {
   square: String
   price: Float
   priceForAirline: Float
+  priceForAirReq: Boolean
   images: [String]
 }
 
