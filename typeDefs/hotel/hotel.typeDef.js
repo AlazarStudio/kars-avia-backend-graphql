@@ -61,6 +61,7 @@ type Hotel {
   stars: String
   usStars: String
   airportDistance: String
+  discount: String
   # logs: [Log]
   logs(pagination: LogPaginationInput): LogConnection!
   savedReport: [SavedReport]
@@ -179,6 +180,7 @@ input CreateHotelInput {
   stars: String
   usStars: String
   airportDistance: String
+  discount: String
   prices: PriceInput
   type: HotelType
   show: Boolean
@@ -205,6 +207,7 @@ input UpdateHotelInput {
   stars: String
   usStars: String
   airportDistance: String
+  discount: String
   prices: PriceInput
   access: Boolean
   show: Boolean

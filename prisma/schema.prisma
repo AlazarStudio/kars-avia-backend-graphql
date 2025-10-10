@@ -279,6 +279,7 @@ model Hotel {
   stars              String?
   usStars            String?
   airportDistance    String?
+  discount           String?
   savedReport        SavedReport[]
   chat               Chat[]
   prices             Price?
