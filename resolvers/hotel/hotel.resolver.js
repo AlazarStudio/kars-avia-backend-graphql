@@ -95,8 +95,8 @@ const hotelResolver = {
         orderBy: { information: { city: "asc" } }
       })
 
-      // await prisma.hotel.updateMany({ data: { show: false, meal: false } })
-      // await prisma.hotel.updateMany({ data: { show: true, meal: true } })
+      // await prisma.roomKind.updateMany({ data: { priceForAirReq: false } })
+      await prisma.roomKind.updateMany({ data: { priceForAirReq: true } })
 
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
@@ -216,15 +216,7 @@ const hotelResolver = {
     // - обработка информации о комнатах (rooms) и обновление количества мест в отеле.
     updateHotel: async (
       _,
-      {
-        id,
-        input,
-        images,
-        roomImages,
-        roomKindImages,
-        serviceImages,
-        gallery
-      },
+      { id, input, images, roomImages, roomKindImages, serviceImages, gallery },
       context
     ) => {
       const { user } = context
