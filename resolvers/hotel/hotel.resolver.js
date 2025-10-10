@@ -869,7 +869,7 @@ const hotelResolver = {
         }
 
         if (roomKind) {
-          console.log("roomKind: " + JSON.stringify(priceForAirReq))
+          console.log("roomKind: " + JSON.stringify(roomKind))
           for (const room of roomKind) {
             if (room.id) {
               const previosRoomKindData = await prisma.roomKind.findUnique({
