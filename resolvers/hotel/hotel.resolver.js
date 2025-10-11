@@ -270,6 +270,8 @@ const hotelResolver = {
         ...restInput
       }
 
+      console.log("input: " + JSON.stringify(input))
+
       try {
         // Сохраняем предыдущие данные отеля для логирования изменений
         const previousHotelData = await prisma.hotel.findUnique({
