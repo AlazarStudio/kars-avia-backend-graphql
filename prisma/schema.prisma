@@ -453,45 +453,45 @@ model AirportOnAirlinePrice {
 }
 
 model AirlineDepartment {
-  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name             String
-  email            String?
-  staff            AirlinePersonal[]
-  users            User[]
-  airline          Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId        String                 @db.ObjectId
-  active           Boolean                @default(true)
-  accessMenu       AccessMenu?
-  notificationMenu NotificationMenu?
-  position         PositionOnDepartment[]
+  id        String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String?
+  staff     AirlinePersonal[]
+  users     User[]
+  airline   Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId String                 @db.ObjectId
+  active    Boolean                @default(true)
+  // accessMenu       AccessMenu?
+  // notificationMenu NotificationMenu?
+  position  PositionOnDepartment[]
 }
 
-type AccessMenu {
-  requestMenu     Boolean @default(true)
-  requestCreate   Boolean @default(true)
-  requestUpdate   Boolean @default(true)
-  requestChat     Boolean @default(true)
-  personalMenu    Boolean @default(true)
-  personalCreate  Boolean @default(true)
-  personalUpdate  Boolean @default(true)
-  reserveMenu     Boolean @default(true)
-  reserveCreate   Boolean @default(true)
-  reserveUpdate   Boolean @default(true)
-  analyticsMenu   Boolean @default(true)
-  analyticsUpload Boolean @default(true)
-  reportMenu      Boolean @default(true)
-  reportCreate    Boolean @default(true)
-  userMenu        Boolean @default(true)
-  userCreate      Boolean @default(true)
-  userUpdate      Boolean @default(true)
-  airlineMenu     Boolean @default(true)
-  airlineUpdate   Boolean @default(true)
-  contracts       Boolean @default(true)
-}
+// type AccessMenu {
+//   requestMenu     Boolean @default(true)
+//   requestCreate   Boolean @default(true)
+//   requestUpdate   Boolean @default(true)
+//   requestChat     Boolean @default(true)
+//   personalMenu    Boolean @default(true)
+//   personalCreate  Boolean @default(true)
+//   personalUpdate  Boolean @default(true)
+//   reserveMenu     Boolean @default(true)
+//   reserveCreate   Boolean @default(true)
+//   reserveUpdate   Boolean @default(true)
+//   analyticsMenu   Boolean @default(true)
+//   analyticsUpload Boolean @default(true)
+//   reportMenu      Boolean @default(true)
+//   reportCreate    Boolean @default(true)
+//   userMenu        Boolean @default(true)
+//   userCreate      Boolean @default(true)
+//   userUpdate      Boolean @default(true)
+//   airlineMenu     Boolean @default(true)
+//   airlineUpdate   Boolean @default(true)
+//   contracts       Boolean @default(true)
+// }
 
-type NotificationMenu {
-  request Boolean @default(true)
-}
+// type NotificationMenu {
+//   request Boolean @default(true)
+// }
 
 model AirlinePersonal {
   id           String             @id @default(auto()) @map("_id") @db.ObjectId
