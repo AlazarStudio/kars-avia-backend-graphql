@@ -1145,9 +1145,6 @@ const hotelResolver = {
       if (!roomToDelete) {
         throw new Error("Комната не найдена")
       }
-      const deletedRoom = await prisma.room.delete({
-        where: { id }
-      })
       // Обновляем количество комнат отеля после удаления
       await updateHotelRoomCounts(roomToDelete.hotelId)
       await logAction({
@@ -1159,15 +1156,18 @@ const hotelResolver = {
         hotelId: roomToDelete.hotelId
       })
       // Если у комнаты есть изображения, удаляем их
-      if (deletedRoom.images && deletedRoom.images.length > 0) {
-        for (const imagePath of deletedRoom.images) {
+      if (roomToDelete.images && roomToDelete.images.length > 0) {
+        for (const imagePath of roomToDelete.images) {
           await deleteImage(imagePath)
         }
       }
-      if (deletedRoom.roomKindId) {
-        updateRoomKindCounts(deletedRoom.roomKindId)
+      if (roomToDelete.roomKindId) {
+        updateRoomKindCounts(roomToDelete.roomKindId)
       }
-      return deletedRoom
+      await prisma.room.delete({
+        where: { id }
+      })
+      return roomToDelete
     },
 
     deleteRoomKind: async (_, { id }, context) => {
