@@ -231,7 +231,7 @@ const hotelResolver = {
 
       const previousHotelData = await prisma.hotel.findUnique({
         where: { id },
-        select: { prices: true, mealPrice: true } // Получаем текущие цены
+        select: { prices: true, mealPrice: true, mealPriceForAir: true } // Получаем текущие цены
       })
 
       // Обработка загрузки новых изображений для отеля
@@ -270,13 +270,11 @@ const hotelResolver = {
         ...restInput
       }
 
-      console.log("input: " + JSON.stringify(restInput))
-
       try {
         // Сохраняем предыдущие данные отеля для логирования изменений
         const previousHotelData = await prisma.hotel.findUnique({
           where: { id },
-          select: { prices: true, mealPrice: true } // Получаем текущие цены
+          select: { prices: true, mealPrice: true, mealPriceForAir: true } // Получаем текущие цены
         })
 
         const updatedHotel = await prisma.hotel.update({
