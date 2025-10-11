@@ -270,7 +270,7 @@ const hotelResolver = {
         ...restInput
       }
 
-      console.log("input: " + JSON.stringify(input))
+      console.log("input: " + JSON.stringify(restInput))
 
       try {
         // Сохраняем предыдущие данные отеля для логирования изменений
