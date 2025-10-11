@@ -1181,12 +1181,11 @@ const hotelResolver = {
       if (roomToDelete.images && roomToDelete.images.length > 0) {
         for (const imagePath of roomToDelete.images) {
           await deleteImage(imagePath)
-
-          await prisma.roomKind.delete({
-            where: { id }
-          })
         }
       }
+      await prisma.roomKind.delete({
+        where: { id }
+      })
       return roomToDelete
     },
 
