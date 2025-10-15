@@ -38,6 +38,7 @@ type User {
   twoFASecret: String
   twoFAMethod: TwoFAMethod
   airlineDepartmentId: ID
+  airlineDepartment: AirlineDepartment
   support: Boolean
   active: Boolean
   refreshToken: String

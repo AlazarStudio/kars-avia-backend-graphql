@@ -17,35 +17,54 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
 
-  // // Добавляем шапку
-  // sheet.mergeCells("A1:F1") // Объединяем ячейки для заголовка
-  // sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
-  // sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
-  // sheet.getCell("A1").alignment = { horizontal: "center" }
+  // const headerLines = [
+  //   'АО "АВИАКОМПАНИЯ АЗИМУТ"',
+  //   "Приложение №2",
+  //   "К договору оказания услуг",
+  //   "№ 001 от 01 января 2024 г.",
+  //   'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ" в г. Магнитогорск'
+  // ]
 
-  // sheet.mergeCells("A2:F2") // Объединяем ячейки для следующего текста
-  // sheet.getCell("A2").value = "Приложение №2"
-  // sheet.getCell("A2").font = { name: "Times New Roman", size: 12, bold: true }
-  // sheet.getCell("A2").alignment = { horizontal: "center" }
+  // headerLines.forEach((text, i) => {
+  //   const rowIndex = i + 1
+  //   sheet.mergeCells(`A${rowIndex}:M${rowIndex}`) // объединяем под ширину таблицы
+  //   const cell = sheet.getCell(`A${rowIndex}`)
+  //   cell.value = text
+  //   cell.font = { ...font, bold: true }
+  //   cell.alignment = { horizontal: "center" }
+  // })
 
-  // sheet.mergeCells("A3:F3")
-  // sheet.getCell("A3").value = "К договору оказания услуг"
-  // sheet.getCell("A3").font = { name: "Times New Roman", size: 12, bold: true }
-  // sheet.getCell("A3").alignment = { horizontal: "center" }
-
-  // sheet.mergeCells("A4:F4")
-  // sheet.getCell("A4").value = "№ 001 от 01 января 2024г"
-  // sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
-  // sheet.getCell("A4").alignment = { horizontal: "center" }
-
-  // sheet.mergeCells("A5:F5")
-  // sheet.getCell("A5").value =
-  //   'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ "в г. Магнитогорск'
-  // sheet.getCell("A5").font = { name: "Times New Roman", size: 12, bold: true }
-  // sheet.getCell("A5").alignment = { horizontal: "center" }
-
-  // // Пустая строка после шапки
   // sheet.addRow([])
+
+  // Добавляем шапку
+  sheet.mergeCells("A1:F1") // Объединяем ячейки для заголовка
+  sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
+  sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("A1").alignment = { horizontal: "left" }
+
+  sheet.mergeCells("G1:M1") // Объединяем ячейки для следующего текста
+  sheet.getCell("G1").value = "Приложение №2"
+  sheet.getCell("G1").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("G1").alignment = { horizontal: "right" }
+
+  sheet.mergeCells("G2:M2")
+  sheet.getCell("G2").value = "К договору оказания услуг"
+  sheet.getCell("G2").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("G2").alignment = { horizontal: "right" }
+
+  sheet.mergeCells("G3:M3")
+  sheet.getCell("G3").value = "№ 001 от 01 января 2024г"
+  sheet.getCell("G3").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("G3").alignment = { horizontal: "right" }
+
+  sheet.mergeCells("A4:F4")
+  sheet.getCell("A4").value =
+    'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ "в г. Магнитогорск'
+  sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("A4").alignment = { horizontal: "left" }
+
+  // Пустая строка после шапки
+  sheet.addRow([])
 
   // Теперь добавляем таблицу с данными
   sheet.columns = [
@@ -58,9 +77,12 @@ export const generateExcelAvia = async (reportData, filePath) => {
     { header: "Категория ном.", key: "category", width: 30 },
     { header: "ФИО", key: "personName", width: 30 },
     { header: "room", key: "roomName", width: 30 },
+    { header: "roomId", key: "roomId", width: 30 },
+    { header: "price", key: "price", width: 10 },
+    { header: "shareNote", key: "shareNote", width: 30 },
+    // { header: "Номер", key: "roomName", width: 10 },
     // { header: "roommate", key: "roommateName", width: 30 },
     { header: "Должность", key: "personPosition", width: 20 },
-    // { header: "Номер", key: "roomName", width: 10 },
     { header: "Завтрак", key: "breakfastCount", width: 10 },
     { header: "Обед", key: "lunchCount", width: 10 },
     { header: "Ужин", key: "dinnerCount", width: 10 },
@@ -81,9 +103,12 @@ export const generateExcelAvia = async (reportData, filePath) => {
       category: row.category,
       personName: row.personName,
       roomName: row.roomName,
+      roomId: row.roomId,
+      shareNote: row.shareNote,
       // roommateName: row.roommateName,
       personPosition: row.personPosition,
-      roomName: row.roomName,
+      price: row.price,
+      // roomName: row.roomName,
       breakfastCount: row.breakfastCount,
       lunchCount: row.lunchCount,
       dinnerCount: row.dinnerCount,
@@ -160,22 +185,36 @@ export const generateExcelAvia = async (reportData, filePath) => {
     })
   })
 
-  const headerRow = sheet.getRow(1)
-  headerRow.font = { name: "Times New Roman", size: 12, bold: true }
-  headerRow.height = 30
+  // const headerRow = sheet.getRow(1)
+  // headerRow.font = { name: "Times New Roman", size: 12, bold: true }
+  // headerRow.height = 30
 
   // ---------------------------------------------------------------- ↓↓↓↓
-  const header = sheet.getRow(1)
-  header.font = { name: "Times New Roman", size: 12, bold: true }
-  header.height = 30
-  header.eachCell((cell) => {
+  // const header = sheet.getRow(1)
+  // header.font = { name: "Times New Roman", size: 12, bold: true }
+  // header.height = 30
+  // header.eachCell((cell) => {
+  //   cell.fill = {
+  //     type: "pattern",
+  //     pattern: "solid",
+  //     fgColor: { argb: "FF999999" }
+  //   }
+  // })
+  // ---------------------------------------------------------------- ↑↑↑↑
+
+  // === 4. Форматирование таблицы ===
+  const headerRowIndex = 7 // шапка + пустая строка
+  const headerRow = sheet.getRow(headerRowIndex)
+  headerRow.font = { ...font, bold: true }
+  headerRow.height = 25
+  headerRow.eachCell((cell) => {
     cell.fill = {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FF999999" }
     }
+    cell.alignment = { horizontal: "center" }
   })
-  // ---------------------------------------------------------------- ↑↑↑↑
 
   await workbook.xlsx.writeFile(filePath)
 }
