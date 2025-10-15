@@ -404,7 +404,8 @@ const userResolver = {
           userId: user.id,
           role: user.role,
           hotelId: user.hotelId,
-          airlineId: user.airlineId
+          airlineId: user.airlineId,
+          department: user.airlineDepartment
         },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
