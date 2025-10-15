@@ -57,7 +57,7 @@ const getDynamicContext = async (ctx, msg, args) => {
             position: true,
             airlineId: true,
             airlineDepartmentId: true,
-            airlineDepartment: { accessMenu: true },
+            // airlineDepartment: { accessMenu: true },
             hotelId: true,
             dispatcher: true,
             support: true
