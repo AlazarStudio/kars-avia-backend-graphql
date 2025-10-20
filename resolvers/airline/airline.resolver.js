@@ -70,6 +70,8 @@ const airlineResolver = {
 
     airlineStaffs: async (_, { airlineId }, context) => {
       await allMiddleware(context)
+      // add pagination
+      
       return await prisma.airlinePersonal.findMany({
         where: { airlineId, active: true },
         include: { hotelChess: true, position: true },
@@ -579,10 +581,9 @@ const airlineResolver = {
     // Определяем резольвер для поля airlineContract
     airlineContract: async (parent) => {
       return await prisma.airlineContract.findMany({
-        where: {airlineId: parent.id}
+        where: { airlineId: parent.id }
       })
     }
-
   },
 
   AirlineDepartment: {

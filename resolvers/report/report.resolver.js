@@ -190,16 +190,16 @@ const reportResolver = {
         )
       }
 
-      const { rows: finalRows } = computeRoomShareMatrix(reportData, {
-        mode: "shared_equal", // равные доли
-        serviceDayHour: 12,
-        filterStart,
-        filterEnd
-      })
+      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
+      //   mode: "shared_equal", // равные доли
+      //   serviceDayHour: 12,
+      //   filterStart,
+      //   filterEnd
+      // })
 
       const new_report = buildAllocation(reportData, filterStart, filterEnd)
 
-      console.log(JSON.stringify(new_report))
+      // console.log(JSON.stringify(new_report))
 
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -1087,10 +1087,11 @@ function buildAllocation(data, rangeStart, rangeEnd) {
       if (d >= b.arrival && d <= b.departure) {
         const m = collect.get(key)
         if (!m.has(d)) m.set(d, [])
-        m.get(d).push(daily)
+        m.get(d).push(daily) // сохраняем дробные значения
       }
     }
   }
+
   const roomDayRate = new Map() // room->day->rate
   for (const rk of rooms) {
     const src = collect.get(rk)
@@ -1215,9 +1216,15 @@ function buildAllocation(data, rangeStart, rangeEnd) {
       agg.mealCost += b.totalMealCost || 0
     }
 
-    const totalLivingCost = Math.round(row.total)
-    const totalMealCost = Math.round(agg.mealCost)
-    const totalDebt = totalMealCost + totalLivingCost
+    // округляем дроби
+    // const totalLivingCost = Math.round(row.total)
+    // const totalMealCost = Math.round(agg.mealCost)
+
+    // сохраняем дробные значения
+    const totalLivingCost = row.total 
+    const totalMealCost = agg.mealCost 
+
+    const totalDebt = totalLivingCost + totalMealCost
 
     out.push({
       index: idx++,

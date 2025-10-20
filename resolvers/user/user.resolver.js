@@ -377,8 +377,8 @@ const userResolver = {
       if (!user || !(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
-      console.log("\n user " + user)
-      console.log("\n userStr " + JSON.stringify(user))
+      // console.log("\n user " + user)
+      // console.log("\n userStr " + JSON.stringify(user))
       // Если у пользователя включена двухфакторная аутентификация, проверяем токен 2FA
       if (user.is2FAEnabled) {
         let verified
@@ -407,7 +407,7 @@ const userResolver = {
           role: user.role,
           hotelId: user.hotelId,
           airlineId: user.airlineId,
-          department: user.airlineDepartment
+          departmentId: user.airlineDepartmentId
         },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }

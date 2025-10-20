@@ -477,6 +477,7 @@ type AccessMenu {
   reserveMenu     Boolean @default(true)
   reserveCreate   Boolean @default(true)
   reserveUpdate   Boolean @default(true)
+  // contracts
   analyticsMenu   Boolean @default(true)
   analyticsUpload Boolean @default(true)
   reportMenu      Boolean @default(true)

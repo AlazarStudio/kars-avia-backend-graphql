@@ -17,25 +17,6 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
 
-  // const headerLines = [
-  //   'АО "АВИАКОМПАНИЯ АЗИМУТ"',
-  //   "Приложение №2",
-  //   "К договору оказания услуг",
-  //   "№ 001 от 01 января 2024 г.",
-  //   'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ" в г. Магнитогорск'
-  // ]
-
-  // headerLines.forEach((text, i) => {
-  //   const rowIndex = i + 1
-  //   sheet.mergeCells(`A${rowIndex}:M${rowIndex}`) // объединяем под ширину таблицы
-  //   const cell = sheet.getCell(`A${rowIndex}`)
-  //   cell.value = text
-  //   cell.font = { ...font, bold: true }
-  //   cell.alignment = { horizontal: "center" }
-  // })
-
-  // sheet.addRow([])
-
   // Добавляем шапку
   sheet.mergeCells("A1:F1") // Объединяем ячейки для заголовка
   sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
@@ -203,7 +184,7 @@ export const generateExcelAvia = async (reportData, filePath) => {
   // ---------------------------------------------------------------- ↑↑↑↑
 
   // === 4. Форматирование таблицы ===
-  const headerRowIndex = 7 // шапка + пустая строка
+  const headerRowIndex = 6 // шапка + пустая строка
   const headerRow = sheet.getRow(headerRowIndex)
   headerRow.font = { ...font, bold: true }
   headerRow.height = 25

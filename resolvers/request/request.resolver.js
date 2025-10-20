@@ -651,7 +651,7 @@ const requestResolver = {
           await prisma.notification.create({
             data: {
               request: { connect: { id: extendRequest.requestId } },
-              airlineId: request.airlineId,
+              airlineId: extendRequest.airlineId,
               description: {
                 action: "extend_request",
                 description: `Запрос на изменение дат заявки ${
