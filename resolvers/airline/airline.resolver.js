@@ -675,12 +675,25 @@ const airlineResolver = {
             id: { $toString: "$_id" },
             hotelId: { $toString: "$hotelId" },
             clientId: { $toString: "$clientId" },
+            reserveHotelId: 1,
+            public: 1,
+            roomId: 1,
+            place: 1,
+            start: 1,
+            end: 1,
+            requestId: 1,
+            reserveId: 1,
+            passengerId: 1,
+            status: 1,
+            mealPlan: 1,
             hotel: {
               id: { $toString: "$hotel._id" },
               name: "$hotel.name",
               nameFull: "$hotel.nameFull",
               information: "$hotel.information",
-              airport: "$hotel.airport"
+              airport: "$hotel.airport",
+              images: "$hotel.images",
+              stars: "$hotel.stars"
             }
           }
         }
