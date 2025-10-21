@@ -639,13 +639,13 @@ const airlineResolver = {
         const c = city.trim()
         where.AND.push({
           hotel: {
-            OR: [
-              {
+            // OR: [
+              // {
                 information: {
                   city: { contains: c, mode: "insensitive" }
                 }
-              }
-            ]
+              // }
+            // ]
           }
         })
       }
