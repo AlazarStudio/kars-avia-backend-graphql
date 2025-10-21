@@ -233,6 +233,7 @@ input HotelChessInput {
 input HotelChessPaginationInput {
   start: Date
   end: Date
+  city: String
 }
 
 input RoomInput {

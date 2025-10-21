@@ -68,14 +68,22 @@ const airlineResolver = {
       })
     },
 
-    airlineStaffs: async (_, { airlineId }, context) => {
+    airlineStaffs: async (_, { airlineId, city }, context) => {
       await allMiddleware(context)
       // add pagination
-      
+
       return await prisma.airlinePersonal.findMany({
         where: { airlineId, active: true },
         include: { hotelChess: true, position: true },
         orderBy: { name: "asc" }
+      })
+    },
+
+    airlineDepartment: async (_, { id }, context) => {
+      await allMiddleware(context)
+
+      return await prisma.airlineDepartment.findUnique({
+        where: { id }
       })
     }
   },
@@ -615,37 +623,42 @@ const airlineResolver = {
     //   return hotelChessEntries
     // },
     hotelChess: async (parent, args) => {
-      const hcPagination = args?.hcPagination || {}
+      const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
 
-      const where = {
-        clientId: parent.id
-      }
+      const where = { clientId: parent.id }
 
       if (start && end) {
-        // фильтрация по пересечению диапазонов
         where.AND = [
-          {
-            start: {
-              lte: new Date(end)
-            }
-          },
-          {
-            end: {
-              gte: new Date(start)
-            }
-          }
+          { start: { lte: new Date(end) } },
+          { end: { gte: new Date(start) } }
         ]
       }
 
-      // if (city != undefined) {
-      //   where.
-      // }
+      if (city != null && String(city).trim() !== "") {
+        ;(where.AND ??= []).push({
+          hotel: {
+            is: {
+              OR: [
+                {
+                  information: {
+                    city: { contains: String(city).trim(), mode: "insensitive" }
+                  }
+                },
+                {
+                  airport: {
+                    city: { contains: String(city).trim(), mode: "insensitive" }
+                  }
+                } // если город храните в аэропорте
+              ]
+            }
+          }
+        })
+        // Если Mongo/Prisma ругнётся на mode, замени contains+mode на equals
+        // { information: { city: { equals: String(city).trim() } } }
+      }
 
-      return await prisma.hotelChess.findMany({
-        where,
-        include: { hotel: true }
-      })
+      return prisma.hotelChess.findMany({ where, include: { hotel: true } })
     },
     position: async (parent) => {
       if (parent.positionId) {
