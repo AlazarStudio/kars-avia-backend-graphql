@@ -694,32 +694,33 @@ const chatResolver = {
       )
     },
 
-    messageSent: {
-      subscribe: withFilter(
-        (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
-        (payload, variables, context) => {
-          const user = context.user
-          const message = payload.messageSent
-          const chatIdMatches =
-            message.chat && message.chat.id === variables.chatId
-          if (!chatIdMatches) return false
+    // messageSent: {
+    //   subscribe: withFilter(
+    //     (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
+    //     (payload, variables, context) => {
+    //       const user = context.user
+    //       const message = payload.messageSent
+    //       const chatIdMatches =
+    //         message.chat && message.chat.id === variables.chatId
+    //       if (!chatIdMatches) return false
 
-          if (user.dispatcher === true) {
-            return true
-          }
-          if (user.role === "SUPERADMIN") {
-            return true
-          }
-          if (user.airlineId && user.airlineId === message.chat.airlineId) {
-            return true
-          }
-          if (user.hotelId && user.hotelId === message.chat.hotelId) {
-            return true
-          }
-          return false
-        }
-      )
-    },
+    //       if (user.dispatcher === true) {
+    //         return true
+    //       }
+    //       if (user.role === "SUPERADMIN") {
+    //         return true
+    //       }
+    //       if (user.airlineId && user.airlineId === message.chat.airlineId) {
+    //         return true
+    //       }
+    //       if (user.hotelId && user.hotelId === message.chat.hotelId) {
+    //         return true
+    //       }
+    //       return false
+    //     }
+    //   )
+    // },
+    messageSent: { subscribe: () => pubsub.asyncIterator(MESSAGE_SENT) },
 
     // Подписка на событие получения нового непрочитанного сообщения для конкретного пользователя.
     // Имя события включает как chatId, так и userId.
