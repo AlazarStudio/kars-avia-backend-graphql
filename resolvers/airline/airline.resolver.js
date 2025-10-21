@@ -666,7 +666,7 @@ const airlineResolver = {
               {
                 "hotel.information.city": { $regex: city.trim(), $options: "i" }
               },
-              // { "hotel.airport.city": { $regex: city.trim(), $options: "i" } }
+              { "hotel.airport.city": { $regex: city.trim(), $options: "i" } }
             ]
           }
         },
@@ -680,7 +680,7 @@ const airlineResolver = {
               name: "$hotel.name",
               nameFull: "$hotel.nameFull",
               information: "$hotel.information",
-              // airport: "$hotel.airport",
+              airport: "$hotel.airport"
             }
           }
         }
