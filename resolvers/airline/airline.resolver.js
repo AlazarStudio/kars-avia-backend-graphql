@@ -647,7 +647,9 @@ const airlineResolver = {
                 },
                 {
                   airport: {
-                    city: { contains: String(city).trim(), mode: "insensitive" }
+                    contains: String(city).trim(),
+                    mode: "insensitive"
+                    
                   }
                 } // если город храните в аэропорте
               ]
