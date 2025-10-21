@@ -656,20 +656,20 @@ const airlineResolver = {
       //   })
       // }
 
-      return prisma.hotelChess.findMany({
+      return await prisma.hotelChess.findMany({
         where: {
           clientId: parent.id,
           AND: {
             OR: [
               {
                 hotel: {
-                  information: { equals: city.trim() }
+                  information: { contains: city.trim(), mode: "insensitive" }
                 }
               }
             ]
           }
         },
-        include: { hotel: true }
+        // include: { hotel: true }
       })
       // return prisma.hotelChess.findMany({ where, include: { hotel: true } })
     },
