@@ -663,7 +663,7 @@ const airlineResolver = {
             OR: [
               {
                 hotel: {
-                  information: { contains: city.trim(), mode: "insensitive" }
+                  information: { equals: city.trim() }
                 }
               }
             ]
