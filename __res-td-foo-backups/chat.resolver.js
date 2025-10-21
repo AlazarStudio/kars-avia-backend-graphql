@@ -432,8 +432,7 @@ const chatResolver = {
       await Promise.all(tasks)
 
       // Публикуем событие отправки сообщения
-      // pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
-      pubsub.publish(MESSAGE_SENT, { messageSent: message })
+      pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
 
       return message
     },
@@ -696,7 +695,7 @@ const chatResolver = {
 
     messageSent: {
       subscribe: withFilter(
-        (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
+        (_, { chatId }) => pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`),
         (payload, variables, context) => {
           const user = context.user
           const message = payload.messageSent
@@ -724,8 +723,8 @@ const chatResolver = {
     // Подписка на событие получения нового непрочитанного сообщения для конкретного пользователя.
     // Имя события включает как chatId, так и userId.
     newUnreadMessage: {
-      subscribe: (_, { userId }) =>
-        pubsub.asyncIterator(`NEW_UNREAD_MESSAGE_${userId}`),
+      subscribe: (_, { chatId, userId }) =>
+        pubsub.asyncIterator(`NEW_UNREAD_MESSAGE_${chatId}_${userId}`),
       resolve: (payload) => payload.newUnreadMessage
     },
     // Подписка на событие, когда сообщение помечено как прочитанное.

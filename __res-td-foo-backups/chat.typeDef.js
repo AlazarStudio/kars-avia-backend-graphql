@@ -52,8 +52,8 @@ type Mutation {
 }
 
 type Subscription {
-  messageSent: Message
-  newUnreadMessage(userId: ID!): Message!
+  messageSent(chatId: ID!): Message
+  newUnreadMessage(chatId: ID!, userId: ID!): Message!
   messageRead(chatId: ID!): MessageRead!
 }
 `
