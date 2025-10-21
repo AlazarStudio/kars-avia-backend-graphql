@@ -626,52 +626,29 @@ const airlineResolver = {
       const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
 
-      // const where = { clientId: parent.id }
+      const where = { clientId: parent.id }
 
-      // if (start && end) {
-      //   where.AND = [
-      //     { start: { lte: new Date(end) } },
-      //     { end: { gte: new Date(start) } }
-      //   ]
-      // }
+      if (start && end) {
+        where.AND = [
+          { start: { lte: new Date(end) } },
+          { end: { gte: new Date(start) } }
+        ]
+      }
 
-      // if (city != null && String(city).trim() !== "") {
-      //   ;(where.AND ??= []).push({
-      //     hotel: {
-      //       is: {
-      //         OR: [
-      //           {
-      //             information: {
-      //               city: { contains: String(city).trim(), mode: "insensitive" }
-      //             }
-      //           },
-      //           {
-      //             airport: {
-      //               city: { contains: String(city).trim(), mode: "insensitive" }
-      //             }
-      //           }
-      //         ]
-      //       }
-      //     }
-      //   })
-      // }
-
-      return await prisma.hotelChess.findMany({
-        where: {
-          clientId: parent.id,
-          AND: {
-            OR: [
-              {
-                hotel: {
-                  information: { contains: city.trim(), mode: "insensitive" }
-                }
-              }
-            ]
-          }
-        },
-        // include: { hotel: true }
-      })
       // return prisma.hotelChess.findMany({ where, include: { hotel: true } })
+      const rows = await prisma.hotelChess.findMany({
+        where,
+        include: {
+          hotel: { select: { information: true, airport: true, name: true } }
+        }
+      })
+      const re = new RegExp(
+        city.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i"
+      )
+      return rows.filter((r) =>
+        re.test(r.hotel?.information?.city || r.hotel?.airport?.city || "")
+      )
     },
     position: async (parent) => {
       if (parent.positionId) {
