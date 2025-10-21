@@ -649,19 +649,28 @@ const airlineResolver = {
       //             airport: {
       //               city: { contains: String(city).trim(), mode: "insensitive" }
       //             }
-      //           } 
+      //           }
       //         ]
       //       }
       //     }
       //   })
       // }
 
-      return prisma.hotelChess.findMany({ where: {
-        clientId: parent.id,
-        OR: [
-          { hotel: { information: { contains: city.trim(), mode: "insensitive" } } },
-        ]
-      }, include: { hotel: true } })
+      return prisma.hotelChess.findMany({
+        where: {
+          clientId: parent.id,
+          AND: {
+            OR: [
+              {
+                hotel: {
+                  information: { contains: city.trim(), mode: "insensitive" }
+                }
+              }
+            ]
+          }
+        },
+        include: { hotel: true }
+      })
       // return prisma.hotelChess.findMany({ where, include: { hotel: true } })
     },
     position: async (parent) => {
