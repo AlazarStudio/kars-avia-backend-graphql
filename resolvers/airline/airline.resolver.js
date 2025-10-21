@@ -613,6 +613,7 @@ const airlineResolver = {
       return posOnDept.map((record) => record.position)
     }
   },
+
   AirlinePersonal: {
     // hotelChess: async (parent) => {
     //   const hotelChessEntries = await prisma.hotelChess.findMany({
@@ -621,93 +622,50 @@ const airlineResolver = {
     //   })
     //   return hotelChessEntries
     // },
-    // helper для ObjectId в $runCommandRaw
-
     hotelChess: async (parent, args) => {
       const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
 
-      // если город не задан — обычный Prisma
-      if (!city || !city.trim()) {
-        const where = { clientId: parent.id }
-        if (start && end) {
-          where.AND = [
-            { start: { lte: new Date(end) } },
-            { end: { gte: new Date(start) } }
-          ]
-        }
-        return prisma.hotelChess.findMany({ where, include: { hotel: true } })
-      }
+      const where = { clientId: parent.id }
 
-      const pipeline = [
-        {
-          $match: {
-            clientId: toOID(parent.id),
-            ...(start && end
-              ? {
-                  start: { $lte: new Date(end) },
-                  end: { $gte: new Date(start) }
-                }
-              : {})
-          }
-        },
-        {
-          $lookup: {
-            from: "Hotel", // коллекция модели Hotel
-            localField: "hotelId",
-            foreignField: "_id",
-            as: "hotel"
-          }
-        },
-        { $unwind: "$hotel" },
-        {
-          $match: {
-            $or: [
+      // if (start && end) {
+      //   where.AND = [
+      //     { start: { lte: new Date(end) } },
+      //     { end: { gte: new Date(start) } }
+      //   ]
+      // }
+
+      // if (city != null && String(city).trim() !== "") {
+      ;(where.AND ??= []).push({
+        hotel: {
+          is: {
+            OR: [
               {
-                "hotel.information.city": { $regex: city.trim(), $options: "i" }
+                information: {
+                  city: {
+                    contains: String("Абакан").trim(),
+                    mode: "insensitive"
+                  }
+                }
               },
-              { "hotel.airport.city": { $regex: city.trim(), $options: "i" } }
+              {
+                airport: {
+                  city: {
+                    contains: String("Абакан").trim(),
+                    mode: "insensitive"
+                  }
+                }
+              }
             ]
           }
-        },
-        {
-          $project: {
-            id: { $toString: "$_id" },
-            hotelId: { $toString: "$hotelId" },
-            clientId: { $toString: "$clientId" },
-            reserveHotelId: 1,
-            public: 1,
-            roomId: 1,
-            place: 1,
-            start: 1,
-            end: 1,
-            requestId: 1,
-            reserveId: 1,
-            passengerId: 1,
-            status: 1,
-            mealPlan: 1,
-            hotel: {
-              id: { $toString: "$hotel._id" },
-              name: "$hotel.name",
-              nameFull: "$hotel.nameFull",
-              information: "$hotel.information",
-              airport: "$hotel.airport",
-              images: "$hotel.images",
-              stars: "$hotel.stars"
-            }
-          }
         }
-      ]
-
-      const res = await prisma.$runCommandRaw({
-        aggregate: "HotelChess", // коллекция модели HotelChess
-        pipeline,
-        cursor: {}
       })
+      // Если Mongo/Prisma ругнётся на mode, замени contains+mode на equals
+      // { information: { city: { equals: String(city).trim() } } }
+      // }
 
-      return res?.cursor?.firstBatch ?? []
+      return prisma.hotelChess.findMany({ where, include: { hotel: true } })
     },
-
     position: async (parent) => {
       if (parent.positionId) {
         return await prisma.position.findUnique({
@@ -718,7 +676,5 @@ const airlineResolver = {
     }
   }
 }
-
-const toOID = (s) => ({ $oid: String(s) })
 
 export default airlineResolver
