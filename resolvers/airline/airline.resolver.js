@@ -625,90 +625,44 @@ const airlineResolver = {
     hotelChess: async (parent, args) => {
       const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
-      const c = city?.trim()
 
-      // без города — обычный Prisma
-      if (!c) {
-        const where = { clientId: parent.id }
-        if (start && end)
-          where.AND = [
-            { start: { lte: new Date(end) } },
-            { end: { gte: new Date(start) } }
-          ]
-        return prisma.hotelChess.findMany({ where, include: { hotel: true } })
-      }
+      // const where = { clientId: parent.id }
 
-      const and = []
+      // if (start && end) {
+      //   where.AND = [
+      //     { start: { lte: new Date(end) } },
+      //     { end: { gte: new Date(start) } }
+      //   ]
+      // }
 
-      // clientId: String ИЛИ ObjectId → сравниваем как строки
-      and.push({
-        $expr: { $eq: [{ $toString: "$clientId" }, String(parent.id)] }
-      })
+      // if (city != null && String(city).trim() !== "") {
+      //   ;(where.AND ??= []).push({
+      //     hotel: {
+      //       is: {
+      //         OR: [
+      //           {
+      //             information: {
+      //               city: { contains: String(city).trim(), mode: "insensitive" }
+      //             }
+      //           },
+      //           {
+      //             airport: {
+      //               city: { contains: String(city).trim(), mode: "insensitive" }
+      //             }
+      //           } 
+      //         ]
+      //       }
+      //     }
+      //   })
+      // }
 
-      // пересечение дат (если заданы)
-      if (start && end) {
-        and.push({
-          $expr: {
-            $and: [
-              { $lte: ["$start", new Date(end)] },
-              { $gte: ["$end", new Date(start)] }
-            ]
-          }
-        })
-      }
-
-      const pipeline = [
-        { $match: and.length ? { $and: and } : {} },
-        {
-          $lookup: {
-            from: "Hotel", // проверь имя коллекции, если есть @@map
-            let: { hid: "$hotelId" },
-            pipeline: [
-              // hotelId: String ИЛИ ObjectId → сравниваем как строки
-              {
-                $match: {
-                  $expr: {
-                    $eq: [{ $toString: "$_id" }, { $toString: "$$hid" }]
-                  }
-                }
-              },
-              {
-                $match: {
-                  $or: [
-                    { "information.city": { $regex: c, $options: "i" } },
-                    { "airport.city": { $regex: c, $options: "i" } }
-                  ]
-                }
-              }
-            ],
-            as: "hotel"
-          }
-        },
-        { $unwind: "$hotel" },
-        {
-          $project: {
-            id: { $toString: "$_id" },
-            hotelId: { $toString: "$hotelId" },
-            clientId: { $toString: "$clientId" },
-            hotel: {
-              id: { $toString: "$hotel._id" },
-              name: "$hotel.name",
-              nameFull: "$hotel.nameFull",
-              information: "$hotel.information",
-              airport: "$hotel.airport",
-              images: "$hotel.images",
-              stars: "$hotel.stars"
-            }
-          }
-        }
-      ]
-
-      const res = await prisma.$runCommandRaw({
-        aggregate: "HotelChess",
-        pipeline,
-        cursor: {}
-      })
-      return res?.cursor?.firstBatch ?? []
+      return prisma.hotelChess.findMany({ where: {
+        clientId: parent.id,
+        OR: [
+          { hotel: { information: { contains: city.trim(), mode: "insensitive" } } },
+        ]
+      }, include: { hotel: true } })
+      // return prisma.hotelChess.findMany({ where, include: { hotel: true } })
     },
     position: async (parent) => {
       if (parent.positionId) {
