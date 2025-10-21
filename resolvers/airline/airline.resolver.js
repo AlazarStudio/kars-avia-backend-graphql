@@ -613,7 +613,6 @@ const airlineResolver = {
       return posOnDept.map((record) => record.position)
     }
   },
-
   AirlinePersonal: {
     // hotelChess: async (parent) => {
     //   const hotelChessEntries = await prisma.hotelChess.findMany({
@@ -622,34 +621,80 @@ const airlineResolver = {
     //   })
     //   return hotelChessEntries
     // },
+    // helper для ObjectId в $runCommandRaw
+
     hotelChess: async (parent, args) => {
       const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
 
-      const where = { clientId: parent.id }
-
-      if (start && end) {
-        where.AND = [
-          { start: { lte: new Date(end) } },
-          { end: { gte: new Date(start) } }
-        ]
-      }
-
-      if (city && city.trim()) {
-        const c = city.trim()
-        where.AND.push({
-          OR: [
-            {
-              hotel: {
-                information: { city: { contains: c, mode: "insensitive" } }
-              }
-            }
+      // если город не задан — обычный Prisma
+      if (!city || !city.trim()) {
+        const where = { clientId: parent.id }
+        if (start && end) {
+          where.AND = [
+            { start: { lte: new Date(end) } },
+            { end: { gte: new Date(start) } }
           ]
-        })
+        }
+        return prisma.hotelChess.findMany({ where, include: { hotel: true } })
       }
 
-      return prisma.hotelChess.findMany({ where, include: { hotel: true } })
+      const pipeline = [
+        {
+          $match: {
+            clientId: toOID(parent.id),
+            ...(start && end
+              ? {
+                  start: { $lte: new Date(end) },
+                  end: { $gte: new Date(start) }
+                }
+              : {})
+          }
+        },
+        {
+          $lookup: {
+            from: "Hotel", // коллекция модели Hotel
+            localField: "hotelId",
+            foreignField: "_id",
+            as: "hotel"
+          }
+        },
+        { $unwind: "$hotel" },
+        {
+          $match: {
+            $or: [
+              {
+                "hotel.information.city": { $regex: city.trim(), $options: "i" }
+              },
+              // { "hotel.airport.city": { $regex: city.trim(), $options: "i" } }
+            ]
+          }
+        },
+        {
+          $project: {
+            id: { $toString: "$_id" },
+            hotelId: { $toString: "$hotelId" },
+            clientId: { $toString: "$clientId" },
+            hotel: {
+              id: { $toString: "$hotel._id" },
+              name: "$hotel.name",
+              nameFull: "$hotel.nameFull",
+              information: "$hotel.information",
+              // airport: "$hotel.airport",
+            }
+          }
+        }
+      ]
+
+      const res = await prisma.$runCommandRaw({
+        aggregate: "HotelChess", // коллекция модели HotelChess
+        pipeline,
+        cursor: {}
+      })
+
+      return res?.cursor?.firstBatch ?? []
     },
+
     position: async (parent) => {
       if (parent.positionId) {
         return await prisma.position.findUnique({
@@ -660,5 +705,7 @@ const airlineResolver = {
     }
   }
 }
+
+const toOID = (s) => ({ $oid: String(s) })
 
 export default airlineResolver
