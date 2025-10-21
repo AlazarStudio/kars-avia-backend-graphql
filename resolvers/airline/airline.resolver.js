@@ -622,6 +622,7 @@ const airlineResolver = {
     //   })
     //   return hotelChessEntries
     // },
+
     hotelChess: async (parent, args) => {
       const { hcPagination = {} } = args
       const { start, end, city } = hcPagination
@@ -635,16 +636,28 @@ const airlineResolver = {
       }
 
       if (city && city.trim()) {
-        ;(where.AND ??= []).push({
-          hotel: {
-            is: {
-              OR: [
-                { information: { equals: { city: city.trim() } } }, // композит → только equals
-                { airport: { equals: { city: city.trim() } } }
-              ]
-            }
-          }
+        const res = await prisma.$runCommandRaw({
+          aggregate: "Hotel",
+          pipeline: [
+            {
+              $match: {
+                $or: [
+                  {
+                    "information.city": { $regex: city.trim(), $options: "i" }
+                  },
+                  { "airport.city": { $regex: city.trim(), $options: "i" } }
+                ]
+              }
+            },
+            { $project: { _id: 1 } }
+          ],
+          cursor: {}
         })
+        const hotelIds = (res?.cursor?.firstBatch ?? []).map((d) =>
+          String(d._id)
+        )
+        if (!hotelIds.length) return []
+        ;(where.AND ??= []).push({ hotelId: { in: hotelIds } })
       }
 
       return prisma.hotelChess.findMany({ where, include: { hotel: true } })
