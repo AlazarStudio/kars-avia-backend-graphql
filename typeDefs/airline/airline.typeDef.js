@@ -99,6 +99,7 @@ type Query {
   airline(id: ID!): Airline
   airlineStaff(id: ID!): AirlinePersonal
   airlineStaffs(id: ID!): [AirlinePersonal]
+  airlineDepartment(id: ID!): AirlineDepartment
 }
 
 type Mutation {
