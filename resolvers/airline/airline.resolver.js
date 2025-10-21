@@ -627,7 +627,6 @@ const airlineResolver = {
       const { start, end, city } = hcPagination
 
       const where = { clientId: parent.id }
-
       if (start && end) {
         where.AND = [
           { start: { lte: new Date(end) } },
@@ -635,29 +634,17 @@ const airlineResolver = {
         ]
       }
 
-      if (city != null && String(city).trim() !== "") {
+      if (city && city.trim()) {
         ;(where.AND ??= []).push({
           hotel: {
             is: {
               OR: [
-                {
-                  information: {
-                    city: { contains: String(city).trim(), mode: "insensitive" }
-                  }
-                },
-                {
-                  airport: {
-                    contains: String(city).trim(),
-                    mode: "insensitive"
-                    
-                  }
-                } // если город храните в аэропорте
+                { information: { equals: { city: city.trim() } } }, // композит → только equals
+                { airport: { equals: { city: city.trim() } } }
               ]
             }
           }
         })
-        // Если Mongo/Prisma ругнётся на mode, замени contains+mode на equals
-        // { information: { city: { equals: String(city).trim() } } }
       }
 
       return prisma.hotelChess.findMany({ where, include: { hotel: true } })
