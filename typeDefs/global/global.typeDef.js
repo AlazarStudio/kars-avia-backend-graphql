@@ -63,6 +63,7 @@ type AccessMenu {
   userUpdate: Boolean
   airlineMenu: Boolean
   airlineUpdate: Boolean
+  contracts: Boolean
 }
 
 input AccessMenuInput {
@@ -85,6 +86,7 @@ input AccessMenuInput {
   userUpdate: Boolean
   airlineMenu: Boolean
   airlineUpdate: Boolean
+  contracts: Boolean
 }
 
 # Типы для питания

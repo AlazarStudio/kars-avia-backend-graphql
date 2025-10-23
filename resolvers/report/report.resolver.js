@@ -238,6 +238,116 @@ const reportResolver = {
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
     },
+    createHotelReport: async (_, { input }, context) => {
+      const { user } = context
+      await hotelAdminMiddleware(context)
+      const { filter, format } = input
+      const separator = user.hotelId ? "hotel" : "dispatcher"
+
+      if (!user) {
+        throw new Error("Access denied")
+      }
+
+      const filterStart = new Date(filter.startDate)
+      const filterEnd = new Date(filter.endDate)
+      const startDateStr = filterStart.toISOString().slice(0, 10)
+      const endDateStr = filterEnd.toISOString().slice(0, 10)
+
+      // console.log("\n filterStart" + filterStart, "\n filterEnd" + filterEnd)
+
+      let reportData
+      if (filter.passengersReport) {
+        return (error = new Error(" \n passenger report not implemented! "))
+      } else {
+        const requests = await prisma.request.findMany({
+          where: {
+            ...applyCreateFilters(filter),
+            status: {
+              in: [
+                "done",
+                "transferred",
+                "extended",
+                "archiving",
+                "archived",
+                "reduced"
+              ]
+            },
+            person: {
+              position: {
+                name: {
+                  notIn: ["Техник", "Инженер"]
+                }
+              }
+            }
+          },
+          include: {
+            person: { include: { position: true } },
+            hotelChess: { include: { room: { include: { roomKind:  true } } } },
+            hotel: true,
+            airline: { include: { prices: { include: { airports: true } } } },
+            mealPlan: true,
+            airport: true
+          },
+          orderBy: { arrival: "asc" }
+        })
+
+        // console.log("\n requests: \n " + JSON.stringify(requests))
+
+        reportData = aggregateRequestReports(
+          requests,
+          "hotel",
+          filterStart,
+          filterEnd
+        )
+      }
+
+      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
+      //   mode: "shared_equal", // равные доли
+      //   serviceDayHour: 12,
+      //   filterStart,
+      //   filterEnd
+      // })
+
+      const new_report = buildAllocation(reportData, filterStart, filterEnd)
+
+      // console.log(JSON.stringify(new_report))
+
+      const reportName = filter.passengersReport
+        ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
+        : `hotel_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
+      const reportPath = path.resolve(`./reports/${reportName}`)
+      fs.mkdirSync(path.dirname(reportPath), { recursive: true })
+
+      if (format === "pdf") {
+        throw new Error("PDF формат не реализован в данном примере")
+      } else if (format === "xlsx") {
+        // await generateExcelAvia(reportData, reportPath)
+        await generateExcelAvia(new_report, reportPath)
+        // await generateExcelAvia(finalRows, reportPath)
+      } else {
+        throw new Error("Unsupported report format")
+      }
+
+      const reportRecord = {
+        name: reportName,
+        url: `/reports/${reportName}`,
+        startDate: new Date(filter.startDate),
+        endDate: new Date(filter.endDate),
+        createdAt: new Date(),
+        hotelId: user.role === "HOTELADMIN" ? user.hotelId : filter.hotelId,
+        separator: separator
+      }
+
+      if (!reportRecord.hotelId) {
+        throw new Error("Hotel ID is required for this report")
+      }
+
+      const savedReport = await prisma.savedReport.create({
+        data: reportRecord
+      })
+      pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
+      return savedReport
+    },
 
     deleteReport: async (_, { id }, context) => {
       const { user } = context
@@ -399,6 +509,8 @@ const calculateLivingCost = (request, type, days) => {
     }
     pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
+
+  // console.log("price " + JSON.stringify(request.hotelChess[0]))
 
   return days > 0 ? days * pricePerDay : 0
 }
@@ -986,6 +1098,8 @@ const parseNum = (v) => {
 
 // --- ИСПРАВЛЕННОЕ СЕРДЦЕ: ВОЗВРАЩАЕТ МАССИВ ОБЪЕКТОВ ПО КОНТРАКТУ ---
 function buildAllocation(data, rangeStart, rangeEnd) {
+
+  // console.log("rangeStart " + formatLocalDate(rangeStart))
   // 0) вход
   const raw = Array.isArray(data) ? data : []
   if (!raw.length) return []
@@ -1221,15 +1335,17 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     // const totalMealCost = Math.round(agg.mealCost)
 
     // сохраняем дробные значения
-    const totalLivingCost = row.total 
-    const totalMealCost = agg.mealCost 
+    const totalLivingCost = row.total
+    const totalMealCost = agg.mealCost
 
     const totalDebt = totalLivingCost + totalMealCost
 
     out.push({
       index: idx++,
-      arrival: fmtRu(arrivalYMD),
-      departure: fmtRu(departureYMD),
+      arrival: formatLocalDate(rangeStart),
+      // arrival: fmtRu(arrivalYMD),
+      departure: formatLocalDate(rangeEnd),
+      // departure: fmtRu(departureYMD),
       totalDays: totalDaysIncluded,
       category,
       personName: row.guest,
