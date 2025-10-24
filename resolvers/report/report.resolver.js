@@ -1,5 +1,5 @@
 import { prisma } from "../../prisma.js"
-import { generateExcelAvia } from "../../__res-td-foo-backups/exporter.js"
+import { generateExcelAvia } from "../../exports/exporter.js"
 import path from "path"
 import fs from "fs"
 import {
