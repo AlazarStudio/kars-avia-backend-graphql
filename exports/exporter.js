@@ -18,11 +18,14 @@ export const generateExcelAvia = async (reportData, filePath) => {
   const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
 
   // Добавляем шапку
+  sheet.mergeCells("A3:F3")
+  sheet.mergeCells("A2:F2")
   sheet.mergeCells("A1:F1") // Объединяем ячейки для заголовка
   sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
   sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
   sheet.getCell("A1").alignment = { horizontal: "left" }
 
+  sheet.mergeCells("G4:M4")
   sheet.mergeCells("G1:M1") // Объединяем ячейки для следующего текста
   sheet.getCell("G1").value = "Приложение №2"
   sheet.getCell("G1").font = { name: "Times New Roman", size: 12, bold: true }
@@ -46,31 +49,196 @@ export const generateExcelAvia = async (reportData, filePath) => {
 
   // Пустая строка после шапки
   sheet.addRow([])
+  sheet.addRow([])
+
+  sheet.getCell("A6").value = "п/п"
+  sheet.getCell("A6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("A6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("B6").value = "Дата/время заезда"
+  sheet.getCell("B6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("B6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("C6").value = "Дата/время выезда"
+  sheet.getCell("C6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("C6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("D6").value = "Количество суток"
+  sheet.getCell("D6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("D6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("E6").value = "Категория номера"
+  sheet.getCell("E6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("E6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("F6").value = "ФИО"
+  sheet.getCell("F6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("F6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("G6").value = "Комната"
+  sheet.getCell("G6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("G6").alignment = { horizontal: "left", vertical: "middle" }
+
+  // sheet.getCell("H6").value = "Цена"
+  // sheet.getCell("H6").font = { name: "Times New Roman", size: 14, bold: true }
+  // sheet.getCell("H6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("H6").value = "Вид проживания"
+  sheet.getCell("H6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("H6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("I6").value = "Должность"
+  sheet.getCell("I6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("I6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("J6").value = "Завтрак"
+  sheet.getCell("J6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("J6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("K6").value = "Обед"
+  sheet.getCell("K6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("K6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("L6").value = "Ужин"
+  sheet.getCell("L6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("L6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("M6").value = "Стоимость питания"
+  sheet.getCell("M6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("M6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("N6").value = "Стоимость проживания"
+  sheet.getCell("N6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("N6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("O6").value = "Итоговая стоимость"
+  sheet.getCell("O6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("O6").alignment = { horizontal: "left", vertical: "middle" }
+
+  sheet.getCell("P6").value = "Гостиница"
+  sheet.getCell("P6").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("P6").alignment = { horizontal: "left", vertical: "middle" }
 
   // Теперь добавляем таблицу с данными
   sheet.columns = [
-    { header: "п/п", key: "index", width: 6 },
-    // { header: "id", key: "id", width: 30 },
-    { header: "Дата/время заезда", key: "arrival", width: 25 },
-    { header: "Дата/время выезда", key: "departure", width: 25 },
-    { header: "кол-во суток", key: "totalDays", width: 10 },
-    // { header: "Full log", key: "breakdown", width: 400 },
-    { header: "Категория ном.", key: "category", width: 30 },
-    { header: "ФИО", key: "personName", width: 30 },
-    { header: "room", key: "roomName", width: 30 },
-    { header: "roomId", key: "roomId", width: 30 },
-    { header: "price", key: "price", width: 10 },
-    { header: "shareNote", key: "shareNote", width: 30 },
-    // { header: "Номер", key: "roomName", width: 10 },
-    // { header: "roommate", key: "roommateName", width: 30 },
-    { header: "Должность", key: "personPosition", width: 20 },
-    { header: "Завтрак", key: "breakfastCount", width: 10 },
-    { header: "Обед", key: "lunchCount", width: 10 },
-    { header: "Ужин", key: "dinnerCount", width: 10 },
-    { header: "Стоимость питания", key: "totalMealCost", width: 22 },
-    { header: "Стоимость проживания", key: "totalLivingCost", width: 22 },
-    { header: "Итоговая стоимость", key: "totalDebt", width: 22 },
-    { header: "Гостиница", key: "hotelName", width: 30 }
+    {
+      key: "index",
+      width: 6,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    // { header: "id", key: "id", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+    {
+      key: "arrival",
+      width: 25,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "departure",
+      width: 25,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "totalDays",
+      width: 25,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    // { header: "Full log", key: "breakdown", width: 400, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+    {
+      key: "category",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "personName",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "roomName",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    // { key: "roomId", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+    // { key: "price", width: 10, style: { alignment: { wrapText: true, vertical: "top", horizontal: "left" } } },
+    {
+      key: "shareNote",
+      width: 40,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    // { header: "Номер", key: "roomName", width: 10, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+    // { header: "roommate", key: "roommateName", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+    {
+      key: "personPosition",
+      width: 20,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "breakfastCount",
+      width: 10,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "lunchCount",
+      width: 10,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "dinnerCount",
+      width: 10,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "totalMealCost",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "totalLivingCost",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "totalDebt",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    },
+    {
+      key: "hotelName",
+      width: 30,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+      }
+    }
   ]
 
   reportData.forEach((row) => {
@@ -84,11 +252,11 @@ export const generateExcelAvia = async (reportData, filePath) => {
       category: row.category,
       personName: row.personName,
       roomName: row.roomName,
-      roomId: row.roomId,
+      // roomId: row.roomId,
       shareNote: row.shareNote,
       // roommateName: row.roommateName,
       personPosition: row.personPosition,
-      price: row.price,
+      // price: row.price,
       // roomName: row.roomName,
       breakfastCount: row.breakfastCount,
       lunchCount: row.lunchCount,
@@ -121,14 +289,14 @@ export const generateExcelAvia = async (reportData, filePath) => {
     )
   })
 
-  sheet.getColumn("index").alignment = { horizontal: "left" }
-  sheet.getColumn("totalDays").alignment = { horizontal: "left" }
-  sheet.getColumn("breakfastCount").alignment = { horizontal: "center" }
-  sheet.getColumn("lunchCount").alignment = { horizontal: "center" }
-  sheet.getColumn("dinnerCount").alignment = { horizontal: "center" }
-  sheet.getColumn("totalMealCost").alignment = { horizontal: "center" }
-  sheet.getColumn("totalLivingCost").alignment = { horizontal: "center" }
-  sheet.getColumn("totalDebt").alignment = { horizontal: "center" }
+  // sheet.getColumn("index").alignment = { horizontal: "left" }
+  // sheet.getColumn("totalDays").alignment = { horizontal: "left" }
+  // sheet.getColumn("breakfastCount").alignment = { horizontal: "center" }
+  // sheet.getColumn("lunchCount").alignment = { horizontal: "center" }
+  // sheet.getColumn("dinnerCount").alignment = { horizontal: "center" }
+  // sheet.getColumn("totalMealCost").alignment = { horizontal: "center" }
+  // sheet.getColumn("totalLivingCost").alignment = { horizontal: "center" }
+  // sheet.getColumn("totalDebt").alignment = { horizontal: "center" }
 
   sheet.eachRow((row) => {
     row.eachCell((cell) => {
@@ -193,6 +361,44 @@ export const generateExcelAvia = async (reportData, filePath) => {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FF999999" }
+    }
+    // cell.alignment = { horizontal: "center" }
+  })
+
+  const comp1 = sheet.getRow(1)
+  const comp2 = sheet.getRow(2)
+  const comp3 = sheet.getRow(3)
+  const comp4 = sheet.getRow(4)
+
+  comp1.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFFF" }
+    }
+    cell.alignment = { horizontal: "center" }
+  })
+  comp2.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFFF" }
+    }
+    cell.alignment = { horizontal: "center" }
+  })
+  comp3.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFFF" }
+    }
+    cell.alignment = { horizontal: "center" }
+  })
+  comp4.eachCell((cell) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFFF" }
     }
     cell.alignment = { horizontal: "center" }
   })
@@ -280,4 +486,17 @@ export const generateExcelHotel = async (reportData, filePath) => {
   })
 
   await workbook.xlsx.writeFile(filePath)
+}
+
+function getCellsFun(letter, value) {
+  sheet.getCell(`${letter}${num}`).value = value
+  sheet.getCell(`${letter}${num}`).font = {
+    name: "Times New Roman",
+    size: 14,
+    bold: true
+  }
+  sheet.getCell(`${letter}${num}`).alignment = {
+    horizontal: "left",
+    vertical: "middle"
+  }
 }
