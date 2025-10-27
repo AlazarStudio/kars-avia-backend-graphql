@@ -21,7 +21,8 @@ const DEFAULT = {
   userCreate: true,
   userUpdate: true,
   airlineMenu: true,
-  airlineUpdate: true
+  airlineUpdate: true,
+  contracts: true
 }
 
 async function main() {
