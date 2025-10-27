@@ -192,7 +192,7 @@ const reportResolver = {
         const airlinePrices = company?.prices
 
         let airlinePriceId
-        
+
         for (const contract of airlinePrices) {
           if (contract.airports && contract.airports.length > 0) {
             const match = contract.airports.find(
@@ -205,17 +205,18 @@ const reportResolver = {
         }
 
         const contract = await prisma.airlinePrice.findUnique({
-          where: { id: airlinePriceId },
-          
+          where: { id: airlinePriceId }
         })
         // console.log("\n contract: \n " + JSON.stringify(contract))
-
+        const city = await prisma.airport.findUnique({
+          where: { id: airportId }
+        })
         // console.log("company str " + JSON.stringify(company))
 
         companyData = {
           name: company.name,
           nameFull: company.nameFull,
-          city: filter.region,
+          city: city.city,
           contractName: contract.name
         }
 
