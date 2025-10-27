@@ -10,40 +10,49 @@ const formatCurrency = (value) => {
   return `${Number(value).toLocaleString("ru-RU")} ₽`
 }
 
-export const generateExcelAvia = async (reportData, filePath) => {
+export const generateExcelAvia = async (reportData, filePath, companyData) => {
+
+  // newReportData
+
+  // reportData
+  // console.log("reportData " + JSON.stringify(reportData))
+
+  // companyData
+  // console.log("companyData " + JSON.stringify(companyData))
+
   const workbook = new ExcelJS.Workbook()
 
   const font = { name: "Times New Roman", size: 12 }
 
-  const sheet = workbook.addWorksheet("Отчет по авиакомпаниям")
+  const sheet = workbook.addWorksheet(`${companyData.name}`)
 
   // Добавляем шапку
   sheet.mergeCells("A3:D3")
   sheet.mergeCells("A2:D2")
   sheet.mergeCells("A1:D1") // Объединяем ячейки для заголовка
-  sheet.getCell("A1").value = 'АО "АВИАКОМПАНИЯ АЗИМУТ"'
+  sheet.getCell("A1").value = `${companyData.nameFull}`
   sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
   sheet.getCell("A1").alignment = { horizontal: "left" }
 
   // sheet.mergeCells("E4:P4")
-  sheet.mergeCells("E1:P1") // Объединяем ячейки для следующего текста
-  sheet.getCell("E1").value = "Приложение №2"
+  sheet.mergeCells("E1:M1") // Объединяем ячейки для следующего текста
+  sheet.getCell("E1").value = `${companyData.contractName}`
   sheet.getCell("E1").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("E1").alignment = { horizontal: "right" }
 
   sheet.mergeCells("E2:P2")
-  sheet.getCell("E2").value = "К договору оказания услуг"
+  sheet.getCell("E2").value = " "
   sheet.getCell("E2").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("E2").alignment = { horizontal: "right" }
 
   sheet.mergeCells("E3:P3")
-  sheet.getCell("E3").value = "№ 001 от 01 января 2024г"
+  sheet.getCell("E3").value = " "
   sheet.getCell("E3").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("E3").alignment = { horizontal: "right" }
 
   sheet.mergeCells("A4:P4")
   sheet.getCell("A4").value =
-    'РЕЕСТР №14 оказанных услуг по размещению экипажа авиакомпании "АЗИМУТ "в г. Магнитогорск'
+    `РЕЕСТР № # оказанных услуг по размещению экипажа авиакомпании "${companyData.name}" в г. ${companyData.city}`
   sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("A4").alignment = { horizontal: "left" }
 

@@ -141,6 +141,9 @@ const reportResolver = {
       // console.log("\n filterStart" + filterStart, "\n filterEnd" + filterEnd)
 
       let reportData
+      let companyData
+      let newReportData
+
       if (filter.passengersReport) {
         return (error = new Error(" \n passenger report not implemented! "))
       } else {
@@ -181,6 +184,42 @@ const reportResolver = {
         })
 
         // console.log("\n requests: \n " + JSON.stringify(requests))
+        const company = await prisma.airline.findUnique({
+          where: { id: filter.airlineId },
+          include: { prices: { include: { airports: true } } }
+        })
+
+        const airlinePrices = company?.prices
+
+        let airlinePriceId
+        
+        for (const contract of airlinePrices) {
+          if (contract.airports && contract.airports.length > 0) {
+            const match = contract.airports.find(
+              (item) => item.airportId && item.airportId === filter.airportId
+            )
+            if (match) {
+              airlinePriceId = contract.id
+            }
+          }
+        }
+
+        const contract = await prisma.airlinePrice.findUnique({
+          where: { id: airlinePriceId },
+          
+        })
+        // console.log("\n contract: \n " + JSON.stringify(contract))
+
+        // console.log("company str " + JSON.stringify(company))
+
+        companyData = {
+          name: company.name,
+          nameFull: company.nameFull,
+          city: filter.region,
+          contractName: contract.name
+        }
+
+        newReportData = []
 
         reportData = aggregateRequestReports(
           requests,
@@ -211,7 +250,7 @@ const reportResolver = {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
         // await generateExcelAvia(reportData, reportPath)
-        await generateExcelAvia(new_report, reportPath)
+        await generateExcelAvia(new_report, reportPath, companyData)
         // await generateExcelAvia(finalRows, reportPath)
       } else {
         throw new Error("Unsupported report format")
@@ -282,7 +321,7 @@ const reportResolver = {
           },
           include: {
             person: { include: { position: true } },
-            hotelChess: { include: { room: { include: { roomKind:  true } } } },
+            hotelChess: { include: { room: { include: { roomKind: true } } } },
             hotel: true,
             airline: { include: { prices: { include: { airports: true } } } },
             mealPlan: true,
@@ -434,11 +473,26 @@ const applyCreateFilters = (filter) => {
       positionId: positionId
     }
   }
-  if (region) {
-    where.airport = {
-      isNot: null,
-      city: region
-    }
+  // if (region) {
+  //   where.airport = {
+  //     isNot: null,
+  //     city: region
+  //   }
+  // }
+  if (region && region.trim()) {
+    const AND = []
+    const s = region.trim()
+    AND.push({
+      OR: [
+        { contractNumber: { contains: s, mode: "insensitive" } },
+        { region: { contains: s, mode: "insensitive" } },
+        { applicationType: { contains: s, mode: "insensitive" } },
+        { notes: { contains: s, mode: "insensitive" } },
+        { airline: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } }
+      ]
+    })
+    where
   }
 
   return where
@@ -1098,7 +1152,6 @@ const parseNum = (v) => {
 
 // --- ИСПРАВЛЕННОЕ СЕРДЦЕ: ВОЗВРАЩАЕТ МАССИВ ОБЪЕКТОВ ПО КОНТРАКТУ ---
 function buildAllocation(data, rangeStart, rangeEnd) {
-
   // console.log("rangeStart " + formatLocalDate(rangeStart))
   // 0) вход
   const raw = Array.isArray(data) ? data : []
