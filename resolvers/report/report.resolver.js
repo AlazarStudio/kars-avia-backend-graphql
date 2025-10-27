@@ -209,7 +209,7 @@ const reportResolver = {
         })
         // console.log("\n contract: \n " + JSON.stringify(contract))
         const city = await prisma.airport.findUnique({
-          where: { id: airportId }
+          where: { id: filter.airportId }
         })
         // console.log("company str " + JSON.stringify(company))
 
