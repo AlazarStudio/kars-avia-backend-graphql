@@ -22,11 +22,15 @@ import { logger } from "./utils/logger.js"
 dotenv.config()
 const app = express()
 
+const SERVER_KEY = env("SERVER_KEY")
+const SERVER_CERT = env("SERVER_CERT")
+const SERVER_CA = env("SERVER_CA")
+
 // Загрузка SSL сертификатов
 const sslOptions = {
-  key: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/privkey.pem"),
-  cert: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/cert.pem"),
-  ca: fs.readFileSync("/etc/letsencrypt/live/backend.karsavia.ru/chain.pem")
+  key: fs.readFileSync(SERVER_KEY),
+  cert: fs.readFileSync(SERVER_CERT),
+  ca: fs.readFileSync(SERVER_CA)
 }
 
 // HTTP сервер для перенаправления на HTTPS
