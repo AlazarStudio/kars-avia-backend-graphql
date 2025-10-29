@@ -1217,55 +1217,17 @@ const hotelResolver = {
   Hotel: {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
-      // 1) Берём отсортированные id агрегацией в Mongo
-      const raw = await prisma.room.aggregateRaw({
-        pipeline: [
-          { $match: { hotelId: parent.id } },
-          {
-            $addFields: {
-              _nameNum: {
-                $let: {
-                  vars: {
-                    m: {
-                      $regexFind: {
-                        input: "$name",
-                        regex: {
-                          $regularExpression: { pattern: "^\\d+", options: "" }
-                        }
-                      }
-                    }
-                  },
-                  in: {
-                    $cond: [
-                      { $gt: ["$$m", null] },
-                      { $toInt: "$$m.match" },
-                      Number.MAX_SAFE_INTEGER
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          { $sort: { _nameNum: 1, name: 1 } }, // 1,2,3,4,11,12,...
-          { $project: { _id: 1 } }
-        ]
-      })
-
-      const idsOrdered = raw.map((d) =>
-        typeof d._id === "string" ? d._id : d._id.$oid
-      )
-
-      // 2) Тянем сущности с include
-      const rooms = await prisma.room.findMany({
-        where: { id: { in: idsOrdered } },
+      const rows = await prisma.room.findMany({
+        where: { hotelId: parent.id },
         include: { roomKind: true }
       })
-
-      // 3) Возвращаем в том же порядке
-      const pos = new Map(idsOrdered.map((id, i) => [id, i]))
-      rooms.sort((a, b) => pos.get(a.id) - pos.get(b.id))
-
-      return rooms
+      rows.sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+          numeric: true,
+          sensitivity: "base"
+        })
+      )
+      return rows
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
