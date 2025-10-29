@@ -366,37 +366,39 @@ export const generateExcelAvia = async (reportData, filePath, companyData) => {
     cell.border = {}
   })
 
-  const objectLenght = Object.keys(reportData).length
-  sheet.mergeCells(`A${objectLenght + 8}:C${objectLenght + 8}`)
-  sheet.getCell(`A${objectLenght + 8}`).value =
-    'Генеральный директор ООО "КАРС АВИА"'
-  sheet.getCell(`A${objectLenght + 8}`).font = {
-    name: "Times New Roman",
-    size: 12
-    // bold: true
-  }
-  sheet.getCell(`A${objectLenght + 8}`).alignment = { horizontal: "left" }
-  sheet.getCell(`A${objectLenght + 8}`).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFFFFF" }
-  }
+  // doc footer
 
-  sheet.mergeCells(`A${objectLenght + 9}:C${objectLenght + 9}`)
-  sheet.mergeCells(`A${objectLenght + 10}:C${objectLenght + 10}`)
-  sheet.getCell(`A${objectLenght + 10}`).value =
-    "______________________ Пятигорский Е.К."
-  sheet.getCell(`A${objectLenght + 10}`).font = {
-    name: "Times New Roman",
-    size: 12
-    // bold: true
-  }
-  sheet.getCell(`A${objectLenght + 10}`).alignment = { horizontal: "left" }
-  sheet.getCell(`A${objectLenght + 10}`).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFFFFF" }
-  }
+  // const objectLenght = Object.keys(reportData).length
+  // sheet.mergeCells(`A${objectLenght + 8}:C${objectLenght + 8}`)
+  // sheet.getCell(`A${objectLenght + 8}`).value =
+  //   'Генеральный директор ООО "КАРС АВИА"'
+  // sheet.getCell(`A${objectLenght + 8}`).font = {
+  //   name: "Times New Roman",
+  //   size: 12
+  //   // bold: true
+  // }
+  // sheet.getCell(`A${objectLenght + 8}`).alignment = { horizontal: "left" }
+  // sheet.getCell(`A${objectLenght + 8}`).fill = {
+  //   type: "pattern",
+  //   pattern: "solid",
+  //   fgColor: { argb: "FFFFFF" }
+  // }
+
+  // sheet.mergeCells(`A${objectLenght + 9}:C${objectLenght + 9}`)
+  // sheet.mergeCells(`A${objectLenght + 10}:C${objectLenght + 10}`)
+  // sheet.getCell(`A${objectLenght + 10}`).value =
+  //   "______________________ Пятигорский Е.К."
+  // sheet.getCell(`A${objectLenght + 10}`).font = {
+  //   name: "Times New Roman",
+  //   size: 12
+  //   // bold: true
+  // }
+  // sheet.getCell(`A${objectLenght + 10}`).alignment = { horizontal: "left" }
+  // sheet.getCell(`A${objectLenght + 10}`).fill = {
+  //   type: "pattern",
+  //   pattern: "solid",
+  //   fgColor: { argb: "FFFFFF" }
+  // }
 
   await workbook.xlsx.writeFile(filePath)
 }

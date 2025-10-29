@@ -1219,7 +1219,8 @@ const hotelResolver = {
     rooms: async (parent) => {
       return await prisma.room.findMany({
         where: { hotelId: parent.id },
-        include: { roomKind: true }
+        include: { roomKind: true },
+        orderBy: { name: "desc" }
       })
     },
     roomKind: async (parent) => {
