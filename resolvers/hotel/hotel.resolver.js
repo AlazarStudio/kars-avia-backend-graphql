@@ -1221,13 +1221,18 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { roomKind: true }
       })
-      const toNum = (s) => {
-        const m = String(s || "").match(/\d+/) // первая числовая группа
+
+      const num = (s) => {
+        const m = String(s || "").match(/\d+/)
         return m ? Number(m[0]) : Number.POSITIVE_INFINITY
       }
-      return rows.sort(
-        (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
+
+      rows.sort(
+        (a, b) =>
+          num(a.name) - num(b.name) ||
+          String(a.name).localeCompare(String(b.name))
       )
+      return rows
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
