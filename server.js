@@ -22,9 +22,9 @@ import { logger } from "./utils/logger.js"
 dotenv.config()
 const app = express()
 
-const SERVER_KEY = env("SERVER_KEY")
-const SERVER_CERT = env("SERVER_CERT")
-const SERVER_CA = env("SERVER_CA")
+const SERVER_KEY = process.env.SERVER_KEY
+const SERVER_CERT = process.env.SERVER_CERT
+const SERVER_CA = process.env.SERVER_CA
 
 // Загрузка SSL сертификатов
 const sslOptions = {
