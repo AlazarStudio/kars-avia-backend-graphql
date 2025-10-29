@@ -1217,11 +1217,17 @@ const hotelResolver = {
   Hotel: {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
-      return await prisma.room.findMany({
+      const rows = await prisma.room.findMany({
         where: { hotelId: parent.id },
-        include: { roomKind: true },
-        orderBy: { name: "desc" }
+        include: { roomKind: true }
       })
+      const toNum = (s) => {
+        const m = String(s || "").match(/\d+/) // первая числовая группа
+        return m ? Number(m[0]) : Number.POSITIVE_INFINITY
+      }
+      return rows.sort(
+        (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
+      )
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
