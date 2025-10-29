@@ -1217,17 +1217,55 @@ const hotelResolver = {
   Hotel: {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
-      const rows = await prisma.room.findMany({
-        where: { hotelId: parent.id },
+      // 1) Берём отсортированные id агрегацией в Mongo
+      const raw = await prisma.room.aggregateRaw({
+        pipeline: [
+          { $match: { hotelId: parent.id } },
+          {
+            $addFields: {
+              _nameNum: {
+                $let: {
+                  vars: {
+                    m: {
+                      $regexFind: {
+                        input: "$name",
+                        regex: {
+                          $regularExpression: { pattern: "^\\d+", options: "" }
+                        }
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: [
+                      { $gt: ["$$m", null] },
+                      { $toInt: "$$m.match" },
+                      Number.MAX_SAFE_INTEGER
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          { $sort: { _nameNum: 1, name: 1 } }, // 1,2,3,4,11,12,...
+          { $project: { _id: 1 } }
+        ]
+      })
+
+      const idsOrdered = raw.map((d) =>
+        typeof d._id === "string" ? d._id : d._id.$oid
+      )
+
+      // 2) Тянем сущности с include
+      const rooms = await prisma.room.findMany({
+        where: { id: { in: idsOrdered } },
         include: { roomKind: true }
       })
-      const toNum = (s) => {
-        const m = String(s || "").match(/\d+/) // первая числовая группа
-        return m ? Number(m[0]) : Number.POSITIVE_INFINITY
-      }
-      return rows.sort(
-        (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
-      )
+
+      // 3) Возвращаем в том же порядке
+      const pos = new Map(idsOrdered.map((id, i) => [id, i]))
+      rooms.sort((a, b) => pos.get(a.id) - pos.get(b.id))
+
+      return rooms
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
