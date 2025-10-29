@@ -1216,19 +1216,30 @@ const hotelResolver = {
   // Резольверы для полей типа Hotel
   Hotel: {
     // Получение связанных комнат отеля
+    // rooms: async (parent) => {
+    //   const rows = await prisma.room.findMany({
+    //     where: { hotelId: parent.id },
+    //     include: { roomKind: true }
+    //   })
+    //   const toNum = (s) => {
+    //     const m = String(s || "").match(/\d+/) // первая числовая группа
+    //     return m ? Number(m[0]) : Number.POSITIVE_INFINITY
+    //   }
+    //   return rows.sort(
+    //     (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
+    //   )
+    // },
     rooms: async (parent) => {
-      const rows = await prisma.room.findMany({
-        where: { hotelId: parent.id },
-        include: { roomKind: true }
-      })
-      const toNum = (s) => {
-        const m = String(s || "").match(/\d+/) // первая числовая группа
-        return m ? Number(m[0]) : Number.POSITIVE_INFINITY
-      }
-      return rows.sort(
-        (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
-      )
+      return await prisma.$queryRaw`
+    SELECT r.*
+    FROM "Room" r
+    WHERE r."hotelId" = ${parent.id}
+    ORDER BY
+      NULLIF(regexp_replace(r."name", '\D', '', 'g'), '')::int ASC,
+      r."name" ASC
+  `
     },
+
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
         where: { hotelId: parent.id }
