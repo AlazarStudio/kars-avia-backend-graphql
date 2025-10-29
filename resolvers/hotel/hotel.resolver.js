@@ -1221,11 +1221,16 @@ const hotelResolver = {
         where: { hotelId: parent.id },
         include: { roomKind: true }
       })
-      rows.sort((a, b) =>
-        String(a.name || "").localeCompare(String(b.name || ""), undefined, {
-          numeric: true,
-          sensitivity: "base"
-        })
+
+      const num = (s) => {
+        const m = String(s || "").match(/\d+/)
+        return m ? Number(m[0]) : Number.POSITIVE_INFINITY
+      }
+
+      rows.sort(
+        (a, b) =>
+          num(a.name) - num(b.name) ||
+          String(a.name).localeCompare(String(b.name))
       )
       return rows
     },
