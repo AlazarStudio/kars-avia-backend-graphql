@@ -1217,58 +1217,17 @@ const hotelResolver = {
   Hotel: {
     // Получение связанных комнат отеля
     rooms: async (parent) => {
-      // 1) Берём _id в «натуральном» порядке по числу в name
-      const raw = await prisma.room.aggregateRaw({
-        pipeline: [
-          // hotelId как ObjectId (важно!)
-          { $match: { hotelId: { $oid: parent.id } } },
-
-          // вытащить первое число из name
-          {
-            $addFields: {
-              _nameNum: {
-                $let: {
-                  vars: {
-                    m: {
-                      $regexFind: {
-                        input: { $ifNull: ["$name", ""] },
-                        regex: {
-                          $regularExpression: { pattern: "\\d+", options: "" }
-                        } // не якорим ^
-                      }
-                    }
-                  },
-                  in: {
-                    $cond: [
-                      { $ne: ["$$m", null] },
-                      { $toInt: "$$m.match" },
-                      Number.MAX_SAFE_INTEGER
-                    ]
-                  }
-                }
-              }
-            }
-          },
-
-          // сортируем по найденному числу, затем по name для стабильности
-          { $sort: { _nameNum: 1, name: 1 } },
-          { $project: { _id: 1 } }
-        ]
-      })
-
-      const ids = raw.map((x) =>
-        typeof x._id === "string" ? x._id : x._id.$oid
-      )
-
-      // 2) Тянем записи с include
-      const list = await prisma.room.findMany({
-        where: { id: { in: ids } },
+      const rows = await prisma.room.findMany({
+        where: { hotelId: parent.id },
         include: { roomKind: true }
       })
-
-      // 3) Возвращаем в том же порядке
-      const pos = new Map(ids.map((id, i) => [id, i]))
-      return list.sort((a, b) => pos.get(a.id) - pos.get(b.id))
+      const toNum = (s) => {
+        const m = String(s || "").match(/\d+/) // первая числовая группа
+        return m ? Number(m[0]) : Number.POSITIVE_INFINITY
+      }
+      return rows.sort(
+        (a, b) => toNum(a.name) - toNum(b.name) || a.name.localeCompare(b.name)
+      )
     },
     roomKind: async (parent) => {
       return await prisma.roomKind.findMany({
