@@ -184,7 +184,7 @@ const reportResolver = {
           orderBy: { arrival: "asc" }
         })
 
-        console.log("\n requests: \n " + JSON.stringify(requests))
+        // console.log("\n requests: \n " + JSON.stringify(requests))
         const company = await prisma.airline.findUnique({
           where: { id: filter.airlineId },
           include: { prices: { include: { airports: true } } }
@@ -804,12 +804,12 @@ const aggregateRequestReports = (
   filterStart,
   filterEnd
 ) => {
-  const filtered = requests.filter((r) => {
-    const pos = r.person?.position?.name
-    return pos !== "Техник" && pos !== "Инженер"
-  })
+  // const filtered = requests.filter((r) => {
+  //   const pos = r.person?.position?.name
+  //   return pos !== "Техник" && pos !== "Инженер"
+  // })
 
-  filtered.sort((a, b) => {
+  requests.sort((a, b) => {
     // Сортировка по отелю ---------------- ↓↓↓↓
     const hotelA = a.hotel?.name || ""
     const hotelB = b.hotel?.name || ""
