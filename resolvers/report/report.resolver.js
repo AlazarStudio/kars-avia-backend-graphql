@@ -806,7 +806,7 @@ const aggregateRequestReports = (
 ) => {
   const filtered = requests.filter((r) => {
     const pos = r.person?.position?.name
-    // return pos !== "Техник" && pos !== "Инженер"
+    return pos !== null
   })
 
   filtered.sort((a, b) => {
