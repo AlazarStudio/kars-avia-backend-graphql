@@ -163,6 +163,8 @@ const reportResolver = {
           }
         }
 
+        console.log("pos " + filter?.position)
+
         const where = {
           AND: [
             { ...applyCreateFilters(filter) },
