@@ -184,7 +184,7 @@ const reportResolver = {
           orderBy: { arrival: "asc" }
         })
 
-        // console.log("\n requests: \n " + JSON.stringify(requests))
+        console.log("\n requests: \n " + JSON.stringify(requests))
         const company = await prisma.airline.findUnique({
           where: { id: filter.airlineId },
           include: { prices: { include: { airports: true } } }
