@@ -578,7 +578,7 @@ const buildPositionWhere = (position) => {
   const p = String(position || "all").toLowerCase()
   if (p === "squadron") {
     return { person: { position: { name: { notIn: TECH_POS } } } }
-  } else if (p === "technician") {
+  } else {
     return { person: { position: { name: { notIn: NOT_TECH_POS } } } }
   }
   return {} // all
