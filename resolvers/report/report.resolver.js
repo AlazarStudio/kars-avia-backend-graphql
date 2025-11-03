@@ -559,6 +559,20 @@ const applyFilters = (filter) => {
 }
 
 const TECH_POS = ["Техник", "Инженер"]
+const NOT_TECH_POS = [
+  "КАЭ",
+  "КВС",
+  "ВП",
+  "СБ",
+  "ИПБ",
+  "БП",
+  "СА",
+  "Директор",
+  "Заместитель директора",
+  "Нач. СБП",
+  "Нач. ЛМО",
+  "ЛД"
+]
 
 const buildPositionWhere = (position) => {
   const p = String(position || "all").toLowerCase()
@@ -566,7 +580,7 @@ const buildPositionWhere = (position) => {
     return { person: { position: { name: { notIn: TECH_POS } } } }
   }
   if (p === "technician") {
-    return { person: { position: { name: { in: ["Техник", "Инженер"] } } } }
+    return { person: { position: { name: { notIn: NOT_TECH_POS } } } }
   }
   return {} // all
 }
