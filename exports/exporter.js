@@ -10,479 +10,574 @@ const formatCurrency = (value) => {
   return `${Number(value).toLocaleString("ru-RU")} ₽`
 }
 
-export const generateExcelAvia = async (reportData, filePath, companyData) => {
-
-  // newReportData
-
-  // reportData
-  // console.log("reportData " + JSON.stringify(reportData))
-
-  // companyData
-  // console.log("companyData " + JSON.stringify(companyData))
+export const generateExcelAvia = async (
+  reportData,
+  filePath,
+  companyData,
+  filterInput
+) => {
+  const includeMeal = filterInput?.meal !== false // по умолчанию: вкл
+  const includeLiving = filterInput?.living !== false // по умолчанию: вкл
 
   const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet(`${companyData.name}`)
 
   const font = { name: "Times New Roman", size: 12 }
 
-  const sheet = workbook.addWorksheet(`${companyData.name}`)
+  const formatCurrency = (v) => {
+    const n = Number(v || 0)
+    return new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(n)
+  }
 
-  // Добавляем шапку
-  sheet.mergeCells("A3:D3")
+  const colLetter = (n) => {
+    // 1 -> A, 2 -> B, ..., 27 -> AA
+    let s = ""
+    while (n > 0) {
+      const m = (n - 1) % 26
+      s = String.fromCharCode(65 + m) + s
+      n = Math.floor((n - 1) / 26)
+    }
+    return s
+  }
+
+  // ---------- верхняя шапка ----------
+  sheet.mergeCells("A1:D1")
   sheet.mergeCells("A2:D2")
-  sheet.mergeCells("A1:D1") // Объединяем ячейки для заголовка
+  sheet.mergeCells("A3:D3")
   sheet.getCell("A1").value = `${companyData.nameFull}`
   sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
   sheet.getCell("A1").alignment = { horizontal: "left" }
 
-  // sheet.mergeCells("E4:P4")
-  sheet.mergeCells("E1:M1") // Объединяем ячейки для следующего текста
+  // правый блок шапки растягиваем до последней колонки (ниже вычислим lastCol)
   sheet.getCell("E1").value = `${companyData.contractName}`
   sheet.getCell("E1").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("E1").alignment = { horizontal: "right" }
-
-  sheet.mergeCells("E2:P2")
   sheet.getCell("E2").value = " "
-  sheet.getCell("E2").font = { name: "Times New Roman", size: 12, bold: true }
-  sheet.getCell("E2").alignment = { horizontal: "right" }
-
-  sheet.mergeCells("E3:P3")
   sheet.getCell("E3").value = " "
-  sheet.getCell("E3").font = { name: "Times New Roman", size: 12, bold: true }
-  sheet.getCell("E3").alignment = { horizontal: "right" }
 
-  sheet.mergeCells("A4:P4")
-  sheet.getCell("A4").value =
-    `РЕЕСТР № # оказанных услуг по размещению экипажа авиакомпании "${companyData.name}" в г. ${companyData.city}`
-  sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
-  sheet.getCell("A4").alignment = { horizontal: "left" }
+  const headerRowIndex = 5
 
-  // Пустая строка после шапки
-  // sheet.addRow([])
-
-  const cells = [
-    { column: "A", value: "п/п" },
-    { column: "B", value: "Дата/время заезда" },
-    { column: "C", value: "Дата/время выезда" },
-    { column: "D", value: "Количество суток" },
-    { column: "E", value: "Категория номера" },
-    { column: "F", value: "ФИО" },
-    { column: "G", value: "Комната" },
-    { column: "H", value: "Вид проживания" },
-    { column: "I", value: "Должность" },
-    { column: "J", value: "Завтрак" },
-    { column: "K", value: "Обед" },
-    { column: "L", value: "Ужин" },
-    { column: "M", value: "Стоимость питания" },
-    { column: "N", value: "Стоимость проживания" },
-    { column: "O", value: "Итоговая стоимость" },
-    { column: "P", value: "Гостиница" }
-  ]
-
-  cells.map((item) => {
-    getCellsFun(sheet, item.column, "5", item.value)
-  })
-
-  // Теперь добавляем таблицу с данными
-  sheet.columns = [
-    {
-      key: "index",
-      width: 6,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    // { header: "id", key: "id", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
+  // ---------- схема колонок (динамическая) ----------
+  const base = [
+    { key: "index", header: "п/п", width: 6, getter: (r) => r.index },
     {
       key: "arrival",
+      header: "Дата/время заезда",
       width: 25,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      getter: (r) => r.arrival
     },
     {
       key: "departure",
+      header: "Дата/время выезда",
       width: 25,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      getter: (r) => r.departure
     },
     {
       key: "totalDays",
-      width: 25,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      header: "Количество суток",
+      width: 18,
+      getter: (r) => r.totalDays
     },
-    // { header: "Full log", key: "breakdown", width: 400, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
     {
       key: "category",
+      header: "Категория номера",
       width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      getter: (r) => r.category
     },
     {
       key: "personName",
+      header: "ФИО",
       width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      getter: (r) => r.personName
     },
     {
       key: "roomName",
-      width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      header: "Комната",
+      width: 18,
+      getter: (r) => r.roomName
     },
-    // { key: "roomId", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
-    // { key: "price", width: 10, style: { alignment: { wrapText: true, vertical: "top", horizontal: "left" } } },
     {
       key: "shareNote",
-      width: 40,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      header: "Вид проживания",
+      width: 24,
+      getter: (r) => r.shareNote
     },
-    // { header: "Номер", key: "roomName", width: 10, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
-    // { header: "roommate", key: "roommateName", width: 30, style: { alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } }  },
     {
       key: "personPosition",
+      header: "Должность",
       width: 20,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "breakfastCount",
-      width: 10,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "lunchCount",
-      width: 10,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "dinnerCount",
-      width: 10,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "totalMealCost",
-      width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "totalLivingCost",
-      width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "totalDebt",
-      width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
-    },
-    {
-      key: "hotelName",
-      width: 30,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" }
-      }
+      getter: (r) => r.personPosition
     }
   ]
 
-  reportData.forEach((row) => {
-    sheet.addRow({
-      index: row.index,
-      // id: row.id,
-      arrival: row.arrival,
-      departure: row.departure,
-      totalDays: row.totalDays,
-      // breakdown: row.breakdown,
-      category: row.category,
-      personName: row.personName,
-      roomName: row.roomName,
-      // roomId: row.roomId,
-      shareNote: row.shareNote,
-      // roommateName: row.roommateName,
-      personPosition: row.personPosition,
-      // price: row.price,
-      // roomName: row.roomName,
-      breakfastCount: row.breakfastCount,
-      lunchCount: row.lunchCount,
-      dinnerCount: row.dinnerCount,
-      totalMealCost: formatCurrency(row.totalMealCost),
-      totalLivingCost: formatCurrency(row.totalLivingCost),
-      totalDebt: formatCurrency(row.totalDebt),
-      hotelName: row.hotelName
+  const mealCols = [
+    {
+      key: "breakfastCount",
+      header: "Завтрак",
+      width: 10,
+      getter: (r) => r.breakfastCount
+    },
+    {
+      key: "lunchCount",
+      header: "Обед",
+      width: 10,
+      getter: (r) => r.lunchCount
+    },
+    {
+      key: "dinnerCount",
+      header: "Ужин",
+      width: 10,
+      getter: (r) => r.dinnerCount
+    },
+    {
+      key: "totalMealCost",
+      header: "Стоимость питания",
+      width: 18,
+      getter: (r) => formatCurrency(r.totalMealCost),
+      sum: (r) => +r.totalMealCost || 0
+    }
+  ]
+
+  const livingCols = [
+    {
+      key: "totalLivingCost",
+      header: "Стоимость проживания",
+      width: 18,
+      getter: (r) => formatCurrency(r.totalLivingCost),
+      sum: (r) => +r.totalLivingCost || 0
+    }
+  ]
+
+  const tail = [
+    {
+      key: "totalDebt",
+      header: "Итоговая стоимость",
+      width: 18,
+      getter: (r) =>
+        formatCurrency(
+          (includeMeal ? +r.totalMealCost || 0 : 0) +
+            (includeLiving ? +r.totalLivingCost || 0 : 0)
+        ),
+      sum: (r) =>
+        (includeMeal ? +r.totalMealCost || 0 : 0) +
+        (includeLiving ? +r.totalLivingCost || 0 : 0)
+    },
+    {
+      key: "hotelName",
+      header: "Гостиница",
+      width: 30,
+      getter: (r) => r.hotelName
+    }
+  ]
+
+  const cols = [
+    ...base,
+    ...(includeMeal ? mealCols : []),
+    ...(includeLiving ? livingCols : []),
+    ...tail
+  ]
+
+  // применяем колонки в ExcelJS
+  sheet.columns = cols.map((c) => ({
+    key: c.key,
+    width: c.width,
+    style: {
+      alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+    }
+  }))
+
+  // последняя буква колонки
+  const lastCol = colLetter(cols.length)
+
+  // заголовок-строка под шапкой
+  sheet.mergeCells(`A4:${lastCol}4`)
+  sheet.getCell(
+    "A4"
+  ).value = `РЕЕСТР № # оказанных услуг по размещению экипажа авиакомпании "${companyData.name}" в г. ${companyData.city}`
+  sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("A4").alignment = { horizontal: "left" }
+
+  // дотягиваем правую часть шапки на 1–3 строки до конца
+  sheet.mergeCells(`E1:${lastCol}1`)
+  sheet.mergeCells(`E2:${lastCol}2`)
+  sheet.mergeCells(`E3:${lastCol}3`)
+
+  // ---------- рисуем строку заголовков таблицы ----------
+  const headerRow = sheet.getRow(headerRowIndex)
+  cols.forEach((c, i) => {
+    const cell = sheet.getCell(`${colLetter(i + 1)}${headerRowIndex}`)
+    cell.value = c.header
+    cell.font = { ...font, bold: true }
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF999999" }
+    }
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" }
+    }
+  })
+  headerRow.height = 25
+
+  // ---------- строки данных ----------
+  reportData.forEach((r) => {
+    const rowObj = {}
+    cols.forEach((c) => {
+      rowObj[c.key] = c.getter ? c.getter(r) : r[c.key]
     })
+    sheet.addRow(rowObj)
   })
 
-  // sheet.addRow({}) // Пустая строка
-  sheet.addRow({
-    personPosition: "ИТОГО:",
-    // totalDays: reportData.reduce((sum, row) => sum + row.totalDays, 0),
-    // breakfastCount: reportData.reduce(
-    //   (sum, row) => sum + row.breakfastCount,
-    //   0
-    // ),
-    // lunchCount: reportData.reduce((sum, row) => sum + row.lunchCount, 0),
-    // dinnerCount: reportData.reduce((sum, row) => sum + row.dinnerCount, 0),
-    totalMealCost: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
-    ),
-    totalLivingCost: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalLivingCost, 0)
-    ),
-    totalDebt: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+  // ---------- итоги ----------
+  const totalRowObj = {}
+  totalRowObj["personPosition"] = "ИТОГО:"
+
+  const sumForKey = (key, fn) =>
+    formatCurrency(
+      reportData.reduce((acc, r) => acc + (fn ? fn(r) : +r[key] || 0), 0)
     )
-  })
 
-  // sheet.getColumn("index").alignment = { horizontal: "left" }
-  // sheet.getColumn("totalDays").alignment = { horizontal: "left" }
-  // sheet.getColumn("breakfastCount").alignment = { horizontal: "center" }
-  // sheet.getColumn("lunchCount").alignment = { horizontal: "center" }
-  // sheet.getColumn("dinnerCount").alignment = { horizontal: "center" }
-  // sheet.getColumn("totalMealCost").alignment = { horizontal: "center" }
-  // sheet.getColumn("totalLivingCost").alignment = { horizontal: "center" }
-  // sheet.getColumn("totalDebt").alignment = { horizontal: "center" }
+  const has = (key) => cols.some((c) => c.key === key)
 
-  sheet.eachRow((row) => {
+  if (has("totalMealCost"))
+    totalRowObj["totalMealCost"] = sumForKey(
+      "totalMealCost",
+      mealCols.find((c) => c.key === "totalMealCost")?.sum
+    )
+  if (has("totalLivingCost"))
+    totalRowObj["totalLivingCost"] = sumForKey(
+      "totalLivingCost",
+      livingCols.find((c) => c.key === "totalLivingCost")?.sum
+    )
+  if (has("totalDebt")) {
+    const totalDebtSum = reportData.reduce(
+      (acc, r) =>
+        acc +
+        ((includeMeal ? +r.totalMealCost || 0 : 0) +
+          (includeLiving ? +r.totalLivingCost || 0 : 0)),
+      0
+    )
+    totalRowObj["totalDebt"] = formatCurrency(totalDebtSum)
+  }
+  sheet.addRow(totalRowObj)
+
+  // ---------- рамки + зебра для данных ----------
+  const firstDataRow = headerRowIndex + 1
+  const lastDataRow = sheet.lastRow.number
+
+  for (let rn = firstDataRow; rn <= lastDataRow; rn++) {
+    const row = sheet.getRow(rn)
+    const isOdd = rn % 2 === 1
     row.eachCell((cell) => {
-      cell.font = {
-        name: "Times New Roman",
-        size: 12
-      }
+      cell.font = font
       cell.border = {
         top: { style: "thin" },
         left: { style: "thin" },
         bottom: { style: "thin" },
         right: { style: "thin" }
       }
-      // ---------------------------------------------------------------- ↓↓↓↓
-      if (row.hasValues) {
-        const isOdd = row.number % 2 === 1
-        const fillColor = isOdd ? "FFEEEEEE" : "FFCCCCCC"
-
-        row.eachCell((cell) => {
-          cell.font = { name: "Times New Roman", size: 12 }
-          cell.border = {
-            top: { style: "thin" },
-            left: { style: "thin" },
-            bottom: { style: "thin" },
-            right: { style: "thin" }
-          }
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: fillColor }
-          }
-        })
+      if (rn !== headerRowIndex) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isOdd ? "FFEEEEEE" : "FFCCCCCC" }
+        }
       }
-      // ---------------------------------------------------------------- ↑↑↑↑
+    })
+  }
+
+  // очищаем заливки и рамки в верхних строках (A1..A4)
+  ;[1, 2, 3, 4].forEach((rn) => {
+    const row = sheet.getRow(rn)
+    row.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFFFFF" }
+      }
+      cell.border = {}
     })
   })
 
-  // const headerRow = sheet.getRow(1)
-  // headerRow.font = { name: "Times New Roman", size: 12, bold: true }
-  // headerRow.height = 30
+  await workbook.xlsx.writeFile(filePath)
+}
 
-  // ---------------------------------------------------------------- ↓↓↓↓
-  // const header = sheet.getRow(1)
-  // header.font = { name: "Times New Roman", size: 12, bold: true }
-  // header.height = 30
-  // header.eachCell((cell) => {
-  //   cell.fill = {
-  //     type: "pattern",
-  //     pattern: "solid",
-  //     fgColor: { argb: "FF999999" }
-  //   }
-  // })
-  // ---------------------------------------------------------------- ↑↑↑↑
+export const generateExcelHotel = async (
+  reportData,
+  filePath,
+  companyData,
+  filterInput
+) => {
+  const includeMeal = filterInput?.meal !== false // по умолчанию: вкл
+  const includeLiving = filterInput?.living !== false // по умолчанию: вкл
 
-  // === 4. Форматирование таблицы ===
-  const headerRowIndex = 5 // шапка + пустая строка
-  const headerRow = sheet.getRow(headerRowIndex)
-  headerRow.font = { ...font, bold: true }
-  headerRow.height = 25
-  headerRow.eachCell((cell) => {
+  const formatCurrency = (v) =>
+    new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Number(v || 0))
+
+  const colLetter = (n) => {
+    let s = ""
+    while (n > 0) {
+      const m = (n - 1) % 26
+      s = String.fromCharCode(65 + m) + s
+      n = Math.floor((n - 1) / 26)
+    }
+    return s
+  }
+
+  const font = { name: "Times New Roman", size: 12 }
+
+  const wb = new ExcelJS.Workbook()
+  const sheet = wb.addWorksheet(`${companyData.name}`)
+
+  // ── Шапка
+  sheet.mergeCells("A1:D1")
+  sheet.mergeCells("A2:D2")
+  sheet.mergeCells("A3:D3")
+  sheet.getCell("A1").value = `${companyData.nameFull}`
+  sheet.getCell("A1").font = { name: "Times New Roman", size: 14, bold: true }
+  sheet.getCell("A1").alignment = { horizontal: "left" }
+
+  sheet.getCell("E1").value = `${companyData.contractName}`
+  sheet.getCell("E1").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("E1").alignment = { horizontal: "right" }
+  sheet.getCell("E2").value = " "
+  sheet.getCell("E3").value = " "
+
+  const headerRowIndex = 5
+
+  // ── Динамическая схема колонок
+  const base = [
+    { key: "index", header: "п/п", width: 6, get: (r) => r.index },
+    {
+      key: "arrival",
+      header: "Дата/время заезда",
+      width: 25,
+      get: (r) => r.arrival
+    },
+    {
+      key: "departure",
+      header: "Дата/время выезда",
+      width: 25,
+      get: (r) => r.departure
+    },
+    {
+      key: "totalDays",
+      header: "Количество суток",
+      width: 18,
+      get: (r) => r.totalDays
+    },
+    {
+      key: "category",
+      header: "Категория номера",
+      width: 30,
+      get: (r) => r.category
+    },
+    { key: "personName", header: "ФИО", width: 30, get: (r) => r.personName },
+    { key: "roomName", header: "Комната", width: 18, get: (r) => r.roomName },
+    {
+      key: "shareNote",
+      header: "Вид проживания",
+      width: 24,
+      get: (r) => r.shareNote
+    },
+    {
+      key: "personPosition",
+      header: "Должность",
+      width: 20,
+      get: (r) => r.personPosition
+    }
+  ]
+
+  const mealCols = [
+    {
+      key: "breakfastCount",
+      header: "Завтрак",
+      width: 10,
+      get: (r) => r.breakfastCount
+    },
+    { key: "lunchCount", header: "Обед", width: 10, get: (r) => r.lunchCount },
+    {
+      key: "dinnerCount",
+      header: "Ужин",
+      width: 10,
+      get: (r) => r.dinnerCount
+    },
+    {
+      key: "totalMealCost",
+      header: "Стоимость питания",
+      width: 18,
+      get: (r) => formatCurrency(r.totalMealCost),
+      sum: (r) => +r.totalMealCost || 0
+    }
+  ]
+
+  const livingCols = [
+    {
+      key: "totalLivingCost",
+      header: "Стоимость проживания",
+      width: 18,
+      get: (r) => formatCurrency(r.totalLivingCost),
+      sum: (r) => +r.totalLivingCost || 0
+    }
+  ]
+
+  const tail = [
+    {
+      key: "totalDebt",
+      header: "Итоговая стоимость",
+      width: 18,
+      get: (r) =>
+        formatCurrency(
+          (includeMeal ? +r.totalMealCost || 0 : 0) +
+            (includeLiving ? +r.totalLivingCost || 0 : 0)
+        ),
+      sum: (r) =>
+        (includeMeal ? +r.totalMealCost || 0 : 0) +
+        (includeLiving ? +r.totalLivingCost || 0 : 0)
+    },
+    {
+      key: "hotelName",
+      header: "Гостиница",
+      width: 30,
+      get: (r) => r.hotelName
+    }
+  ]
+
+  const cols = [
+    ...base,
+    ...(includeMeal ? mealCols : []),
+    ...(includeLiving ? livingCols : []),
+    ...tail
+  ]
+
+  // Применяем колонки
+  sheet.columns = cols.map((c) => ({
+    key: c.key,
+    width: c.width,
+    style: {
+      alignment: { wrapText: true, vertical: "top", horizontal: "left" }
+    }
+  }))
+
+  const lastCol = colLetter(cols.length)
+
+  // Текст под шапкой
+  sheet.mergeCells(`A4:${lastCol}4`)
+  sheet.getCell(
+    "A4"
+  ).value = `РЕЕСТР № # оказанных услуг по размещению экипажа в отеле "${companyData.name}" в г. ${companyData.city}`
+  sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
+  sheet.getCell("A4").alignment = { horizontal: "left" }
+
+  // Дотягиваем правую часть шапки
+  sheet.mergeCells(`E1:${lastCol}1`)
+  sheet.mergeCells(`E2:${lastCol}2`)
+  sheet.mergeCells(`E3:${lastCol}3`)
+
+  // Заголовки таблицы
+  cols.forEach((c, i) => {
+    const cell = sheet.getCell(`${colLetter(i + 1)}${headerRowIndex}`)
+    cell.value = c.header
+    cell.font = { ...font, bold: true }
     cell.fill = {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FF999999" }
     }
-    // cell.alignment = { horizontal: "center" }
-  })
-
-  const comp1 = sheet.getRow(1)
-  const comp2 = sheet.getRow(2)
-  const comp3 = sheet.getRow(3)
-  const comp4 = sheet.getRow(4)
-
-  comp1.eachCell((cell) => {
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF" }
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" }
     }
-    cell.border = {}
   })
-  comp2.eachCell((cell) => {
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF" }
-    }
-    cell.border = {}
-  })
-  comp3.eachCell((cell) => {
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF" }
-    }
-    cell.border = {}
-  })
-  comp4.eachCell((cell) => {
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF" }
-    }
-    cell.border = {}
+  sheet.getRow(headerRowIndex).height = 25
+
+  // Данные
+  reportData.forEach((r) => {
+    const rowObj = {}
+    cols.forEach((c) => (rowObj[c.key] = c.get ? c.get(r) : r[c.key]))
+    sheet.addRow(rowObj)
   })
 
-  // doc footer
-
-  // const objectLenght = Object.keys(reportData).length
-  // sheet.mergeCells(`A${objectLenght + 8}:C${objectLenght + 8}`)
-  // sheet.getCell(`A${objectLenght + 8}`).value =
-  //   'Генеральный директор ООО "КАРС АВИА"'
-  // sheet.getCell(`A${objectLenght + 8}`).font = {
-  //   name: "Times New Roman",
-  //   size: 12
-  //   // bold: true
-  // }
-  // sheet.getCell(`A${objectLenght + 8}`).alignment = { horizontal: "left" }
-  // sheet.getCell(`A${objectLenght + 8}`).fill = {
-  //   type: "pattern",
-  //   pattern: "solid",
-  //   fgColor: { argb: "FFFFFF" }
-  // }
-
-  // sheet.mergeCells(`A${objectLenght + 9}:C${objectLenght + 9}`)
-  // sheet.mergeCells(`A${objectLenght + 10}:C${objectLenght + 10}`)
-  // sheet.getCell(`A${objectLenght + 10}`).value =
-  //   "______________________ Пятигорский Е.К."
-  // sheet.getCell(`A${objectLenght + 10}`).font = {
-  //   name: "Times New Roman",
-  //   size: 12
-  //   // bold: true
-  // }
-  // sheet.getCell(`A${objectLenght + 10}`).alignment = { horizontal: "left" }
-  // sheet.getCell(`A${objectLenght + 10}`).fill = {
-  //   type: "pattern",
-  //   pattern: "solid",
-  //   fgColor: { argb: "FFFFFF" }
-  // }
-
-  await workbook.xlsx.writeFile(filePath)
-}
-
-export const generateExcelHotel = async (reportData, filePath) => {
-  const workbook = new ExcelJS.Workbook()
-  const sheet = workbook.addWorksheet("Развёрнутый отчёт")
-
-  sheet.columns = [
-    { header: "п/п", key: "index", width: 6 },
-    { header: "Номер", key: "roomName", width: 15 },
-    { header: "ФИО", key: "personName", width: 30 },
-    { header: "Дата/время заезда", key: "arrival", width: 25 },
-    { header: "Дата/время выезда", key: "departure", width: 25 },
-    { header: "кол-во суток", key: "totalDays", width: 10 },
-    { header: "Категория ном.", key: "category", width: 30 },
-    // { header: "Должность", key: "personPosition", width: 20 },
-    { header: "Завтрак", key: "breakfastCount", width: 10 },
-    { header: "Обед", key: "lunchCount", width: 10 },
-    { header: "Ужин", key: "dinnerCount", width: 10 },
-    { header: "Стоимость питания", key: "totalMealCost", width: 20 },
-    { header: "Стоимость проживания", key: "totalLivingCost", width: 20 },
-    { header: "Итоговая стоимость", key: "totalDebt", width: 20 }
-  ]
-
-  reportData.forEach((row) => {
-    sheet.addRow({
-      index: row.index,
-      arrival: row.arrival,
-      departure: row.departure,
-      totalDays: row.totalDays,
-      category: row.category,
-      personName: row.personName,
-      personPosition: row.personPosition,
-      roomName: row.roomName,
-      breakfastCount: row.breakfastCount,
-      lunchCount: row.lunchCount,
-      dinnerCount: row.dinnerCount,
-      totalMealCost: formatCurrency(row.totalMealCost),
-      totalLivingCost: formatCurrency(row.totalLivingCost),
-      totalDebt: formatCurrency(row.totalDebt)
-    })
-  })
-
-  sheet.addRow({})
-  sheet.addRow({
-    breakfastCount: "ИТОГО",
-    // totalDays: reportData.reduce((sum, row) => sum + row.totalDays, 0),
-    // breakfastCount: reportData.reduce(
-    //   (sum, row) => sum + row.breakfastCount,
-    //   0
-    // ),
-    // lunchCount: reportData.reduce((sum, row) => sum + row.lunchCount, 0),
-    // dinnerCount: reportData.reduce((sum, row) => sum + row.dinnerCount, 0),
-    totalMealCost: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalMealCost, 0)
-    ),
-    totalLivingCost: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalLivingCost, 0)
-    ),
-    totalDebt: formatCurrency(
-      reportData.reduce((sum, row) => sum + row.totalDebt, 0)
+  // Итоги
+  const has = (key) => cols.some((c) => c.key === key)
+  const sumFor = (key, fn) =>
+    formatCurrency(
+      reportData.reduce((a, r) => a + (fn ? fn(r) : +r[key] || 0), 0)
     )
-  })
 
-  sheet.getColumn("index").alignment = { horizontal: "left" }
-  sheet.getColumn("totalDays").alignment = { horizontal: "left" }
-  sheet.getColumn("breakfastCount").alignment = { horizontal: "center" }
-  sheet.getColumn("lunchCount").alignment = { horizontal: "center" }
-  sheet.getColumn("dinnerCount").alignment = { horizontal: "center" }
-  sheet.getColumn("totalMealCost").alignment = { horizontal: "center" }
-  sheet.getColumn("totalLivingCost").alignment = { horizontal: "center" }
-  sheet.getColumn("totalDebt").alignment = { horizontal: "center" }
+  const totalRow = {}
+  totalRow["personPosition"] = "ИТОГО:"
+  if (has("totalMealCost"))
+    totalRow["totalMealCost"] = sumFor(
+      "totalMealCost",
+      mealCols.find((c) => c.key === "totalMealCost")?.sum
+    )
+  if (has("totalLivingCost"))
+    totalRow["totalLivingCost"] = sumFor(
+      "totalLivingCost",
+      livingCols.find((c) => c.key === "totalLivingCost")?.sum
+    )
+  if (has("totalDebt")) {
+    const sumDebt = reportData.reduce(
+      (a, r) =>
+        a +
+        (includeMeal ? +r.totalMealCost || 0 : 0) +
+        (includeLiving ? +r.totalLivingCost || 0 : 0),
+      0
+    )
+    totalRow["totalDebt"] = formatCurrency(sumDebt)
+  }
+  sheet.addRow(totalRow)
 
-  sheet.eachRow((row) => {
+  // Зебра + рамки (кроме строк 1–4)
+  const firstDataRow = headerRowIndex + 1
+  const lastRow = sheet.lastRow.number
+  for (let rn = firstDataRow; rn <= lastRow; rn++) {
+    const row = sheet.getRow(rn)
+    const isOdd = rn % 2 === 1
     row.eachCell((cell) => {
-      cell.font = {
-        name: "Times New Roman",
-        size: 12
+      cell.font = font
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      }
+      if (rn !== headerRowIndex) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isOdd ? "FFEEEEEE" : "FFCCCCCC" }
+        }
       }
     })
+  }
+
+  // Чистая шапка (1–4)
+  ;[1, 2, 3, 4].forEach((rn) => {
+    const row = sheet.getRow(rn)
+    row.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFFFFF" }
+      }
+      cell.border = {}
+    })
   })
 
-  await workbook.xlsx.writeFile(filePath)
+  await wb.xlsx.writeFile(filePath)
 }
 
 function getCellsFun(sheet, letter, num, value) {

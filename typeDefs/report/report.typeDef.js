@@ -15,9 +15,9 @@ type Query {
 
 type Mutation {
   # Создание и сохранение отчёта для авиакомпании
-  createAirlineReport(input: CreateReportInput!): SavedReport!
+  createAirlineReport(input: CreateReportInput!, createFilterInput: createFilterInput): SavedReport!
   # Создание и сохранение отчёта для отеля
-  createHotelReport(input: CreateReportInput!): SavedReport!
+  createHotelReport(input: CreateReportInput!, createFilterInput: createFilterInput): SavedReport!
   deleteReport(id: ID!): SavedReport!
 }
 
@@ -35,6 +35,10 @@ input ReportFilterInput {
   passengersReport: Boolean 
 }
 
+input createFilterInput {
+  meal: Boolean
+  living: Boolean
+}
 
 # Входные данные для создания отчёта
 input CreateReportInput {

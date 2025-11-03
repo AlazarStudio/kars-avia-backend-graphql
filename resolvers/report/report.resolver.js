@@ -1,5 +1,8 @@
 import { prisma } from "../../prisma.js"
-import { generateExcelAvia } from "../../exports/exporter.js"
+import {
+  generateExcelAvia,
+  generateExcelHotel
+} from "../../exports/exporter.js"
 import path from "path"
 import fs from "fs"
 import {
@@ -123,7 +126,7 @@ const reportResolver = {
   },
 
   Mutation: {
-    createAirlineReport: async (_, { input }, context) => {
+    createAirlineReport: async (_, { input, createFilterInput }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)
       const { filter, format } = input
@@ -251,7 +254,12 @@ const reportResolver = {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
         // await generateExcelAvia(reportData, reportPath)
-        await generateExcelAvia(new_report, reportPath, companyData)
+        await generateExcelAvia(
+          new_report,
+          reportPath,
+          companyData,
+          createFilterInput
+        )
         // await generateExcelAvia(finalRows, reportPath)
       } else {
         throw new Error("Unsupported report format")
@@ -278,7 +286,7 @@ const reportResolver = {
       pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
       return savedReport
     },
-    createHotelReport: async (_, { input }, context) => {
+    createHotelReport: async (_, { input, createFilterInput }, context) => {
       const { user } = context
       await hotelAdminMiddleware(context)
       const { filter, format } = input
@@ -311,14 +319,14 @@ const reportResolver = {
                 "archived",
                 "reduced"
               ]
-            },
-            person: {
-              position: {
-                name: {
-                  notIn: ["Техник", "Инженер"]
-                }
-              }
             }
+            // person: {
+            //   position: {
+            //     name: {
+            //       notIn: ["Техник", "Инженер"]
+            //     }
+            //   }
+            // }
           },
           include: {
             person: { include: { position: true } },
@@ -330,6 +338,17 @@ const reportResolver = {
           },
           orderBy: { arrival: "asc" }
         })
+
+        const hotel = await prisma.hotel.findUnique({
+          where: { id: filter.hotelId }
+        })
+
+        const companyData = {
+          name: hotel?.name || "",
+          nameFull: hotel?.nameFull || hotel?.name || "",
+          city: requests[0]?.airport?.city || hotel?.city || "",
+          contractName: hotel?.contractName || "" // если поля нет — оставим пустым
+        }
 
         // console.log("\n requests: \n " + JSON.stringify(requests))
 
@@ -361,9 +380,12 @@ const reportResolver = {
       if (format === "pdf") {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
-        // await generateExcelAvia(reportData, reportPath)
-        await generateExcelAvia(new_report, reportPath)
-        // await generateExcelAvia(finalRows, reportPath)
+        await generateExcelHotel(
+          new_report,
+          reportPath,
+          companyData,
+          createFilterInput
+        )
       } else {
         throw new Error("Unsupported report format")
       }
