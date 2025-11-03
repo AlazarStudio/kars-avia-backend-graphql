@@ -150,34 +150,32 @@ const reportResolver = {
       if (filter.passengersReport) {
         return (error = new Error(" \n passenger report not implemented! "))
       } else {
+        const baseStatusWhere = {
+          status: {
+            in: [
+              "done",
+              "transferred",
+              "extended",
+              "archiving",
+              "archived",
+              "reduced"
+            ]
+          }
+        }
+
+        const where = {
+          AND: [
+            { ...applyCreateFilters(filter) },
+            baseStatusWhere,
+            buildPositionWhere(filter?.position)
+          ]
+        }
+
         const requests = await prisma.request.findMany({
-          where: {
-            ...applyCreateFilters(filter),
-            status: {
-              in: [
-                "done",
-                "transferred",
-                "extended",
-                "archiving",
-                "archived",
-                "reduced"
-              ]
-            },
-            person: {
-              position: {
-                name: {
-                  notIn: ["Техник", "Инженер"]
-                }
-              }
-            }
-          },
+          where,
           include: {
             person: { include: { position: true } },
-            hotelChess: {
-              include: {
-                room: true
-              }
-            },
+            hotelChess: { include: { room: true } },
             hotel: true,
             airline: { include: { prices: { include: { airports: true } } } },
             mealPlan: true,
@@ -307,27 +305,29 @@ const reportResolver = {
       if (filter.passengersReport) {
         return (error = new Error(" \n passenger report not implemented! "))
       } else {
+        const baseStatusWhere = {
+          status: {
+            in: [
+              "done",
+              "transferred",
+              "extended",
+              "archiving",
+              "archived",
+              "reduced"
+            ]
+          }
+        }
+
+        const where = {
+          AND: [
+            { ...applyCreateFilters(filter) },
+            baseStatusWhere,
+            buildPositionWhere(filter?.position)
+          ]
+        }
+
         const requests = await prisma.request.findMany({
-          where: {
-            ...applyCreateFilters(filter),
-            status: {
-              in: [
-                "done",
-                "transferred",
-                "extended",
-                "archiving",
-                "archived",
-                "reduced"
-              ]
-            }
-            // person: {
-            //   position: {
-            //     name: {
-            //       notIn: ["Техник", "Инженер"]
-            //     }
-            //   }
-            // }
-          },
+          where,
           include: {
             person: { include: { position: true } },
             hotelChess: { include: { room: { include: { roomKind: true } } } },
@@ -339,8 +339,6 @@ const reportResolver = {
           orderBy: { arrival: "asc" }
         })
 
-        // console.log("\n requests: \n " + JSON.stringify(requests))
-
         reportData = aggregateRequestReports(
           requests,
           "hotel",
@@ -349,16 +347,16 @@ const reportResolver = {
         )
       }
 
-       const hotel = await prisma.hotel.findUnique({
-          where: { id: filter.hotelId }
-        })
+      const hotel = await prisma.hotel.findUnique({
+        where: { id: filter.hotelId }
+      })
 
-        const companyData = {
-          name: hotel?.name || "",
-          nameFull: hotel?.nameFull || hotel?.name || "",
-          city: hotel?.city || "",
-          contractName: hotel?.contractName || "" // если поля нет — оставим пустым
-        }
+      const companyData = {
+        name: hotel?.name || "",
+        nameFull: hotel?.nameFull || hotel?.name || "",
+        city: hotel?.city || "",
+        contractName: hotel?.contractName || "" // если поля нет — оставим пустым
+      }
 
       // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
       //   mode: "shared_equal", // равные доли
@@ -556,6 +554,19 @@ const applyFilters = (filter) => {
   }
 
   return where
+}
+
+const TECH_POS = ["Техник", "Инженер"]
+
+const buildPositionWhere = (position) => {
+  const p = String(position || "all").toLowerCase()
+  if (p === "squadron") {
+    return { person: { position: { name: { notIn: TECH_POS } } } }
+  }
+  if (p === "technician") {
+    return { person: { position: { name: { in: TECH_POS } } } }
+  }
+  return {} // all
 }
 
 // Функции для формирования фильтров ---------------- ↑↑↑↑

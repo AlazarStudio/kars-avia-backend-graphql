@@ -31,8 +31,15 @@ input ReportFilterInput {
   airportId: ID
   personId: ID
   positionId: String
+  position: PositionFilter
   region: String
   passengersReport: Boolean 
+}
+
+enum PositionFilter {
+  all
+  squadron
+  technician
 }
 
 input createFilterInput {

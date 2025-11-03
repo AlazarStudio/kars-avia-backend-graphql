@@ -389,12 +389,12 @@ export const generateExcelHotel = async (
       width: 24,
       get: (r) => r.shareNote
     },
-    {
-      key: "personPosition",
-      header: "Должность",
-      width: 20,
-      get: (r) => r.personPosition
-    }
+    // {
+    //   key: "personPosition",
+    //   header: "Должность",
+    //   width: 20,
+    //   get: (r) => r.personPosition
+    // }
   ]
 
   const mealCols = [
@@ -474,7 +474,7 @@ export const generateExcelHotel = async (
   sheet.mergeCells(`A4:${lastCol}4`)
   sheet.getCell(
     "A4"
-  ).value = `РЕЕСТР № # оказанных услуг по размещению экипажа в отеле "${companyData.name}" в г. ${companyData.city}`
+  ).value = `РЕЕСТР № # оказанных услуг по размещению экипажа в отеле "${companyData.name}" `
   sheet.getCell("A4").font = { name: "Times New Roman", size: 12, bold: true }
   sheet.getCell("A4").alignment = { horizontal: "left" }
 
