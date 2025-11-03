@@ -339,17 +339,6 @@ const reportResolver = {
           orderBy: { arrival: "asc" }
         })
 
-        const hotel = await prisma.hotel.findUnique({
-          where: { id: filter.hotelId }
-        })
-
-        const companyData = {
-          name: hotel?.name || "",
-          nameFull: hotel?.nameFull || hotel?.name || "",
-          city: requests[0]?.airport?.city || hotel?.city || "",
-          contractName: hotel?.contractName || "" // если поля нет — оставим пустым
-        }
-
         // console.log("\n requests: \n " + JSON.stringify(requests))
 
         reportData = aggregateRequestReports(
@@ -359,6 +348,17 @@ const reportResolver = {
           filterEnd
         )
       }
+
+       const hotel = await prisma.hotel.findUnique({
+          where: { id: filter.hotelId }
+        })
+
+        const companyData = {
+          name: hotel?.name || "",
+          nameFull: hotel?.nameFull || hotel?.name || "",
+          city: hotel?.city || "",
+          contractName: hotel?.contractName || "" // если поля нет — оставим пустым
+        }
 
       // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
       //   mode: "shared_equal", // равные доли
