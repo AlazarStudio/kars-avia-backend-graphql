@@ -223,7 +223,7 @@ export const generateExcelAvia = async (
       right: { style: "thin" }
     }
   })
-  headerRow.height = 25
+  headerRow.height = 40
 
   // ---------- строки данных ----------
   reportData.forEach((r) => {
@@ -500,7 +500,7 @@ export const generateExcelHotel = async (
       right: { style: "thin" }
     }
   })
-  sheet.getRow(headerRowIndex).height = 25
+  sheet.getRow(headerRowIndex).height = 40
 
   // Данные
   reportData.forEach((r) => {
