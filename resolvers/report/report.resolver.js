@@ -167,7 +167,7 @@ const reportResolver = {
           AND: [
             { ...applyCreateFilters(filter) },
             baseStatusWhere,
-            // buildPositionWhere(filter?.position)
+            buildPositionWhere(filter?.position)
           ]
         }
 
