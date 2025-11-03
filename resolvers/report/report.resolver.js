@@ -804,12 +804,12 @@ const aggregateRequestReports = (
   filterStart,
   filterEnd
 ) => {
-  // const filtered = requests.filter((r) => {
-  //   const pos = r.person?.position?.name
-  //   return pos !== "Техник" && pos !== "Инженер"
-  // })
+  const filtered = requests.filter((r) => {
+    const pos = r.person?.position?.name
+    // return pos !== "Техник" && pos !== "Инженер"
+  })
 
-  requests.sort((a, b) => {
+  filtered.sort((a, b) => {
     // Сортировка по отелю ---------------- ↓↓↓↓
     const hotelA = a.hotel?.name || ""
     const hotelB = b.hotel?.name || ""
