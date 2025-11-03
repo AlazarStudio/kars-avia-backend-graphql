@@ -578,7 +578,7 @@ const buildPositionWhere = (position) => {
     return { person: { position: { name: { notIn: TECH_POS } } } }
   }
   if (p === "technician") {
-    return { person: { position: { name: { in: TECH_POS } } } }
+    return { person: { position: { name: { notIn: NOT_TECH_POS } } } }
   }
   return {} // all
 }
