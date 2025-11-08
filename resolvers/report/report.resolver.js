@@ -1199,30 +1199,71 @@ const parseNum = (v) => {
 }
 
 // --- ИСПРАВЛЕННОЕ СЕРДЦЕ: ВОЗВРАЩАЕТ МАССИВ ОБЪЕКТОВ ПО КОНТРАКТУ ---
+
 function buildAllocation(data, rangeStart, rangeEnd) {
-  // console.log("rangeStart " + formatLocalDate(rangeStart))
+  // --- helpers ---
+  const MS_PER_DAY = 86400000
+  const pad = (n) => String(n).padStart(2, "0")
+  const toUTCDate = (s) => {
+    if (s instanceof Date)
+      return new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate()))
+    const str = String(s || "").trim()
+    const m = str.match(/^(\d{2})\.(\d{2})\.(\d{4})/) // DD.MM.YYYY [...]
+    if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]))
+    const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/) // YYYY-MM-DD
+    if (iso) return new Date(Date.UTC(+iso[1], +iso[2] - 1, +iso[3]))
+    return new Date(NaN)
+  }
+  const fmtYMD = (d) =>
+    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+  const addDaysUTC = (d, n) => new Date(d.getTime() + n * MS_PER_DAY)
+  const eachDayInclusive = (startYMD, endYMD, cb) => {
+    let d = toUTCDate(startYMD),
+      stop = toUTCDate(endYMD)
+    while (d.getTime() <= stop.getTime()) {
+      cb(fmtYMD(d))
+      d = addDaysUTC(d, 1)
+    }
+  }
+  const fmtRu = (ymd) => {
+    const [y, m, d] = ymd.split("-")
+    return `${d}.${m}.${y}`
+  }
+  const parseNum = (v) => (v == null || v === "" || isNaN(v) ? NaN : Number(v))
+
+  // Парсер локального "DD.MM.YYYY HH:mm[:ss]"
+  const parseLocalDT = (s) => {
+    const m = String(s || "").match(
+      /^(\d{2})\.(\d{2})\.(\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?/
+    )
+    if (!m) return new Date(NaN)
+    const [, dd, MM, yyyy, hh, mm, ss] = m
+    return new Date(+yyyy, +MM - 1, +dd, +hh, +mm, +(ss || 0))
+  }
+  const ymdToStartLocal = (ymd) => {
+    const [y, m, d] = ymd.split("-").map(Number)
+    return new Date(y, m - 1, d, 0, 0, 0, 0)
+  }
+  const ymdToEndLocal = (ymd) => {
+    const [y, m, d] = ymd.split("-").map(Number)
+    return new Date(y, m - 1, d, 23, 59, 59, 999)
+  }
+
   // 0) вход
   const raw = Array.isArray(data) ? data : []
   if (!raw.length) return []
 
-  // 1) нормализуем записи (ВСЕ даты -> YMD!)
+  // 1) нормализация (YMD + точные TS для времени)
   const bookings = []
   for (const r of raw) {
-    const arrivalYMD = fmtYMD(
-      toUTCDate(r.arrival || r.start || r.checkin || "")
-    )
-    const departureYMD = fmtYMD(
-      toUTCDate(r.departure || r.end || r.checkout || "")
-    )
-    if (isNaN(toUTCDate(arrivalYMD)) || isNaN(toUTCDate(departureYMD))) continue
+    // из aggregateRequestReports приходят строки "DD.MM.YYYY HH:mm:ss"
+    const aTS = parseLocalDT(r.arrival || r.start || r.checkin || "")
+    const dTS = parseLocalDT(r.departure || r.end || r.checkout || "")
+    if (isNaN(aTS) || isNaN(dTS)) continue
 
-    let a = arrivalYMD,
-      b = departureYMD
-    if (toUTCDate(a) > toUTCDate(b)) {
-      const t = a
-      a = b
-      b = t
-    } // починили перепутанные
+    let A = aTS,
+      B = dTS
+    if (+A > +B) [A, B] = [B, A] // перепутанные
 
     bookings.push({
       personName: String(r.personName || "").trim(),
@@ -1232,11 +1273,14 @@ function buildAllocation(data, rangeStart, rangeEnd) {
       personPosition: r.personPosition ?? null,
       hotelName: r.hotelName ?? null,
 
-      arrival: a, // YMD
-      departure: b, // YMD
-      totalDays: parseNum(r.totalDays), // не используется в расчёте долей
-      totalLivingCost: parseNum(r.totalLivingCost), // только как запасной источник цены
-      price: parseNum(r.price), // приоритетная дневная цена
+      arrivalTS: A, // точное время
+      departureTS: B, // точное время
+      arrival: fmtYMD(toUTCDate(r.arrival)), // YMD для дискретизации
+      departure: fmtYMD(toUTCDate(r.departure)),
+
+      totalDays: parseNum(r.totalDays),
+      totalLivingCost: parseNum(r.totalLivingCost),
+      price: parseNum(r.price),
 
       breakfastCount: parseNum(r.breakfastCount) || 0,
       lunchCount: parseNum(r.lunchCount) || 0,
@@ -1246,7 +1290,7 @@ function buildAllocation(data, rangeStart, rangeEnd) {
   }
   if (!bookings.length) return []
 
-  // 2) диапазон RS..RE (ТОЖЕ YMD!)
+  // 2) диапазон RS..RE (YMD)
   let RS = rangeStart
     ? fmtYMD(toUTCDate(rangeStart))
     : bookings.reduce(
@@ -1259,17 +1303,13 @@ function buildAllocation(data, rangeStart, rangeEnd) {
         (m, b) => (m > b.departure ? m : b.departure),
         bookings[0].departure
       )
-  if (toUTCDate(RS) > toUTCDate(RE)) {
-    const t = RS
-    RS = RE
-    RE = t
-  }
+  if (toUTCDate(RS) > toUTCDate(RE)) [RS, RE] = [RE, RS]
 
-  // 3) список дней включительно
+  // 3) список дней
   const days = []
-  eachDayInclusive(RS, RE, (d) => days.push(d)) // ["YYYY-MM-DD", ...]
+  eachDayInclusive(RS, RE, (d) => days.push(d))
 
-  // 4) присутствие по дням (roomKey -> day -> Set(guests))
+  // 4) присутствие по дням
   const roomKeyOf = (b) => (b.roomId != null ? `#${b.roomId}` : b.roomName)
   const rooms = Array.from(new Set(bookings.map(roomKeyOf)))
   const present = new Map(rooms.map((r) => [r, new Map()]))
@@ -1277,7 +1317,6 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     const key = roomKeyOf(b)
     for (const d of days) {
       if (d >= b.arrival && d <= b.departure) {
-        // YMD vs YMD — OK
         const m = present.get(key)
         if (!m.has(d)) m.set(d, new Set())
         m.get(d).add(b.personName)
@@ -1285,7 +1324,7 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     }
   }
 
-  // 5) цена комнаты на каждый день (из price, иначе totalLivingCost/totalDays)
+  // 5) дневной тариф
   const collect = new Map(rooms.map((r) => [r, new Map()])) // room->day->[]
   for (const b of bookings) {
     const key = roomKeyOf(b)
@@ -1302,7 +1341,7 @@ function buildAllocation(data, rangeStart, rangeEnd) {
       if (d >= b.arrival && d <= b.departure) {
         const m = collect.get(key)
         if (!m.has(d)) m.set(d, [])
-        m.get(d).push(daily) // сохраняем дробные значения
+        m.get(d).push(daily)
       }
     }
   }
@@ -1314,13 +1353,12 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     for (const d of days) {
       const arr = (src && src.get(d)) || []
       if (!arr.length) continue
-      const avg = arr.reduce((s, x) => s + x, 0) / arr.length // среднее при конфликте
-      m.set(d, avg)
+      m.set(d, arr.reduce((s, x) => s + x, 0) / arr.length)
     }
     roomDayRate.set(rk, m)
   }
 
-  // 6) считаем доли по людям
+  // 6) доли
   const rowsMap = new Map() // key -> { guest, roomKey, perDay, total, allDays }
   for (const rk of rooms) {
     const byDay = roomDayRate.get(rk) || new Map()
@@ -1349,17 +1387,39 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     }
   }
 
-  // 7) пояснение shareNote
+  // Вспомогательные для shareNote с ВРЕМЕНЕМ
+  function findEdgeTimesForDay(guest, rk, dayYMD) {
+    const start = ymdToStartLocal(dayYMD).getTime()
+    const end = ymdToEndLocal(dayYMD).getTime()
+    const list = bookings.filter(
+      (b) =>
+        b.personName === guest &&
+        roomKeyOf(b) === rk &&
+        !(+b.departureTS < start || +b.arrivalTS > end)
+    )
+    if (!list.length) return { start: new Date(start), end: new Date(end) }
+    const minA = new Date(
+      Math.max(Math.min(...list.map((b) => +b.arrivalTS)), start)
+    )
+    const maxD = new Date(
+      Math.min(Math.max(...list.map((b) => +b.departureTS)), end)
+    )
+    return { start: minA, end: maxD }
+  }
+
   function buildShareNote(row) {
     const dlist = Array.from(new Set(row.allDays)).sort()
     if (!dlist.length) return ""
+
     const companionsByDay = dlist.map((d) => {
       const set = new Set(present.get(row.roomKey).get(d) || new Set())
       set.delete(row.guest)
       return Array.from(set).sort()
     })
+
     const same = (a, b) =>
       a.length === b.length && a.every((v, i) => v === b[i])
+
     const segs = []
     let segStart = dlist[0],
       cur = companionsByDay[0]
@@ -1371,42 +1431,62 @@ function buildAllocation(data, rangeStart, rangeEnd) {
       }
     }
     segs.push({ s: segStart, e: dlist[dlist.length - 1], c: cur })
+
+    // Форматируем с реальными временами
     return segs
       .map((seg) => {
-        const s = fmtRu(seg.s),
-          e = fmtRu(seg.e)
-        if (!seg.c.length) return `с ${s} по ${e} жил один`
-        if (seg.c.length === 1) return `с ${s} по ${e} жил с ${seg.c[0]}`
-        return `с ${s} по ${e} жил с: ${seg.c.join(", ")}`
+        const { start } = findEdgeTimesForDay(row.guest, row.roomKey, seg.s)
+        const { end } = findEdgeTimesForDay(row.guest, row.roomKey, seg.e)
+        const S = formatLocalDate(start)
+        const E = formatLocalDate(end)
+        if (!seg.c.length) return `с ${S} по ${E} жил один`
+        if (seg.c.length === 1) return `с ${S} по ${E} жил с ${seg.c[0]}`
+        return `с ${S} по ${E} жил с: ${seg.c.join(", ")}`
       })
       .join(", ")
   }
 
-  // 8) финальная проекция по контракту
+  // 8) финальная проекция
   const out = []
   let idx = 1
+
   for (const row of Array.from(rowsMap.values()).sort((a, b) =>
     (a.roomKey + a.guest).localeCompare(b.roomKey + b.guest)
   )) {
     const dlist = Array.from(new Set(row.allDays)).sort()
-    const arrivalYMD = dlist[0]
-    const departureYMD = dlist[dlist.length - 1]
     const totalDaysIncluded = dlist.length
 
-    const [roomId, roomName, hotelName, category, personPosition] = (() => {
-      const match = bookings.find(
-        (b) => b.personName === row.guest && roomKeyOf(b) === row.roomKey
-      )
-      return [
-        match?.roomId ?? null,
-        match?.roomName ?? (row.roomKey.startsWith("#") ? null : row.roomKey),
-        match?.hotelName ?? null,
-        match?.category ?? null,
-        match?.personPosition ?? null
-      ]
-    })()
+    const sample = bookings.find(
+      (b) => b.personName === row.guest && roomKeyOf(b) === row.roomKey
+    )
+    const roomId = sample?.roomId ?? null
+    const roomName =
+      sample?.roomName ?? (row.roomKey.startsWith("#") ? null : row.roomKey)
+    const hotelName = sample?.hotelName ?? null
+    const category = sample?.category ?? null
+    const personPosition = sample?.personPosition ?? null
 
-    // средний тариф по дням строки
+    // Реальные границы заезда/выезда в пределах отчётного окна
+    const overlapped = bookings.filter(
+      (b) =>
+        b.personName === row.guest &&
+        roomKeyOf(b) === row.roomKey &&
+        !(b.departure < RS || b.arrival > RE)
+    )
+    let minArrTS = null,
+      maxDepTS = null
+    for (const b of overlapped) {
+      if (!minArrTS || +b.arrivalTS < +minArrTS) minArrTS = b.arrivalTS
+      if (!maxDepTS || +b.departureTS > +maxDepTS) maxDepTS = b.departureTS
+    }
+    const clampedA = minArrTS
+      ? new Date(Math.max(+minArrTS, +ymdToStartLocal(RS)))
+      : ymdToStartLocal(RS)
+    const clampedD = maxDepTS
+      ? new Date(Math.min(+maxDepTS, +ymdToEndLocal(RE)))
+      : ymdToEndLocal(RE)
+
+    // Средний дневной тариф
     let avgDailyPrice = 0,
       cnt = 0
     for (const d of dlist) {
@@ -1418,41 +1498,31 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     }
     avgDailyPrice = cnt ? avgDailyPrice / cnt : 0
 
-    // агрегация питания по записям, попавшим в срез
+    // Питание в срезе
     const agg = { breakfast: 0, lunch: 0, dinner: 0, mealCost: 0 }
     for (const b of bookings) {
       if (b.personName !== row.guest || roomKeyOf(b) !== row.roomKey) continue
-      // пересечение с RS..RE (в YMD)
-      const overlaps = !(b.departure < RS || b.arrival > RE)
-      if (!overlaps) continue
+      if (b.departure < RS || b.arrival > RE) continue
       agg.breakfast += b.breakfastCount || 0
       agg.lunch += b.lunchCount || 0
       agg.dinner += b.dinnerCount || 0
       agg.mealCost += b.totalMealCost || 0
     }
 
-    // округляем дроби
-    // const totalLivingCost = Math.round(row.total)
-    // const totalMealCost = Math.round(agg.mealCost)
-
-    // сохраняем дробные значения
     const totalLivingCost = row.total
     const totalMealCost = agg.mealCost
-
     const totalDebt = totalLivingCost + totalMealCost
 
     out.push({
       index: idx++,
-      arrival: formatLocalDate(rangeStart),
-      // arrival: fmtRu(arrivalYMD),
-      departure: formatLocalDate(rangeEnd),
-      // departure: fmtRu(departureYMD),
+      arrival: formatLocalDate(clampedA), // <-- реальная дата/время
+      departure: formatLocalDate(clampedD), // <-- реальная дата/время
       totalDays: totalDaysIncluded,
       category,
       personName: row.guest,
       roomName,
       roomId,
-      shareNote: buildShareNote(row),
+      shareNote: buildShareNote(row), // <-- с временем
       personPosition,
       price: Math.round(avgDailyPrice),
       breakfastCount: agg.breakfast,
