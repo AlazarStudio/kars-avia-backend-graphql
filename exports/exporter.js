@@ -388,7 +388,7 @@ export const generateExcelHotel = async (
       header: "Вид проживания",
       width: 24,
       get: (r) => r.shareNote
-    },
+    }
     // {
     //   key: "personPosition",
     //   header: "Должность",
@@ -443,12 +443,6 @@ export const generateExcelHotel = async (
       sum: (r) =>
         (includeMeal ? +r.totalMealCost || 0 : 0) +
         (includeLiving ? +r.totalLivingCost || 0 : 0)
-    },
-    {
-      key: "hotelName",
-      header: "Гостиница",
-      width: 30,
-      get: (r) => r.hotelName
     }
   ]
 
