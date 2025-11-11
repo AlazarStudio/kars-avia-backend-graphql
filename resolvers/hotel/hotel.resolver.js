@@ -353,23 +353,6 @@ const hotelResolver = {
                 hotelChess.id
               )
 
-              // const dupl = await prisma.hotelChess.findMany({
-              //   where: {
-              //     requestId: hotelChess.requestId
-              //     // NOT: { id: hotelChess.id },
-              //     // id: { not: hotelChess.id },
-              //   },
-              //   select: {
-              //     id: true,
-              //     // start: true,
-              //     // end: true,
-              //     requestId: true
-              //   }
-              // })
-
-              // console.log("\n hotelChess.requestId: " + hotelChess.requestId)
-              // console.log("\n dupl str: " + JSON.stringify(dupl))
-
               // Обновляем запись hotelChess
               await prisma.hotelChess.update({
                 where: { id: hotelChess.id },
@@ -390,7 +373,6 @@ const hotelResolver = {
                     ? { connect: { id: hotelChess.reserveId } }
                     : undefined,
                   status: hotelChess.status
-                  // mealPlan: mealPlanData // Можно добавить, если требуется обновление плана питания
                 }
               })
 
@@ -597,28 +579,9 @@ const hotelResolver = {
                     end: { gte: hotelChess.start, lte: hotelChess.end }
                   }
                 })
-                // console.log(existHotelChess)
 
-                // const dupl = await prisma.hotelChess.findMany({
-                //   where: {
-                //     requestId: hotelChess.requestId
-                //   },
-                //   select: {
-                //     id: true,
-                //     start: true,
-                //     end: true,
-                //     requestId: true
-                //   }
-                // })
-
-                // console.log(
-                //   "\n !id dupl" + dupl,
-                //   "\n !id dupl str" + JSON.stringify(dupl)
-                // )
                 const currentTime = new Date()
-                // const adjustedTime = new Date(
-                //   currentTime.getTime() + 3 * 60 * 60 * 1000
-                // )
+
                 const formattedTime = currentTime.toISOString()
 
                 const newHotelChess = await prisma.hotelChess.create({
