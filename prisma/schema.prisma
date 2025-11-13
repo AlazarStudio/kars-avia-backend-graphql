@@ -256,6 +256,8 @@ model Position {
 
 model Hotel {
   id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
   name               String
   nameFull           String?
   provision          Int?
@@ -302,6 +304,8 @@ model Hotel {
 
 model HotelChess {
   id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
   hotel          Hotel            @relation(fields: [hotelId], references: [id])
   hotelId        String           @db.ObjectId
   reserveHotel   ReserveHotel?    @relation(fields: [reserveHotelId], references: [id])
@@ -326,6 +330,8 @@ model HotelChess {
 
 model Room {
   id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
   name              String
   hotel             Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId           String       @db.ObjectId
@@ -348,6 +354,8 @@ model Room {
 
 model RoomKind {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
   name            String?
   description     String?
   square          String?
@@ -364,6 +372,8 @@ model RoomKind {
 
 model AdditionalServices {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
   name            String?
   description     String?
   price           Float
@@ -389,6 +399,8 @@ model AdditionalServices {
 
 model Airline {
   id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
   name                  String
   nameFull              String?
   images                String[]
@@ -414,6 +426,8 @@ model Airline {
 
 model PriceCategory {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
   airline       Airline?       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId     String?        @db.ObjectId
   hotel         Hotel?         @relation(fields: [hotelId], references: [id])
@@ -427,6 +441,8 @@ model PriceCategory {
 
 model AirlinePrice {
   id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
   airline                Airline?                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId              String?                 @db.ObjectId
   hotel                  Hotel?                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
@@ -442,6 +458,8 @@ model AirlinePrice {
 
 model AirportOnAirlinePrice {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
   airline        Airline       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId      String        @db.ObjectId
   airport        Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
@@ -454,6 +472,8 @@ model AirportOnAirlinePrice {
 
 model AirlineDepartment {
   id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
   name             String
   email            String?
   staff            AirlinePersonal[]
@@ -495,6 +515,8 @@ type NotificationMenu {
 
 model AirlinePersonal {
   id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
   name         String
   number       String?
   // position     String?
@@ -520,6 +542,8 @@ model AirlinePersonal {
 
 model Company {
   id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
   name            String
   priceCategory   PriceCategory[]
   information     Information?
@@ -529,6 +553,8 @@ model Company {
 
 model airlineContract {
   id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
   company              Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId            String?               @db.ObjectId
   airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: Cascade)
@@ -544,6 +570,8 @@ model airlineContract {
 
 model additionalAgreement {
   id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
   airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
   airlineContractId String?          @db.ObjectId
   hotelContract     hotelContract?   @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
@@ -557,6 +585,8 @@ model additionalAgreement {
 
 model hotelContract {
   id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
   company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId           String?               @db.ObjectId
   hotel               Hotel?                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
@@ -677,6 +707,8 @@ model Passenger {
 
 model ReserveHotel {
   id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
   reserve    Reserve      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId  String       @db.ObjectId
   hotel      Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
@@ -694,11 +726,12 @@ model ReserveHotel {
 
 model Chat {
   id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
   request      Request?       @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId    String?        @db.ObjectId
   messages     Message[]
   participants ChatUser[]
-  createdAt    DateTime       @default(now())
   reserve      Reserve?       @relation(fields: [reserveId], references: [id], onDelete: Cascade)
   reserveId    String?        @db.ObjectId
   isSupport    Boolean        @default(false)
@@ -712,6 +745,8 @@ model Chat {
 
 model Message {
   id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
   text         String
   sender       User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
   senderId     String         @db.ObjectId
@@ -719,7 +754,6 @@ model Message {
   receiverId   String?        @db.ObjectId
   chat         Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
   chatId       String?        @db.ObjectId
-  createdAt    DateTime       @default(now())
   isRead       Boolean        @default(false)
   readBy       MessageRead[]
   separator    String?
@@ -754,6 +788,8 @@ model ChatUser {
 
 model Log {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   user        User?    @relation(fields: [userId], references: [id])
   userId      String?  @db.ObjectId
   hotel       Hotel?   @relation(fields: [hotelId], references: [id])
@@ -769,7 +805,6 @@ model Log {
   description String
   oldData     String?
   newData     String?
-  createdAt   DateTime @default(now())
 }
 
 // Логи  ---------------- ↑↑↑↑
@@ -778,6 +813,8 @@ model Log {
 
 model SavedReport {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   name      String
   url       String
   hotel     Hotel?   @relation(fields: [hotelId], references: [id])
@@ -786,7 +823,6 @@ model SavedReport {
   airlineId String?  @db.ObjectId
   startDate DateTime
   endDate   DateTime
-  createdAt DateTime @default(now())
   separator String?
 }
 
@@ -794,7 +830,8 @@ model SavedReport {
 
 model Notification {
   id          String                   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime                 @default(now())
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
   readBy      NotificationRead[]
   request     Request?                 @relation(fields: [requestId], references: [id])
   requestId   String?                  @db.ObjectId
@@ -819,6 +856,8 @@ type NotificationDescription {
 
 model NotificationRead {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   notificationId String       @db.ObjectId
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -830,6 +869,8 @@ model NotificationRead {
 
 model PatchNote {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   date        DateTime
   name        String
   description String
@@ -848,6 +889,8 @@ model PatchNote {
 
 model Documentation {
   id          String               @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
   parentId    String?              @db.ObjectId
   parent      Documentation?       @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children    Documentation[]      @relation("DocumentationHierarchy")

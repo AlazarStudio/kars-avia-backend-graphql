@@ -28,7 +28,7 @@ const supportResolver = {
       await allMiddleware(context)
       return await prisma.documentation.findMany({
         where: { type, filter, parent: { is: null } },
-        orderBy: { name: "asc" }
+        orderBy: { createdAt: "asc" }
       })
     },
 
