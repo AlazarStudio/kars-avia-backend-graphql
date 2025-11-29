@@ -1,8 +1,7 @@
 const passengerRequestTypeDef = /* GraphQL */ `
   #graphql
-  """
-  Типы и enum'ы для пассажирских заявок
-  """
+  scalar Date
+
   enum PassengerRequestStatus {
     CREATED
     ACCEPTED
@@ -37,21 +36,21 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerStatusTimes {
-    acceptedAt: DateTime
-    inProgressAt: DateTime
-    finishedAt: DateTime
-    cancelledAt: DateTime
+    acceptedAt: Date
+    inProgressAt: Date
+    finishedAt: Date
+    cancelledAt: Date
   }
 
   type PassengerServicePlan {
     enabled: Boolean!
     peopleCount: Int
-    plannedAt: DateTime
+    plannedAt: Date
   }
 
   type PassengerServicePerson {
     fullName: String!
-    issuedAt: DateTime
+    issuedAt: Date
     phone: String
     seat: String
   }
@@ -75,7 +74,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     fullName: String!
     phone: String
     peopleCount: Int
-    pickupAt: DateTime
+    pickupAt: Date
     link: String
   }
 
@@ -90,8 +89,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   type PassengerRequest {
     id: ID!
-    createdAt: DateTime!
-    updatedAt: DateTime!
+    createdAt: Date!
+    updatedAt: Date!
 
     airlineId: ID!
     airline: Airline!
@@ -100,7 +99,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     airport: Airport
 
     flightNumber: String!
-    flightDate: DateTime
+    flightDate: Date
     routeFrom: String
     routeTo: String
 
@@ -132,7 +131,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerServicePlanInput {
     enabled: Boolean
     peopleCount: Int
-    plannedAt: DateTime
+    plannedAt: Date
   }
 
   input PassengerWaterFoodServiceInput {
@@ -146,7 +145,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerServicePersonInput {
     fullName: String!
-    issuedAt: DateTime
+    issuedAt: Date
     phone: String
     seat: String
   }
@@ -163,7 +162,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     fullName: String!
     phone: String
     peopleCount: Int
-    pickupAt: DateTime
+    pickupAt: Date
     link: String
   }
 
@@ -171,7 +170,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     airlineId: ID!
     airportId: ID
     flightNumber: String!
-    flightDate: DateTime
+    flightDate: Date
     routeFrom: String
     routeTo: String
     plannedPassengersCount: Int
@@ -192,7 +191,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     airlineId: ID
     airportId: ID
     flightNumber: String
-    flightDate: DateTime
+    flightDate: Date
     routeFrom: String
     routeTo: String
     plannedPassengersCount: Int
