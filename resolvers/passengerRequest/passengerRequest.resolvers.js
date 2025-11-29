@@ -10,7 +10,7 @@ function resolveUserId(context, inputCreatedById) {
   )
 }
 
-function updateTimes(prev, status) {
+function updateTimes(prev, status) {HTMLFieldSetElement;
   const now = new Date()
   const times = { ...(prev || {}) }
 
@@ -35,18 +35,18 @@ function updateTimes(prev, status) {
 const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
-    airline: (parent, _args, { prisma }) =>
+    airline: async (parent) =>
       prisma.airline.findUnique({ where: { id: parent.airlineId } }),
 
-    airport: (parent, _args, { prisma }) =>
+    airport: async (parent) =>
       parent.airportId
         ? prisma.airport.findUnique({ where: { id: parent.airportId } })
         : null,
 
-    createdBy: (parent, _args, { prisma }) =>
+    createdBy: async (parent) =>
       prisma.user.findUnique({ where: { id: parent.createdById } }),
 
-    chats: (parent, _args, { prisma }) =>
+    chats: async (parent) =>
       prisma.chat.findMany({ where: { passengerRequestId: parent.id } })
   },
 
@@ -86,7 +86,7 @@ const passengerRequestResolvers = {
   // --------- мутации ---------
   Mutation: {
     // создание
-    createPassengerRequest: async (_parent, { input }, context) => {
+    createPassengerRequest: async (_, { input }, context) => {
       const {
         airlineId,
         airportId,
