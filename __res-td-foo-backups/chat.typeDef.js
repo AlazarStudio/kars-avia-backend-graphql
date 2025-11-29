@@ -1,4 +1,4 @@
-const chatTypeDef = `#graphql
+const chatTypeDef = /* GraphQL */ `#graphql
 scalar Date
 
 type Message {

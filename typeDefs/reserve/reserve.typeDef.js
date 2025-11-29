@@ -1,4 +1,5 @@
-const reserveTypeDef = `#graphql
+const reserveTypeDef = /* GraphQL */ `
+  #graphql
   scalar Date
   scalar Upload
 
@@ -141,18 +142,33 @@ const reserveTypeDef = `#graphql
 
   type Mutation {
     createReserve(input: CreateReserveInput!, files: [Upload!]): Reserve!
-    updateReserve(id: ID!, input: UpdateReserveInput!, files: [Upload!]): Reserve!
+    updateReserve(
+      id: ID!
+      input: UpdateReserveInput!
+      files: [Upload!]
+    ): Reserve!
   }
 
   extend type Mutation {
-    addHotelToReserve(reservationId: ID!, hotelId: ID!, capacity: Int!): ReserveHotel!                                 
-    addPassengerToReserve(reservationId: ID!, input: PassengerInput!, hotelId: ID!): Passenger!
+    addHotelToReserve(
+      reservationId: ID!
+      hotelId: ID!
+      capacity: Int!
+    ): ReserveHotel!
+    addPassengerToReserve(
+      reservationId: ID!
+      input: PassengerInput!
+      hotelId: ID!
+    ): Passenger!
     deletePassengerFromReserve(id: ID!): ReserveHotel!
     # assignPersonToHotel(input: assignPersonInput!): AirlinePersonal!
     # dissociatePersonFromHotel(reserveHotelId: ID!, airlinePersonalId: ID!): ReserveHotel!
     archivingReserve(id: ID!): Reserve!
     # extendReserveDates(input: ExtendReserveDatesInput!): Reserve!
-    generateReservePassengerFile(reserveId: ID!, format: ReportFormat!): ReportFile!
+    generateReservePassengerFile(
+      reserveId: ID!
+      format: ReportFormat!
+    ): ReportFile!
   }
 
   # Запросы
@@ -177,6 +193,6 @@ const reserveTypeDef = `#graphql
     reserveHotel: ReserveHotel!
     reservePersons: ReserveHotelPersonal!
   }
-  `
+`
 
 export default reserveTypeDef
