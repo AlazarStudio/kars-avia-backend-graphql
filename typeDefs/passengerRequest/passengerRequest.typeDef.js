@@ -1,4 +1,4 @@
-export const passengerRequestTypeDef = /* GraphQL */ `
+const passengerRequestTypeDef = /* GraphQL */ `
   #graphql
   """
   Типы и enum'ы для пассажирских заявок
@@ -251,3 +251,5 @@ export const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
   }
 `
+
+export default passengerRequestTypeDef

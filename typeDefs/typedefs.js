@@ -9,6 +9,7 @@ import contractTypeDef from "./contract/contract.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
 import globalTypeDef from "./global/global.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
+import passengerRequestTypeDef from "./passengerRequest/passengerRequest.typeDef.js"
 import logTypeDef from "./log/log.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
 import requestTypeDef from "./request/request.typeDef.js"
@@ -27,6 +28,7 @@ const mergedTypeDefs = mergeTypeDefs([
   globalTypeDef,
   hotelTypeDef,
   logTypeDef,
+  passengerRequestTypeDef,
   reportTypeDef,
   requestTypeDef,
   reserveTypeDef,

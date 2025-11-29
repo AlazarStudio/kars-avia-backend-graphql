@@ -31,7 +31,7 @@ function updateTimes(prev, status) {
   return times
 }
 
-export const passengerRequestResolvers = {
+const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
     airline: (parent, _args, { prisma }) =>
@@ -371,3 +371,5 @@ export const passengerRequestResolvers = {
     }
   }
 }
+
+export default passengerRequestResolvers
