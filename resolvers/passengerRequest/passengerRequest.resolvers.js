@@ -1,3 +1,4 @@
+import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 
 function resolveUserId(context, inputCreatedById) {
@@ -51,7 +52,7 @@ const passengerRequestResolvers = {
 
   // --------- запросы ---------
   Query: {
-    passengerRequests: async (_parent, args, { prisma }) => {
+    passengerRequests: async (_, args, context) => {
       const { filter, skip, take } = args || {}
       const where = {}
 
@@ -78,7 +79,7 @@ const passengerRequestResolvers = {
       })
     },
 
-    passengerRequest: (_parent, { id }, { prisma }) =>
+    passengerRequest: (_, { id }, context) =>
       prisma.passengerRequest.findUnique({ where: { id } })
   },
 
@@ -86,7 +87,6 @@ const passengerRequestResolvers = {
   Mutation: {
     // создание
     createPassengerRequest: async (_parent, { input }, context) => {
-      const { prisma } = context
       const {
         airlineId,
         airportId,
@@ -145,7 +145,7 @@ const passengerRequestResolvers = {
     },
 
     // обновление шапки + планов
-    updatePassengerRequest: async (_parent, { id, input }, { prisma }) => {
+    updatePassengerRequest: async (_, { id, input }, context) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -205,13 +205,13 @@ const passengerRequestResolvers = {
       return prisma.passengerRequest.update({ where: { id }, data })
     },
 
-    deletePassengerRequest: async (_parent, { id }, { prisma }) => {
+    deletePassengerRequest: async (_, { id }, context) => {
       await prisma.passengerRequest.delete({ where: { id } })
       return true
     },
 
     // общий статус заявки
-    setPassengerRequestStatus: async (_parent, { id, status }, { prisma }) => {
+    setPassengerRequestStatus: async (_, { id, status }, context) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -230,9 +230,9 @@ const passengerRequestResolvers = {
 
     // статус конкретного сервиса
     setPassengerRequestServiceStatus: async (
-      _parent,
+      _,
       { id, service, status },
-      { prisma }
+      context
     ) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
@@ -269,9 +269,9 @@ const passengerRequestResolvers = {
 
     // добавить ФИО из скана / вручную
     addPassengerRequestPerson: async (
-      _parent,
+      _,
       { requestId, service, person },
-      { prisma }
+      context
     ) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
@@ -306,11 +306,7 @@ const passengerRequestResolvers = {
     },
 
     // добавить отель
-    addPassengerRequestHotel: async (
-      _parent,
-      { requestId, hotel },
-      { prisma }
-    ) => {
+    addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -338,11 +334,7 @@ const passengerRequestResolvers = {
     },
 
     // добавить водителя (для варианта проживание+трансфер)
-    addPassengerRequestDriver: async (
-      _parent,
-      { requestId, driver },
-      { prisma }
-    ) => {
+    addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
