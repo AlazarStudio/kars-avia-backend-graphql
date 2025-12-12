@@ -1,15 +1,17 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "../../prisma.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 // import { uploadFiles } from "../../exports/uploadFiles.js"
 import { uploadImage } from "../../services/files/uploadImage.js"
-import { DRIVER_CREATED, DRIVER_UPDATED, pubsub } from "../../services/infra/pubsub.js"
+import {
+  DRIVER_CREATED,
+  DRIVER_UPDATED,
+  pubsub
+} from "../../services/infra/pubsub.js"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 // import { errorMonitor } from "ws"
-
-const prisma = new PrismaClient()
 
 const driverResolver = {
   Upload: GraphQLUpload,
@@ -403,14 +405,14 @@ const driverResolver = {
       }
     }
   },
-    Subscription: {
-      driverCreated: {
-        subscribe: () => pubsub.asyncIterator([DRIVER_CREATED])
-      },
-      driverUpdated: {
-        subscribe: () => pubsub.asyncIterator([DRIVER_UPDATED])
-      }
+  Subscription: {
+    driverCreated: {
+      subscribe: () => pubsub.asyncIterator([DRIVER_CREATED])
     },
+    driverUpdated: {
+      subscribe: () => pubsub.asyncIterator([DRIVER_UPDATED])
+    }
+  },
   Driver: {
     organization: async (parent, _) => {
       if (parent.organizationId) {
