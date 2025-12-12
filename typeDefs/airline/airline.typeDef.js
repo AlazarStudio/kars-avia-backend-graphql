@@ -45,6 +45,7 @@ const airlineTypeDef = /* GraphQL */ `
     # hotelChess: [HotelChess!]
     hotelChess(hcPagination: HotelChessPaginationInput): [HotelChess!]
     active: Boolean
+    images: [String!]!
   }
 
   # Пагинация, Query, Mutation и Subscription

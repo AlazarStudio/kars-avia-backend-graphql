@@ -544,6 +544,7 @@ model AirlinePersonal {
   active               Boolean               @default(true)
   position             Position?             @relation(fields: [positionId], references: [id])
   positionId           String?               @db.ObjectId
+  images               String[]
   transferPassengers   TransferPassenger[]
   transferReviews      TransferReview[]
   transferChats        TransferChat[]
