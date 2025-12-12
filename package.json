@@ -3,11 +3,12 @@
   "version": "3.2.1",
   "main": "server.js",
   "scripts": {
-    "backup": "node utils/cron/backup.js",
+    "backup": "node services/cron/backup.js",
     "start": "node server2.js",
     "production": "nodemon server.js",
     "dev": "nodemon server2.js",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "migrateupload": "node services/migrations/migrateUploads.js"
   },
   "type": "module",
   "keywords": [],
