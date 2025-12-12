@@ -14,8 +14,8 @@
 import fs from "fs"
 import path from "path"
 import cliProgress from "cli-progress"
-import { prisma } from "../prisma.js"
-import { logger } from "./logger.js"
+import { prisma } from "../../prisma.js"
+import { logger } from "../infra/logger.js"
 
 /* =========================
    ⚙ CONFIG

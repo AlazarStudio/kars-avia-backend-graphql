@@ -1,4 +1,4 @@
-import { prisma } from "../prisma.js"
+import { prisma } from "../../prisma.js"
 
 // Применение фильтров
 const applyFilters = (filter) => {

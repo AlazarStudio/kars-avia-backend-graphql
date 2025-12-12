@@ -1,5 +1,5 @@
 import xlsx from "xlsx"
-import { prisma } from "../prisma.js"
+import { prisma } from "../../prisma.js"
 
 async function loadAirlinePersonnelFromExcel(filePath) {
   // Читаем Excel-файл

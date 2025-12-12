@@ -1,6 +1,6 @@
 // cleanupPassengers.js
 
-import { prisma } from "./prisma.js"
+import { prisma } from "../../prisma.js"
 
 async function cleanupPassengers() {
   const cutoffDate = new Date()
