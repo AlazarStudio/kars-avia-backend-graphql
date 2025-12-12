@@ -179,47 +179,51 @@ type Information {
 // Пользователи  ---------------- ↓↓↓↓
 
 model User {
-  id                   String             @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
   lastSeen             DateTime?
   name                 String
-  email                String             @unique
+  email                String                @unique
   number               String?
-  login                String             @unique
+  login                String                @unique
   password             String
   images               String[]
   role                 Role
   // position             String?
-  sender               Request[]          @relation(name: "sender")
-  receiver             Request[]          @relation(name: "receiver")
+  sender               Request[]             @relation(name: "sender")
+  receiver             Request[]             @relation(name: "receiver")
   reserve              Reserve[]
-  airline              Airline?           @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId            String?            @db.ObjectId
-  airlineDepartment    AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
-  airlineDepartmentId  String?            @db.ObjectId
-  hotel                Hotel?             @relation(fields: [hotelId], references: [id], onDelete: NoAction)
-  hotelId              String?            @db.ObjectId
+  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId            String?               @db.ObjectId
+  airlineDepartment    AirlineDepartment?    @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId  String?               @db.ObjectId
+  hotel                Hotel?                @relation(fields: [hotelId], references: [id], onDelete: NoAction)
+  hotelId              String?               @db.ObjectId
   chats                ChatUser[]
-  messageSender        Message[]          @relation(name: "messageSender")
-  messageReceiver      Message[]          @relation(name: "messageReceiver")
+  messageSender        Message[]             @relation(name: "messageSender")
+  messageReceiver      Message[]             @relation(name: "messageReceiver")
   logs                 Log[]
-  dispatcher           Boolean?           @default(false)
-  support              Boolean?           @default(false)
+  dispatcher           Boolean?              @default(false)
+  support              Boolean?              @default(false)
   refreshToken         String?
   fingerprint          String?
-  is2FAEnabled         Boolean            @default(false)
+  is2FAEnabled         Boolean               @default(false)
   twoFASecret          String?
   twoFAMethod          TwoFAMethod?
   messageRead          MessageRead[]
   NotificationRead     NotificationRead[]
   resetPasswordToken   String? // для хранения токена восстановления
   resetPasswordExpires DateTime? // срок действия токена
-  active               Boolean            @default(true)
-  position             Position?          @relation(fields: [positionId], references: [id])
-  positionId           String?            @db.ObjectId
-  postedRequests       Request[]          @relation(name: "posted")
+  active               Boolean               @default(true)
+  position             Position?             @relation(fields: [positionId], references: [id])
+  positionId           String?               @db.ObjectId
+  postedRequests       Request[]             @relation(name: "posted")
   passengerRequests    PassengerRequest[]
+  transfers            Transfer[]
+  transferChats        TransferChat[]
+  transferMessages     TransferMessage[]
+  transferMessageReads TransferMessageRead[]
 }
 
 model PositionOnDepartment {
@@ -424,6 +428,7 @@ model Airline {
   airlinePriceCategory  PriceCategory[]
   airlineContract       airlineContract[]
   passengerRequests     PassengerRequest[]
+  transfers             Transfer[]
 }
 
 model PriceCategory {
@@ -516,26 +521,34 @@ type NotificationMenu {
 }
 
 model AirlinePersonal {
-  id           String             @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
-  name         String
-  number       String?
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  name                 String
+  number               String?
+  email                String?
+  login                String?
+  password             String?
   // position     String?
-  gender       String?
-  married      Boolean?           @default(false)
-  husband      AirlinePersonal?   @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  husbandId    String?            @db.ObjectId
-  marriedTo    AirlinePersonal[]  @relation(name: "Marriage")
-  airline      Airline?           @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId    String?            @db.ObjectId
-  department   AirlineDepartment? @relation(fields: [departmentId], references: [id], onDelete: NoAction)
-  departmentId String?            @db.ObjectId
-  request      Request[]
-  hotelChess   HotelChess[]
-  active       Boolean            @default(true)
-  position     Position?          @relation(fields: [positionId], references: [id])
-  positionId   String?            @db.ObjectId
+  gender               String?
+  married              Boolean?              @default(false)
+  husband              AirlinePersonal?      @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId            String?               @db.ObjectId
+  marriedTo            AirlinePersonal[]     @relation(name: "Marriage")
+  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId            String?               @db.ObjectId
+  department           AirlineDepartment?    @relation(fields: [departmentId], references: [id], onDelete: NoAction)
+  departmentId         String?               @db.ObjectId
+  request              Request[]
+  hotelChess           HotelChess[]
+  active               Boolean               @default(true)
+  position             Position?             @relation(fields: [positionId], references: [id])
+  positionId           String?               @db.ObjectId
+  transferPassengers   TransferPassenger[]
+  transferReviews      TransferReview[]
+  transferChats        TransferChat[]
+  transferMessages     TransferMessage[]
+  transferMessageReads TransferMessageRead[]
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -1011,4 +1024,239 @@ model PassengerRequest {
 
   // общий чат по заявке (если понадобится)
   chats Chat[]
+}
+
+// ====================== TRANSFER / DRIVER ======================
+
+// --- Enums
+enum TransferStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS_TO_CLIENT
+  IN_PROGRESS_TO_HOTEL
+  COMPLETED
+  CANCELLED
+}
+
+enum TransferChatType {
+  DISPATCHER_DRIVER
+  DISPATCHER_PERSONAL
+  DRIVER_PERSONAL
+}
+
+enum ActorType {
+  USER // диспетчер (модель User)
+  DRIVER // модель Driver
+  PERSONAL // модель AirlinePersonal (пассажир)
+}
+
+enum DriverRegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TransferReviewAuthor {
+  DRIVER
+  PERSONAL
+}
+
+// --- Embedded types
+type DriverDocuments {
+  driverPhoto  String[]
+  carPhotos    String[]
+  stsPhoto     String[]
+  ptsPhoto     String[]
+  osagoPhoto   String[]
+  licensePhoto String[]
+}
+
+type GeoPoint {
+  lat       Float?
+  lng       Float?
+  updatedAt DateTime?
+}
+
+// --- Organization
+model Organization {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  information Information?
+  drivers     Driver[]
+  active      Boolean      @default(true)
+}
+
+// --- Driver
+model Driver {
+  id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  name                   String
+  number                 String?
+  email                  String?                  @unique
+  password               String?
+  car                    String?
+  vehicleNumber          String?
+  driverLicenseNumber    String?
+  driverLicenseIssueYear Int?
+  extraEquipment         String[] // доп. оборудование
+  organization           Organization?            @relation(fields: [organizationId], references: [id])
+  organizationId         String?                  @db.ObjectId
+  organizationConfirmed  Boolean?
+  documents              DriverDocuments?
+  registrationStatus     DriverRegistrationStatus @default(PENDING)
+  refusalReason          String?
+  location               GeoPoint?
+  rating                 Float?
+  transfers              Transfer[]
+  transferMessages       TransferMessage[]        @relation("DriverAuthor")
+  active                 Boolean                  @default(true)
+  online                 Boolean?                 @default(false)
+  TransferReview         TransferReview[]
+  TransferChat           TransferChat[]
+  TransferMessageRead    TransferMessageRead[]
+}
+
+// --- Связка "заявка ↔ пассажиры (AirlinePersonal)"
+model TransferPassenger {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer        @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String          @db.ObjectId
+  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  personalId String          @db.ObjectId
+
+  @@unique([transferId, personalId])
+}
+
+// --- Transfer (заявка)
+model Transfer {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fromAddress      String // адрес откуда
+  toAddress        String // адрес куда
+  additionalPoints String[] // доп. точки
+  passengersCount  Int // кол-во пассажиров
+
+  dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
+  dispatcherId String? @db.ObjectId
+
+  // назначенный водитель (может быть пусто до назначения)
+  driver   Driver? @relation(fields: [driverId], references: [id])
+  driverId String? @db.ObjectId
+
+  airline   Airline? @relation(fields: [airlineId], references: [id])
+  airlineId String?  @db.ObjectId
+
+  // пассажиры (сотрудники авиакомпаний)
+  persons TransferPassenger[]
+
+  description   String? // комментарий
+  cancellReason String?
+  baggage       String? // инфо о багаже
+  files         String[] // вложения/фото при необходимости
+
+  scheduledPickupAt     DateTime? // к скольки приехать к пассажиру
+  driverAssignmentAt    DateTime?
+  orderAcceptanceAt     DateTime?
+  arrivedToPassengerAt  DateTime?
+  departedAt            DateTime?
+  arrivedAt             DateTime?
+  finishedAt            DateTime?
+  travelDurationMinutes Int? // время в пути (мин)
+
+  status TransferStatus @default(PENDING)
+
+  // 3 чата на заявку
+  chats TransferChat[]
+
+  // отзывы двух сторон (уникально по автору на заявку)
+  reviews TransferReview[]
+}
+
+// --- Отзывы (оценка/комментарий) со стороны водителя или пассажира
+model TransferReview {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String   @db.ObjectId
+
+  authorType TransferReviewAuthor // DRIVER | PERSONAL
+  driver     Driver?              @relation(fields: [driverId], references: [id])
+  driverId   String?              @db.ObjectId
+  personal   AirlinePersonal?     @relation(fields: [personalId], references: [id])
+  personalId String?              @db.ObjectId
+
+  rating    Int? // 1..5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([transferId, authorType]) // по 1 отзыву с каждой стороны
+}
+
+// --- Чаты по заявке (ровно три типа на заявку)
+model TransferChat {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer         @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String           @db.ObjectId
+  type       TransferChatType // DISPATCHER_DRIVER / DISPATCHER_PERSONAL / DRIVER_PERSONAL
+  createdAt  DateTime         @default(now())
+
+  // Участники конкретного чата (фиксированный набор по типу)
+  dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
+  dispatcherId String? @db.ObjectId
+  driver       Driver? @relation(fields: [driverId], references: [id])
+  driverId     String? @db.ObjectId
+
+  // В заявке может быть несколько человек, можно сделать связанную модель
+  personal   AirlinePersonal? @relation(fields: [personalId], references: [id])
+  personalId String?          @db.ObjectId
+
+  messages TransferMessage[]
+
+  @@unique([transferId, type]) // не более одного чата каждого типа на заявку
+}
+
+// --- Сообщения в чатах трансфера с универсальным автором
+model TransferMessage {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  chat      TransferChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId    String       @db.ObjectId
+  text      String
+  createdAt DateTime     @default(now())
+  isRead    Boolean      @default(false)
+
+  authorType ActorType
+
+  // автор-юзер (диспетчер)
+  senderUser   User?   @relation(fields: [senderUserId], references: [id])
+  senderUserId String? @db.ObjectId
+
+  // автор-водитель
+  senderDriver   Driver? @relation("DriverAuthor", fields: [senderDriverId], references: [id])
+  senderDriverId String? @db.ObjectId
+
+  // автор-пассажир (AirlinePersonal)
+  senderPersonal   AirlinePersonal? @relation(fields: [senderPersonalId], references: [id])
+  senderPersonalId String?          @db.ObjectId
+
+  readBy    TransferMessageRead[]
+  separator String?
+}
+
+// отметки о прочтении для сообщений трансфера
+model TransferMessageRead {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  message    TransferMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId  String           @db.ObjectId
+  readerType ActorType
+  user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?          @db.ObjectId
+  driver     Driver?          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverId   String?          @db.ObjectId
+  personal   AirlinePersonal? @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  personalId String?          @db.ObjectId
+  readAt     DateTime         @default(now())
 }

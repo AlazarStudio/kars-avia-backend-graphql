@@ -1173,7 +1173,7 @@ function buildAllocation(data, rangeStart, rangeEnd) {
         rangeStart,
         rangeEnd
       )
-      
+
       const shareNoteText = buildShareNote(g)
 
       const finalShareNote =

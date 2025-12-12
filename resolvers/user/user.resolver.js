@@ -428,6 +428,7 @@ const userResolver = {
         id,
         name,
         email,
+        number,
         login,
         password,
         oldPassword, // Предыдущее значение пароля (для проверки при смене)
@@ -447,6 +448,7 @@ const userResolver = {
       const updatedData = {}
       if (name !== undefined) updatedData.name = name
       if (email !== undefined) updatedData.email = email
+      if (number !== undefined) updatedData.number = number
       if (login !== undefined) updatedData.login = login
       if (role !== undefined) {
         // Разрешаем изменение роли только администраторам
@@ -777,6 +779,14 @@ const userResolver = {
       } else {
         return false
       }
+    },
+    airline: async (parent) => {
+      if (parent.airlineId) {
+        return await prisma.airline.findUnique({
+          where: { id: parent.airlineId }
+        })
+      }
+      return null
     }
   }
 }

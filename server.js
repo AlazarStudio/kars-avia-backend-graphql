@@ -16,99 +16,109 @@ import { makeExecutableSchema } from "@graphql-tools/schema"
 import mergedTypeDefs from "./typeDefs/typedefs.js"
 import mergedResolvers from "./resolvers/resolvers.js"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
-import { startArchivingJob } from "./utils/request/cronTasks.js"
+import {
+  startArchivingJob,
+  stopArchivingJob
+} from "./utils/request/cronTasks.js"
+import { buildAuthContext } from "./utils/authContext.js"
+import rateLimit from "express-rate-limit"
 import { logger } from "./utils/logger.js"
 
 dotenv.config()
 const app = express()
 
-const SERVER_KEY = process.env.SERVER_KEY
-const SERVER_CERT = process.env.SERVER_CERT
-const SERVER_CA = process.env.SERVER_CA
+/* =========================
+   🩺 HEALTH CHECK
+========================= */
+app.get("/health", async (req, res) => {
+  try {
+    // минимальная проверка БД
+    await prisma.$queryRaw`SELECT 1`
 
-// Загрузка SSL сертификатов
+    res.status(200).json({
+      status: "ok",
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+      env: process.env.NODE_ENV || "development"
+    })
+  } catch (e) {
+    logger.error("[HEALTH] DB unavailable", e)
+
+    res.status(500).json({
+      status: "error",
+      reason: "DB_UNAVAILABLE"
+    })
+  }
+})
+
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 минута
+  max: 100, // 100 запросов
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+// SSL
 const sslOptions = {
-  key: fs.readFileSync(SERVER_KEY),
-  cert: fs.readFileSync(SERVER_CERT),
-  ca: fs.readFileSync(SERVER_CA)
+  key: fs.readFileSync(process.env.SERVER_KEY),
+  cert: fs.readFileSync(process.env.SERVER_CERT),
+  ca: fs.readFileSync(process.env.SERVER_CA)
 }
 
-// HTTP сервер для перенаправления на HTTPS
 const httpServer = http.createServer((req, res) => {
   res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` })
   res.end()
 })
 
 const httpsServer = https.createServer(sslOptions, app)
+
 const schema = makeExecutableSchema({
   typeDefs: mergedTypeDefs,
   resolvers: mergedResolvers
 })
-const wsServer = new WebSocketServer({ server: httpsServer, path: "/graphql" })
 
-const getDynamicContext = async (ctx, msg, args) => {
-  // ctx is the graphql-ws Context where connectionParams live
-  // console.log("\n ctx" + ctx, "\n ctx" + JSON.stringify(ctx))
-  if (ctx.connectionParams.Authorization) {
-    const authHeader = ctx.connectionParams.Authorization
-    if (!authHeader) {
-      return { user: null, authHeader: null }
-    }
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7, authHeader.length)
-      : authHeader
-    let user = null
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        user = await prisma.user.findUnique({
-          where: { id: decoded.userId },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            number: true,
-            role: true,
-            position: true,
-            airlineId: true,
-            airlineDepartmentId: true,
-            hotelId: true,
-            dispatcher: true,
-            support: true
-          }
-        })
-        // --------------------------------------------------------------------------------------------------------------------------------
-        // await prisma.user.update({
-        //   where: { id: decoded.userId },
-        //   data: { lastSeen: new Date() }
-        // })
-        // --------------------------------------------------------------------------------------------------------------------------------
-      } catch (e) {
-        if (e.name === "TokenExpiredError") {
-          logger.warn("Просроченный токен")
-          throw new Error("Token expired")
-        }
-        logger.error("Ошибка токена", e)
-        throw new Error("Invalid token")
-      }
-    }
-    return { user, authHeader }
-  }
-  // Otherwise let our resolvers know we don't have a current user
-  // return { user: null }
-}
+/* =========================
+   🔌 WS (graphql-ws)
+========================= */
+const wsServer = new WebSocketServer({
+  server: httpsServer,
+  path: "/graphql"
+})
 
 const serverCleanup = useServer(
   {
     schema,
-    context: async (ctx, msg, args) => {
-      return getDynamicContext(ctx, msg, args)
+    context: async (ctx) => {
+      const authHeader = ctx.connectionParams?.Authorization || null
+      const context = await buildAuthContext(authHeader)
+
+      logger.info(
+        `[WS CONNECT] type=${context.subjectType || "ANON"} id=${
+          context.subject?.id || "-"
+        }`
+      )
+
+      return context
+    },
+
+    onDisconnect(ctx, code, reason) {
+      logger.info(
+        `[WS DISCONNECT] code=${code} reason=${reason?.toString() || ""}`
+      )
+    },
+
+    onError(ctx, msg, errors) {
+      logger.error("[WS ERROR]", errors)
     }
   },
   wsServer
 )
+
+/* =========================
+   🚀 APOLLO SERVER
+========================= */
 const server = new ApolloServer({
-  schema: schema,
+  schema,
   csrfPrevention: true,
   cache: "bounded",
   plugins: [
@@ -126,11 +136,14 @@ const server = new ApolloServer({
   ]
 })
 
-// --------------------------------
 startArchivingJob()
-
-// --------------------------------
 await server.start()
+
+/* =========================
+   🌍 EXPRESS
+========================= */
+app.use(limiter)
+
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
 app.use("/reports", express.static("reports"))
@@ -139,67 +152,74 @@ app.use("/reserve_files", express.static("reserve_files"))
 app.use(
   "/",
   cors(),
-  // {origin: (origin, callback) => {if (process.env.ALLOWED_ORIGINS.split(",").includes(origin)) {callback(null, true)} else {callback(new Error("Origin not allowed"))}}}
   express.json(),
   expressMiddleware(server, {
-    context: async ({ req, res }) => {
-      const authHeader = req.headers.authorization
-      if (!authHeader) {
-        return { user: null, authHeader: null }
-      }
-      const token = authHeader.startsWith("Bearer ")
-        ? authHeader.slice(7, authHeader.length)
-        : authHeader
-      let user = null
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET)
-          user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              number: true,
-              role: true,
-              position: true,
-              airlineId: true,
-              airlineDepartmentId: true,
-              hotelId: true,
-              dispatcher: true,
-              support: true
-            }
-          })
-        } catch (e) {
-          if (e.name === "TokenExpiredError") {
-            logger.warn("Просроченный токен")
-            throw new Error("Token expired")
-          }
-          logger.error("Ошибка токена", e)
-          throw new Error("Invalid token")
-        }
-      }
-      // --------------------------------------------------------------------------------------------------------------------------------
-      // await prisma.user.update({
-      //   where: { id: decoded.userId },
-      //   data: { lastSeen: new Date() }
-      // })
-      // --------------------------------------------------------------------------------------------------------------------------------
-      return { user, authHeader }
-    }
+    context: async ({ req }) =>
+      buildAuthContext(req.headers.authorization || null)
   })
 )
 
-// const PORT = 4000
-const PORT = 443 // HTTPS порт
-const HTTP_PORT = 80 // HTTP порт
+/* =========================
+   ▶️ START
+========================= */
+httpsServer.listen(443, () =>
+  console.log("Server running on https://localhost:443/graphql")
+)
 
-// Запуск HTTPS сервера
-httpsServer.listen(PORT, () => {
-  console.log(`Server is now running on https://localhost:${PORT}/graphql`)
-})
+httpServer.listen(80, () => console.log("Redirecting HTTP → HTTPS"))
 
-// Запуск HTTP сервера для редиректа
-httpServer.listen(HTTP_PORT, () => {
-  console.log(`Redirecting HTTP to HTTPS on port ${HTTP_PORT}`)
+/* =========================
+   🛑 GRACEFUL SHUTDOWN
+========================= */
+
+const shutdown = async (signal) => {
+  logger.warn(`[SHUTDOWN] Signal received: ${signal}`)
+
+  try {
+    // 1. Останавливаем cron
+    stopArchivingJob()
+    logger.info("[SHUTDOWN] Cron stopped")
+
+    // 2. Закрываем WebSocket-сервер
+    await serverCleanup.dispose()
+    logger.info("[SHUTDOWN] WS server closed")
+
+    // 3. Останавливаем HTTP/HTTPS сервер
+    const closeServer = (srv, name) =>
+      new Promise((resolve) => {
+        srv.close(() => {
+          logger.info(`[SHUTDOWN] ${name} closed`)
+          resolve()
+        })
+      })
+
+    if (typeof httpsServer !== "undefined") {
+      await closeServer(httpsServer, "HTTPS")
+    }
+
+    if (typeof httpServer !== "undefined") {
+      await closeServer(httpServer, "HTTP")
+    }
+
+    // 4. Закрываем Prisma
+    await prisma.$disconnect()
+    logger.info("[SHUTDOWN] Prisma disconnected")
+
+    logger.warn("[SHUTDOWN] Completed. Exiting process.")
+    process.exit(0)
+  } catch (e) {
+    logger.error("[SHUTDOWN] Error during shutdown", e)
+    process.exit(1)
+  }
+}
+
+// PM2 / Docker / Linux
+process.on("SIGTERM", shutdown)
+process.on("SIGINT", shutdown)
+
+// страховка
+process.on("uncaughtException", async (err) => {
+  logger.error("[FATAL] Uncaught exception", err)
+  await shutdown("uncaughtException")
+  process.exit(1)
 })

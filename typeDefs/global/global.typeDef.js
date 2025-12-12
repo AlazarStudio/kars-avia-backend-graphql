@@ -186,11 +186,28 @@ const globalTypeDef = /* GraphQL */ `
     encoding: String!
   }
 
+  input TransferSignInInput {
+    identifier: String!
+    password: String!
+    # fingerprint: String
+    # token2FA: String
+  }
+
+  type TransferSignInPayload {
+    token: String!
+    # refreshToken: String
+    subjectType: String!
+    user: User
+    driver: Driver
+    airlinePersonal: AirlinePersonal
+  }
+
   # Query, Mutation
 
   # type Query {}
 
   type Mutation {
+    transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
     singleUpload(file: Upload!): File!
   }
 `

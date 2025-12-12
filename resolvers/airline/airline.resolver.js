@@ -12,6 +12,7 @@ import {
   AIRLINE_CREATED,
   AIRLINE_UPDATED
 } from "../../exports/pubsub.js"
+import argon2 from "argon2"
 
 const airlineResolver = {
   Upload: GraphQLUpload,
@@ -457,6 +458,46 @@ const airlineResolver = {
       }
     },
 
+    updateAirlinePerson: async (_, { id, input, images }, context) => {
+      const { email, password, oldPassword, name, number } = input
+      const currentUser = await prisma.airlinePersonal.findUnique({
+        where: { id }
+      })
+      // Обновляем данные существующего сотрудника
+      const updatedData = {}
+      if (password) {
+        // if (!oldPassword) {
+        //   throw new Error(
+        //     "Для обновления пароля необходимо указать предыдущий пароль."
+        //   )
+        // }
+        // Проверяем, что oldPassword совпадает с текущим паролем
+        // const valid = await argon2.verify(currentUser.password, oldPassword)
+        // if (!valid) {
+        //   throw new Error("Указан неверный пароль.")
+        // }
+        // Хэшируем новый пароль и добавляем в объект обновления
+        const hashedPassword = await argon2.hash(password)
+        updatedData.password = hashedPassword
+      }
+      if (email !== undefined) updatedData.email = email
+      if (name !== undefined) updatedData.name = name
+      if (number !== undefined) updatedData.number = number
+
+      if (images && images.length > 0) {
+        let imagePaths = []
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image))
+        }
+        updatedData.images = imagePaths
+      }
+
+      return await prisma.airlinePersonal.update({
+        where: { id },
+        data: updatedData
+      })
+    },
+
     deleteAirline: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
       await adminMiddleware(context)
@@ -654,6 +695,14 @@ const airlineResolver = {
       if (parent.positionId) {
         return await prisma.position.findUnique({
           where: { id: parent.positionId }
+        })
+      }
+      return null
+    },
+    airline: async (parent) => {
+      if (parent.airlineId) {
+        return await prisma.airline.findUnique({
+          where: { id: parent.airlineId }
         })
       }
       return null
