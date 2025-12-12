@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client"
-import { ORGANIZATION_CREATED, pubsub } from "../../exports/pubsub.js"
+import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
 
 const prisma = new PrismaClient()
 

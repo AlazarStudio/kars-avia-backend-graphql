@@ -1,7 +1,7 @@
 // Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import logAction from "../../exports/logaction.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   HOTEL_UPDATED,
   MESSAGE_SENT,
@@ -11,21 +11,21 @@ import {
   RESERVE_HOTEL,
   RESERVE_PERSONS,
   RESERVE_UPDATED
-} from "../../exports/pubsub.js"
-import calculateMeal from "../../exports/calculateMeal.js"
-import updateDailyMeals from "../../exports/updateDailyMeals.js"
+} from "../../services/infra/pubsub.js"
+import calculateMeal from "../../services/meal/calculateMeal.js"
+import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import {
   airlineAdminMiddleware,
   airlineModerMiddleware,
   allMiddleware,
   dispatcherModerMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
-import { formatDate } from "../../exports/dateTimeFormater.js"
+import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
+import { formatDate } from "../../services/format/dateTimeFormater.js"
 import {
   generateReserveExcel,
   generateReservePdf
-} from "../../exports/generateReservePas.js"
+} from "../../services/reserve/generateReservePas.js"
 import path from "path"
 import fs from "fs"
 

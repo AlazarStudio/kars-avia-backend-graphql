@@ -1,5 +1,5 @@
-import { prisma } from "../prisma.js"
-import { logger } from "../utils/logger.js"
+import { prisma } from "../../prisma.js"
+import { logger } from "./logger.js"
 
 const safeStringify = (data) => {
   try {

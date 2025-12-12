@@ -2,9 +2,9 @@
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { deleteImage, uploadImage } from "../../exports/uploadImage.js"
-import { uploadFiles } from "../../exports/uploadFiles.js"
-import { pubsub } from "../../exports/pubsub.js"
+import { deleteImage, uploadImage } from "../../services/files/uploadImage.js"
+import { uploadFiles } from "../../services/files/uploadFiles.js"
+import { pubsub } from "../../services/infra/pubsub.js"
 import {
   allMiddleware,
   superAdminMiddleware

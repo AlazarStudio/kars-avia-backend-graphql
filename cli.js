@@ -2,7 +2,7 @@ import {
   createBackup,
   restoreBackup,
   listBackups
-} from "./utils/cron/backup.js"
+} from "./services/cron/backup.js"
 import readline from "readline"
 
 // CLI интерфейс

@@ -1,4 +1,4 @@
-import { prisma } from "../prisma.js"
+import { prisma } from "../../prisma.js"
 
 const updateDailyMeals = async (requestId, dailyMealsUpdates, newEndDate) => {
   const request = await prisma.request.findUnique({

@@ -5,7 +5,7 @@ import {
   NOTIFICATION,
   RESERVE_UPDATED,
   REQUEST_UPDATED
-} from "../../exports/pubsub.js"
+} from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import { subscribe } from "graphql"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"

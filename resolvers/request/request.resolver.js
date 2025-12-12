@@ -1,7 +1,7 @@
 // Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import logAction from "../../exports/logaction.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   pubsub,
   REQUEST_CREATED,
@@ -9,14 +9,14 @@ import {
   NOTIFICATION,
   MESSAGE_SENT,
   HOTEL_UPDATED
-} from "../../exports/pubsub.js"
+} from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
-import calculateMeal from "../../exports/calculateMeal.js"
+import calculateMeal from "../../services/meal/calculateMeal.js"
 import nodemailer from "nodemailer"
 import {
   formatDate,
   reverseDateTimeFormatter
-} from "../../exports/dateTimeFormater.js"
+} from "../../services/format/dateTimeFormater.js"
 import {
   adminHotelAirMiddleware,
   airlineAdminMiddleware,
@@ -25,11 +25,11 @@ import {
   dispatcherModerMiddleware,
   moderatorMiddleware
 } from "../../middlewares/authMiddleware.js"
-import updateDailyMeals from "../../exports/updateDailyMeals.js"
-import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
-import { sendEmail } from "../../utils/sendMail.js"
-import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
-import { logger } from "../../utils/logger.js"
+import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
+import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
+import { sendEmail } from "../../services/sendMail.js"
+import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
+import { logger } from "../../services/infra/logger.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",

@@ -4,7 +4,7 @@ import {
   COMPANY_CHANGED,
   PRICECATEGORY_CHANGED,
   NOTIFICATION
-} from "../../exports/pubsub.js"
+} from "../../services/infra/pubsub.js"
 import {
   allMiddleware,
   superAdminMiddleware

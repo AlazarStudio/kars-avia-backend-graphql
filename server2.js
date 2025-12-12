@@ -16,11 +16,11 @@ import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import {
   startArchivingJob,
   stopArchivingJob
-} from "./utils/request/cronTasks.js"
+} from "./services/cron/cronTasks.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
-import { buildAuthContext } from "./utils/authContext.js"
+import { buildAuthContext } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
-import { logger } from "./utils/logger.js"
+import { logger } from "./services/infra/logger.js"
 
 dotenv.config()
 const app = express()

@@ -1,8 +1,8 @@
 // Импорт необходимых модулей и утилит
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { deleteImage, uploadImage } from "../../exports/uploadImage.js"
-import logAction from "../../exports/logaction.js"
+import { deleteImage, uploadImage } from "../../services/files/uploadImage.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   superAdminMiddleware,
   adminMiddleware,
@@ -18,12 +18,12 @@ import {
   HOTEL_CREATED,
   HOTEL_UPDATED,
   RESERVE_UPDATED
-} from "../../exports/pubsub.js"
-import calculateMeal from "../../exports/calculateMeal.js"
-import { sendEmail } from "../../utils/sendMail.js"
-import { ensureNoOverlap } from "../../exports/ensureNoOverlap.js"
+} from "../../services/infra/pubsub.js"
+import calculateMeal from "../../services/meal/calculateMeal.js"
+import { sendEmail } from "../../services/sendMail.js"
+import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
-import { logger } from "../../utils/logger.js"
+import { logger } from "../../services/infra/logger.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",

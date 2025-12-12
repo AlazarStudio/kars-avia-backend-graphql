@@ -1,7 +1,7 @@
 // cronTasks.js
 import { prisma } from "../../prisma.js"
-import { pubsub, REQUEST_UPDATED } from "../../exports/pubsub.js"
-import { logger } from "../logger.js"
+import { pubsub, REQUEST_UPDATED } from "../infra/pubsub.js"
+import { logger } from "../infra/logger.js"
 
 let intervalId = null
 

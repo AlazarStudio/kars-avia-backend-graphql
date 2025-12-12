@@ -4,12 +4,12 @@ import {
   pubsub,
   CONTRACT_AIRLINE,
   CONTRACT_HOTEL
-} from "../../exports/pubsub.js"
+} from "../../services/infra/pubsub.js"
 import {
   allMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { uploadFiles, deleteFiles } from "../../exports/uploadFiles.js"
+import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 
 /* ---------- Helpers ---------- */
 function buildAirlineContractWhere(filter) {

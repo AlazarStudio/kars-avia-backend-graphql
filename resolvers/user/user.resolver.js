@@ -3,8 +3,8 @@ import { prisma } from "../../prisma.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { uploadImage, deleteImage } from "../../exports/uploadImage.js"
-import logAction from "../../exports/logaction.js"
+import { uploadImage, deleteImage } from "../../services/files/uploadImage.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   adminHotelAirMiddleware,
   adminMiddleware,
@@ -17,9 +17,9 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
-import { pubsub, USER_CREATED } from "../../exports/pubsub.js"
-import { sendEmail } from "../../utils/sendMail.js"
-import { logger } from "../../utils/logger.js"
+import { pubsub, USER_CREATED } from "../../services/infra/pubsub.js"
+import { sendEmail } from "../../services/sendMail.js"
+import { logger } from "../../services/infra/logger.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -346,6 +346,7 @@ const userResolver = {
       // Генерация токена доступа с помощью jwt
       const token = jwt.sign(
         {
+          subjectType: "USER",
           userId: newUser.id,
           role: newUser.role,
           hotelId: newUser.hotelId,
@@ -401,6 +402,7 @@ const userResolver = {
       // Генерация токена доступа
       const token = jwt.sign(
         {
+          subjectType: "USER",
           userId: user.id,
           role: user.role,
           hotelId: user.hotelId,
@@ -645,6 +647,7 @@ const userResolver = {
       }
       const newAccessToken = jwt.sign(
         {
+          subjectType: "USER",
           userId: user.id,
           role: user.role,
           hotelId: user.hotelId,

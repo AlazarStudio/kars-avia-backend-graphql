@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
-import { logger } from "./logger.js"
+import { logger } from "../services/infra/logger.js"
 
 /**
  * Универсальный auth-контекст

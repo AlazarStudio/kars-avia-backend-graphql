@@ -1,7 +1,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
-import { uploadImage } from "../../exports/uploadImage.js"
-import logAction from "../../exports/logaction.js"
+import { uploadImage } from "../../services/files/uploadImage.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   adminMiddleware,
   airlineAdminMiddleware,
@@ -11,7 +11,7 @@ import {
   pubsub,
   AIRLINE_CREATED,
   AIRLINE_UPDATED
-} from "../../exports/pubsub.js"
+} from "../../services/infra/pubsub.js"
 import argon2 from "argon2"
 
 const airlineResolver = {

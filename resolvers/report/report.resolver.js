@@ -2,7 +2,7 @@ import { prisma } from "../../prisma.js"
 import {
   generateExcelAvia,
   generateExcelHotel
-} from "../../exports/exporter.js"
+} from "../../services/reports/exporter.js"
 import path from "path"
 import fs from "fs"
 import {
@@ -10,9 +10,9 @@ import {
   airlineAdminMiddleware,
   hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { pubsub, REPORT_CREATED } from "../../exports/pubsub.js"
-import { deleteFiles } from "../../exports/uploadFiles.js"
-import { computeRoomShareMatrix } from "../../exports/computeRoomShareMatrix.js"
+import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
+import { deleteFiles } from "../../services/files/uploadFiles.js"
+import { computeRoomShareMatrix } from "../../services/rooms/computeRoomShareMatrix.js"
 
 const reportResolver = {
   Query: {

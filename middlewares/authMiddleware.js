@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
-import { logger } from "../utils/logger.js"
+import { logger } from "../services/infra/logger.js"
 import { GraphQLError } from "graphql"
 import { error } from "console"
 
