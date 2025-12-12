@@ -44,6 +44,7 @@ export const roleMiddleware = (context, allowedRoles) => {
 */
 
 export const roleMiddleware = async (context, allowedRoles) => {
+  console.log(JSON.stringify(context))
   const user = context.user
   if (!user) {
     throw new GraphQLError("Access forbidden: No user provided.", {
