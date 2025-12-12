@@ -2,7 +2,7 @@ import { prisma } from "../../prisma.js"
 import {
   generateExcelAvia,
   generateExcelHotel
-} from "../../services/reports/exporter.js"
+} from "../../services/report/exporter.js"
 import path from "path"
 import fs from "fs"
 import {
