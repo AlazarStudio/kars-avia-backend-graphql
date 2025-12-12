@@ -1167,32 +1167,16 @@ function buildAllocation(data, rangeStart, rangeEnd) {
     for (const g of guests) {
       const isA = g === A
 
-      const realDays = calculateEffectiveCostDaysWithPartial(
-        formatLocal(g.arrivalTS),
-        formatLocal(g.departureTS),
-        rangeStart,
-        rangeEnd
-      )
-      
-      const shareNoteText = buildShareNote(g)
-
-      const finalShareNote =
-        isA && roomDays !== realDays
-          ? `${shareNoteText} (оплата рассчитана за ${roomDays} суток)`
-          : shareNoteText
-
       out.push({
         index: index++,
         arrival: g.arrival,
         departure: g.departure,
-        // totalDays: isA ? roomDays : g.totalDays,
-        totalDays: realDays,
+        totalDays: isA ? roomDays : g.totalDays,
         category: g.category,
         personName: g.personName,
         roomName: g.roomName,
         roomId: g.roomId,
-        // shareNote: buildShareNote(g),
-        shareNote: finalShareNote,
+        shareNote: buildShareNote(g),
         personPosition: g.personPosition,
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,

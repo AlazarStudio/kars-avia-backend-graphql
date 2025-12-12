@@ -68,12 +68,12 @@ const airlineResolver = {
       })
     },
 
-    airlineStaffs: async (_, { airlineId, city }, context) => {
+    airlineStaffs: async (_, { id, city }, context) => {
       await allMiddleware(context)
       // add pagination
 
       return await prisma.airlinePersonal.findMany({
-        where: { airlineId, active: true },
+        where: { airlineId: id, active: true },
         include: { hotelChess: true, position: true },
         orderBy: { name: "asc" }
       })
