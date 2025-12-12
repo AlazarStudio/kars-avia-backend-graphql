@@ -160,14 +160,14 @@ const hotelResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
         }
       }
 
       let galleryPaths = []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
-          galleryPaths.push(await uploadImage(image))
+          galleryPaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
         }
       }
 
@@ -238,7 +238,7 @@ const hotelResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
         }
       }
 
@@ -247,7 +247,7 @@ const hotelResolver = {
         : []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
-          galleryPaths.push(await uploadImage(image))
+          galleryPaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
         }
       }
 
@@ -717,7 +717,7 @@ const hotelResolver = {
                   : []
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
 
@@ -774,7 +774,7 @@ const hotelResolver = {
               let imagePaths = []
               if (roomImages && roomImages.length > 0) {
                 for (const image of roomImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
 
@@ -843,7 +843,7 @@ const hotelResolver = {
                   : []
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
               const updatedRoomData = {
@@ -864,7 +864,7 @@ const hotelResolver = {
               let imagePaths = []
               if (roomKindImages && roomKindImages.length > 0) {
                 for (const image of roomKindImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
               await prisma.roomKind.create({
@@ -897,7 +897,7 @@ const hotelResolver = {
                   : []
               if (serviceImages && serviceImages.length > 0) {
                 for (const image of serviceImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
               const updatedRoomData = {
@@ -917,7 +917,7 @@ const hotelResolver = {
               let imagePaths = []
               if (serviceImages && serviceImages.length > 0) {
                 for (const image of serviceImages) {
-                  imagePaths.push(await uploadImage(image))
+                  imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
                 }
               }
               await prisma.additionalServices.create({

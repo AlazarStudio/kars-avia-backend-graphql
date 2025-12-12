@@ -241,7 +241,7 @@ const userResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(await uploadImage(image, {bucket: "user",entityId: request.id}))
         }
       }
 
@@ -295,7 +295,7 @@ const userResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(await uploadImage(image, {bucket: "user"}))
         }
       }
 
@@ -469,7 +469,7 @@ const userResolver = {
       if (images && images.length > 0) {
         let imagePaths = []
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(await uploadImage(image, {bucket: "user"}))
         }
         updatedData.images = imagePaths
       }

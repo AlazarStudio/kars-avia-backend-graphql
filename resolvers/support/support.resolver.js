@@ -194,7 +194,7 @@ const supportResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          const uploadedPath = await uploadImage(image)
+          const uploadedPath = await uploadImage(image, {bucket: "patchnote"})
           imagePaths.push(uploadedPath)
         }
       }
@@ -210,7 +210,7 @@ const supportResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          const uploadedPath = await uploadImage(image)
+          const uploadedPath = await uploadImage(image, {bucket: "patchnote"})
           imagePaths.push(uploadedPath)
         }
       }
@@ -228,7 +228,7 @@ const supportResolver = {
       for (const grp of imageGroupsByKey ?? []) {
         keyMap[grp.key] = []
         for (const img of grp.images)
-          keyMap[grp.key].push(await uploadImage(img))
+          keyMap[grp.key].push(await uploadImage(img, {bucket: "patchnote"}))
       }
 
       function transform(node) {
@@ -268,7 +268,7 @@ const supportResolver = {
         for (const grp of imageGroupsByKey) {
           const urls = []
           for (const img of grp.images ?? []) {
-            urls.push(await uploadImage(img))
+            urls.push(await uploadImage(img, {bucket: "patchnote"}))
           }
           keyToNewUrls[grp.key] = urls
         }

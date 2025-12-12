@@ -93,42 +93,27 @@ const airlineResolver = {
     createAirline: async (_, { input, images }, context) => {
       const { user } = context
       await adminMiddleware(context)
-      // const defaultMealPrice = { breakfast: 0, lunch: 0, dinner: 0 }
 
-      // Для цен теперь ожидаем массив тарифных договоров
-      // Если input.prices не переданы, можно установить пустой массив
       const airlinePriceData = input.prices || []
 
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          const uploadedPath = await uploadImage(image)
-          imagePaths.push(uploadedPath)
-        }
-      }
-
-      // Основные данные
-      const data = {
-        ...input,
-        // mealPrice: input.mealPrice || defaultMealPrice,
-        images: imagePaths,
-        // Используем nested create для создания тарифных договоров
-        prices: {
-          create: airlinePriceData.map((priceInput) => ({
-            prices: priceInput.prices,
-            airports: {
-              create: priceInput.airportIds
-                ? priceInput.airportIds.map((airportId) => ({
-                    airport: { connect: { id: airportId } }
-                  }))
-                : []
-            }
-          }))
-        }
-      }
-
+      // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
-        data,
+        data: {
+          ...input,
+          images: [],
+          prices: {
+            create: airlinePriceData.map((priceInput) => ({
+              prices: priceInput.prices,
+              airports: {
+                create: priceInput.airportIds
+                  ? priceInput.airportIds.map((airportId) => ({
+                      airport: { connect: { id: airportId } }
+                    }))
+                  : []
+              }
+            }))
+          }
+        },
         include: {
           staff: true,
           department: true,
@@ -136,24 +121,49 @@ const airlineResolver = {
         }
       })
 
+      // 2️⃣ Загружаем изображения, теперь ID уже есть
+      let imagePaths = []
+      if (images?.length) {
+        for (const image of images) {
+          const uploadedPath = await uploadImage(image, {
+            bucket: "airlines",
+            entityId: createdAirline.id
+          })
+          imagePaths.push(uploadedPath)
+        }
+      }
+
+      // 3️⃣ Обновляем авиакомпанию изображениями
+      const updatedAirline = await prisma.airline.update({
+        where: { id: createdAirline.id },
+        data: {
+          images: imagePaths
+        }
+      })
+
+      // 4️⃣ Логи / события
       await logAction({
         context,
         action: "create_airline",
-        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию <span style='color:#545873'>${createdAirline.name}</span>`,
-        airlineName: createdAirline.name,
-        airlineId: createdAirline.id
+        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию <span style='color:#545873'>${updatedAirline.name}</span>`,
+        airlineName: updatedAirline.name,
+        airlineId: updatedAirline.id
       })
-      pubsub.publish(AIRLINE_CREATED, { airlineCreated: createdAirline })
-      return createdAirline
-    },
 
+      pubsub.publish(AIRLINE_CREATED, { airlineCreated: updatedAirline })
+
+      return updatedAirline
+    },
+    
     updateAirline: async (_, { id, input, images }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(
+            await uploadImage(image, { bucket: "airline", entityId: id })
+          )
         }
       }
       // Извлекаем поля для обновления (например, department, staff, position и новые цены)
@@ -487,7 +497,9 @@ const airlineResolver = {
       if (images && images.length > 0) {
         let imagePaths = []
         for (const image of images) {
-          imagePaths.push(await uploadImage(image))
+          imagePaths.push(
+            await uploadImage(image, { bucket: "airline_person", entityId: id })
+          )
         }
         updatedData.images = imagePaths
       }

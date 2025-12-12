@@ -259,7 +259,7 @@ const driverResolver = {
       if (driverPhoto != undefined) {
         if (driverPhoto.length > 0) {
           for (const image of driverPhoto) {
-            driverPhotoPaths.push(await uploadFiles(image))
+            driverPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
@@ -268,7 +268,7 @@ const driverResolver = {
       if (carPhotos != undefined) {
         if (carPhotos.length > 0) {
           for (const image of carPhotos) {
-            carPhotosPaths.push(await uploadFiles(image))
+            carPhotosPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
@@ -276,7 +276,7 @@ const driverResolver = {
       if (stsPhoto != undefined) {
         if (stsPhoto.length > 0) {
           for (const image of stsPhoto) {
-            stsPhotoPaths.push(await uploadFiles(image))
+            stsPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
@@ -284,7 +284,7 @@ const driverResolver = {
       if (ptsPhoto != undefined) {
         if (ptsPhoto.length > 0) {
           for (const image of ptsPhoto) {
-            ptsPhotoPaths.push(await uploadFiles(image))
+            ptsPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
@@ -292,7 +292,7 @@ const driverResolver = {
       if (osagoPhoto != undefined) {
         if (osagoPhoto.length > 0) {
           for (const image of osagoPhoto) {
-            osagoPhotoPaths.push(await uploadFiles(image))
+            osagoPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
@@ -300,7 +300,7 @@ const driverResolver = {
       if (licensePhoto != undefined) {
         if (licensePhoto.length > 0) {
           for (const image of licensePhoto) {
-            licensePhotoPaths.push(await uploadFiles(image))
+            licensePhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
           }
         }
       }
