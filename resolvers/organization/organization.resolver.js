@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "../../prisma.js"
 import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
-
-const prisma = new PrismaClient()
 
 const organizationResolver = {
   Query: {

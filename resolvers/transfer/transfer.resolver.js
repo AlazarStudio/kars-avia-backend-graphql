@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "../../prisma.js"
 import {
   pubsub,
   TRANSFER_CREATED,
@@ -7,7 +7,6 @@ import {
 import { printIntrospectionSchema, subscribe } from "graphql"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 
-const prisma = new PrismaClient()
 
 const DATE_FIELDS = [
   "scheduledPickupAt",
