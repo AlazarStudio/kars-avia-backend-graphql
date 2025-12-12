@@ -126,6 +126,7 @@ const userTypeDef = /* GraphQL */ `
 
   input RegisterUserInput {
     name: String!
+    number: String
     email: String!
     login: String!
     password: String!
@@ -141,6 +142,7 @@ const userTypeDef = /* GraphQL */ `
   input UpdateUserInput {
     id: ID!
     name: String
+    number: String
     email: String
     login: String
     password: String
@@ -160,6 +162,7 @@ const userTypeDef = /* GraphQL */ `
   type AuthPayload {
     id: ID
     name: String
+    number: String
     email: String
     login: String
     role: Role
