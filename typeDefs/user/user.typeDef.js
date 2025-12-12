@@ -14,6 +14,7 @@ const userTypeDef = /* GraphQL */ `
     HOTELUSER
     AIRLINEUSER
     USER
+    DRIVER
   }
 
   enum TwoFAMethod {
@@ -26,6 +27,7 @@ const userTypeDef = /* GraphQL */ `
     lastSeen: Date
     name: String!
     email: String!
+    number: String
     login: String!
     password: String!
     role: Role!

@@ -42,6 +42,7 @@ const airlineTypeDef = /* GraphQL */ `
     gender: String
     airline: Airline
     department: AirlineDepartment
+    role: Role
     # hotelChess: [HotelChess!]
     hotelChess(hcPagination: HotelChessPaginationInput): [HotelChess!]
     active: Boolean

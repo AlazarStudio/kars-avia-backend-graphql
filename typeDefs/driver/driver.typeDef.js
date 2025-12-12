@@ -56,6 +56,7 @@ const driverTypeDef = /* GraphQL */ `
     transferMessages: [TransferMessage]
     active: Boolean
     online: Boolean
+    role: Role
     # TransferReview: [TransferReview]
     # TransferChat: [TransferChat]
     # TransferMessageRead: [TransferMessageRead]

@@ -41,6 +41,7 @@ enum Role {
   HOTELUSER
   AIRLINEUSER
   USER
+  DRIVER
 }
 
 enum Category {
@@ -545,6 +546,7 @@ model AirlinePersonal {
   position             Position?             @relation(fields: [positionId], references: [id])
   positionId           String?               @db.ObjectId
   images               String[]
+  role                 Role                  @default(USER)
   transferPassengers   TransferPassenger[]
   transferReviews      TransferReview[]
   transferChats        TransferChat[]
@@ -1115,6 +1117,7 @@ model Driver {
   transferMessages       TransferMessage[]        @relation("DriverAuthor")
   active                 Boolean                  @default(true)
   online                 Boolean?                 @default(false)
+  role                   Role                     @default(USER)
   TransferReview         TransferReview[]
   TransferChat           TransferChat[]
   TransferMessageRead    TransferMessageRead[]

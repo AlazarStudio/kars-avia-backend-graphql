@@ -44,28 +44,31 @@ export const roleMiddleware = (context, allowedRoles) => {
 */
 
 export const roleMiddleware = async (context, allowedRoles) => {
-  console.log(JSON.stringify(context))
-  const user = context.user
-  if (!user) {
-    throw new GraphQLError("Access forbidden: No user provided.", {
-      extensions: {
-        code: "UNAUTHORIZED"
-      }
+  const { subject, subjectType } = context
+
+  if (!subject) {
+    throw new GraphQLError("Access forbidden: No auth subject provided.", {
+      extensions: { code: "UNAUTHORIZED" }
     })
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  const role = subject.role || context.decoded?.role
+
+  if (!allowedRoles.includes(role)) {
     throw new GraphQLError("Access forbidden: Insufficient rights.", {
-      extensions: {
-        code: "FORBIDDEN"
-      }
+      extensions: { code: "FORBIDDEN" }
     })
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastSeen: new Date() }
-  })
+  // lastSeen — только для USER (иначе Prisma упадёт)
+  if (subjectType === "USER") {
+    await prisma.user.update({
+      where: { id: subject.id },
+      data: { lastSeen: new Date() }
+    })
+  }
+
+  return true
 }
 
 //
@@ -169,7 +172,8 @@ export const allMiddleware = async (context) => {
     "DISPATCHERUSER",
     "HOTELUSER",
     "AIRLINEUSER",
-    "USER"
+    "USER",
+    "DRIVER"
   ])
 }
 
