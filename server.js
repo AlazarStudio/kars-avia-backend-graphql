@@ -19,10 +19,10 @@ import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import {
   startArchivingJob,
   stopArchivingJob
-} from "./utils/request/cronTasks.js"
-import { buildAuthContext } from "./utils/authContext.js"
+} from "./services/cron/cronTasks.js"
+import { buildAuthContext } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
-import { logger } from "./utils/logger.js"
+import { logger } from "./services/infra/logger.js"
 
 dotenv.config()
 const app = express()
