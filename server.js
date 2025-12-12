@@ -23,6 +23,7 @@ import {
 import { buildAuthContext } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
 import { logger } from "./services/infra/logger.js"
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 
 dotenv.config()
 const app = express()
@@ -123,7 +124,8 @@ const server = new ApolloServer({
   cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
-    ApolloServerPluginLandingPageDisabled(),
+    // ApolloServerPluginLandingPageDisabled(),
+    ApolloServerPluginLandingPageLocalDefault(),
     {
       async serverWillStart() {
         return {
