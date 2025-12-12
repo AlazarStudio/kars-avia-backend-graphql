@@ -24,7 +24,7 @@ import { logger } from "../infra/logger.js"
 const UPLOADS_ROOT = path.join(process.cwd(), "uploads")
 const MIGRATED_ROOT = path.join(UPLOADS_ROOT, "migrated")
 
-const DRY_RUN = true // true → только лог, false → реально переносит
+const DRY_RUN = false // true → только лог, false → реально переносит
 
 /* =========================
    🧠 HELPERS

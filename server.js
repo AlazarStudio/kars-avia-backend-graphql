@@ -144,7 +144,7 @@ await server.start()
 /* =========================
    🌍 EXPRESS
 ========================= */
-app.use(limiter)
+// app.use(limiter)
 
 app.use(graphqlUploadExpress())
 app.use("/uploads", express.static("uploads"))
