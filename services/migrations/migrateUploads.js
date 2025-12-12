@@ -1,99 +1,149 @@
-/**
- * migrateUploads.js
- *
- * Безопасная миграция файлов из /uploads
- * в структурированные подкаталоги:
- *
- * uploads/
- *   migrated/
- *     requests/{requestId}/YYYY/MM/DD/file.ext
- *     users/{userId}/YYYY/MM/DD/file.ext
- *     unknown/YYYY/MM/DD/file.ext
- */
-
 import fs from "fs"
 import path from "path"
 import cliProgress from "cli-progress"
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 
-/* =========================
-   ⚙ CONFIG
-========================= */
-
 const UPLOADS_ROOT = path.join(process.cwd(), "uploads")
 const MIGRATED_ROOT = path.join(UPLOADS_ROOT, "migrated")
+const DRY_RUN = false
 
-const DRY_RUN = false // true → только лог, false → реально переносит
+const ensureDir = (dir) => fs.mkdirSync(dir, { recursive: true })
+
+const getDateParts = (filePath) => {
+  const stat = fs.statSync(filePath)
+  const d = stat.birthtime ?? stat.mtime
+  return {
+    y: String(d.getFullYear()),
+    m: String(d.getMonth() + 1).padStart(2, "0"),
+    d: String(d.getDate()).padStart(2, "0")
+  }
+}
 
 /* =========================
-   🧠 HELPERS
+   FILE OWNERS CONFIG
 ========================= */
 
-const ensureDir = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+const FILE_OWNERS = [
+  {
+    model: "request",
+    fields: ["files"],
+    bucket: "requests"
+  },
+  {
+    model: "reserve",
+    fields: ["files", "passengerList"],
+    bucket: "reserves"
+  },
+  {
+    model: "user",
+    fields: ["images"],
+    bucket: "users"
+  },
+  {
+    model: "airlinePersonal",
+    fields: ["images"],
+    bucket: "airline_personal"
+  },
+  {
+    model: "airline",
+    fields: ["images"],
+    bucket: "airlines"
+  },
+  {
+    model: "hotel",
+    fields: ["images", "gallery"],
+    bucket: "hotels"
+  },
+  {
+    model: "room",
+    fields: ["images"],
+    bucket: "rooms"
+  },
+  {
+    model: "roomKind",
+    fields: ["images"],
+    bucket: "room_kinds"
+  },
+  {
+    model: "additionalServices",
+    fields: ["images"],
+    bucket: "additional_services"
+  },
+  {
+    model: "airlineContract",
+    fields: ["files"],
+    bucket: "contracts"
+  },
+  {
+    model: "additionalAgreement",
+    fields: ["files"],
+    bucket: "contracts"
+  },
+  {
+    model: "hotelContract",
+    fields: ["files"],
+    bucket: "contracts"
+  },
+  {
+    model: "documentation",
+    fields: ["files", "images"],
+    bucket: "documentation"
+  },
+  {
+    model: "patchNote",
+    fields: ["files", "images"],
+    bucket: "patch_notes"
+  },
+  {
+    model: "transfer",
+    fields: ["files"],
+    bucket: "transfers"
+  },
+  {
+    model: "driver",
+    fields: [
+      "documents.driverPhoto",
+      "documents.carPhotos",
+      "documents.stsPhoto",
+      "documents.ptsPhoto",
+      "documents.osagoPhoto",
+      "documents.licensePhoto"
+    ],
+    bucket: "drivers"
   }
-}
-
-const isTopLevelFile = (file) => {
-  try {
-    return fs.statSync(path.join(UPLOADS_ROOT, file)).isFile()
-  } catch {
-    return false
-  }
-}
-
-const getFileDateParts = (filePath) => {
-  const stat = fs.statSync(filePath)
-  const date = stat.birthtime ?? stat.mtime
-  return {
-    y: String(date.getFullYear()),
-    m: String(date.getMonth() + 1).padStart(2, "0"),
-    d: String(date.getDate()).padStart(2, "0")
-  }
-}
-
-const buildTargetDir = ({ bucket, entityId, fileAbsPath }) => {
-  const { y, m, d } = getFileDateParts(fileAbsPath)
-
-  const parts = [MIGRATED_ROOT, bucket]
-  if (entityId) parts.push(entityId)
-  parts.push(y, m, d)
-
-  return path.join(...parts)
-}
+]
 
 /* =========================
-   🔍 FILE CLASSIFICATION
+   RESOLVE OWNER
 ========================= */
 
 const resolveFileOwner = async (oldRelPath) => {
-  const request = await prisma.request.findFirst({
-    where: {
-      OR: [{ documents: { has: oldRelPath } }, { images: { has: oldRelPath } }]
-    },
-    select: { id: true }
-  })
+  for (const cfg of FILE_OWNERS) {
+    const model = prisma[cfg.model]
+    if (!model) continue
 
-  if (request) {
-    return { bucket: "requests", entityId: request.id }
-  }
+    for (const field of cfg.fields) {
+      const where = field.includes(".")
+        ? { [field.split(".")[0]]: { has: oldRelPath } }
+        : { [field]: { has: oldRelPath } }
 
-  const user = await prisma.user.findFirst({
-    where: { avatar: oldRelPath },
-    select: { id: true }
-  })
+      const record = await model.findFirst({
+        where,
+        select: { id: true }
+      })
 
-  if (user) {
-    return { bucket: "users", entityId: user.id }
+      if (record) {
+        return { bucket: cfg.bucket, entityId: record.id }
+      }
+    }
   }
 
   return { bucket: "unknown", entityId: null }
 }
 
 /* =========================
-   🚚 MIGRATION
+   MIGRATION
 ========================= */
 
 const migrate = async () => {
@@ -102,83 +152,44 @@ const migrate = async () => {
   const files = fs
     .readdirSync(UPLOADS_ROOT)
     .filter((f) => f !== "migrated")
-    .filter(isTopLevelFile)
+    .filter((f) => fs.statSync(path.join(UPLOADS_ROOT, f)).isFile())
 
   logger.info(`[MIGRATE] Found ${files.length} files`)
 
   const bar = new cliProgress.SingleBar(
-    {
-      format: "MIGRATING |{bar}| {percentage}% | {value}/{total} files",
-      barCompleteChar: "█",
-      barIncompleteChar: "░",
-      hideCursor: true
-    },
+    { format: "MIGRATE |{bar}| {percentage}% | {value}/{total}" },
     cliProgress.Presets.shades_classic
   )
 
   bar.start(files.length, 0)
 
-  let scanned = 0
-  let moved = 0
-
   for (const file of files) {
-    scanned++
-
     try {
-      const oldRelPath = `/uploads/${file}`
-      const oldAbsPath = path.join(UPLOADS_ROOT, file)
+      const oldAbs = path.join(UPLOADS_ROOT, file)
+      const oldRel = `/uploads/${file}`
 
-      const { bucket, entityId } = await resolveFileOwner(oldRelPath)
-      const targetDir = buildTargetDir({
+      const { bucket, entityId } = await resolveFileOwner(oldRel)
+      const { y, m, d } = getDateParts(oldAbs)
+
+      const targetDir = path.join(
+        MIGRATED_ROOT,
         bucket,
-        entityId,
-        fileAbsPath: oldAbsPath
-      })
+        entityId ?? "unknown",
+        y,
+        m,
+        d
+      )
 
       ensureDir(targetDir)
 
-      const newFileName = `${Date.now()}-${file}`
-      const newAbsPath = path.join(targetDir, newFileName)
-      const newRelPath =
-        "/uploads/" +
-        path.relative(UPLOADS_ROOT, newAbsPath).replace(/\\/g, "/")
+      const newName = `${Date.now()}-${file}`
+      const newAbs = path.join(targetDir, newName)
+      const newRel =
+        "/uploads/" + path.relative(UPLOADS_ROOT, newAbs).replace(/\\/g, "/")
 
-      logger.info(`[MOVE] ${oldRelPath} → ${newRelPath}`)
+      logger.info(`[MOVE] ${oldRel} → ${newRel}`)
 
-      if (!DRY_RUN) {
-        fs.renameSync(oldAbsPath, newAbsPath)
-
-        /* ===== UPDATE REQUESTS ===== */
-        const requests = await prisma.request.findMany({
-          where: {
-            OR: [
-              { documents: { has: oldRelPath } },
-              { images: { has: oldRelPath } }
-            ]
-          },
-          select: { id: true, documents: true, images: true }
-        })
-
-        for (const r of requests) {
-          await prisma.request.update({
-            where: { id: r.id },
-            data: {
-              documents: r.documents?.map((p) =>
-                p === oldRelPath ? newRelPath : p
-              ),
-              images: r.images?.map((p) => (p === oldRelPath ? newRelPath : p))
-            }
-          })
-        }
-
-        /* ===== UPDATE USERS ===== */
-        await prisma.user.updateMany({
-          where: { avatar: oldRelPath },
-          data: { avatar: newRelPath }
-        })
-
-        moved++
-      }
+      if (!DRY_RUN) fs.renameSync(oldAbs, newAbs)
     } catch (e) {
       logger.error(`[MIGRATE ERROR] ${file}`, e)
     } finally {
@@ -187,24 +198,12 @@ const migrate = async () => {
   }
 
   bar.stop()
-
-  logger.info(
-    `[MIGRATE] Done. Scanned: ${scanned}, Moved: ${DRY_RUN ? 0 : moved}`
-  )
-
   await prisma.$disconnect()
 }
 
-/* =========================
-   ▶ RUN
-========================= */
-
 migrate()
-  .then(() => {
-    logger.info("[MIGRATE] Completed successfully")
-    process.exit(0)
-  })
+  .then(() => process.exit(0))
   .catch((e) => {
-    logger.error("[MIGRATE] Failed", e)
+    logger.error(e)
     process.exit(1)
   })
