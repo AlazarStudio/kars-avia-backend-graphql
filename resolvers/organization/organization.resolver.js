@@ -65,7 +65,7 @@ const organizationResolver = {
       })
 
       pubsub.publish(ORGANIZATION_CREATED, {
-        organizationCreated: newOrganization
+        organizationCreated: updatedOrganization
       })
 
       return updatedOrganization
