@@ -84,21 +84,16 @@ const organizationResolver = {
       // - images === undefined | null → вообще не трогаем поле images
       // - images === [] → явно очистить все картинки
       // - images.length > 0 → загрузить и ДОБАВИТЬ к существующим
-      if (images !== undefined && images !== null) {
-        if (images.length === 0) {
-          // Явно хотим очистить
-          newData.images = []
-        } else {
-          const uploaded = []
-          for (const image of images) {
-            const filePath = await uploadImage(image, {
-              bucket: "organization"
-            })
-            uploaded.push(filePath)
-          }
 
-          newData.images = [...(currentOrganization.images || []), ...uploaded]
+      if (images && images.length > 0) {
+        const uploaded = []
+        for (const image of images) {
+          const filePath = await uploadImage(image, {
+            bucket: "organization"
+          })
+          uploaded.push(filePath)
         }
+        newData.images = [...(currentOrganization.images || []), ...uploaded]
       }
 
       const updatedOrganization = await prisma.organization.update({
