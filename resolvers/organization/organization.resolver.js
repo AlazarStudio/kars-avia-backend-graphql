@@ -85,15 +85,12 @@ const organizationResolver = {
       // - images === [] → явно очистить все картинки
       // - images.length > 0 → загрузить и ДОБАВИТЬ к существующим
 
+      let imagePaths = []
       if (images && images.length > 0) {
-        const uploaded = []
         for (const image of images) {
-          const filePath = await uploadImage(image, {
-            bucket: "organization"
-          })
-          uploaded.push(filePath)
+          imagePaths.push(await uploadImage(image, { bucket: "organization" }))
         }
-        newData.images = [...(currentOrganization.images || []), ...uploaded]
+        newData.images = imagePaths
       }
 
       const updatedOrganization = await prisma.organization.update({
