@@ -54,34 +54,58 @@ const organizationResolver = {
     },
 
     updateOrganization: async (_, { id, input, images }) => {
+      // 1. Берём текущую организацию
       const currentOrganization = await prisma.organization.findUnique({
-        where: { id: id }
+        where: { id }
       })
 
-      const newData = {}
-      if (input["information"]) {
-        const newInformation = currentOrganization["information"]
-        Object.assign(newInformation, input["information"])
-
-        newData["information"] = newInformation
+      if (!currentOrganization) {
+        throw new Error("Организация не найдена")
       }
 
-      if (input["name"]) newData["name"] = input["name"]
+      const newData = {}
 
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          imagePaths.push(await uploadImage(image, { bucket: "organization" }))
+      // 2. Обновляем information — БЕЗ мутации старого объекта
+      if (input.information) {
+        newData.information = {
+          ...(currentOrganization.information || {}),
+          ...input.information
         }
       }
 
-      newData.images = imagePaths
+      // 3. Простые поля
+      if (typeof input.name === "string") {
+        newData.name = input.name
+      }
+
+      // 4. Картинки
+      // Логика:
+      // - images === undefined | null → вообще не трогаем поле images
+      // - images === [] → явно очистить все картинки
+      // - images.length > 0 → загрузить и ДОБАВИТЬ к существующим
+      if (images !== undefined && images !== null) {
+        if (images.length === 0) {
+          // Явно хотим очистить
+          newData.images = []
+        } else {
+          const uploaded = []
+          for (const image of images) {
+            const filePath = await uploadImage(image, {
+              bucket: "organization"
+            })
+            uploaded.push(filePath)
+          }
+
+          newData.images = [...(currentOrganization.images || []), ...uploaded]
+        }
+      }
 
       const updatedOrganization = await prisma.organization.update({
-        where: { id: id },
+        where: { id },
         data: newData
       })
 
+      // Я бы переименовал событие в ORGANIZATION_UPDATED, но оставляю как у тебя
       pubsub.publish(ORGANIZATION_CREATED, {
         organizationCreated: updatedOrganization
       })
