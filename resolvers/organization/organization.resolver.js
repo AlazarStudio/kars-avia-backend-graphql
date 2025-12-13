@@ -7,10 +7,9 @@ const organizationResolver = {
       return await prisma.organization.findMany({})
     },
     organization: async (_, { id }) => {
-      try{
+      try {
         return await prisma.organization.findUnique({ where: { id: id } })
-      }
-      catch{
+      } catch {
         return new Error("Неккоректный ID")
       }
     }
@@ -46,41 +45,49 @@ const organizationResolver = {
       return newOrganization
     },
     updateOrganization: async (_, { id, input }) => {
-        const currentOrganization = await prisma.organization.findUnique({
-          where: { id: id }
-        })
+      const currentOrganization = await prisma.organization.findUnique({
+        where: { id: id }
+      })
 
-        const newData = {}
-        if (input["information"]) {
-          const newInformation = currentOrganization["information"]
-          Object.assign(newInformation, input["information"])
+      const newData = {}
+      if (input["information"]) {
+        const newInformation = currentOrganization["information"]
+        Object.assign(newInformation, input["information"])
 
-          newData["information"] = newInformation
-        }
-    
-        if (input["name"]) newData["name"] = input["name"]
-        
-        const updatedOrganization = await prisma.organization.update({
-          where: { id: id },
-          data: newData
-        })
-  
-        return updatedOrganization
-      },
+        newData["information"] = newInformation
+      }
+
+      if (input["name"]) newData["name"] = input["name"]
+
+      const updatedOrganization = await prisma.organization.update({
+        where: { id: id },
+        data: newData
+      })
+
+      pubsub.publish(ORGANIZATION_CREATED, {
+        organizationCreated: newOrganization
+      })
+
+      return updatedOrganization
+    },
     deleteOrganization: async (_, { id }) => {
-      try{
+      try {
         const deletedOrganization = await prisma.organization.update({
           where: { id: id },
           data: {
             active: false
           }
         })
-  
+
         return deletedOrganization
-      }
-      catch{
+      } catch {
         return new Error("Некорректное ID")
       }
+    }
+  },
+  Subscription: {
+    organizationCreated: {
+      subscribe: () => pubsub.asyncIterator([ORGANIZATION_CREATED])
     }
   },
   Organization: {

@@ -162,7 +162,7 @@ const contractResolver = {
         orderBy: { date: "desc" },
         include: { airlineContract: true }
       })
-    }
+    }, 
   },
 
   Mutation: {
