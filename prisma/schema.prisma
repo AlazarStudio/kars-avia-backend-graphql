@@ -1086,6 +1086,7 @@ type GeoPoint {
 model Organization {
   id          String       @id @default(auto()) @map("_id") @db.ObjectId
   name        String
+  images      String[]
   information Information?
   drivers     Driver[]
   active      Boolean      @default(true)

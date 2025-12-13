@@ -1,9 +1,13 @@
 const organizationTypeDef = /* GraphQL */ `
   #graphql
+
+  scalar Upload
+
   type Organization {
     id: String!
     name: String!
     information: Information
+    images: [String]
     drivers: [Driver!]!
     active: Boolean!
   }
@@ -24,8 +28,15 @@ const organizationTypeDef = /* GraphQL */ `
   }
 
   type Mutation {
-    createOrganization(input: OrganizationInput): Organization!
-    updateOrganization(id: ID!, input: UpdateOrganizationInput): Organization!
+    createOrganization(
+      input: OrganizationInput
+      images: [Upload!]
+    ): Organization!
+    updateOrganization(
+      id: ID!
+      input: UpdateOrganizationInput
+      images: [Upload!]
+    ): Organization!
     deleteOrganization(id: ID!): Organization!
     #добавить Update Delete
   }

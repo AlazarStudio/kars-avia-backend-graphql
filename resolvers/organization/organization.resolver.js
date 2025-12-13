@@ -15,7 +15,7 @@ const organizationResolver = {
     }
   },
   Mutation: {
-    createOrganization: async (_, { input }) => {
+    createOrganization: async (_, { input, images }) => {
       const { name, information } = input
 
       const existingOrganization = await prisma.organization.findFirst({
@@ -31,10 +31,18 @@ const organizationResolver = {
         }
       }
 
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image, { bucket: "organization" }))
+        }
+      }
+
       const newOrganization = await prisma.organization.create({
         data: {
           name: name,
-          information: information
+          information: information,
+          images: imagePaths
         }
       })
 
@@ -44,7 +52,8 @@ const organizationResolver = {
 
       return newOrganization
     },
-    updateOrganization: async (_, { id, input }) => {
+
+    updateOrganization: async (_, { id, input, images }) => {
       const currentOrganization = await prisma.organization.findUnique({
         where: { id: id }
       })
@@ -58,6 +67,15 @@ const organizationResolver = {
       }
 
       if (input["name"]) newData["name"] = input["name"]
+
+      let imagePaths = []
+      if (images && images.length > 0) {
+        for (const image of images) {
+          imagePaths.push(await uploadImage(image, { bucket: "organization" }))
+        }
+      }
+
+      newData.images = imagePaths
 
       const updatedOrganization = await prisma.organization.update({
         where: { id: id },
