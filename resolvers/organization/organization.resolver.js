@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import { uploadImage } from "../../services/files/uploadImage.js"
 import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
 
 const organizationResolver = {
