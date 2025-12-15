@@ -7,6 +7,7 @@ import {
 import { printIntrospectionSchema, subscribe } from "graphql"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 
+
 const DATE_FIELDS = [
   "scheduledPickupAt",
   "driverAssignmentAt",
@@ -216,9 +217,6 @@ const transferResolver = {
 
       const { dispatcherId, driverId, personsId, ...restInput } = input
 
-      console.log("\n persons update input " + JSON.stringify(input))
-      console.log("\n persons update personsId " + JSON.stringify(personsId))
-
       const data = {}
 
       // скаляры + даты
@@ -250,15 +248,11 @@ const transferResolver = {
       }
 
       // ПАССАЖИРЫ: пример, если хочешь полностью заменить список
-      if (Array.isArray(personsId) && personsId.length) {
+      if (Array.isArray(personsId)) {
         data.persons = {
-          set: personsId.map((personalId) => ({
-            personal: { connect: { id: personalId } } // TransferPassenger.personalId
-          }))
+          set: personsId.map((pId) => ({ id: pId })) // или connect/create под свою модель
         }
       }
-
-      console.log("\n persons update data " + JSON.stringify(data.persons))
 
       const updatedTransfer = await prisma.transfer.update({
         where: { id }, // если id числовой — Number(id)
