@@ -250,7 +250,7 @@ const transferResolver = {
       // ПАССАЖИРЫ: пример, если хочешь полностью заменить список
       if (Array.isArray(personsId)) {
         data.persons = {
-          set: personsId.map((pId) => ({ id: pId })) // или connect/create под свою модель
+          connect: personsId.map((pId) => ({ id: pId })) // или connect/create под свою модель
         }
       }
 

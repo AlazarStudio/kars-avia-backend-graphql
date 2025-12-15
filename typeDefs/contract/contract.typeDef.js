@@ -26,6 +26,12 @@ const contractTypeDef = /* GraphQL */ `
     createdAt: SortOrder
   }
 
+  input OrganizationContractOrderByInput {
+    date: SortOrder
+    contractNumber: SortOrder
+    createdAt: SortOrder
+  }
+
   input AirlineContractFilter {
     companyId: ID
     airlineId: ID
@@ -44,6 +50,15 @@ const contractTypeDef = /* GraphQL */ `
     search: String
   }
 
+  input OrganizationContractFilter {
+    companyId: ID
+    organizationId: ID
+    # cityId: ID
+    dateFrom: Date
+    dateTo: Date
+    search: String
+  }
+
   type AirlineContractConnection {
     items: [AirlineContract!]!
     totalCount: Int!
@@ -52,6 +67,12 @@ const contractTypeDef = /* GraphQL */ `
 
   type HotelContractConnection {
     items: [HotelContract!]!
+    totalCount: Int!
+    totalPages: Int
+  }
+
+  type OrganizationContractConnection {
+    items: [OrganizationContract!]!
     totalCount: Int!
     totalPages: Int
   }
@@ -94,6 +115,27 @@ const contractTypeDef = /* GraphQL */ `
     hotel: Hotel
     cityId: ID
     region: City!
+    date: Date
+    contractNumber: String
+    notes: String
+    legalEntity: String
+    signatureMark: String
+    completionMark: String
+    normativeAct: String
+    applicationType: String
+    executor: String
+    files: [String!]!
+    additionalAgreements: [AdditionalAgreement!]!
+  }
+
+  type OrganizationContract {
+    id: ID!
+    companyId: ID
+    company: Company
+    organizationId: ID
+    organization: Organization
+    # cityId: ID
+    # region: City!
     date: Date
     contractNumber: String
     notes: String
@@ -173,6 +215,38 @@ const contractTypeDef = /* GraphQL */ `
     files: [Upload!]
   }
 
+  input OrganizationContractCreateInput {
+    companyId: ID
+    organizationId: ID
+    # cityId: ID
+    date: Date
+    contractNumber: String
+    notes: String
+    legalEntity: String
+    signatureMark: String
+    completionMark: String
+    normativeAct: String
+    applicationType: String
+    executor: String
+    files: [Upload!]
+  }
+
+  input OrganizationContractUpdateInput {
+    companyId: ID
+    organizationId: ID
+    # cityId: ID
+    date: Date
+    contractNumber: String
+    notes: String
+    legalEntity: String
+    signatureMark: String
+    completionMark: String
+    normativeAct: String
+    applicationType: String
+    executor: String
+    files: [Upload!]
+  }
+
   #  ===== ROOT =====
 
   type Query {
@@ -191,6 +265,14 @@ const contractTypeDef = /* GraphQL */ `
     ): HotelContractConnection!
 
     hotelContract(id: ID!): HotelContract
+
+    organizationContracts(
+      pagination: ContractPaginationInput
+      filter: OrganizationContractFilter
+      orderBy: OrganizationContractOrderByInput
+    ): OrganizationContractConnection!
+
+    organizationContract(id: ID!): OrganizationContract
 
     additionalAgreements(airlineContractId: ID): [AdditionalAgreement!]!
   }
@@ -228,11 +310,23 @@ const contractTypeDef = /* GraphQL */ `
       files: [Upload!]
     ): HotelContract!
     deleteHotelContract(id: ID!): Boolean!
+
+    createOrganizationContract(
+      input: OrganizationContractCreateInput!
+      files: [Upload!]
+    ): OrganizationContract!
+    updateOrganizationContract(
+      id: ID!
+      input: OrganizationContractUpdateInput!
+      files: [Upload!]
+    ): OrganizationContract!
+    deleteOrganizationContract(id: ID!): Boolean!
   }
 
   type Subscription {
     contractAirline: AirlineContract!
     contractHotel: HotelContract!
+    contractOrganization: OrganizationContract!
   }
 `
 

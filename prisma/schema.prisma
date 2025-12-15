@@ -559,14 +559,15 @@ model AirlinePersonal {
 // Компании  ---------------- ↓↓↓↓
 
 model Company {
-  id              String            @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
-  name            String
-  priceCategory   PriceCategory[]
-  information     Information?
-  airlineContract airlineContract[]
-  hotelContract   hotelContract[]
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  name                  String
+  priceCategory         PriceCategory[]
+  information           Information?
+  airlineContract       airlineContract[]
+  hotelContract         hotelContract[]
+  organizationContracts organizationContract[]
 }
 
 model airlineContract {
@@ -587,18 +588,20 @@ model airlineContract {
 }
 
 model additionalAgreement {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  airlineContract   airlineContract? @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
-  airlineContractId String?          @db.ObjectId
-  hotelContract     hotelContract?   @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
-  hotelContractId   String?          @db.ObjectId
-  date              DateTime?
-  contractNumber    String?
-  itemAgreement     String?
-  notes             String?
-  files             String[]
+  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  airlineContract        airlineContract?      @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
+  airlineContractId      String?               @db.ObjectId
+  hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
+  hotelContractId        String?               @db.ObjectId
+  date                   DateTime?
+  contractNumber         String?
+  itemAgreement          String?
+  notes                  String?
+  files                  String[]
+  organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
+  organizationContractId String?               @db.ObjectId
 }
 
 model hotelContract {
@@ -613,6 +616,29 @@ model hotelContract {
   contractNumber      String?
   region              City?                 @relation(fields: [cityId], references: [id])
   cityId              String?               @db.ObjectId
+  notes               String?
+  legalEntity         String?
+  signatureMark       String?
+  completionMark      String?
+  normativeAct        String?
+  applicationType     String?
+  executor            String?
+  files               String[]
+  additionalAgreement additionalAgreement[]
+}
+
+model organizationContract {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId           String?               @db.ObjectId
+  organization        Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId      String?               @db.ObjectId
+  date                DateTime?
+  contractNumber      String?
+  // region              City?                 @relation(fields: [cityId], references: [id])
+  // cityId              String?               @db.ObjectId
   notes               String?
   legalEntity         String?
   signatureMark       String?
@@ -1084,12 +1110,13 @@ type GeoPoint {
 
 // --- Organization
 model Organization {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  images      String[]
-  information Information?
-  drivers     Driver[]
-  active      Boolean      @default(true)
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String
+  images                String[]
+  information           Information?
+  drivers               Driver[]
+  active                Boolean                @default(true)
+  organizationContracts organizationContract[]
 }
 
 // --- Driver
