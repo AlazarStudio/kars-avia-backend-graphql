@@ -251,7 +251,7 @@ const transferResolver = {
       // ПАССАЖИРЫ: пример, если хочешь полностью заменить список
       if (Array.isArray(personsId) && personsId.length) {
         data.persons = {
-          set: personsId.map((personalId) => ({
+          create: personsId.map((personalId) => ({
             personal: { connect: { id: personalId } } // TransferPassenger.personalId
           }))
         }
