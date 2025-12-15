@@ -177,6 +177,8 @@ const transferResolver = {
         }
       }
 
+      console.log("persons create " + JSON.stringify(data.persons))
+
       const newTransfer = await prisma.transfer.create({
         data
         // если нужно сразу вернуть связанные сущности:
@@ -254,6 +256,8 @@ const transferResolver = {
           }))
         }
       }
+
+      console.log("persons update " + JSON.stringify(data.persons))
 
       const updatedTransfer = await prisma.transfer.update({
         where: { id }, // если id числовой — Number(id)
