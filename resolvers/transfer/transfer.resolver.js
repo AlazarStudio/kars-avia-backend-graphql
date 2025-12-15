@@ -216,7 +216,8 @@ const transferResolver = {
 
       const { dispatcherId, driverId, personsId, ...restInput } = input
 
-      console.log("persons update " + JSON.stringify(personsId))
+      console.log("\n persons update input " + JSON.stringify(input))
+      console.log("\n persons update personsId " + JSON.stringify(personsId))
 
       const data = {}
 
@@ -257,7 +258,7 @@ const transferResolver = {
         }
       }
 
-      console.log("persons update " + JSON.stringify(data.persons))
+      console.log("\n persons update data " + JSON.stringify(data.persons))
 
       const updatedTransfer = await prisma.transfer.update({
         where: { id }, // если id числовой — Number(id)
