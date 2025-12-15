@@ -256,6 +256,8 @@ const transferResolver = {
         }
       }
 
+      console.log("upd " + JSON.stringify(data.persons))
+
       const updatedTransfer = await prisma.transfer.update({
         where: { id }, // если id числовой — Number(id)
         data
