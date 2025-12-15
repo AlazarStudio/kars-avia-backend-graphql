@@ -216,7 +216,7 @@ const transferResolver = {
 
       const { dispatcherId, driverId, personsId, ...restInput } = input
 
-      console.log("persons update " + JSON.stringify(input))
+      console.log("persons update " + JSON.stringify(personsId))
 
       const data = {}
 
