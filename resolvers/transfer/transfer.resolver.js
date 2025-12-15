@@ -177,8 +177,6 @@ const transferResolver = {
         }
       }
 
-      console.log("persons create " + JSON.stringify(data.persons))
-
       const newTransfer = await prisma.transfer.create({
         data
         // если нужно сразу вернуть связанные сущности:
@@ -217,6 +215,8 @@ const transferResolver = {
       }
 
       const { dispatcherId, driverId, personsId, ...restInput } = input
+
+      console.log("persons update " + JSON.stringify(input))
 
       const data = {}
 
