@@ -171,7 +171,7 @@ const transferResolver = {
       // ПАССАЖИРЫ: personsId -> persons.create(...)
       if (Array.isArray(personsId) && personsId.length) {
         data.persons = {
-          create: personsId.map((personalId) => ({
+          set: personsId.map((personalId) => ({
             personal: { connect: { id: personalId } } // TransferPassenger.personalId
           }))
         }
