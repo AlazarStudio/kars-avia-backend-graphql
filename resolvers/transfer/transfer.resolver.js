@@ -7,7 +7,6 @@ import {
 import { printIntrospectionSchema, subscribe } from "graphql"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 
-
 const DATE_FIELDS = [
   "scheduledPickupAt",
   "driverAssignmentAt",
@@ -247,10 +246,13 @@ const transferResolver = {
             : { connect: { id: driverId } }
       }
 
-      // ПАССАЖИРЫ: пример, если хочешь полностью заменить список
+      // ПАССАЖИРЫ (полная замена)
       if (Array.isArray(personsId)) {
         data.persons = {
-          set: personsId.map((pId) => ({ id: pId })) // или connect/create под свою модель
+          deleteMany: {}, // удалить ВСЕ старые связи
+          create: personsId.map((personalId) => ({
+            personal: { connect: { id: personalId } }
+          }))
         }
       }
 
