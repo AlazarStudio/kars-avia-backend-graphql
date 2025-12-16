@@ -85,6 +85,8 @@ const contractTypeDef = /* GraphQL */ `
     airlineContract: AirlineContract
     hotelContractId: ID
     hotelContract: HotelContract
+    organizationContractId: ID
+    organizationContract: organizationContract
     date: Date
     contractNumber: String
     itemAgreement: String
@@ -154,6 +156,7 @@ const contractTypeDef = /* GraphQL */ `
   input AdditionalAgreementInput {
     airlineContractId: ID
     hotelContractId: ID
+    organizationContractId: ID
     date: Date
     contractNumber: String
     itemAgreement: String

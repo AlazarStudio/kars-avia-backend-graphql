@@ -552,13 +552,20 @@ const contractResolver = {
             ? input.airlineContractId
             : null,
           hotelContractId: input.hotelContractId ? input.hotelContractId : null,
+          organizationContractId: input.organizationContractId
+            ? input.organizationContractId
+            : null,
           date: input.date ?? null,
           contractNumber: input.contractNumber ?? null,
           itemAgreement: input.itemAgreement ?? null,
           notes: input.notes ?? null,
           files: filesPath
         },
-        include: { airlineContract: true, hotelContract: true }
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
       })
 
       if (input.airlineContractId != undefined) {
@@ -566,6 +573,11 @@ const contractResolver = {
       }
       if (input.hotelContractId != undefined) {
         pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      if (input.organizationContractId != undefined) {
+        pubsub.publish(CONTRACT_ORGANIZATION, {
+          contractOrganization: contract
+        })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
@@ -588,6 +600,9 @@ const contractResolver = {
       }
       if (input.hotelContractId != undefined) {
         updatedData.hotelContractId = input.hotelContractId
+      }
+      if (input.organizationContractId != undefined) {
+        updatedData.organizationContractId = input.organizationContractId
       }
       if (input.date != undefined) {
         updatedData.date = input.date
@@ -613,6 +628,11 @@ const contractResolver = {
       }
       if (input.hotelContractId != undefined) {
         pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      if (input.organizationContractId != undefined) {
+        pubsub.publish(CONTRACT_ORGANIZATION, {
+          contractOrganization: contract
+        })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return contract
@@ -731,6 +751,14 @@ const contractResolver = {
         (parent.hotelContractId
           ? await prisma.hotelContract.findUnique({
               where: { id: parent.hotelContractId }
+            })
+          : null)
+    },
+    organizationContract: async (parent) => {
+      parent.organizationContract ??
+        (parent.organizationContractId
+          ? await prisma.organizationContract.findUnique({
+              where: { id: parent.organizationContractId }
             })
           : null)
     }
