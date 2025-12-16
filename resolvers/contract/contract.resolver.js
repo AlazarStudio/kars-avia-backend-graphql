@@ -457,6 +457,7 @@ const contractResolver = {
         data: {
           companyId: input.companyId ?? null,
           organizationId: input.organizationId ?? null,
+          cityId: input.cityId,
           date: input.date ?? null,
           contractNumber: input.contractNumber ?? null,
           notes: input.notes ?? null,
@@ -464,6 +465,7 @@ const contractResolver = {
           files: filesPath
         },
         include: {
+          region: true,
           company: true,
           organization: true,
           additionalAgreements: true
@@ -490,6 +492,9 @@ const contractResolver = {
       if (input.companyId !== undefined) updatedData.companyId = input.companyId
       if (input.organizationId !== undefined)
         updatedData.organizationId = input.organizationId
+      if (input.cityId != undefined) {
+        updatedData.cityId = input.cityId
+      }
       if (input.date !== undefined) updatedData.date = input.date
       if (input.contractNumber !== undefined)
         updatedData.contractNumber = input.contractNumber
@@ -501,6 +506,7 @@ const contractResolver = {
         where: { id },
         data: updatedData,
         include: {
+          region: true,
           company: true,
           organization: true,
           additionalAgreements: true

@@ -221,7 +221,7 @@ const contractTypeDef = /* GraphQL */ `
   input OrganizationContractCreateInput {
     companyId: ID
     organizationId: ID
-    # cityId: ID
+    cityId: ID
     date: Date
     contractNumber: String
     notes: String
@@ -237,7 +237,7 @@ const contractTypeDef = /* GraphQL */ `
   input OrganizationContractUpdateInput {
     companyId: ID
     organizationId: ID
-    # cityId: ID
+    cityId: ID
     date: Date
     contractNumber: String
     notes: String
