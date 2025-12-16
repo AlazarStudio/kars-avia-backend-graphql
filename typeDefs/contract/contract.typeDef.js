@@ -86,7 +86,7 @@ const contractTypeDef = /* GraphQL */ `
     hotelContractId: ID
     hotelContract: HotelContract
     organizationContractId: ID
-    organizationContract: organizationContract
+    organizationContract: OrganizationContract
     date: Date
     contractNumber: String
     itemAgreement: String
