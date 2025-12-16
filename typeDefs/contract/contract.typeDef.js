@@ -134,17 +134,17 @@ const contractTypeDef = /* GraphQL */ `
     company: Company
     organizationId: ID
     organization: Organization
-    # cityId: ID
-    # region: City!
+    cityId: ID
+    region: City!
     date: Date
     contractNumber: String
     notes: String
-    legalEntity: String
-    signatureMark: String
-    completionMark: String
-    normativeAct: String
+    # legalEntity: String
+    # signatureMark: String
+    # completionMark: String
+    # normativeAct: String
     applicationType: String
-    executor: String
+    # executor: String
     files: [String!]!
     additionalAgreements: [AdditionalAgreement!]!
   }

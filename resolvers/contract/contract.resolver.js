@@ -3,7 +3,8 @@ import { prisma } from "../../prisma.js"
 import {
   pubsub,
   CONTRACT_AIRLINE,
-  CONTRACT_HOTEL
+  CONTRACT_HOTEL,
+  CONTRACT_ORGANIZATION
 } from "../../services/infra/pubsub.js"
 import {
   allMiddleware,
@@ -14,13 +15,17 @@ import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 /* ---------- Helpers ---------- */
 function buildAirlineContractWhere(filter) {
   if (!filter) return {}
-  const { companyId, airlineId, applicationType, dateFrom, dateTo, search } = filter
+  const { companyId, airlineId, applicationType, dateFrom, dateTo, search } =
+    filter
 
   const AND = []
 
   if (companyId) AND.push({ companyId })
   if (airlineId) AND.push({ airlineId })
-  if (applicationType) AND.push({ applicationType: { contains: applicationType.trim(), mode: "insensitive" } })
+  if (applicationType)
+    AND.push({
+      applicationType: { contains: applicationType.trim(), mode: "insensitive" }
+    })
   if (dateFrom || dateTo) {
     AND.push({
       date: {
@@ -38,7 +43,7 @@ function buildAirlineContractWhere(filter) {
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
         { airline: { name: { contains: s, mode: "insensitive" } } },
-        { company: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } }
       ]
     })
   }
@@ -72,7 +77,41 @@ function buildHotelContractWhere(filter) {
         { applicationType: { contains: s, mode: "insensitive" } },
         { notes: { contains: s, mode: "insensitive" } },
         { hotel: { name: { contains: s, mode: "insensitive" } } },
-        { company: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } }
+      ]
+    })
+  }
+
+  return AND.length ? { AND } : {}
+}
+
+function buildOrganizationContractWhere(filter) {
+  if (!filter) return {}
+
+  const { companyId, organizationId, dateFrom, dateTo, search } = filter
+  const AND = []
+
+  if (companyId) AND.push({ companyId })
+  if (organizationId) AND.push({ organizationId })
+
+  if (dateFrom || dateTo) {
+    AND.push({
+      date: {
+        gte: dateFrom ?? undefined,
+        lte: dateTo ?? undefined
+      }
+    })
+  }
+
+  if (search && search.trim()) {
+    const s = search.trim()
+    AND.push({
+      OR: [
+        { contractNumber: { contains: s, mode: "insensitive" } },
+        { applicationType: { contains: s, mode: "insensitive" } },
+        { notes: { contains: s, mode: "insensitive" } },
+        { organization: { name: { contains: s, mode: "insensitive" } } },
+        { company: { name: { contains: s, mode: "insensitive" } } }
       ]
     })
   }
@@ -156,13 +195,47 @@ const contractResolver = {
       })
     },
 
+    // ORGANIZATION
+    organizationContracts: async (_, { pagination, filter, orderBy }) => {
+      const where = buildOrganizationContractWhere(filter)
+      const totalCount = await prisma.organizationContract.count({ where })
+
+      const { skip, take, all } = pagination || {}
+
+      const items = await prisma.organizationContract.findMany({
+        where,
+        skip: all ? undefined : skip ?? 0,
+        take: all ? undefined : take ?? 20,
+        orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
+        include: {
+          company: true,
+          organization: true,
+          additionalAgreements: true
+        }
+      })
+
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+      return { items, totalCount, totalPages }
+    },
+
+    organizationContract: async (_, { id }) => {
+      return await prisma.organizationContract.findUnique({
+        where: { id },
+        include: {
+          company: true,
+          organization: true,
+          additionalAgreements: true
+        }
+      })
+    },
+
     additionalAgreements: async (_, { airlineContractId }) => {
       return await prisma.additionalAgreement.findMany({
         where: airlineContractId ? { airlineContractId } : undefined,
         orderBy: { date: "desc" },
         include: { airlineContract: true }
       })
-    }, 
+    }
   },
 
   Mutation: {
@@ -254,104 +327,6 @@ const contractResolver = {
         }
       }
       await prisma.airlineContract.delete({ where: { id } })
-      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
-      return true
-    },
-
-    // ADDITIONAL AGREEMENTS
-    createAdditionalAgreement: async (_, { input, files }) => {
-      // add middleware
-
-      let filesPath = []
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-      }
-
-      const contract = await prisma.additionalAgreement.create({
-        data: {
-          airlineContractId: input.airlineContractId
-            ? input.airlineContractId
-            : null,
-          hotelContractId: input.hotelContractId ? input.hotelContractId : null,
-          date: input.date ?? null,
-          contractNumber: input.contractNumber ?? null,
-          itemAgreement: input.itemAgreement ?? null,
-          notes: input.notes ?? null,
-          files: filesPath
-        },
-        include: { airlineContract: true, hotelContract: true }
-      })
-
-      if (input.airlineContractId != undefined) {
-        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
-      }
-      if (input.hotelContractId != undefined) {
-        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
-      }
-      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
-      return contract
-    },
-
-    updateAdditionalAgreement: async (_, { id, input, files }) => {
-      const updatedData = {}
-
-      if (files && files.length > 0) {
-        let filesPath = []
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-        updatedData.files = filesPath
-      }
-
-      if (input.airlineContractId != undefined) {
-        updatedData.airlineContractId = input.airlineContractId
-      }
-      if (input.hotelContractId != undefined) {
-        updatedData.hotelContractId = input.hotelContractId
-      }
-      if (input.date != undefined) {
-        updatedData.date = input.date
-      }
-      if (input.contractNumber != undefined) {
-        updatedData.contractNumber = input.contractNumber
-      }
-      if (input.itemAgreement != undefined) {
-        updatedData.itemAgreement = input.itemAgreement
-      }
-      if (input.notes != undefined) {
-        updatedData.notes = input.notes
-      }
-
-      const contract = await prisma.additionalAgreement.update({
-        where: { id },
-        data: updatedData,
-        include: { airlineContract: true, hotelContract: true }
-      })
-
-      if (input.airlineContractId != undefined) {
-        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
-      }
-      if (input.hotelContractId != undefined) {
-        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
-      }
-      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
-      return contract
-    },
-
-    deleteAdditionalAgreement: async (_, { id }) => {
-      const contract = await prisma.additionalAgreement.findUnique({
-        where: { id }
-      })
-      if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.files) {
-          await deleteFiles(filePath)
-        }
-      }
-      await prisma.additionalAgreement.delete({ where: { id } })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
@@ -466,6 +441,195 @@ const contractResolver = {
       await prisma.hotelContract.delete({ where: { id } })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return true
+    },
+
+    // ORGANIZATION
+    createOrganizationContract: async (_, { input, files }) => {
+      let filesPath = []
+
+      if (files?.length) {
+        for (const file of files) {
+          filesPath.push(await uploadFiles(file))
+        }
+      }
+
+      const contract = await prisma.organizationContract.create({
+        data: {
+          companyId: input.companyId ?? null,
+          organizationId: input.organizationId ?? null,
+          date: input.date ?? null,
+          contractNumber: input.contractNumber ?? null,
+          notes: input.notes ?? null,
+          applicationType: input.applicationType ?? null,
+          files: filesPath
+        },
+        include: {
+          company: true,
+          organization: true,
+          additionalAgreements: true
+        }
+      })
+
+      pubsub.publish(CONTRACT_ORGANIZATION, {
+        contractOrganization: contract
+      })
+
+      return contract
+    },
+
+    updateOrganizationContract: async (_, { id, input, files }) => {
+      const updatedData = {}
+
+      if (files?.length) {
+        updatedData.files = []
+        for (const file of files) {
+          updatedData.files.push(await uploadFiles(file))
+        }
+      }
+
+      if (input.companyId !== undefined) updatedData.companyId = input.companyId
+      if (input.organizationId !== undefined)
+        updatedData.organizationId = input.organizationId
+      if (input.date !== undefined) updatedData.date = input.date
+      if (input.contractNumber !== undefined)
+        updatedData.contractNumber = input.contractNumber
+      if (input.notes !== undefined) updatedData.notes = input.notes
+      if (input.applicationType !== undefined)
+        updatedData.applicationType = input.applicationType
+
+      const contract = await prisma.organizationContract.update({
+        where: { id },
+        data: updatedData,
+        include: {
+          company: true,
+          organization: true,
+          additionalAgreements: true
+        }
+      })
+
+      pubsub.publish(CONTRACT_ORGANIZATION, {
+        contractOrganization: contract
+      })
+
+      return contract
+    },
+
+    deleteOrganizationContract: async (_, { id }) => {
+      const contract = await prisma.organizationContract.findUnique({
+        where: { id }
+      })
+
+      if (contract?.files?.length) {
+        for (const filePath of contract.files) {
+          await deleteFiles(filePath)
+        }
+      }
+
+      await prisma.organizationContract.delete({ where: { id } })
+
+      pubsub.publish(CONTRACT_ORGANIZATION, {
+        contractOrganization: contract
+      })
+
+      return true
+    },
+
+    // ADDITIONAL AGREEMENTS
+    createAdditionalAgreement: async (_, { input, files }) => {
+      // add middleware
+
+      let filesPath = []
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+      }
+
+      const contract = await prisma.additionalAgreement.create({
+        data: {
+          airlineContractId: input.airlineContractId
+            ? input.airlineContractId
+            : null,
+          hotelContractId: input.hotelContractId ? input.hotelContractId : null,
+          date: input.date ?? null,
+          contractNumber: input.contractNumber ?? null,
+          itemAgreement: input.itemAgreement ?? null,
+          notes: input.notes ?? null,
+          files: filesPath
+        },
+        include: { airlineContract: true, hotelContract: true }
+      })
+
+      if (input.airlineContractId != undefined) {
+        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      }
+      if (input.hotelContractId != undefined) {
+        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      return contract
+    },
+
+    updateAdditionalAgreement: async (_, { id, input, files }) => {
+      const updatedData = {}
+
+      if (files && files.length > 0) {
+        let filesPath = []
+        for (const file of files) {
+          const uploadedPath = await uploadFiles(file)
+          filesPath.push(uploadedPath)
+        }
+        updatedData.files = filesPath
+      }
+
+      if (input.airlineContractId != undefined) {
+        updatedData.airlineContractId = input.airlineContractId
+      }
+      if (input.hotelContractId != undefined) {
+        updatedData.hotelContractId = input.hotelContractId
+      }
+      if (input.date != undefined) {
+        updatedData.date = input.date
+      }
+      if (input.contractNumber != undefined) {
+        updatedData.contractNumber = input.contractNumber
+      }
+      if (input.itemAgreement != undefined) {
+        updatedData.itemAgreement = input.itemAgreement
+      }
+      if (input.notes != undefined) {
+        updatedData.notes = input.notes
+      }
+
+      const contract = await prisma.additionalAgreement.update({
+        where: { id },
+        data: updatedData,
+        include: { airlineContract: true, hotelContract: true }
+      })
+
+      if (input.airlineContractId != undefined) {
+        pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      }
+      if (input.hotelContractId != undefined) {
+        pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }
+      // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      return contract
+    },
+
+    deleteAdditionalAgreement: async (_, { id }) => {
+      const contract = await prisma.additionalAgreement.findUnique({
+        where: { id }
+      })
+      if (contract.files && contract.files.length > 0) {
+        for (const filePath of contract.files) {
+          await deleteFiles(filePath)
+        }
+      }
+      await prisma.additionalAgreement.delete({ where: { id } })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      return true
     }
   },
 
@@ -476,6 +640,9 @@ const contractResolver = {
     },
     contractHotel: {
       subscribe: () => pubsub.asyncIterator([CONTRACT_HOTEL])
+    },
+    contractOrganization: {
+      subscribe: () => pubsub.asyncIterator([CONTRACT_ORGANIZATION])
     }
   },
 
@@ -526,6 +693,28 @@ const contractResolver = {
     }
     // region: (parent, _, __) =>
     //   parent.region ?? prisma.city.findUnique({ where: { id: parent.cityId } })
+  },
+
+  OrganizationContract: {
+    company: async (parent) => {
+      if (!parent.companyId) return null
+      return prisma.company.findUnique({
+        where: { id: parent.companyId }
+      })
+    },
+
+    organization: async (parent) => {
+      if (!parent.organizationId) return null
+      return prisma.organization.findUnique({
+        where: { id: parent.organizationId }
+      })
+    },
+
+    additionalAgreements: async (parent) => {
+      return prisma.additionalAgreement.findMany({
+        where: { organizationContractId: parent.id }
+      })
+    }
   },
 
   AdditionalAgreement: {
