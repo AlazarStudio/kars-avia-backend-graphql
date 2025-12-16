@@ -209,8 +209,8 @@ const contractResolver = {
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           company: true,
-          organization: true,
-          additionalAgreements: true
+          organization: true
+          // additionalAgreements: true
         }
       })
 
@@ -223,8 +223,8 @@ const contractResolver = {
         where: { id },
         include: {
           company: true,
-          organization: true,
-          additionalAgreements: true
+          organization: true
+          // additionalAgreements: true
         }
       })
     },
@@ -467,7 +467,7 @@ const contractResolver = {
         include: {
           region: true,
           company: true,
-          organization: true,
+          organization: true
           // additionalAgreements: true
         }
       })
@@ -508,7 +508,7 @@ const contractResolver = {
         include: {
           region: true,
           company: true,
-          organization: true,
+          organization: true
           // additionalAgreements: true
         }
       })
