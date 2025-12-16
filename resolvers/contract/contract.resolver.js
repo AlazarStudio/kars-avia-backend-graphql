@@ -468,7 +468,7 @@ const contractResolver = {
           region: true,
           company: true,
           organization: true,
-          additionalAgreements: true
+          // additionalAgreements: true
         }
       })
 
@@ -509,7 +509,7 @@ const contractResolver = {
           region: true,
           company: true,
           organization: true,
-          additionalAgreements: true
+          // additionalAgreements: true
         }
       })
 
