@@ -637,15 +637,15 @@ model organizationContract {
   organizationId      String?               @db.ObjectId
   date                DateTime?
   contractNumber      String?
-  // region              City?                 @relation(fields: [cityId], references: [id])
-  // cityId              String?               @db.ObjectId
+  region              City?                 @relation(fields: [cityId], references: [id])
+  cityId              String?               @db.ObjectId
   notes               String?
-  legalEntity         String?
-  signatureMark       String?
-  completionMark      String?
-  normativeAct        String?
+  // legalEntity         String?
+  // signatureMark       String?
+  // completionMark      String?
+  // normativeAct        String?
   applicationType     String?
-  executor            String?
+  // executor            String?
   files               String[]
   additionalAgreement additionalAgreement[]
 }
@@ -665,10 +665,11 @@ model Airport {
 }
 
 model City {
-  id            String          @id @default(auto()) @map("_id") @db.ObjectId
-  city          String
-  region        String
-  hotelContract hotelContract[]
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  city                  String
+  region                String
+  hotelContract         hotelContract[]
+  organizationContracts organizationContract[]
 }
 
 // Заявка  ---------------- ↓↓↓↓

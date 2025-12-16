@@ -160,14 +160,14 @@ const hotelResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
+          imagePaths.push(await uploadImage(image, {bucket: "hotel"}))
         }
       }
 
       let galleryPaths = []
       if (gallery && gallery.length > 0) {
         for (const image of gallery) {
-          galleryPaths.push(await uploadImage(image, {bucket: "hotel",entityId: id}))
+          galleryPaths.push(await uploadImage(image, {bucket: "hotel"}))
         }
       }
 

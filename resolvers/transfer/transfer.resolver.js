@@ -247,7 +247,7 @@ const transferResolver = {
       }
 
       // ПАССАЖИРЫ (полная замена)
-      if (Array.isArray(personsId)) {
+      if (Array.isArray(personsId) && personsId.length) {
         data.persons = {
           deleteMany: {}, // удалить ВСЕ старые связи
           create: personsId.map((personalId) => ({
