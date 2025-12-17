@@ -6,6 +6,9 @@
     "backup": "node services/cron/backup.js",
     "start": "node server2.js",
     "production": "nodemon server.js",
+    "pm": "pm2 start server.js -i max",
+    "pms": "pm2 stop all",
+    "pmm": "pm2 monit",
     "dev": "nodemon server2.js",
     "prisma": "prisma",
     "migrateupload": "node services/migrations/migrateUploads.js"

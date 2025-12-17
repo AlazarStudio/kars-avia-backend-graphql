@@ -88,11 +88,12 @@ function buildHotelContractWhere(filter) {
 function buildOrganizationContractWhere(filter) {
   if (!filter) return {}
 
-  const { companyId, organizationId, dateFrom, dateTo, search } = filter
+  const { companyId, organizationId, cityId, dateFrom, dateTo, search } = filter
   const AND = []
 
   if (companyId) AND.push({ companyId })
   if (organizationId) AND.push({ organizationId })
+     if (cityId) AND.push({ cityId })
 
   if (dateFrom || dateTo) {
     AND.push({
