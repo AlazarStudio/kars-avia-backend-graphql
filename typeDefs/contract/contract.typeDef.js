@@ -53,7 +53,7 @@ const contractTypeDef = /* GraphQL */ `
   input OrganizationContractFilter {
     companyId: ID
     organizationId: ID
-    # cityId: ID
+    cityId: ID
     dateFrom: Date
     dateTo: Date
     search: String
@@ -280,6 +280,7 @@ const contractTypeDef = /* GraphQL */ `
     additionalAgreements(airlineContractId: ID): [AdditionalAgreement!]!
   }
 
+# Mutation 
   type Mutation {
     createAirlineContract(
       input: AirlineContractCreateInput!
