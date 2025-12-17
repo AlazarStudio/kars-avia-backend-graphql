@@ -208,6 +208,7 @@ const contractResolver = {
         take: all ? undefined : take ?? 20,
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
+          region: true,
           company: true,
           organization: true
           // additionalAgreements: true
@@ -222,6 +223,7 @@ const contractResolver = {
       return await prisma.organizationContract.findUnique({
         where: { id },
         include: {
+          region: true,
           company: true,
           organization: true
           // additionalAgreements: true
