@@ -225,12 +225,12 @@ const contractTypeDef = /* GraphQL */ `
     date: Date
     contractNumber: String
     notes: String
-    legalEntity: String
-    signatureMark: String
-    completionMark: String
-    normativeAct: String
+    # legalEntity: String
+    # signatureMark: String
+    # completionMark: String
+    # normativeAct: String
     applicationType: String
-    executor: String
+    # executor: String
     files: [Upload!]
   }
 
@@ -241,12 +241,12 @@ const contractTypeDef = /* GraphQL */ `
     date: Date
     contractNumber: String
     notes: String
-    legalEntity: String
-    signatureMark: String
-    completionMark: String
-    normativeAct: String
+    # legalEntity: String
+    # signatureMark: String
+    # completionMark: String
+    # normativeAct: String
     applicationType: String
-    executor: String
+    # executor: String
     files: [Upload!]
   }
 

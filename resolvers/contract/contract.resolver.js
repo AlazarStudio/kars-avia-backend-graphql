@@ -229,6 +229,7 @@ const contractResolver = {
       })
     },
 
+    // ADDITIONAL AGREEMENTS
     additionalAgreements: async (_, { airlineContractId }) => {
       return await prisma.additionalAgreement.findMany({
         where: airlineContractId ? { airlineContractId } : undefined,

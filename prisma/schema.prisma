@@ -587,23 +587,6 @@ model airlineContract {
   files                String[]
 }
 
-model additionalAgreement {
-  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt              DateTime              @default(now()) @map("created_at")
-  updatedAt              DateTime              @updatedAt @map("updated_at")
-  airlineContract        airlineContract?      @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
-  airlineContractId      String?               @db.ObjectId
-  hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
-  hotelContractId        String?               @db.ObjectId
-  date                   DateTime?
-  contractNumber         String?
-  itemAgreement          String?
-  notes                  String?
-  files                  String[]
-  organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
-  organizationContractId String?               @db.ObjectId
-}
-
 model hotelContract {
   id                  String                @id @default(auto()) @map("_id") @db.ObjectId
   createdAt           DateTime              @default(now()) @map("created_at")
@@ -648,6 +631,23 @@ model organizationContract {
   // executor            String?
   files               String[]
   additionalAgreement additionalAgreement[]
+}
+
+model additionalAgreement {
+  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  airlineContract        airlineContract?      @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
+  airlineContractId      String?               @db.ObjectId
+  hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
+  hotelContractId        String?               @db.ObjectId
+  date                   DateTime?
+  contractNumber         String?
+  itemAgreement          String?
+  notes                  String?
+  files                  String[]
+  organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
+  organizationContractId String?               @db.ObjectId
 }
 
 // Компании  ---------------- ↑↑↑↑
