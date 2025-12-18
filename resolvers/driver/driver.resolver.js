@@ -259,7 +259,9 @@ const driverResolver = {
       if (driverPhoto != undefined) {
         if (driverPhoto.length > 0) {
           for (const image of driverPhoto) {
-            driverPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            driverPhotoPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -268,7 +270,9 @@ const driverResolver = {
       if (carPhotos != undefined) {
         if (carPhotos.length > 0) {
           for (const image of carPhotos) {
-            carPhotosPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            carPhotosPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -276,7 +280,9 @@ const driverResolver = {
       if (stsPhoto != undefined) {
         if (stsPhoto.length > 0) {
           for (const image of stsPhoto) {
-            stsPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            stsPhotoPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -284,7 +290,9 @@ const driverResolver = {
       if (ptsPhoto != undefined) {
         if (ptsPhoto.length > 0) {
           for (const image of ptsPhoto) {
-            ptsPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            ptsPhotoPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -292,7 +300,9 @@ const driverResolver = {
       if (osagoPhoto != undefined) {
         if (osagoPhoto.length > 0) {
           for (const image of osagoPhoto) {
-            osagoPhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            osagoPhotoPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -300,7 +310,9 @@ const driverResolver = {
       if (licensePhoto != undefined) {
         if (licensePhoto.length > 0) {
           for (const image of licensePhoto) {
-            licensePhotoPaths.push(await uploadImage(image, {bucket: "driver",entityId: id}))
+            licensePhotoPaths.push(
+              await uploadImage(image, { bucket: "driver", entityId: id })
+            )
           }
         }
       }
@@ -386,12 +398,12 @@ const driverResolver = {
     },
     deleteDriver: async (_, { id }) => {
       try {
-        const deletedDriver = await prisma.driver.update({
-          where: { id: id },
-          include: { organization: true },
-          data: {
-            active: false
-          }
+        const deletedDriver = await prisma.driver.delete({
+          where: { id: id }
+          // include: { organization: true },
+          // data: {
+          //   active: false
+          // }
         })
         // const moscowDate = {}
 
