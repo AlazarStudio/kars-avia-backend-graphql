@@ -547,6 +547,7 @@ model AirlinePersonal {
   positionId           String?               @db.ObjectId
   images               String[]
   role                 Role                  @default(USER)
+  rating               Float?
   transferPassengers   TransferPassenger[]
   transferReviews      TransferReview[]
   transferChats        TransferChat[]

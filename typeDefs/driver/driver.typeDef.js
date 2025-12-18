@@ -95,6 +95,7 @@ const driverTypeDef = /* GraphQL */ `
     driverLicenseNumber: String
     driverLicenseIssueYear: Int
     location: GeoPointInput
+    rating: Float
     extraEquipment: [String]
     organizationId: String
     organizationConfirmed: Boolean

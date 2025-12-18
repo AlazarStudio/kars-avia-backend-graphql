@@ -43,6 +43,7 @@ const airlineTypeDef = /* GraphQL */ `
     airline: Airline
     department: AirlineDepartment
     role: Role
+    rating: Float
     # hotelChess: [HotelChess!]
     hotelChess(hcPagination: HotelChessPaginationInput): [HotelChess!]
     active: Boolean
@@ -84,6 +85,7 @@ const airlineTypeDef = /* GraphQL */ `
     number: String
     email: String
     password: String
+    rating: Float
     positionId: ID
     gender: String
     departmentId: ID
@@ -93,6 +95,7 @@ const airlineTypeDef = /* GraphQL */ `
     name: String
     number: String
     email: String
+    rating: Float
     password: String
     oldPassword: String
   }
