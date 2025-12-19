@@ -29,7 +29,7 @@ const organizationTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    organizations: [Organization!]!
+    organizations(pagination: OrganizationPaginationInput): [Organization!]!
     organization(id: ID!): Organization
   }
 
