@@ -45,7 +45,9 @@ const driverResolver = {
       //   Object.assign(drivers[i], moscowDates[i])
       // }
 
-      return { drivers, totalCount }
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+
+      return { drivers, totalCount, totalPages }
     },
     driverById: async (_, { id }) => {
       try {

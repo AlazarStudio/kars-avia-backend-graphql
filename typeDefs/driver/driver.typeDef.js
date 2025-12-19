@@ -116,7 +116,7 @@ const driverTypeDef = /* GraphQL */ `
   }
 
   type DriverConnection {
-    # totalPages: Int!
+    totalPages: Int
     totalCount: Int
     drivers: [Driver]
   }
