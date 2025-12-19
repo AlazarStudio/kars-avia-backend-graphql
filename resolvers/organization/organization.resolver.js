@@ -4,8 +4,35 @@ import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
 
 const organizationResolver = {
   Query: {
-    organizations: async () => {
-      return await prisma.organization.findMany({})
+    organizations: async ({ pagination }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      const { skip, take, all } = pagination || {}
+
+      const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
+
+      const where = isSuper ? { active: true } : { active: true, show: true }
+
+      const totalCount = await prisma.organization.count({ where })
+
+      const organizations = await prisma.organization.findMany({
+        where,
+        ...(all
+          ? {}
+          : {
+              skip:
+                typeof skip === "number" && typeof take === "number"
+                  ? skip * take
+                  : undefined,
+              take: typeof take === "number" ? take : undefined
+            }),
+
+        orderBy: { information: { city: "asc" } }
+      })
+
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+
+      return { organizations, totalCount, totalPages }
     },
     organization: async (_, { id }) => {
       try {

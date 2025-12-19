@@ -12,6 +12,12 @@ const organizationTypeDef = /* GraphQL */ `
     active: Boolean!
   }
 
+  input OrganizationPaginationInput {
+    skip: Int
+    take: Int
+    all: Boolean
+  }
+
   input OrganizationInput {
     name: String!
     information: InformationInput
