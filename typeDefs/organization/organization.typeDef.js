@@ -18,6 +18,12 @@ const organizationTypeDef = /* GraphQL */ `
     all: Boolean
   }
 
+  type OrganizationConnection {
+    totalPages: Int!
+    totalCount: Int!
+    organizations: [Organization!]!
+  }
+
   input OrganizationInput {
     name: String!
     information: InformationInput
@@ -29,7 +35,9 @@ const organizationTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    organizations(pagination: OrganizationPaginationInput): [Organization!]!
+    organizations(
+      pagination: OrganizationPaginationInput
+    ): OrganizationConnection!
     organization(id: ID!): Organization
   }
 
