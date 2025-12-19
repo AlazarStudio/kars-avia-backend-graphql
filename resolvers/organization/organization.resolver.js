@@ -4,7 +4,7 @@ import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
 
 const organizationResolver = {
   Query: {
-    organizations: async ({ pagination }, context) => {
+    organizations: async (_, { pagination }, context) => {
       await allMiddleware(context)
       const { user } = context
       const { skip, take, all } = pagination || {}
