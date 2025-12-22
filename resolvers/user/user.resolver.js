@@ -23,7 +23,7 @@ import { logger } from "../../services/infra/logger.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
-  host: "smtp.mail.ru",
+  host: "smtp.beget.com",
   port: 465,
   secure: true,
   auth: {
