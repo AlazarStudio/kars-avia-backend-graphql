@@ -17,6 +17,12 @@ const userTypeDef = /* GraphQL */ `
     DRIVER
   }
 
+  enum UserCategory {
+    transfer
+    squadron
+    engineers
+  }
+
   enum TwoFAMethod {
     HOTP
     TOTP
@@ -67,6 +73,7 @@ const userTypeDef = /* GraphQL */ `
     take: Int
     all: Boolean
     search: String
+    category: UserCategory
   }
 
   type UserConnection {

@@ -148,15 +148,24 @@ const userResolver = {
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, { pagination }, context) => {
       await allMiddleware(context)
-      const { skip = 0, take = 10, all, search } = pagination
+      const { skip = 0, take = 10, all, search, category } = pagination
       const searchFilter = search
         ? {
             OR: [{ user: { name: { contains: search, mode: "insensitive" } } }]
           }
         : null
+      const categoryFilter = category
+        ? {
+            position: {
+              category: category
+            }
+          }
+        : null
+
       const filters = [
         { dispatcher: true, active: true },
-        ...(searchFilter ? [searchFilter] : [])
+        ...(searchFilter ? [searchFilter] : []),
+        ...(categoryFilter ? [categoryFilter] : [])
       ]
       const where = {
         AND: filters
@@ -241,7 +250,9 @@ const userResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image, {bucket: "user",entityId: request.id}))
+          imagePaths.push(
+            await uploadImage(image, { bucket: "user", entityId: request.id })
+          )
         }
       }
 
@@ -295,7 +306,7 @@ const userResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(await uploadImage(image, {bucket: "user"}))
+          imagePaths.push(await uploadImage(image, { bucket: "user" }))
         }
       }
 
@@ -469,7 +480,7 @@ const userResolver = {
       if (images && images.length > 0) {
         let imagePaths = []
         for (const image of images) {
-          imagePaths.push(await uploadImage(image, {bucket: "user"}))
+          imagePaths.push(await uploadImage(image, { bucket: "user" }))
         }
         updatedData.images = imagePaths
       }
