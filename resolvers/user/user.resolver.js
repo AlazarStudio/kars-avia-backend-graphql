@@ -251,7 +251,7 @@ const userResolver = {
       if (images && images.length > 0) {
         for (const image of images) {
           imagePaths.push(
-            await uploadImage(image, { bucket: "user", entityId: request.id })
+            await uploadImage(image, { bucket: "user"})
           )
         }
       }
