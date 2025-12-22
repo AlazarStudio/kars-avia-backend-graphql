@@ -160,6 +160,12 @@ const dispatcherResolver = {
         where: { separator: "dispatcher" }
       })
     },
+    getTransferDispatcherPositions: async (_, {}, context) => {
+      await allMiddleware(context)
+      return await prisma.position.findMany({
+        where: { separator: "dispatcher", category: "transfer" }
+      })
+    },
     getPosition: async (_, { id }, context) => {
       await allMiddleware(context)
       return await prisma.position.findUnique({ where: { id } })
