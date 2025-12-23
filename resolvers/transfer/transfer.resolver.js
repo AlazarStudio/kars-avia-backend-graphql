@@ -183,26 +183,22 @@ const transferResolver = {
         // include: { driver: true, dispatcher: true, persons: { include: { personal: true } } }
       })
 
-      // const moscowDate = {}
-      // moscowDate["scheduledPickupAt"] = dateFormatter(
-      //   newTransfer["scheduledPickupAt"]
-      // )
-      // moscowDate["driverAssignmentAt"] = dateFormatter(
-      //   newTransfer["driverAssignmentAt"]
-      // )
-      // moscowDate["orderAcceptanceAt"] = dateFormatter(
-      //   newTransfer["orderAcceptanceAt"]
-      // )
-      // moscowDate["arrivedToPassengerAt"] = dateFormatter(
-      //   newTransfer["arrivedToPassengerAt"]
-      // )
-      // moscowDate["departedAt"] = dateFormatter(newTransfer["departedAt"])
-      // moscowDate["arrivedAt"] = dateFormatter(newTransfer["arrivedAt"])
-      // moscowDate["finishedAt"] = dateFormatter(newTransfer["finishedAt"])
-      // moscowDate["createdAt"] = dateFormatter(newTransfer["createdAt"])
-      // moscowDate["updatedAt"] = dateFormatter(newTransfer["updatedAt"])
-
-      // Object.assign(newTransfer, moscowDate)
+      // Создание чата для заявки
+      // const newChat = await prisma.chat.create({
+      //   data: {
+      //     passengerRequest: { connect: { id: newTransfer.id } },
+      //     // separator: "transfer",
+      //     // airline: { connect: { id: airlineId } }
+      //   }
+      // })
+      
+      // // Добавление отправителя в созданный чат
+      // await prisma.chatUser.create({
+      //   data: {
+      //     chat: { connect: { id: newChat.id } },
+      //     user: { connect: { id: senderId } }
+      //   }
+      // })
 
       pubsub.publish(TRANSFER_CREATED, { transferCreated: newTransfer })
 
