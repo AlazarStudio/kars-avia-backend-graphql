@@ -378,14 +378,7 @@ const transferResolver = {
         chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
         chatData.driver = { connect: { id: transfer.driverId } }
       } else if (type === "DISPATCHER_PERSONAL") {
-        if (!transfer.dispatcherId) {
-          throw new GraphQLError(
-            "Для создания чата DISPATCHER_PERSONAL нужен диспетчер",
-            {
-              extensions: { code: "INVALID_INPUT" }
-            }
-          )
-        }
+        // personalId обязателен для DISPATCHER_PERSONAL
         if (!personalId) {
           throw new GraphQLError(
             "Для создания чата DISPATCHER_PERSONAL нужен пассажир (personalId)",
@@ -394,7 +387,10 @@ const transferResolver = {
             }
           )
         }
-        chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
+        // dispatcherId опционален - если null, чат доступен всем диспетчерам
+        if (transfer.dispatcherId) {
+          chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
+        }
         chatData.personal = { connect: { id: personalId } }
       } else if (type === "DRIVER_PERSONAL") {
         if (!transfer.driverId) {
@@ -893,8 +889,18 @@ const transferResolver = {
           if (!chat) return false
 
           // Проверяем, является ли пользователь участником чата
-          if (subjectType === "USER" && chat.dispatcherId === subject.id) {
-            return true
+          // Диспетчеры имеют доступ к чатам DISPATCHER_PERSONAL с dispatcherId = null (доступ всем диспетчерам)
+          if (subjectType === "USER") {
+            if (
+              subject.dispatcher === true &&
+              chat.type === "DISPATCHER_PERSONAL" &&
+              chat.dispatcherId === null
+            ) {
+              return true
+            }
+            if (chat.dispatcherId === subject.id) {
+              return true
+            }
           }
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
@@ -943,8 +949,18 @@ const transferResolver = {
           }
 
           // Проверяем, является ли пользователь участником чата
-          if (subjectType === "USER" && chat.dispatcherId === subject.id) {
-            return true
+          // Диспетчеры имеют доступ к чатам DISPATCHER_PERSONAL с dispatcherId = null (доступ всем диспетчерам)
+          if (subjectType === "USER") {
+            if (
+              subject.dispatcher === true &&
+              chat.type === "DISPATCHER_PERSONAL" &&
+              chat.dispatcherId === null
+            ) {
+              return true
+            }
+            if (chat.dispatcherId === subject.id) {
+              return true
+            }
           }
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
@@ -1171,6 +1187,20 @@ async function ensureTransferChats(transfer) {
 
   const chatTypes = []
 
+  // DISPATCHER_PERSONAL - создается для каждого пассажира ВСЕГДА
+  // dispatcherId = null означает доступ для всех диспетчеров
+  if (transferData.persons && transferData.persons.length > 0) {
+    for (const passenger of transferData.persons) {
+      if (passenger.personalId) {
+        chatTypes.push({
+          type: "DISPATCHER_PERSONAL",
+          dispatcherId: transferData.dispatcherId || null, // null = доступ всем диспетчерам
+          personalId: passenger.personalId
+        })
+      }
+    }
+  }
+
   // DISPATCHER_DRIVER - если есть и диспетчер, и водитель
   if (transferData.dispatcherId && transferData.driverId) {
     chatTypes.push({
@@ -1180,18 +1210,10 @@ async function ensureTransferChats(transfer) {
     })
   }
 
-  // DISPATCHER_PERSONAL и DRIVER_PERSONAL - для каждого пассажира
-  if (transferData.persons && transferData.persons.length > 0) {
+  // DRIVER_PERSONAL - для каждого пассажира, если есть водитель
+  if (transferData.driverId && transferData.persons && transferData.persons.length > 0) {
     for (const passenger of transferData.persons) {
-      if (transferData.dispatcherId && passenger.personalId) {
-        chatTypes.push({
-          type: "DISPATCHER_PERSONAL",
-          dispatcherId: transferData.dispatcherId,
-          personalId: passenger.personalId
-        })
-      }
-
-      if (transferData.driverId && passenger.personalId) {
+      if (passenger.personalId) {
         chatTypes.push({
           type: "DRIVER_PERSONAL",
           driverId: transferData.driverId,
@@ -1239,7 +1261,14 @@ async function ensureTransferChats(transfer) {
         type: chatConfig.type
       }
 
-      if (chatConfig.dispatcherId) {
+      // Для DISPATCHER_PERSONAL dispatcherId может быть null (доступ всем диспетчерам)
+      if (chatConfig.type === "DISPATCHER_PERSONAL") {
+        if (chatConfig.dispatcherId) {
+          chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
+        }
+        // Если dispatcherId null, не добавляем связь - это означает доступ всем диспетчерам
+      } else if (chatConfig.dispatcherId) {
+        // Для других типов чатов dispatcherId обязателен, если указан
         chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
       }
       if (chatConfig.driverId) {
