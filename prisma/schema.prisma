@@ -1251,8 +1251,7 @@ model TransferChat {
 
   messages TransferMessage[]
 
-  // Уникальность обеспечивается логикой в коде (findFirst перед созданием)
-  // MongoDB Prisma не поддерживает составные уникальные ключи с nullable полями
+  @@unique([transferId, type, personalId]) // уникальность с учетом пассажира для DISPATCHER_PERSONAL и DRIVER_PERSONAL
 }
 
 // --- Сообщения в чатах трансфера с универсальным автором

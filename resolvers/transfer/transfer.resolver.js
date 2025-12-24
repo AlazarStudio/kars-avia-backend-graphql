@@ -318,7 +318,7 @@ const transferResolver = {
       }
 
       // Проверяем, что чат такого типа еще не существует
-      // Используем findFirst так как у нас nullable поля в составном ключе
+      // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
       let existingChat = null
       if (type === "DISPATCHER_PERSONAL" || type === "DRIVER_PERSONAL") {
         if (!personalId) {
@@ -329,20 +329,24 @@ const transferResolver = {
             }
           )
         }
-        existingChat = await prisma.transferChat.findFirst({
+        existingChat = await prisma.transferChat.findUnique({
           where: {
-            transferId,
-            type,
-            personalId
+            transferId_type_personalId: {
+              transferId,
+              type,
+              personalId
+            }
           }
         })
       } else {
         // Для DISPATCHER_DRIVER personalId должен быть null
-        existingChat = await prisma.transferChat.findFirst({
+        existingChat = await prisma.transferChat.findUnique({
           where: {
-            transferId,
-            type,
-            personalId: null
+            transferId_type_personalId: {
+              transferId,
+              type,
+              personalId: null
+            }
           }
         })
       }
@@ -1095,20 +1099,24 @@ async function ensureTransferChats(transfer) {
     ) {
       if (!chatConfig.personalId) continue
 
-      existing = await prisma.transferChat.findFirst({
+      existing = await prisma.transferChat.findUnique({
         where: {
-          transferId: transfer.id,
-          type: chatConfig.type,
-          personalId: chatConfig.personalId
+          transferId_type_personalId: {
+            transferId: transfer.id,
+            type: chatConfig.type,
+            personalId: chatConfig.personalId
+          }
         }
       })
     } else {
       // Для DISPATCHER_DRIVER ищем чат без personalId
-      existing = await prisma.transferChat.findFirst({
+      existing = await prisma.transferChat.findUnique({
         where: {
-          transferId: transfer.id,
-          type: chatConfig.type,
-          personalId: null
+          transferId_type_personalId: {
+            transferId: transfer.id,
+            type: chatConfig.type,
+            personalId: null
+          }
         }
       })
     }
