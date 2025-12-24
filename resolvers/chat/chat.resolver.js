@@ -654,21 +654,37 @@ const chatResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
         (payload, variables, context) => {
-          const user = context.user
-          const message = payload.requestUpdated
+          const { subject, subjectType } = context
 
-          if (user.role === "SUPERADMIN") {
+          if (!subject || subjectType !== "USER") return false
+
+          const request = payload.requestUpdated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
             return true
           }
-          if (user.dispatcher === true) {
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && request.airlineId === subject.airlineId) {
             return true
           }
-          if (user.airlineId && user.airlineId === message.chat.airlineId) {
+
+          // Проверяем права по hotelId (если чат есть и содержит hotelId)
+          if (subject.hotelId && request.hotelId === subject.hotelId) {
             return true
           }
-          if (user.hotelId && user.hotelId === message.chat.hotelId) {
-            return true
+
+          // Дополнительная проверка через chat, если есть
+          if (request.chat) {
+            if (subject.airlineId && request.chat.airlineId === subject.airlineId) {
+              return true
+            }
+            if (subject.hotelId && request.chat.hotelId === subject.hotelId) {
+              return true
+            }
           }
+
           return false
         }
       )
@@ -677,18 +693,32 @@ const chatResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(RESERVE_UPDATED),
         (payload, variables, context) => {
-          const user = context.user
-          const message = payload.reserveUpdated
+          const { subject, subjectType } = context
 
-          if (user.dispatcher === true) {
+          if (!subject || subjectType !== "USER") return false
+
+          const reserve = payload.reserveUpdated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
             return true
           }
-          if (user.airlineId && user.airlineId === message.chat.airlineId) {
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && reserve.airlineId === subject.airlineId) {
             return true
           }
-          if (user.hotelId && user.hotelId === message.chat.hotelId) {
-            return true
+
+          // Дополнительная проверка через chat, если есть
+          if (reserve.chat) {
+            if (subject.airlineId && reserve.chat.airlineId === subject.airlineId) {
+              return true
+            }
+            if (subject.hotelId && reserve.chat.hotelId === subject.hotelId) {
+              return true
+            }
           }
+
           return false
         }
       )
@@ -720,7 +750,70 @@ const chatResolver = {
     //     }
     //   )
     // },
-    messageSent: { subscribe: () => pubsub.asyncIterator(MESSAGE_SENT) },
+    messageSent: {
+      subscribe: withFilter(
+        (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
+        async (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const message = payload.messageSent
+
+          // Фильтруем по chatId, если указан
+          if (variables.chatId && message.chat && message.chat.id !== variables.chatId) {
+            return false
+          }
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права через chat
+          if (message.chat) {
+            // Проверяем права по airlineId
+            if (subject.airlineId && message.chat.airlineId === subject.airlineId) {
+              return true
+            }
+            // Проверяем права по hotelId
+            if (subject.hotelId && message.chat.hotelId === subject.hotelId) {
+              return true
+            }
+            // Проверяем, является ли пользователь участником чата
+            if (message.chat.participants) {
+              const isParticipant = message.chat.participants.some(
+                (participant) => participant.id === subject.id
+              )
+              if (isParticipant) return true
+            }
+          }
+
+          // Загружаем чат, если его нет в payload
+          if (!message.chat && message.chatId) {
+            const chat = await prisma.chat.findUnique({
+              where: { id: message.chatId },
+              include: { participants: true }
+            })
+
+            if (chat) {
+              if (subject.airlineId && chat.airlineId === subject.airlineId) {
+                return true
+              }
+              if (subject.hotelId && chat.hotelId === subject.hotelId) {
+                return true
+              }
+              const isParticipant = chat.participants?.some(
+                (participant) => participant.userId === subject.id
+              )
+              if (isParticipant) return true
+            }
+          }
+
+          return false
+        }
+      )
+    },
 
     // Подписка на событие получения нового непрочитанного сообщения для конкретного пользователя.
     // Имя события включает как chatId, так и userId.

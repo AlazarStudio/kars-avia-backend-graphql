@@ -12,6 +12,7 @@ import {
   RESERVE_PERSONS,
   RESERVE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import {
@@ -825,19 +826,120 @@ const reserveResolver = {
   Subscription: {
     // Подписка на событие создания нового резерва.
     reserveCreated: {
-      subscribe: () => pubsub.asyncIterator([RESERVE_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([RESERVE_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const reserve = payload.reserveCreated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && reserve.airlineId === subject.airlineId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     // Подписка на событие обновления резерва.
     reserveUpdated: {
-      subscribe: () => pubsub.asyncIterator([RESERVE_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([RESERVE_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const reserve = payload.reserveUpdated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && reserve.airlineId === subject.airlineId) {
+            return true
+          }
+
+          // Проверяем права по hotelId через связанные отели
+          if (subject.hotelId && reserve.hotel) {
+            const hasAccess = reserve.hotel.some(
+              (hotel) => hotel.hotelId === subject.hotelId
+            )
+            if (hasAccess) return true
+          }
+
+          return false
+        }
+      )
     },
     // Подписка на событие, связанное с изменением информации об отеле в резерве.
     reserveHotel: {
-      subscribe: () => pubsub.asyncIterator([RESERVE_HOTEL])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([RESERVE_HOTEL]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const reserveHotel = payload.reserveHotel
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права по hotelId
+          if (subject.hotelId && reserveHotel.hotelId === subject.hotelId) {
+            return true
+          }
+
+          // Проверяем права по airlineId через reserve
+          if (reserveHotel.reserve && subject.airlineId) {
+            if (reserveHotel.reserve.airlineId === subject.airlineId) {
+              return true
+            }
+          }
+
+          return false
+        }
+      )
     },
     // Подписка на событие, связанное с изменением информации о пассажирах в резерве.
     reservePersons: {
-      subscribe: () => pubsub.asyncIterator([RESERVE_PERSONS])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([RESERVE_PERSONS]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const reservePersons = payload.reservePersons
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права по airlineId через reserve
+          if (reservePersons.reserve && subject.airlineId) {
+            if (reservePersons.reserve.airlineId === subject.airlineId) {
+              return true
+            }
+          }
+
+          return false
+        }
+      )
     }
   },
 

@@ -9,6 +9,7 @@ import {
   DRIVER_UPDATED,
   pubsub
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 // import { errorMonitor } from "ws"
@@ -421,10 +422,56 @@ const driverResolver = {
   },
   Subscription: {
     driverCreated: {
-      subscribe: () => pubsub.asyncIterator([DRIVER_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([DRIVER_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject) return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
+            return true
+          }
+
+          // Водители видят только свои обновления
+          const driver = payload.driverCreated
+          if (subjectType === "DRIVER" && driver.id === subject.id) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     driverUpdated: {
-      subscribe: () => pubsub.asyncIterator([DRIVER_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([DRIVER_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject) return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
+            return true
+          }
+
+          // Водители видят только свои обновления
+          const driver = payload.driverUpdated
+          if (subjectType === "DRIVER" && driver.id === subject.id) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   },
   Driver: {

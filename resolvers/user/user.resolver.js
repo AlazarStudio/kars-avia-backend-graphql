@@ -17,7 +17,8 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
-import { pubsub, USER_CREATED } from "../../services/infra/pubsub.js"
+import { pubsub, USER_CREATED, USER_ONLINE } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { logger } from "../../services/infra/logger.js"
 
@@ -759,10 +760,43 @@ const userResolver = {
   Subscription: {
     // Подписка на событие создания нового пользователя
     userCreated: {
-      subscribe: () => pubsub.asyncIterator([USER_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([USER_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят создание пользователей
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
+        }
+      )
     },
     userOnline: {
-      subscribe: () => pubsub.asyncIterator([USER_ONLINE])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([USER_ONLINE]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят всех
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи видят статус пользователей своей авиакомпании/отеля
+          const user = payload.userOnline
+          if (subject.airlineId && user.airlineId === subject.airlineId) {
+            return true
+          }
+          if (subject.hotelId && user.hotelId === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   },
   User: {

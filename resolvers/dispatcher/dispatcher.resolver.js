@@ -5,6 +5,7 @@ import {
   PRICECATEGORY_CHANGED,
   NOTIFICATION
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
   superAdminMiddleware
@@ -317,13 +318,69 @@ const dispatcherResolver = {
   },
   Subscription: {
     notification: {
-      subscribe: () => pubsub.asyncIterator([NOTIFICATION])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([NOTIFICATION]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все уведомления
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Проверяем права на уведомление через связанные сущности
+          const notification = payload.notification
+          if (notification.airlineId && subject.airlineId === notification.airlineId) {
+            return true
+          }
+          if (notification.hotelId && subject.hotelId === notification.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     companyChanged: {
-      subscribe: () => pubsub.asyncIterator([COMPANY_CHANGED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([COMPANY_CHANGED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят изменения компаний
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
+        }
+      )
     },
     priceCategoryChanged: {
-      subscribe: () => pubsub.asyncIterator([PRICECATEGORY_CHANGED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([PRICECATEGORY_CHANGED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все изменения
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи видят изменения для своих авиакомпаний/отелей
+          const priceCategory = payload.priceCategoryChanged
+          if (subject.airlineId && priceCategory.airlineId === subject.airlineId) {
+            return true
+          }
+          if (subject.hotelId && priceCategory.hotelId === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   },
   PriceCategory: {

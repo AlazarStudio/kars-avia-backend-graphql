@@ -766,10 +766,92 @@ const transferResolver = {
   },
   Subscription: {
     transferCreated: {
-      subscribe: () => pubsub.asyncIterator([TRANSFER_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([TRANSFER_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject) return false
+
+          const transfer = payload.transferCreated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
+            return true
+          }
+
+          // Проверяем права по airlineId
+          if (
+            subjectType === "USER" &&
+            subject.airlineId &&
+            transfer.airlineId === subject.airlineId
+          ) {
+            return true
+          }
+
+          // Водители видят свои трансферы
+          if (subjectType === "DRIVER" && transfer.driverId === subject.id) {
+            return true
+          }
+
+          // Проверяем, является ли персонал пассажиром
+          if (subjectType === "AIRLINE_PERSONAL" && transfer.persons) {
+            const isPassenger = transfer.persons.some(
+              (person) => person.personalId === subject.id
+            )
+            if (isPassenger) return true
+          }
+
+          return false
+        }
+      )
     },
     transferUpdated: {
-      subscribe: () => pubsub.asyncIterator([TRANSFER_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([TRANSFER_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject) return false
+
+          const transfer = payload.transferUpdated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
+            return true
+          }
+
+          // Проверяем права по airlineId
+          if (
+            subjectType === "USER" &&
+            subject.airlineId &&
+            transfer.airlineId === subject.airlineId
+          ) {
+            return true
+          }
+
+          // Водители видят свои трансферы
+          if (subjectType === "DRIVER" && transfer.driverId === subject.id) {
+            return true
+          }
+
+          // Проверяем, является ли персонал пассажиром
+          if (subjectType === "AIRLINE_PERSONAL" && transfer.persons) {
+            const isPassenger = transfer.persons.some(
+              (person) => person.personalId === subject.id
+            )
+            if (isPassenger) return true
+          }
+
+          return false
+        }
+      )
     },
     transferMessageSent: {
       subscribe: withFilter(
@@ -832,7 +914,11 @@ const transferResolver = {
     transferMessageRead: {
       subscribe: withFilter(
         (_, { chatId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_READ),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject) return false
+
           const read = payload.transferMessageRead
 
           // Фильтруем по chatId
@@ -840,7 +926,35 @@ const transferResolver = {
             return false
           }
 
-          return true
+          // Проверяем права доступа
+          if (!read.message || !read.message.chatId) return false
+
+          const chat = await prisma.transferChat.findUnique({
+            where: { id: read.message.chatId }
+          })
+
+          if (!chat) return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
+            return true
+          }
+
+          // Проверяем, является ли пользователь участником чата
+          if (subjectType === "USER" && chat.dispatcherId === subject.id) {
+            return true
+          }
+          if (subjectType === "DRIVER" && chat.driverId === subject.id) {
+            return true
+          }
+          if (subjectType === "AIRLINE_PERSONAL" && chat.personalId === subject.id) {
+            return true
+          }
+
+          return false
         }
       )
     }

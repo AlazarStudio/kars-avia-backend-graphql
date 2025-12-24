@@ -12,6 +12,7 @@ import {
   AIRLINE_CREATED,
   AIRLINE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 
 const airlineResolver = {
@@ -583,10 +584,50 @@ const airlineResolver = {
 
   Subscription: {
     airlineCreated: {
-      subscribe: () => pubsub.asyncIterator([AIRLINE_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([AIRLINE_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи авиакомпаний видят только свои авиакомпании
+          const airline = payload.airlineCreated
+          if (subject.airlineId && airline.id === subject.airlineId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     airlineUpdated: {
-      subscribe: () => pubsub.asyncIterator([AIRLINE_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([AIRLINE_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи авиакомпаний видят только свои авиакомпании
+          const airline = payload.airlineUpdated
+          if (subject.airlineId && airline.id === subject.airlineId) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   },
 

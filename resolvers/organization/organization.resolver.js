@@ -2,6 +2,7 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { prisma } from "../../prisma.js"
 import { uploadImage } from "../../services/files/uploadImage.js"
 import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 
 const organizationResolver = {
   Query: {
@@ -150,7 +151,17 @@ const organizationResolver = {
   },
   Subscription: {
     organizationCreated: {
-      subscribe: () => pubsub.asyncIterator([ORGANIZATION_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([ORGANIZATION_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят создание организаций
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
+        }
+      )
     }
   },
   Organization: {

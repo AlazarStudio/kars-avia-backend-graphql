@@ -19,6 +19,7 @@ import {
   HOTEL_UPDATED,
   RESERVE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
@@ -1184,11 +1185,51 @@ const hotelResolver = {
   Subscription: {
     // Подписка на событие создания нового отеля
     hotelCreated: {
-      subscribe: () => pubsub.asyncIterator([HOTEL_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([HOTEL_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи отелей видят только свои отели
+          const hotel = payload.hotelCreated
+          if (subject.hotelId && hotel.id === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     // Подписка на событие обновления отеля
     hotelUpdated: {
-      subscribe: () => pubsub.asyncIterator([HOTEL_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([HOTEL_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи отелей видят только свои отели
+          const hotel = payload.hotelUpdated
+          if (subject.hotelId && hotel.id === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   },
 

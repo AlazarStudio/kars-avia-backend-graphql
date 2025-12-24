@@ -1253,20 +1253,22 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_CREATED),
         (payload, variables, context) => {
-          const user = context.user
+          const { subject, subjectType } = context
 
-          if (user.role === "SUPERADMIN") {
+          if (!subject || subjectType !== "USER") return false
+
+          const request = payload.requestCreated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
             return true
           }
-          if (user.dispatcher === true) {
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && request.airlineId === subject.airlineId) {
             return true
           }
-          if (
-            user.airlineId &&
-            user.airlineId === payload.requestCreated.airlineId
-          ) {
-            return true
-          }
+
           return false
         }
       )
@@ -1277,22 +1279,27 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
         (payload, variables, context) => {
-          const user = context.user
-          if (user.role === "SUPERADMIN") {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          const request = payload.requestUpdated
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
             return true
           }
-          if (user.dispatcher === true) {
+
+          // Проверяем права по airlineId
+          if (subject.airlineId && request.airlineId === subject.airlineId) {
             return true
           }
-          if (
-            user.airlineId &&
-            user.airlineId === payload.requestUpdated.airlineId
-          ) {
+
+          // Проверяем права по hotelId
+          if (subject.hotelId && request.hotelId === subject.hotelId) {
             return true
           }
-          if (user.hotelId && user.hotelId === payload.requestUpdated.hotelId) {
-            return true
-          }
+
           return false
         }
       )

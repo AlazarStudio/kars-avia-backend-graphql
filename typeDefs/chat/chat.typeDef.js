@@ -53,7 +53,7 @@ const chatTypeDef = /* GraphQL */ `
   }
 
   type Subscription {
-    messageSent: Message
+    messageSent(chatId: ID): Message
     newUnreadMessage(userId: ID!): Message!
     messageRead(chatId: ID!): MessageRead!
   }

@@ -6,6 +6,7 @@ import {
   CONTRACT_HOTEL,
   CONTRACT_ORGANIZATION
 } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
   superAdminMiddleware
@@ -664,15 +665,64 @@ const contractResolver = {
   },
 
   Subscription: {
-    // Подписка на событие создания нового пользователя
     contractAirline: {
-      subscribe: () => pubsub.asyncIterator([CONTRACT_AIRLINE])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([CONTRACT_AIRLINE]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи авиакомпаний видят только свои договоры
+          const contract = payload.contractAirline
+          if (subject.airlineId && contract.airlineId === subject.airlineId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     contractHotel: {
-      subscribe: () => pubsub.asyncIterator([CONTRACT_HOTEL])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([CONTRACT_HOTEL]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи отелей видят только свои договоры
+          const contract = payload.contractHotel
+          if (subject.hotelId && contract.hotelId === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     },
     contractOrganization: {
-      subscribe: () => pubsub.asyncIterator([CONTRACT_ORGANIZATION])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([CONTRACT_ORGANIZATION]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят договоры организаций
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
+        }
+      )
     }
   },
 

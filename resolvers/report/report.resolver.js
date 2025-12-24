@@ -11,6 +11,7 @@ import {
   hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
+import { withFilter } from "graphql-subscriptions"
 import { deleteFiles } from "../../services/files/uploadFiles.js"
 import { computeRoomShareMatrix } from "../../services/rooms/computeRoomShareMatrix.js"
 
@@ -427,7 +428,30 @@ const reportResolver = {
 
   Subscription: {
     reportCreated: {
-      subscribe: () => pubsub.asyncIterator([REPORT_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([REPORT_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все отчеты
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи видят только свои отчеты
+          const report = payload.reportCreated
+          if (subject.airlineId && report.airlineId === subject.airlineId) {
+            return true
+          }
+          if (subject.hotelId && report.hotelId === subject.hotelId) {
+            return true
+          }
+
+          return false
+        }
+      )
     }
   }
 }
