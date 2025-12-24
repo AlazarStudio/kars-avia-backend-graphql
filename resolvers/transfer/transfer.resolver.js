@@ -340,13 +340,12 @@ const transferResolver = {
         })
       } else {
         // Для DISPATCHER_DRIVER personalId должен быть null
-        existingChat = await prisma.transferChat.findUnique({
+        // Используем findFirst, так как findUnique не работает с null в составном ключе
+        existingChat = await prisma.transferChat.findFirst({
           where: {
-            transferId_type_personalId: {
-              transferId,
-              type,
-              personalId: null
-            }
+            transferId,
+            type,
+            personalId: null
           }
         })
       }
@@ -1224,13 +1223,12 @@ async function ensureTransferChats(transfer) {
       })
     } else {
       // Для DISPATCHER_DRIVER ищем чат без personalId
-      existing = await prisma.transferChat.findUnique({
+      // Используем findFirst, так как findUnique не работает с null в составном ключе
+      existing = await prisma.transferChat.findFirst({
         where: {
-          transferId_type_personalId: {
-            transferId: transfer.id,
-            type: chatConfig.type,
-            personalId: null
-          }
+          transferId: transfer.id,
+          type: chatConfig.type,
+          personalId: null
         }
       })
     }
