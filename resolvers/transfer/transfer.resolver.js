@@ -237,7 +237,7 @@ const transferResolver = {
 
       return newTransfer
     },
-    updateTransfer: async (_, { id, input }) => {
+    updateTransfer: async (_, { id, input }, context) => {
       const existing = await prisma.transfer.findUnique({ where: { id } })
       if (!existing) {
         throw new Error(`Transfer с id ${id} не найден`)
@@ -965,7 +965,10 @@ const transferResolver = {
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
           }
-          if (subjectType === "AIRLINE_PERSONAL" && chat.personalId === subject.id) {
+          if (
+            subjectType === "AIRLINE_PERSONAL" &&
+            chat.personalId === subject.id
+          ) {
             return true
           }
 
@@ -1211,7 +1214,11 @@ async function ensureTransferChats(transfer) {
   }
 
   // DRIVER_PERSONAL - для каждого пассажира, если есть водитель
-  if (transferData.driverId && transferData.persons && transferData.persons.length > 0) {
+  if (
+    transferData.driverId &&
+    transferData.persons &&
+    transferData.persons.length > 0
+  ) {
     for (const passenger of transferData.persons) {
       if (passenger.personalId) {
         chatTypes.push({
