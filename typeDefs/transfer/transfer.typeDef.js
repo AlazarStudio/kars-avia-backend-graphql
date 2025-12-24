@@ -30,11 +30,6 @@ const transferTypeDef = /* GraphQL */ `
     PERSONAL # модель AirlinePersonal (пассажир)
   }
 
-  enum TransferReviewAuthor {
-    DRIVER
-    PERSONAL
-  }
-
   type Transfer {
     id: ID!
     createdAt: Date!
@@ -109,40 +104,40 @@ const transferTypeDef = /* GraphQL */ `
   type TransferReview {
     id: ID!
     transfer: Transfer!
-    # transferId: String!
+    transferId: String!
 
     authorType: TransferReviewAuthor! # DRIVER | PERSONAL
     driver: Driver
-    # driverId:   String
+    driverId: String
     personal: AirlinePersonal
-    # personalId: String
+    personalId: String
 
     rating: Int # 1..5
     comment: String
-    # createdAt: Date
+    createdAt: Date
   }
 
   type TransferMessage {
     id: String!
     chat: TransferChat!
-    # chatId:    String!
+    chatId: String!
     text: String!
-    # createdAt: Date!
+    createdAt: Date!
     isRead: Boolean!
 
     authorType: ActorType!
 
     # автор-юзер (диспетчер)
     senderUser: User
-    # senderUserId: String
+    senderUserId: String
 
     # автор-водитель
     senderDriver: Driver
-    # senderDriverId: String
+    senderDriverId: String
 
     # автор-пассажир (AirlinePersonal)
     senderPersonal: AirlinePersonal
-    # senderPersonalId: String
+    senderPersonalId: String
 
     readBy: [TransferMessageRead!]
     separator: String
@@ -232,19 +227,54 @@ const transferTypeDef = /* GraphQL */ `
     transfers: [Transfer]
   }
 
+  input CreateTransferChatInput {
+    transferId: ID!
+    type: TransferChatType!
+    dispatcherId: ID
+    driverId: ID
+    personalId: ID
+  }
+
+  input SendTransferMessageInput {
+    chatId: ID!
+    text: String!
+    authorType: ActorType!
+    senderUserId: ID
+    senderDriverId: ID
+    senderPersonalId: ID
+  }
+
+  input MarkTransferMessageReadInput {
+    messageId: ID!
+    readerType: ActorType!
+    userId: ID
+    driverId: ID
+    personalId: ID
+  }
+
   type Query {
     transfers(pagination: TransferPaginationInput!): TransferConnection!
     transfer(id: ID!): Transfer!
+    transferChat(chatId: ID!): TransferChat
+    transferChats(transferId: ID!): [TransferChat!]!
+    transferMessages(chatId: ID!): [TransferMessage!]!
+    transferChatByType(transferId: ID!, type: TransferChatType!): TransferChat
   }
 
   type Mutation {
     createTransfer(input: TransferInput!): Transfer!
     updateTransfer(id: ID!, input: TransferUpdateInput!): Transfer!
+    createTransferChat(input: CreateTransferChatInput!): TransferChat!
+    sendTransferMessage(input: SendTransferMessageInput!): TransferMessage!
+    markTransferMessageAsRead(input: MarkTransferMessageReadInput!): TransferMessageRead!
+    markAllTransferMessagesAsRead(chatId: ID!, readerType: ActorType!, userId: ID, driverId: ID, personalId: ID): Boolean!
   }
 
   type Subscription {
     transferCreated: Transfer!
     transferUpdated: Transfer!
+    transferMessageSent(transferId: ID!): TransferMessage!
+    transferMessageRead(chatId: ID!): TransferMessageRead!
   }
 `
 

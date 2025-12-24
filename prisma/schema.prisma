@@ -1251,7 +1251,7 @@ model TransferChat {
 
   messages TransferMessage[]
 
-  @@unique([transferId, type]) // не более одного чата каждого типа на заявку
+  @@unique([transferId, type, personalId]) // уникальность с учетом пассажира для DISPATCHER_PERSONAL и DRIVER_PERSONAL
 }
 
 // --- Сообщения в чатах трансфера с универсальным автором
