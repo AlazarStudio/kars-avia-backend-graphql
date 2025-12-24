@@ -10,114 +10,6 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
 
-const DATE_FIELDS = [
-  "scheduledPickupAt",
-  "driverAssignmentAt",
-  "orderAcceptanceAt",
-  "arrivedToPassengerAt",
-  "departedAt",
-  "arrivedAt",
-  "finishedAt",
-  "createdAt",
-  "updatedAt"
-]
-
-/**
- * Автоматически создает чаты для трансфера на основе доступных участников
- */
-async function ensureTransferChats(transfer) {
-  const transferData = await prisma.transfer.findUnique({
-    where: { id: transfer.id },
-    include: {
-      dispatcher: true,
-      driver: true,
-      persons: { include: { personal: true } }
-    }
-  })
-
-  if (!transferData) return
-
-  const chatTypes = []
-
-  // DISPATCHER_DRIVER - если есть и диспетчер, и водитель
-  if (transferData.dispatcherId && transferData.driverId) {
-    chatTypes.push({
-      type: "DISPATCHER_DRIVER",
-      dispatcherId: transferData.dispatcherId,
-      driverId: transferData.driverId
-    })
-  }
-
-  // DISPATCHER_PERSONAL и DRIVER_PERSONAL - для каждого пассажира
-  if (transferData.persons && transferData.persons.length > 0) {
-    for (const passenger of transferData.persons) {
-      if (transferData.dispatcherId && passenger.personalId) {
-        chatTypes.push({
-          type: "DISPATCHER_PERSONAL",
-          dispatcherId: transferData.dispatcherId,
-          personalId: passenger.personalId
-        })
-      }
-
-      if (transferData.driverId && passenger.personalId) {
-        chatTypes.push({
-          type: "DRIVER_PERSONAL",
-          driverId: transferData.driverId,
-          personalId: passenger.personalId
-        })
-      }
-    }
-  }
-
-  // Создаем чаты, которых еще нет
-  for (const chatConfig of chatTypes) {
-    let existing = null
-    
-    // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
-    if (chatConfig.type === "DISPATCHER_PERSONAL" || chatConfig.type === "DRIVER_PERSONAL") {
-      if (!chatConfig.personalId) continue
-      
-      existing = await prisma.transferChat.findUnique({
-        where: {
-          transferId_type_personalId: {
-            transferId: transfer.id,
-            type: chatConfig.type,
-            personalId: chatConfig.personalId
-          }
-        }
-      })
-    } else {
-      // Для DISPATCHER_DRIVER ищем чат без personalId
-      existing = await prisma.transferChat.findFirst({
-        where: {
-          transferId: transfer.id,
-          type: chatConfig.type,
-          personalId: null
-        }
-      })
-    }
-
-    if (!existing) {
-      const chatData = {
-        transfer: { connect: { id: transfer.id } },
-        type: chatConfig.type
-      }
-
-      if (chatConfig.dispatcherId) {
-        chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
-      }
-      if (chatConfig.driverId) {
-        chatData.driver = { connect: { id: chatConfig.driverId } }
-      }
-      if (chatConfig.personalId) {
-        chatData.personal = { connect: { id: chatConfig.personalId } }
-      }
-
-      await prisma.transferChat.create({ data: chatData })
-    }
-  }
-}
-
 const transferResolver = {
   Query: {
     transfers: async (_, { pagination }, context) => {
@@ -412,7 +304,11 @@ const transferResolver = {
       // Проверяем, что трансфер существует
       const transfer = await prisma.transfer.findUnique({
         where: { id: transferId },
-        include: { dispatcher: true, driver: true, persons: { include: { personal: true } } }
+        include: {
+          dispatcher: true,
+          driver: true,
+          persons: { include: { personal: true } }
+        }
       })
 
       if (!transfer) {
@@ -422,21 +318,22 @@ const transferResolver = {
       }
 
       // Проверяем, что чат такого типа еще не существует
-      // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
+      // Используем findFirst так как у нас nullable поля в составном ключе
       let existingChat = null
       if (type === "DISPATCHER_PERSONAL" || type === "DRIVER_PERSONAL") {
         if (!personalId) {
-          throw new GraphQLError(`personalId обязателен для типа чата ${type}`, {
-            extensions: { code: "INVALID_INPUT" }
-          })
-        }
-        existingChat = await prisma.transferChat.findUnique({
-          where: {
-            transferId_type_personalId: {
-              transferId,
-              type,
-              personalId
+          throw new GraphQLError(
+            `personalId обязателен для типа чата ${type}`,
+            {
+              extensions: { code: "INVALID_INPUT" }
             }
+          )
+        }
+        existingChat = await prisma.transferChat.findFirst({
+          where: {
+            transferId,
+            type,
+            personalId
           }
         })
       } else {
@@ -451,9 +348,12 @@ const transferResolver = {
       }
 
       if (existingChat) {
-        throw new GraphQLError(`Чат типа ${type} уже существует для этого трансфера`, {
-          extensions: { code: "ALREADY_EXISTS" }
-        })
+        throw new GraphQLError(
+          `Чат типа ${type} уже существует для этого трансфера`,
+          {
+            extensions: { code: "ALREADY_EXISTS" }
+          }
+        )
       }
 
       // Определяем участников на основе типа чата
@@ -465,35 +365,50 @@ const transferResolver = {
       // Устанавливаем участников в зависимости от типа чата
       if (type === "DISPATCHER_DRIVER") {
         if (!transfer.dispatcherId || !transfer.driverId) {
-          throw new GraphQLError("Для создания чата DISPATCHER_DRIVER нужны и диспетчер, и водитель", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "Для создания чата DISPATCHER_DRIVER нужны и диспетчер, и водитель",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
         chatData.driver = { connect: { id: transfer.driverId } }
       } else if (type === "DISPATCHER_PERSONAL") {
         if (!transfer.dispatcherId) {
-          throw new GraphQLError("Для создания чата DISPATCHER_PERSONAL нужен диспетчер", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "Для создания чата DISPATCHER_PERSONAL нужен диспетчер",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         if (!personalId) {
-          throw new GraphQLError("Для создания чата DISPATCHER_PERSONAL нужен пассажир (personalId)", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "Для создания чата DISPATCHER_PERSONAL нужен пассажир (personalId)",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
         chatData.personal = { connect: { id: personalId } }
       } else if (type === "DRIVER_PERSONAL") {
         if (!transfer.driverId) {
-          throw new GraphQLError("Для создания чата DRIVER_PERSONAL нужен водитель", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "Для создания чата DRIVER_PERSONAL нужен водитель",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         if (!personalId) {
-          throw new GraphQLError("Для создания чата DRIVER_PERSONAL нужен пассажир (personalId)", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "Для создания чата DRIVER_PERSONAL нужен пассажир (personalId)",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         chatData.driver = { connect: { id: transfer.driverId } }
         chatData.personal = { connect: { id: personalId } }
@@ -513,7 +428,14 @@ const transferResolver = {
     },
     sendTransferMessage: async (_, { input }, context) => {
       await allMiddleware(context)
-      const { chatId, text, authorType, senderUserId, senderDriverId, senderPersonalId } = input
+      const {
+        chatId,
+        text,
+        authorType,
+        senderUserId,
+        senderDriverId,
+        senderPersonalId
+      } = input
 
       // Проверяем, что чат существует
       const chat = await prisma.transferChat.findUnique({
@@ -537,22 +459,31 @@ const transferResolver = {
 
       if (authorType === "USER") {
         if (!senderUserId) {
-          throw new GraphQLError("senderUserId обязателен для authorType USER", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "senderUserId обязателен для authorType USER",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         // Проверяем, что пользователь является участником чата
         if (chat.dispatcherId !== senderUserId) {
-          throw new GraphQLError("Пользователь не является участником этого чата", {
-            extensions: { code: "FORBIDDEN" }
-          })
+          throw new GraphQLError(
+            "Пользователь не является участником этого чата",
+            {
+              extensions: { code: "FORBIDDEN" }
+            }
+          )
         }
         messageData.senderUser = { connect: { id: senderUserId } }
       } else if (authorType === "DRIVER") {
         if (!senderDriverId) {
-          throw new GraphQLError("senderDriverId обязателен для authorType DRIVER", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "senderDriverId обязателен для authorType DRIVER",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         if (chat.driverId !== senderDriverId) {
           throw new GraphQLError("Водитель не является участником этого чата", {
@@ -562,9 +493,12 @@ const transferResolver = {
         messageData.senderDriver = { connect: { id: senderDriverId } }
       } else if (authorType === "PERSONAL") {
         if (!senderPersonalId) {
-          throw new GraphQLError("senderPersonalId обязателен для authorType PERSONAL", {
-            extensions: { code: "INVALID_INPUT" }
-          })
+          throw new GraphQLError(
+            "senderPersonalId обязателен для authorType PERSONAL",
+            {
+              extensions: { code: "INVALID_INPUT" }
+            }
+          )
         }
         if (chat.personalId !== senderPersonalId) {
           throw new GraphQLError("Пассажир не является участником этого чата", {
@@ -593,9 +527,15 @@ const transferResolver = {
         data: {
           message: { connect: { id: message.id } },
           readerType: authorType,
-          ...(authorType === "USER" && { user: { connect: { id: senderUserId } } }),
-          ...(authorType === "DRIVER" && { driver: { connect: { id: senderDriverId } } }),
-          ...(authorType === "PERSONAL" && { personal: { connect: { id: senderPersonalId } } })
+          ...(authorType === "USER" && {
+            user: { connect: { id: senderUserId } }
+          }),
+          ...(authorType === "DRIVER" && {
+            driver: { connect: { id: senderDriverId } }
+          }),
+          ...(authorType === "PERSONAL" && {
+            personal: { connect: { id: senderPersonalId } }
+          })
         }
       })
 
@@ -671,9 +611,12 @@ const transferResolver = {
       } else if (readerType === "PERSONAL" && personalId) {
         readData.personal = { connect: { id: personalId } }
       } else {
-        throw new GraphQLError("Необходимо указать userId, driverId или personalId в соответствии с readerType", {
-          extensions: { code: "INVALID_INPUT" }
-        })
+        throw new GraphQLError(
+          "Необходимо указать userId, driverId или personalId в соответствии с readerType",
+          {
+            extensions: { code: "INVALID_INPUT" }
+          }
+        )
       }
 
       const messageRead = await prisma.transferMessageRead.create({
@@ -704,17 +647,20 @@ const transferResolver = {
 
       // Проверяем, все ли участники прочитали сообщение
       const participants = []
-      if (chat.dispatcherId) participants.push({ type: "USER", id: chat.dispatcherId })
-      if (chat.driverId) participants.push({ type: "DRIVER", id: chat.driverId })
-      if (chat.personalId) participants.push({ type: "PERSONAL", id: chat.personalId })
+      if (chat.dispatcherId)
+        participants.push({ type: "USER", id: chat.dispatcherId })
+      if (chat.driverId)
+        participants.push({ type: "DRIVER", id: chat.driverId })
+      if (chat.personalId)
+        participants.push({ type: "PERSONAL", id: chat.personalId })
 
       const readByCurrentMessage = await prisma.transferMessageRead.findMany({
         where: { messageId }
       })
 
-      const allRead = participants.every(participant => {
+      const allRead = participants.every((participant) => {
         return readByCurrentMessage.some(
-          read =>
+          (read) =>
             read.readerType === participant.type &&
             (read.userId === participant.id ||
               read.driverId === participant.id ||
@@ -735,7 +681,11 @@ const transferResolver = {
 
       return messageRead
     },
-    markAllTransferMessagesAsRead: async (_, { chatId, readerType, userId, driverId, personalId }, context) => {
+    markAllTransferMessagesAsRead: async (
+      _,
+      { chatId, readerType, userId, driverId, personalId },
+      context
+    ) => {
       await allMiddleware(context)
 
       // Проверяем существование чата
@@ -793,7 +743,9 @@ const transferResolver = {
             readData.personal = { connect: { id: personalId } }
           }
 
-          readPromises.push(prisma.transferMessageRead.create({ data: readData }))
+          readPromises.push(
+            prisma.transferMessageRead.create({ data: readData })
+          )
         }
       }
 
@@ -820,12 +772,16 @@ const transferResolver = {
         (_, { transferId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_SENT),
         async (payload, variables, context) => {
           const message = payload.transferMessageSent
-          
+
           // Получаем transferId из сообщения (теперь он передается в payload)
-          const messageTransferId = message.transferId || (message.chat && message.chat.transferId)
+          const messageTransferId =
+            message.transferId || (message.chat && message.chat.transferId)
 
           // Фильтруем по transferId
-          if (variables.transferId && messageTransferId !== variables.transferId) {
+          if (
+            variables.transferId &&
+            messageTransferId !== variables.transferId
+          ) {
             return false
           }
 
@@ -835,13 +791,16 @@ const transferResolver = {
           if (!subject) return false
 
           // SUPERADMIN и диспетчеры видят все
-          if (subjectType === "USER" && (subject.role === "SUPERADMIN" || subject.dispatcher === true)) {
+          if (
+            subjectType === "USER" &&
+            (subject.role === "SUPERADMIN" || subject.dispatcher === true)
+          ) {
             return true
           }
 
           // Загружаем чат для проверки участия
           if (!message.chatId) return false
-          
+
           const chat = await prisma.transferChat.findUnique({
             where: { id: message.chatId }
           })
@@ -855,7 +814,10 @@ const transferResolver = {
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
           }
-          if (subjectType === "AIRLINE_PERSONAL" && chat.personalId === subject.id) {
+          if (
+            subjectType === "AIRLINE_PERSONAL" &&
+            chat.personalId === subject.id
+          ) {
             return true
           }
 
@@ -868,7 +830,7 @@ const transferResolver = {
         (_, { chatId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_READ),
         (payload, variables, context) => {
           const read = payload.transferMessageRead
-          
+
           // Фильтруем по chatId
           if (variables.chatId && read.message?.chatId !== variables.chatId) {
             return false
@@ -1062,4 +1024,114 @@ const transferResolver = {
     }
   }
 }
+
+const DATE_FIELDS = [
+  "scheduledPickupAt",
+  "driverAssignmentAt",
+  "orderAcceptanceAt",
+  "arrivedToPassengerAt",
+  "departedAt",
+  "arrivedAt",
+  "finishedAt",
+  "createdAt",
+  "updatedAt"
+]
+
+/**
+ * Автоматически создает чаты для трансфера на основе доступных участников
+ */
+async function ensureTransferChats(transfer) {
+  const transferData = await prisma.transfer.findUnique({
+    where: { id: transfer.id },
+    include: {
+      dispatcher: true,
+      driver: true,
+      persons: { include: { personal: true } }
+    }
+  })
+
+  if (!transferData) return
+
+  const chatTypes = []
+
+  // DISPATCHER_DRIVER - если есть и диспетчер, и водитель
+  if (transferData.dispatcherId && transferData.driverId) {
+    chatTypes.push({
+      type: "DISPATCHER_DRIVER",
+      dispatcherId: transferData.dispatcherId,
+      driverId: transferData.driverId
+    })
+  }
+
+  // DISPATCHER_PERSONAL и DRIVER_PERSONAL - для каждого пассажира
+  if (transferData.persons && transferData.persons.length > 0) {
+    for (const passenger of transferData.persons) {
+      if (transferData.dispatcherId && passenger.personalId) {
+        chatTypes.push({
+          type: "DISPATCHER_PERSONAL",
+          dispatcherId: transferData.dispatcherId,
+          personalId: passenger.personalId
+        })
+      }
+
+      if (transferData.driverId && passenger.personalId) {
+        chatTypes.push({
+          type: "DRIVER_PERSONAL",
+          driverId: transferData.driverId,
+          personalId: passenger.personalId
+        })
+      }
+    }
+  }
+
+  // Создаем чаты, которых еще нет
+  for (const chatConfig of chatTypes) {
+    let existing = null
+
+    // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
+    if (
+      chatConfig.type === "DISPATCHER_PERSONAL" ||
+      chatConfig.type === "DRIVER_PERSONAL"
+    ) {
+      if (!chatConfig.personalId) continue
+
+      existing = await prisma.transferChat.findFirst({
+        where: {
+          transferId: transfer.id,
+          type: chatConfig.type,
+          personalId: chatConfig.personalId
+        }
+      })
+    } else {
+      // Для DISPATCHER_DRIVER ищем чат без personalId
+      existing = await prisma.transferChat.findFirst({
+        where: {
+          transferId: transfer.id,
+          type: chatConfig.type,
+          personalId: null
+        }
+      })
+    }
+
+    if (!existing) {
+      const chatData = {
+        transfer: { connect: { id: transfer.id } },
+        type: chatConfig.type
+      }
+
+      if (chatConfig.dispatcherId) {
+        chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
+      }
+      if (chatConfig.driverId) {
+        chatData.driver = { connect: { id: chatConfig.driverId } }
+      }
+      if (chatConfig.personalId) {
+        chatData.personal = { connect: { id: chatConfig.personalId } }
+      }
+
+      await prisma.transferChat.create({ data: chatData })
+    }
+  }
+}
+
 export default transferResolver
