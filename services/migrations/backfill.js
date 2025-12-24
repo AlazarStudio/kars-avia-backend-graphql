@@ -1,6 +1,15 @@
 import { PrismaClient } from "./generated/client/index.js"
+import dotenv from "dotenv"
 
-export const prisma = new PrismaClient()
+dotenv.config()
+
+export const prisma = new PrismaClient(
+  process.env.DATABASE_URL
+    ? {
+        datasourceUrl: process.env.DATABASE_URL
+      }
+    : {}
+)
 
 const DEFAULT = {
   requestMenu: true,

@@ -4,13 +4,21 @@ import dotenv from "dotenv"
 dotenv.config()
 
 // Создаём два клиента – для старой и для новой баз данных.
-const prismaOld = new PrismaClient({
-  datasources: { db: { url: process.env.OLD_DATABASE_URL } }
-})
+const prismaOld = new PrismaClient(
+  process.env.OLD_DATABASE_URL
+    ? {
+        datasourceUrl: process.env.OLD_DATABASE_URL
+      }
+    : {}
+)
 
-const prismaNew = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL } }
-})
+const prismaNew = new PrismaClient(
+  process.env.DATABASE_URL
+    ? {
+        datasourceUrl: process.env.DATABASE_URL
+      }
+    : {}
+)
 
 /* ============================
    Функция миграции пользователей
