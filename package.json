@@ -29,7 +29,6 @@
     "child_process": "^1.0.2",
     "cli-progress": "^3.12.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.6.1",
     "exceljs": "^4.4.0",
     "express": "^4.22.1",
     "express-rate-limit": "^8.2.1",
@@ -62,6 +61,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "dotenv": "^17.2.3",
     "madge": "^8.0.0",
     "nodemon": "^3.1.11",
     "prisma": "^7.2.0"

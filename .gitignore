@@ -12,3 +12,4 @@ load-test.yml
 TRANSFER_CHAT_API.md
 
 # gitignore
+/generated/prisma

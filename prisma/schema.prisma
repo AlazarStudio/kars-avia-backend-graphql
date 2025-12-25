@@ -2,7 +2,6 @@ generator client {
   // provider = "prisma-client"
   provider  = "prisma-client-js"
   output    = "../generated/client"
-  ngineType = "client"
 }
 
 datasource db {
@@ -1304,4 +1303,3 @@ model TransferMessageRead {
   personal   AirlinePersonal? @relation(fields: [personalId], references: [id], onDelete: Cascade)
   personalId String?          @db.ObjectId
   readAt     DateTime         @default(now())
-}
