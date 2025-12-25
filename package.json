@@ -23,7 +23,7 @@
     "@graphql-tools/merge": "^9.1.6",
     "@graphql-tools/schema": "^10.0.30",
     "@levminer/speakeasy": "^1.4.2",
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "6.19",
     "archetype": "^0.13.1",
     "argon2": "^0.40.3",
     "child_process": "^1.0.2",
@@ -65,6 +65,6 @@
     "dotenv": "^17.2.3",
     "madge": "^8.0.0",
     "nodemon": "^3.1.11",
-    "prisma": "^7.2.0"
+    "prisma": "6.19"
   }
 }
