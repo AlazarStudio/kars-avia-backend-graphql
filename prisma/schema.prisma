@@ -1,7 +1,8 @@
 generator client {
   // provider = "prisma-client"
-  provider = "prisma-client-js"
-  output   = "../generated/client"
+  provider  = "prisma-client-js"
+  output    = "../generated/client"
+  ngineType = "client"
 }
 
 datasource db {
@@ -522,37 +523,37 @@ type NotificationMenu {
 }
 
 model AirlinePersonal {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  name                 String
-  number               String?
-  email                String?
-  login                String?
-  password             String?
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  name                  String
+  number                String?
+  email                 String?
+  login                 String?
+  password              String?
   // position     String?
-  gender               String?
-  married              Boolean?              @default(false)
-  husband              AirlinePersonal?      @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  husbandId            String?               @db.ObjectId
-  marriedTo            AirlinePersonal[]     @relation(name: "Marriage")
-  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId            String?               @db.ObjectId
-  department           AirlineDepartment?    @relation(fields: [departmentId], references: [id], onDelete: NoAction)
-  departmentId         String?               @db.ObjectId
-  request              Request[]
-  hotelChess           HotelChess[]
-  active               Boolean               @default(true)
-  position             Position?             @relation(fields: [positionId], references: [id])
-  positionId           String?               @db.ObjectId
-  images               String[]
-  role                 Role                  @default(USER)
-  rating               Float?
-  transferPassengers   TransferPassenger[]
-  transferReviews      TransferReview[]
+  gender                String?
+  married               Boolean?               @default(false)
+  husband               AirlinePersonal?       @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId             String?                @db.ObjectId
+  marriedTo             AirlinePersonal[]      @relation(name: "Marriage")
+  airline               Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId             String?                @db.ObjectId
+  department            AirlineDepartment?     @relation(fields: [departmentId], references: [id], onDelete: NoAction)
+  departmentId          String?                @db.ObjectId
+  request               Request[]
+  hotelChess            HotelChess[]
+  active                Boolean                @default(true)
+  position              Position?              @relation(fields: [positionId], references: [id])
+  positionId            String?                @db.ObjectId
+  images                String[]
+  role                  Role                   @default(USER)
+  rating                Float?
+  transferPassengers    TransferPassenger[]
+  transferReviews       TransferReview[]
   transferChatPersonals TransferChatPersonal[]
-  transferMessages     TransferMessage[]
-  transferMessageReads TransferMessageRead[]
+  transferMessages      TransferMessage[]
+  transferMessageReads  TransferMessageRead[]
 }
 
 // Авиакомпании  ---------------- ↑↑↑↑
@@ -1243,11 +1244,11 @@ model TransferChatPersonal {
 
 // --- Чаты по заявке (ровно три типа на заявку)
 model TransferChat {
-  id         String                  @id @default(auto()) @map("_id") @db.ObjectId
-  transfer   Transfer                @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  transferId String                  @db.ObjectId
-  type       TransferChatType        // DISPATCHER_DRIVER / DISPATCHER_PERSONAL / DRIVER_PERSONAL
-  createdAt  DateTime                @default(now())
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer         @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String           @db.ObjectId
+  type       TransferChatType // DISPATCHER_DRIVER / DISPATCHER_PERSONAL / DRIVER_PERSONAL
+  createdAt  DateTime         @default(now())
 
   // Участники конкретного чата (фиксированный набор по типу)
   dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
