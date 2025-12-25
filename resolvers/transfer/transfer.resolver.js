@@ -299,7 +299,7 @@ const transferResolver = {
     },
     createTransferChat: async (_, { input }, context) => {
       await allMiddleware(context)
-      const { transferId, type, dispatcherId, driverId, personalId } = input
+      const { transferId, type, dispatcherId, driverId, personalIds } = input
 
       // Проверяем, что трансфер существует
       const transfer = await prisma.transfer.findUnique({
@@ -318,37 +318,14 @@ const transferResolver = {
       }
 
       // Проверяем, что чат такого типа еще не существует
-      // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
-      let existingChat = null
-      if (type === "DISPATCHER_PERSONAL" || type === "DRIVER_PERSONAL") {
-        if (!personalId) {
-          throw new GraphQLError(
-            `personalId обязателен для типа чата ${type}`,
-            {
-              extensions: { code: "INVALID_INPUT" }
-            }
-          )
-        }
-        existingChat = await prisma.transferChat.findUnique({
-          where: {
-            transferId_type_personalId: {
-              transferId,
-              type,
-              personalId
-            }
-          }
-        })
-      } else {
-        // Для DISPATCHER_DRIVER personalId должен быть null
-        // Используем findFirst, так как findUnique не работает с null в составном ключе
-        existingChat = await prisma.transferChat.findFirst({
-          where: {
+      let existingChat = await prisma.transferChat.findUnique({
+        where: {
+          transferId_type: {
             transferId,
-            type,
-            personalId: null
+            type
           }
-        })
-      }
+        }
+      })
 
       if (existingChat) {
         throw new GraphQLError(
@@ -362,7 +339,10 @@ const transferResolver = {
       // Определяем участников на основе типа чата
       const chatData = {
         transfer: { connect: { id: transferId } },
-        type
+        type,
+        persons: {
+          create: []
+        }
       }
 
       // Устанавливаем участников в зависимости от типа чата
@@ -377,11 +357,13 @@ const transferResolver = {
         }
         chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
         chatData.driver = { connect: { id: transfer.driverId } }
+        // Удаляем persons для DISPATCHER_DRIVER, так как там нет пассажиров
+        delete chatData.persons
       } else if (type === "DISPATCHER_PERSONAL") {
-        // personalId обязателен для DISPATCHER_PERSONAL
-        if (!personalId) {
+        // personalIds обязателен для DISPATCHER_PERSONAL
+        if (!personalIds || personalIds.length === 0) {
           throw new GraphQLError(
-            "Для создания чата DISPATCHER_PERSONAL нужен пассажир (personalId)",
+            "Для создания чата DISPATCHER_PERSONAL нужен хотя бы один пассажир (personalIds)",
             {
               extensions: { code: "INVALID_INPUT" }
             }
@@ -391,7 +373,10 @@ const transferResolver = {
         if (transfer.dispatcherId) {
           chatData.dispatcher = { connect: { id: transfer.dispatcherId } }
         }
-        chatData.personal = { connect: { id: personalId } }
+        // Добавляем всех пассажиров в чат
+        chatData.persons.create = personalIds.map((personalId) => ({
+          personal: { connect: { id: personalId } }
+        }))
       } else if (type === "DRIVER_PERSONAL") {
         if (!transfer.driverId) {
           throw new GraphQLError(
@@ -401,16 +386,19 @@ const transferResolver = {
             }
           )
         }
-        if (!personalId) {
+        if (!personalIds || personalIds.length === 0) {
           throw new GraphQLError(
-            "Для создания чата DRIVER_PERSONAL нужен пассажир (personalId)",
+            "Для создания чата DRIVER_PERSONAL нужен хотя бы один пассажир (personalIds)",
             {
               extensions: { code: "INVALID_INPUT" }
             }
           )
         }
         chatData.driver = { connect: { id: transfer.driverId } }
-        chatData.personal = { connect: { id: personalId } }
+        // Добавляем всех пассажиров в чат
+        chatData.persons.create = personalIds.map((personalId) => ({
+          personal: { connect: { id: personalId } }
+        }))
       }
 
       const newChat = await prisma.transferChat.create({
@@ -418,7 +406,11 @@ const transferResolver = {
         include: {
           dispatcher: true,
           driver: true,
-          personal: true,
+          persons: {
+            include: {
+              personal: true
+            }
+          },
           messages: true
         }
       })
@@ -499,7 +491,13 @@ const transferResolver = {
             }
           )
         }
-        if (chat.personalId !== senderPersonalId) {
+        const isParticipant = await prisma.transferChatPersonal.findFirst({
+          where: {
+            chatId: chat.id,
+            personalId: senderPersonalId
+          }
+        })
+        if (!isParticipant) {
           throw new GraphQLError("Пассажир не является участником этого чата", {
             extensions: { code: "FORBIDDEN" }
           })
@@ -650,8 +648,14 @@ const transferResolver = {
         participants.push({ type: "USER", id: chat.dispatcherId })
       if (chat.driverId)
         participants.push({ type: "DRIVER", id: chat.driverId })
-      if (chat.personalId)
-        participants.push({ type: "PERSONAL", id: chat.personalId })
+      // Получаем всех пассажиров из чата
+      const chatPersonals = await prisma.transferChatPersonal.findMany({
+        where: { chatId: chat.id },
+        include: { personal: true }
+      })
+      chatPersonals.forEach((cp) => {
+        participants.push({ type: "PERSONAL", id: cp.personalId })
+      })
 
       const readByCurrentMessage = await prisma.transferMessageRead.findMany({
         where: { messageId }
@@ -905,11 +909,17 @@ const transferResolver = {
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
           }
-          if (
-            subjectType === "AIRLINE_PERSONAL" &&
-            chat.personalId === subject.id
-          ) {
-            return true
+          if (subjectType === "AIRLINE_PERSONAL") {
+            // Проверяем, является ли пассажир участником чата
+            const isParticipant = await prisma.transferChatPersonal.findFirst({
+              where: {
+                chatId: chat.id,
+                personalId: subject.id
+              }
+            })
+            if (isParticipant) {
+              return true
+            }
           }
 
           return false
@@ -965,11 +975,17 @@ const transferResolver = {
           if (subjectType === "DRIVER" && chat.driverId === subject.id) {
             return true
           }
-          if (
-            subjectType === "AIRLINE_PERSONAL" &&
-            chat.personalId === subject.id
-          ) {
-            return true
+          if (subjectType === "AIRLINE_PERSONAL") {
+            // Проверяем, является ли пассажир участником чата
+            const isParticipant = await prisma.transferChatPersonal.findFirst({
+              where: {
+                chatId: chat.id,
+                personalId: subject.id
+              }
+            })
+            if (isParticipant) {
+              return true
+            }
           }
 
           return false
@@ -1055,12 +1071,11 @@ const transferResolver = {
       return null
     },
     personal: async (parent) => {
-      if (parent.personalId) {
-        return await prisma.airlinePersonal.findUnique({
-          where: { id: parent.personalId }
-        })
-      }
-      return null
+      const chatPersonals = await prisma.transferChatPersonal.findMany({
+        where: { chatId: parent.id },
+        include: { personal: true }
+      })
+      return chatPersonals.map((cp) => cp.personal)
     },
     messages: async (parent) => {
       return await prisma.transferMessage.findMany({
@@ -1188,17 +1203,60 @@ async function ensureTransferChats(transfer) {
 
   if (!transferData) return
 
-  const chatTypes = []
+  // Получаем всех пассажиров с их ID
+  const personalIds =
+    transferData.persons
+      ?.map((p) => p.personalId)
+      .filter((id) => id != null) || []
 
-  // DISPATCHER_PERSONAL - создается для каждого пассажира ВСЕГДА
+  // DISPATCHER_PERSONAL - создается один чат для всех пассажиров ВСЕГДА
   // dispatcherId = null означает доступ для всех диспетчеров
-  if (transferData.persons && transferData.persons.length > 0) {
-    for (const passenger of transferData.persons) {
-      if (passenger.personalId) {
-        chatTypes.push({
-          type: "DISPATCHER_PERSONAL",
-          dispatcherId: transferData.dispatcherId || null, // null = доступ всем диспетчерам
-          personalId: passenger.personalId
+  if (personalIds.length > 0) {
+    const existingDispatcherChat = await prisma.transferChat.findUnique({
+      where: {
+        transferId_type: {
+          transferId: transfer.id,
+          type: "DISPATCHER_PERSONAL"
+        }
+      }
+    })
+
+    if (!existingDispatcherChat) {
+      const chatData = {
+        transfer: { connect: { id: transfer.id } },
+        type: "DISPATCHER_PERSONAL",
+        persons: {
+          create: personalIds.map((personalId) => ({
+            personal: { connect: { id: personalId } }
+          }))
+        }
+      }
+
+      // dispatcherId опционален - если null, чат доступен всем диспетчерам
+      if (transferData.dispatcherId) {
+        chatData.dispatcher = { connect: { id: transferData.dispatcherId } }
+      }
+
+      await prisma.transferChat.create({ data: chatData })
+    } else {
+      // Если чат существует, проверяем и добавляем отсутствующих пассажиров
+      const existingPersonalIds = await prisma.transferChatPersonal.findMany({
+        where: { chatId: existingDispatcherChat.id },
+        select: { personalId: true }
+      })
+      const existingIds = new Set(
+        existingPersonalIds.map((ep) => ep.personalId)
+      )
+      const newPersonalIds = personalIds.filter(
+        (id) => !existingIds.has(id)
+      )
+
+      if (newPersonalIds.length > 0) {
+        await prisma.transferChatPersonal.createMany({
+          data: newPersonalIds.map((personalId) => ({
+            chatId: existingDispatcherChat.id,
+            personalId
+          }))
         })
       }
     }
@@ -1206,86 +1264,73 @@ async function ensureTransferChats(transfer) {
 
   // DISPATCHER_DRIVER - если есть и диспетчер, и водитель
   if (transferData.dispatcherId && transferData.driverId) {
-    chatTypes.push({
-      type: "DISPATCHER_DRIVER",
-      dispatcherId: transferData.dispatcherId,
-      driverId: transferData.driverId
-    })
-  }
+    const existingDispatcherDriverChat =
+      await prisma.transferChat.findUnique({
+        where: {
+          transferId_type: {
+            transferId: transfer.id,
+            type: "DISPATCHER_DRIVER"
+          }
+        }
+      })
 
-  // DRIVER_PERSONAL - для каждого пассажира, если есть водитель
-  if (
-    transferData.driverId &&
-    transferData.persons &&
-    transferData.persons.length > 0
-  ) {
-    for (const passenger of transferData.persons) {
-      if (passenger.personalId) {
-        chatTypes.push({
-          type: "DRIVER_PERSONAL",
-          driverId: transferData.driverId,
-          personalId: passenger.personalId
-        })
-      }
+    if (!existingDispatcherDriverChat) {
+      await prisma.transferChat.create({
+        data: {
+          transfer: { connect: { id: transfer.id } },
+          type: "DISPATCHER_DRIVER",
+          dispatcher: { connect: { id: transferData.dispatcherId } },
+          driver: { connect: { id: transferData.driverId } }
+        }
+      })
     }
   }
 
-  // Создаем чаты, которых еще нет
-  for (const chatConfig of chatTypes) {
-    let existing = null
+  // DRIVER_PERSONAL - один чат для всех пассажиров, если есть водитель
+  if (transferData.driverId && personalIds.length > 0) {
+    const existingDriverChat = await prisma.transferChat.findUnique({
+      where: {
+        transferId_type: {
+          transferId: transfer.id,
+          type: "DRIVER_PERSONAL"
+        }
+      }
+    })
 
-    // Для DISPATCHER_PERSONAL и DRIVER_PERSONAL проверяем с personalId
-    if (
-      chatConfig.type === "DISPATCHER_PERSONAL" ||
-      chatConfig.type === "DRIVER_PERSONAL"
-    ) {
-      if (!chatConfig.personalId) continue
-
-      existing = await prisma.transferChat.findUnique({
-        where: {
-          transferId_type_personalId: {
-            transferId: transfer.id,
-            type: chatConfig.type,
-            personalId: chatConfig.personalId
+    if (!existingDriverChat) {
+      await prisma.transferChat.create({
+        data: {
+          transfer: { connect: { id: transfer.id } },
+          type: "DRIVER_PERSONAL",
+          driver: { connect: { id: transferData.driverId } },
+          persons: {
+            create: personalIds.map((personalId) => ({
+              personal: { connect: { id: personalId } }
+            }))
           }
         }
       })
     } else {
-      // Для DISPATCHER_DRIVER ищем чат без personalId
-      // Используем findFirst, так как findUnique не работает с null в составном ключе
-      existing = await prisma.transferChat.findFirst({
-        where: {
-          transferId: transfer.id,
-          type: chatConfig.type,
-          personalId: null
-        }
+      // Если чат существует, проверяем и добавляем отсутствующих пассажиров
+      const existingPersonalIds = await prisma.transferChatPersonal.findMany({
+        where: { chatId: existingDriverChat.id },
+        select: { personalId: true }
       })
-    }
+      const existingIds = new Set(
+        existingPersonalIds.map((ep) => ep.personalId)
+      )
+      const newPersonalIds = personalIds.filter(
+        (id) => !existingIds.has(id)
+      )
 
-    if (!existing) {
-      const chatData = {
-        transfer: { connect: { id: transfer.id } },
-        type: chatConfig.type
+      if (newPersonalIds.length > 0) {
+        await prisma.transferChatPersonal.createMany({
+          data: newPersonalIds.map((personalId) => ({
+            chatId: existingDriverChat.id,
+            personalId
+          }))
+        })
       }
-
-      // Для DISPATCHER_PERSONAL dispatcherId может быть null (доступ всем диспетчерам)
-      if (chatConfig.type === "DISPATCHER_PERSONAL") {
-        if (chatConfig.dispatcherId) {
-          chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
-        }
-        // Если dispatcherId null, не добавляем связь - это означает доступ всем диспетчерам
-      } else if (chatConfig.dispatcherId) {
-        // Для других типов чатов dispatcherId обязателен, если указан
-        chatData.dispatcher = { connect: { id: chatConfig.dispatcherId } }
-      }
-      if (chatConfig.driverId) {
-        chatData.driver = { connect: { id: chatConfig.driverId } }
-      }
-      if (chatConfig.personalId) {
-        chatData.personal = { connect: { id: chatConfig.personalId } }
-      }
-
-      await prisma.transferChat.create({ data: chatData })
     }
   }
 }

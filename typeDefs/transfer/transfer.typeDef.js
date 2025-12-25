@@ -94,9 +94,8 @@ const transferTypeDef = /* GraphQL */ `
     driver: Driver
     # driverId: String
 
-    # В заявке может быть несколько человек, можно сделать связанную модель
-    personal: AirlinePersonal
-    # personalId: String
+    # В заявке может быть несколько человек - массив пассажиров
+    personal: [AirlinePersonal!]!
 
     messages: [TransferMessage!]
   }
@@ -232,7 +231,7 @@ const transferTypeDef = /* GraphQL */ `
     type: TransferChatType!
     dispatcherId: ID
     driverId: ID
-    personalId: ID
+    personalIds: [ID!]!  # массив ID пассажиров
   }
 
   input SendTransferMessageInput {

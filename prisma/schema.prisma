@@ -551,7 +551,7 @@ model AirlinePersonal {
   rating               Float?
   transferPassengers   TransferPassenger[]
   transferReviews      TransferReview[]
-  transferChats        TransferChat[]
+  transferChatPersonals TransferChatPersonal[]
   transferMessages     TransferMessage[]
   transferMessageReads TransferMessageRead[]
 }
@@ -1231,13 +1231,24 @@ model TransferReview {
   @@unique([transferId, authorType]) // по 1 отзыву с каждой стороны
 }
 
+// --- Связка "чат ↔ пассажиры (AirlinePersonal)" для many-to-many связи
+model TransferChatPersonal {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  chat       TransferChat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId     String          @db.ObjectId
+  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  personalId String          @db.ObjectId
+
+  @@unique([chatId, personalId])
+}
+
 // --- Чаты по заявке (ровно три типа на заявку)
 model TransferChat {
-  id         String           @id @default(auto()) @map("_id") @db.ObjectId
-  transfer   Transfer         @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  transferId String           @db.ObjectId
-  type       TransferChatType // DISPATCHER_DRIVER / DISPATCHER_PERSONAL / DRIVER_PERSONAL
-  createdAt  DateTime         @default(now())
+  id         String                  @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer                @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String                  @db.ObjectId
+  type       TransferChatType        // DISPATCHER_DRIVER / DISPATCHER_PERSONAL / DRIVER_PERSONAL
+  createdAt  DateTime                @default(now())
 
   // Участники конкретного чата (фиксированный набор по типу)
   dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
@@ -1245,13 +1256,12 @@ model TransferChat {
   driver       Driver? @relation(fields: [driverId], references: [id])
   driverId     String? @db.ObjectId
 
-  // В заявке может быть несколько человек, можно сделать связанную модель
-  personal   AirlinePersonal? @relation(fields: [personalId], references: [id])
-  personalId String?          @db.ObjectId
+  // В заявке может быть несколько человек - связь many-to-many
+  persons TransferChatPersonal[]
 
   messages TransferMessage[]
 
-  @@unique([transferId, type, personalId]) // уникальность с учетом пассажира для DISPATCHER_PERSONAL и DRIVER_PERSONAL
+  @@unique([transferId, type]) // уникальность по типу чата на трансфер
 }
 
 // --- Сообщения в чатах трансфера с универсальным автором
