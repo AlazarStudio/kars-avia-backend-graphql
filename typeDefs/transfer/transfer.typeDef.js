@@ -222,8 +222,9 @@ const transferTypeDef = /* GraphQL */ `
   }
 
   type TransferConnection {
-    totalCount: Int
     transfers: [Transfer]
+    totalCount: Int
+    totalPages: Int
   }
 
   input CreateTransferChatInput {
