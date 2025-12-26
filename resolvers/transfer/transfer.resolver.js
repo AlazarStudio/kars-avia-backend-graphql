@@ -34,10 +34,6 @@ const transferResolver = {
         throw new Error("Forbidden: airlineId mismatch with current user")
       }
 
-      if (!finalAirlineId) {
-        throw new Error("airlineId is required")
-      }
-
       if (driverId != undefined) {
         whereInput.driverId = driverId
       }
