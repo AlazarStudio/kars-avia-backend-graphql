@@ -61,7 +61,7 @@ const transferResolver = {
           })
 
       const totalCount = await prisma.transfer.count({ where: whereInput })
-      const totalPages = Math.ceil(totalCount / take)
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
       return { transfers, totalCount, totalPages }
     },
