@@ -13,3 +13,4 @@ TRANSFER_CHAT_API.md
 
 # gitignore
 /generated/prisma
+service_account.json

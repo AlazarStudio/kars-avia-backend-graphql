@@ -9,6 +9,7 @@ import {
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
+import { sendNotificationToUsers } from "../../services/infra/fbsendtoken.js"
 
 const transferResolver = {
   Query: {
@@ -431,7 +432,14 @@ const transferResolver = {
       // Проверяем, что чат существует
       const chat = await prisma.transferChat.findUnique({
         where: { id: chatId },
-        include: { transfer: true }
+        include: {
+          transfer: true,
+          persons: {
+            include: {
+              personal: true
+            }
+          }
+        }
       })
 
       if (!chat) {
@@ -550,6 +558,57 @@ const transferResolver = {
         include: { chats: true }
       })
       pubsub.publish(TRANSFER_UPDATED, { transferUpdated: updatedTransfer })
+
+      // Отправляем Firebase уведомления всем участникам чата (кроме отправителя)
+      try {
+        const userIdsToNotify = []
+        const senderId = authorType === "USER" ? senderUserId : null
+        
+        // Добавляем dispatcher (если есть и не является отправителем)
+        if (chat.dispatcherId && chat.dispatcherId !== senderId) {
+          userIdsToNotify.push(chat.dispatcherId)
+        }
+        
+        // Для водителей и пассажиров нужно найти их userId
+        // Если у них нет userId в базе, пропускаем
+        // TODO: Добавить поддержку уведомлений для Driver и AirlinePersonal
+        
+        // Отправляем уведомления только если есть получатели
+        if (userIdsToNotify.length > 0) {
+          const senderName = 
+            authorType === "USER" && message.senderUser
+              ? message.senderUser.name
+              : authorType === "DRIVER" && message.senderDriver
+              ? message.senderDriver.name
+              : authorType === "PERSONAL" && message.senderPersonal
+              ? message.senderPersonal.name
+              : "Пользователь"
+          
+          const transferRoute = chat.transfer
+            ? `${chat.transfer.pickupLocation || ""} → ${chat.transfer.dropoffLocation || ""}`
+            : "Трансфер"
+          
+          await sendNotificationToUsers(
+            userIdsToNotify,
+            "Новое сообщение в чате трансфера",
+            `${senderName}: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`,
+            {
+              type: "transfer_message",
+              chatId: chatId,
+              transferId: chat.transferId,
+              messageId: message.id,
+              senderType: authorType,
+              route: transferRoute
+            }
+          ).catch((error) => {
+            // Логируем ошибку, но не прерываем выполнение
+            console.error("[TRANSFER] Error sending Firebase notification:", error)
+          })
+        }
+      } catch (error) {
+        // Логируем ошибку, но не прерываем выполнение
+        console.error("[TRANSFER] Error in Firebase notification logic:", error)
+      }
 
       return message
     },

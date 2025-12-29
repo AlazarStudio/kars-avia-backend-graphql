@@ -226,6 +226,7 @@ model User {
   transferChats        TransferChat[]
   transferMessages     TransferMessage[]
   transferMessageReads TransferMessageRead[]
+  deviceTokens         device_tokens[]
 }
 
 model PositionOnDepartment {
@@ -255,6 +256,16 @@ model Position {
   // airlineDepartmentId String?            @db.ObjectId
   // hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   // hotelId           String?                @db.ObjectId
+}
+
+model device_tokens {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  platform  String
+  token     String
 }
 
 // Пользователи  ---------------- ↑↑↑↑
