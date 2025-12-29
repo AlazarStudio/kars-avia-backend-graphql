@@ -475,14 +475,14 @@ const transferResolver = {
           )
         }
         // Проверяем, что пользователь является участником чата
-        if (chat.dispatcherId !== senderUserId) {
-          throw new GraphQLError(
-            "Пользователь не является участником этого чата",
-            {
-              extensions: { code: "FORBIDDEN" }
-            }
-          )
-        }
+        // if (chat.dispatcherId !== senderUserId) {
+        //   throw new GraphQLError(
+        //     "Пользователь не является участником этого чата",
+        //     {
+        //       extensions: { code: "FORBIDDEN" }
+        //     }
+        //   )
+        // }
         messageData.senderUser = { connect: { id: senderUserId } }
       } else if (authorType === "DRIVER") {
         if (!senderDriverId) {
@@ -493,11 +493,11 @@ const transferResolver = {
             }
           )
         }
-        if (chat.driverId !== senderDriverId) {
-          throw new GraphQLError("Водитель не является участником этого чата", {
-            extensions: { code: "FORBIDDEN" }
-          })
-        }
+        // if (chat.driverId !== senderDriverId) {
+        //   throw new GraphQLError("Водитель не является участником этого чата", {
+        //     extensions: { code: "FORBIDDEN" }
+        //   })
+        // }
         messageData.senderDriver = { connect: { id: senderDriverId } }
       } else if (authorType === "PERSONAL") {
         if (!senderPersonalId) {
@@ -514,11 +514,11 @@ const transferResolver = {
             personalId: senderPersonalId
           }
         })
-        if (!isParticipant) {
-          throw new GraphQLError("Пассажир не является участником этого чата", {
-            extensions: { code: "FORBIDDEN" }
-          })
-        }
+        // if (!isParticipant) {
+        //   throw new GraphQLError("Пассажир не является участником этого чата", {
+        //     extensions: { code: "FORBIDDEN" }
+        //   })
+        // }
         messageData.senderPersonal = { connect: { id: senderPersonalId } }
       }
 
