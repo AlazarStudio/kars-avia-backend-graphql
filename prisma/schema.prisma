@@ -1,7 +1,7 @@
 generator client {
   // provider = "prisma-client"
-  provider  = "prisma-client-js"
-  output    = "../generated/client"
+  provider = "prisma-client-js"
+  output   = "../generated/client"
   // engineType = "client"
 }
 

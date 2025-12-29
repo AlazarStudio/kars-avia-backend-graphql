@@ -40,7 +40,7 @@ try {
         join(process.cwd(), "serviceAccountKey.json"),
         join(process.cwd(), "services", "service_account.json")
       ]
-      
+
       let serviceAccount = null
       for (const path of possiblePaths) {
         try {
@@ -50,7 +50,9 @@ try {
             firebaseApp = admin.initializeApp({
               credential: admin.credential.cert(serviceAccount)
             })
-            logger.info(`[FIREBASE] Initialized with service account from ${path}`)
+            logger.info(
+              `[FIREBASE] Initialized with service account from ${path}`
+            )
             break
           }
         } catch (e) {
@@ -58,12 +60,17 @@ try {
           continue
         }
       }
-      
+
       if (!firebaseApp) {
-        logger.warn("[FIREBASE] Service account not found. Firebase notifications will be disabled. Use GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON env variable, or place serviceAccountKey.json in the project root.")
+        logger.warn(
+          "[FIREBASE] Service account not found. Firebase notifications will be disabled. Use GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON env variable, or place serviceAccountKey.json in the project root."
+        )
       }
     } catch (error) {
-      logger.warn("[FIREBASE] Error looking for service account file:", error.message)
+      logger.warn(
+        "[FIREBASE] Error looking for service account file:",
+        error.message
+      )
     }
   }
 } catch (error) {
@@ -123,20 +130,25 @@ export const sendToToken = async (token, title, body, data = {}) => {
     return response
   } catch (error) {
     logger.error(`[FIREBASE] Error sending message to token ${token}`, error)
-    
+
     // Если токен недействителен, удаляем его из БД
-    if (error.code === "messaging/invalid-registration-token" || 
-        error.code === "messaging/registration-token-not-registered") {
+    if (
+      error.code === "messaging/invalid-registration-token" ||
+      error.code === "messaging/registration-token-not-registered"
+    ) {
       try {
         await prisma.device_tokens.deleteMany({
           where: { token }
         })
         logger.info(`[FIREBASE] Removed invalid token from database: ${token}`)
       } catch (dbError) {
-        logger.error("[FIREBASE] Error removing invalid token from database", dbError)
+        logger.error(
+          "[FIREBASE] Error removing invalid token from database",
+          dbError
+        )
       }
     }
-    
+
     throw error
   }
 }
@@ -189,16 +201,19 @@ export const sendToTokens = async (tokens, title, body, data = {}) => {
     }
 
     const response = await admin.messaging().sendEachForMulticast(message)
-    logger.info(`[FIREBASE] Multicast message sent. Success: ${response.successCount}, Failure: ${response.failureCount}`)
+    logger.info(
+      `[FIREBASE] Multicast message sent. Success: ${response.successCount}, Failure: ${response.failureCount}`
+    )
 
     // Удаляем недействительные токены
     if (response.failureCount > 0) {
       const invalidTokens = []
       response.responses.forEach((resp, idx) => {
-        if (!resp.success && (
-          resp.error?.code === "messaging/invalid-registration-token" ||
-          resp.error?.code === "messaging/registration-token-not-registered"
-        )) {
+        if (
+          !resp.success &&
+          (resp.error?.code === "messaging/invalid-registration-token" ||
+            resp.error?.code === "messaging/registration-token-not-registered")
+        ) {
           invalidTokens.push(tokens[idx])
         }
       })
@@ -208,9 +223,14 @@ export const sendToTokens = async (tokens, title, body, data = {}) => {
           await prisma.device_tokens.deleteMany({
             where: { token: { in: invalidTokens } }
           })
-          logger.info(`[FIREBASE] Removed ${invalidTokens.length} invalid tokens from database`)
+          logger.info(
+            `[FIREBASE] Removed ${invalidTokens.length} invalid tokens from database`
+          )
         } catch (dbError) {
-          logger.error("[FIREBASE] Error removing invalid tokens from database", dbError)
+          logger.error(
+            "[FIREBASE] Error removing invalid tokens from database",
+            dbError
+          )
         }
       }
     }
@@ -235,7 +255,12 @@ export const sendToTokens = async (tokens, title, body, data = {}) => {
  * @param {object} data - Дополнительные данные
  * @returns {Promise<object>} - Результаты отправки
  */
-export const sendNotificationToUser = async (userId, title, body, data = {}) => {
+export const sendNotificationToUser = async (
+  userId,
+  title,
+  body,
+  data = {}
+) => {
   if (!userId) {
     throw new Error("User ID is required")
   }
@@ -252,12 +277,17 @@ export const sendNotificationToUser = async (userId, title, body, data = {}) => 
       return { successCount: 0, failureCount: 0, responses: [] }
     }
 
-    const tokens = deviceTokens.map(dt => dt.token)
-    logger.info(`[FIREBASE] Sending notification to user ${userId} (${tokens.length} devices)`)
+    const tokens = deviceTokens.map((dt) => dt.token)
+    logger.info(
+      `[FIREBASE] Sending notification to user ${userId} (${tokens.length} devices)`
+    )
 
     return await sendToTokens(tokens, title, body, data)
   } catch (error) {
-    logger.error(`[FIREBASE] Error sending notification to user ${userId}`, error)
+    logger.error(
+      `[FIREBASE] Error sending notification to user ${userId}`,
+      error
+    )
     throw error
   }
 }
@@ -270,7 +300,12 @@ export const sendNotificationToUser = async (userId, title, body, data = {}) => 
  * @param {object} data - Дополнительные данные
  * @returns {Promise<object>} - Результаты отправки
  */
-export const sendNotificationToUsers = async (userIds, title, body, data = {}) => {
+export const sendNotificationToUsers = async (
+  userIds,
+  title,
+  body,
+  data = {}
+) => {
   if (!userIds || userIds.length === 0) {
     logger.warn("[FIREBASE] No user IDs provided")
     return { successCount: 0, failureCount: 0, responses: [] }
@@ -284,12 +319,16 @@ export const sendNotificationToUsers = async (userIds, title, body, data = {}) =
     })
 
     if (deviceTokens.length === 0) {
-      logger.info(`[FIREBASE] No device tokens found for users ${userIds.join(", ")}`)
+      logger.info(
+        `[FIREBASE] No device tokens found for users ${userIds.join(", ")}`
+      )
       return { successCount: 0, failureCount: 0, responses: [] }
     }
 
-    const tokens = deviceTokens.map(dt => dt.token)
-    logger.info(`[FIREBASE] Sending notification to ${userIds.length} users (${tokens.length} devices)`)
+    const tokens = deviceTokens.map((dt) => dt.token)
+    logger.info(
+      `[FIREBASE] Sending notification to ${userIds.length} users (${tokens.length} devices)`
+    )
 
     return await sendToTokens(tokens, title, body, data)
   } catch (error) {
