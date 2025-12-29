@@ -2,11 +2,12 @@ generator client {
   // provider = "prisma-client"
   provider  = "prisma-client-js"
   output    = "../generated/client"
-  ngineType = "client"
+  // engineType = "client"
 }
 
 datasource db {
   provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 //  ---------------- ↓↓↓↓

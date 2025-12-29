@@ -14,6 +14,7 @@ import { sendNotificationToUsers } from "../../services/infra/fbsendtoken.js"
 const transferResolver = {
   Query: {
     transfers: async (_, { pagination }, context) => {
+      const { user } = context
       const {
         skip,
         take,
@@ -22,10 +23,17 @@ const transferResolver = {
         personId,
         dispatcherId,
         organizationId,
-        airlineId
+        airlineId: inputAirlineId
       } = pagination
 
       let whereInput = {}
+
+      const ctxAirlineId = context.user?.airlineId || null
+      let finalAirlineId = ctxAirlineId || inputAirlineId || null
+
+      if (ctxAirlineId && inputAirlineId && ctxAirlineId !== inputAirlineId) {
+        throw new Error("Forbidden: airlineId mismatch with current user")
+      }
 
       if (driverId != undefined) {
         whereInput.driverId = driverId
@@ -39,8 +47,8 @@ const transferResolver = {
       if (organizationId != undefined) {
         whereInput.organizationId = organizationId
       }
-      if (airlineId != undefined) {
-        whereInput.airlineId = airlineId
+      if (finalAirlineId != undefined) {
+        whereInput.airlineId = finalAirlineId
       }
 
       const transfers = all
@@ -54,8 +62,9 @@ const transferResolver = {
           })
 
       const totalCount = await prisma.transfer.count({ where: whereInput })
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
 
-      return { transfers, totalCount }
+      return { transfers, totalCount, totalPages }
     },
     transfer: async (_, { id }) => {
       const transfer = await prisma.transfer.findUnique({
@@ -1264,9 +1273,8 @@ async function ensureTransferChats(transfer) {
 
   // Получаем всех пассажиров с их ID
   const personalIds =
-    transferData.persons
-      ?.map((p) => p.personalId)
-      .filter((id) => id != null) || []
+    transferData.persons?.map((p) => p.personalId).filter((id) => id != null) ||
+    []
 
   // DISPATCHER_PERSONAL - создается один чат для всех пассажиров ВСЕГДА
   // dispatcherId = null означает доступ для всех диспетчеров
@@ -1306,9 +1314,7 @@ async function ensureTransferChats(transfer) {
       const existingIds = new Set(
         existingPersonalIds.map((ep) => ep.personalId)
       )
-      const newPersonalIds = personalIds.filter(
-        (id) => !existingIds.has(id)
-      )
+      const newPersonalIds = personalIds.filter((id) => !existingIds.has(id))
 
       if (newPersonalIds.length > 0) {
         await prisma.transferChatPersonal.createMany({
@@ -1323,15 +1329,14 @@ async function ensureTransferChats(transfer) {
 
   // DISPATCHER_DRIVER - если есть и диспетчер, и водитель
   if (transferData.dispatcherId && transferData.driverId) {
-    const existingDispatcherDriverChat =
-      await prisma.transferChat.findUnique({
-        where: {
-          transferId_type: {
-            transferId: transfer.id,
-            type: "DISPATCHER_DRIVER"
-          }
+    const existingDispatcherDriverChat = await prisma.transferChat.findUnique({
+      where: {
+        transferId_type: {
+          transferId: transfer.id,
+          type: "DISPATCHER_DRIVER"
         }
-      })
+      }
+    })
 
     if (!existingDispatcherDriverChat) {
       await prisma.transferChat.create({
@@ -1378,9 +1383,7 @@ async function ensureTransferChats(transfer) {
       const existingIds = new Set(
         existingPersonalIds.map((ep) => ep.personalId)
       )
-      const newPersonalIds = personalIds.filter(
-        (id) => !existingIds.has(id)
-      )
+      const newPersonalIds = personalIds.filter((id) => !existingIds.has(id))
 
       if (newPersonalIds.length > 0) {
         await prisma.transferChatPersonal.createMany({
