@@ -705,6 +705,15 @@ const requestResolver = {
 
         let mealPlanData = request.mealPlan
 
+        if (input.hotelId != undefined) {
+          console.log("hotelId" + input.hotelId)
+          if (request.hotelChess && request.hotelChess.length != 0) {
+            await prisma.hotelChess.delete({
+              where: { id: request.hotelChess[0].id }
+            })
+          }
+        }
+
         if (request.hotelChess && request.hotelChess.length != 0) {
           await ensureNoOverlap(
             request.hotelChess[0].roomId,
