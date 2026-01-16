@@ -60,8 +60,32 @@ const buildTargetDir = ({ bucket, entityId, fileAbsPath }) => {
   return path.join(...parts)
 }
 
-const replaceInArray = (arr, oldPath, newPath) =>
-  arr?.map((p) => (p === oldPath ? newPath : p))
+const normalizeUploadPath = (value) => {
+  if (!value) return value
+  const normalized = value.replace(/\\/g, "/")
+  let idx = normalized.indexOf("/uploads/")
+  if (idx === -1) idx = normalized.indexOf("uploads/")
+  if (idx === -1) return normalized
+  let sub = normalized.slice(idx)
+  if (!sub.startsWith("/")) sub = `/${sub}`
+  return sub
+}
+
+const buildOldVariants = (oldPath) => {
+  const normalized = normalizeUploadPath(oldPath) || oldPath
+  const noLeading = normalized?.replace(/^\/+/, "")
+  return Array.from(new Set([oldPath, normalized, noLeading])).filter(Boolean)
+}
+
+const replaceInArray = (arr, oldVariants, newPath) =>
+  arr?.map((p) => {
+    if (!p) return p
+    for (const oldPath of oldVariants) {
+      if (p === oldPath) return newPath
+      if (p.includes(oldPath)) return p.replace(oldPath, newPath)
+    }
+    return p
+  })
 
 /* =========================
    🔍 FILE CLASSIFICATION
@@ -134,16 +158,24 @@ const updateDatabaseLinks = async () => {
       if (!model) continue
 
       for (const field of target.fields) {
+        const oldVariants = buildOldVariants(item.old)
         const records = await model.findMany({
-          where: { [field]: { has: item.old } },
+          where: { [field]: { hasSome: oldVariants } },
           select: { id: true, [field]: true }
         })
 
         for (const rec of records) {
+          const updatedField = replaceInArray(rec[field], oldVariants, item.new)
+          if (
+            !updatedField ||
+            JSON.stringify(updatedField) === JSON.stringify(rec[field])
+          )
+            continue
+
           await model.update({
             where: { id: rec.id },
             data: {
-              [field]: replaceInArray(rec[field], item.old, item.new)
+              [field]: updatedField
             }
           })
           updated++
