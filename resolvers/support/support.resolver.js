@@ -6,6 +6,15 @@ import { deleteImage, uploadImage } from "../../services/files/uploadImage.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 import { pubsub } from "../../services/infra/pubsub.js"
 import {
+  buildDocumentationTree,
+  sanitizeTreeInput
+} from "../../services/support/documentationTree.js"
+import {
+  dedupe,
+  fetchSubtreeByRoot,
+  getDescendantIds
+} from "../../services/support/documentationUtils.js"
+import {
   allMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -668,91 +677,6 @@ const supportResolver = {
         }
       })
     }
-  }
-}
-
-function dedupe(arr) {
-  return Array.from(new Set(arr.filter(Boolean)))
-}
-
-// Забираем всё поддерево под корнем id (плоским списком)
-async function fetchSubtreeByRoot(rootId) {
-  const out = []
-  const queue = [rootId]
-
-  while (queue.length) {
-    const parentId = queue.shift()
-    const kids = await prisma.documentation.findMany({
-      where: { parentId },
-      select: { id: true, parentId: true, clientKey: true, images: true }
-    })
-    out.push(...kids)
-    for (const k of kids) queue.push(k.id)
-  }
-
-  return out
-}
-
-// рекурсивно получаем всех потомков
-async function getDescendantIds(id) {
-  const children = await prisma.documentation.findMany({
-    where: { parentId: id }
-  })
-  let ids = children.map((c) => c.id)
-  for (const child of children) {
-    const childDescendants = await getDescendantIds(child.id)
-    ids = ids.concat(childDescendants)
-  }
-  return ids
-}
-
-async function buildDocumentationTree(id) {
-  const rootDoc = await prisma.documentation.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      parentId: true,
-      name: true,
-      description: true,
-      type: true,
-      order: true,
-      files: true,
-      images: true
-    }
-  })
-
-  if (!rootDoc) return null
-
-  const children = await prisma.documentation.findMany({
-    where: { parentId: rootDoc.id },
-    select: {
-      id: true,
-      parentId: true,
-      name: true,
-      description: true,
-      type: true,
-      order: true,
-      files: true,
-      images: true
-    },
-    orderBy: { order: "asc" }
-  })
-
-  const childrenTree = await Promise.all(
-    children.map((child) => buildDocumentationTree(child.id))
-  )
-
-  return { ...rootDoc, children: childrenTree }
-}
-
-function sanitizeTreeInput(node) {
-  if (!node || typeof node !== "object") return {}
-  const { images, files, children, ...rest } = node // Вырезаем files/images из input
-  return {
-    ...rest,
-    ...(Array.isArray(children) && children.length > 0
-      ? { children: { create: children.map(sanitizeTreeInput) } }
-      : {})
   }
 }
 

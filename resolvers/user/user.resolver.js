@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from "uuid"
 import { pubsub, USER_CREATED, USER_ONLINE } from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
+import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
 import { logger } from "../../services/infra/logger.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
@@ -837,26 +838,6 @@ const userResolver = {
       return null
     }
   }
-}
-
-// Функция для отправки письма восстановления пароля.
-// Формируется ссылка для сброса пароля, которая действительна в течение 1 часа.
-const sendResetPasswordEmail = async (userEmail, token) => {
-  // Ссылка для сброса пароля (замените домен на нужный)
-  const resetLink = `https://karsavia.ru/reset-password?token=${token}`
-  // const resetLink = `http://192.168.0.16:5173/reset-password?token=${token}`
-
-  const mailOptions = {
-    // from: `${process.env.EMAIL_USER}`,
-    to: userEmail,
-    subject: "Восстановление пароля",
-    html: `<p>Чтобы сбросить пароль, перейдите по ссылке: <a href="${resetLink}">${resetLink}</a></p>
-           <p>Ссылка действительна в течение 1 часа.</p>`
-  }
-
-  // Отправка письма через настроенный транспортёр
-  // await transporter.sendMail(mailOptions)
-  await sendEmail(mailOptions)
 }
 
 export default userResolver

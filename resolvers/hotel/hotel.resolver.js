@@ -25,6 +25,11 @@ import { sendEmail } from "../../services/sendMail.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
+import {
+  calculatePlaces,
+  updateHotelRoomCounts,
+  updateRoomKindCounts
+} from "../../services/hotel/roomUtils.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -36,27 +41,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD
   }
 })
-
-// Объект для сопоставления текстового названия категории с числовым значением мест
-const categoryToPlaces = {
-  apartment: 2,
-  studio: 2,
-  luxe: 2,
-  onePlace: 1,
-  twoPlace: 2,
-  threePlace: 3,
-  fourPlace: 4,
-  fivePlace: 5,
-  sixPlace: 6,
-  sevenPlace: 7,
-  eightPlace: 8,
-  ninePlace: 9,
-  tenPlace: 10
-}
-
-// Функция для расчёта количества мест по заданной категории.
-// Если категория не найдена, возвращается 1
-const calculatePlaces = (category) => categoryToPlaces[category] || 1
 
 // Основной объект-резольвер для работы с отелями
 const hotelResolver = {
@@ -1368,54 +1352,6 @@ const hotelResolver = {
       })
     }
   }
-}
-
-// Вспомогательная функция для обновления количества резервных (provision) и квотных (quote) комнат отеля.
-// Производится подсчёт комнат с параметром reserve (true/false) и обновление соответствующих полей в отеле.
-const updateHotelRoomCounts = async (hotelId) => {
-  // Подсчёт резервных комнат
-  const provisionCount = await prisma.room.count({
-    where: {
-      hotelId,
-      reserve: true
-    }
-  })
-
-  // Подсчёт квотных комнат
-  const quoteCount = await prisma.room.count({
-    where: {
-      hotelId,
-      reserve: false
-    }
-  })
-
-  // Обновляем поля отеля с новыми значениями подсчетов
-  const updatedHotel = await prisma.hotel.update({
-    where: { id: hotelId },
-    data: {
-      provision: provisionCount,
-      quote: quoteCount
-    }
-  })
-
-  return updatedHotel
-}
-
-// Вспомогательная функция для обновления количества резервных (provision) и квотных (quote) комнат отеля.
-// Производится подсчёт комнат с параметром reserve (true/false) и обновление соответствующих полей в отеле.
-const updateRoomKindCounts = async (roomKindId) => {
-  // Подсчёт комнат в тарифе
-  const roomsCount = await prisma.room.count({
-    where: { roomKindId }
-  })
-
-  // Обновляем поля отеля с новыми значениями подсчетов
-  const updatedRoomKind = await prisma.roomKind.update({
-    where: { id: roomKindId },
-    data: { roomsCount }
-  })
-
-  return updatedRoomKind
 }
 
 export default hotelResolver

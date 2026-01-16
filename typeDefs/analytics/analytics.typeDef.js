@@ -27,6 +27,20 @@ const analyticsTypeDef = /* GraphQL */ `
     cancelledRequests: Int
   }
 
+  type UserShort {
+    id: ID!
+    name: String
+  }
+
+  type PersonStaySummary {
+    personId: ID!
+    personName: String
+    personPosition: String
+    totalDays: Int
+    createdBy: [UserShort]
+    postedBy: [UserShort]
+  }
+
   type PeriodCount {
     date: String
     count_created: Int
@@ -59,6 +73,7 @@ const analyticsTypeDef = /* GraphQL */ `
   type Query {
     analyticsEntityRequests(input: AnalyticsInput): Analytics
     analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
+    analyticsPersonStaySummary(input: AnalyticsInput): [PersonStaySummary!]!
   }
 `
 

@@ -1,36 +1,9 @@
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
-
-function resolveUserId(context, inputCreatedById) {
-  return (
-    inputCreatedById ||
-    context.currentUser?.id ||
-    context.user?.id ||
-    context.userId
-  )
-}
-
-function updateTimes(prev, status) {HTMLFieldSetElement;
-  const now = new Date()
-  const times = { ...(prev || {}) }
-
-  switch (status) {
-    case "ACCEPTED":
-      if (!times.acceptedAt) times.acceptedAt = now
-      break
-    case "IN_PROGRESS":
-      if (!times.inProgressAt) times.inProgressAt = now
-      break
-    case "COMPLETED":
-      if (!times.finishedAt) times.finishedAt = now
-      break
-    case "CANCELLED":
-      if (!times.cancelledAt) times.cancelledAt = now
-      break
-  }
-
-  return times
-}
+import {
+  resolveUserId,
+  updateTimes
+} from "../../services/passengerRequest/utils.js"
 
 const passengerRequestResolvers = {
   // --------- поля связей ---------
