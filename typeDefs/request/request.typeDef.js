@@ -73,6 +73,8 @@ const requestTypeDef = /* GraphQL */ `
     roomCategory: String
     mealPlan: MealPlanInput
     hotelId: ID
+    roomId: ID
+    place: Float
     status: String
   }
 

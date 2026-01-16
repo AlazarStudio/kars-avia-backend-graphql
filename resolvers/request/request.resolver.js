@@ -564,6 +564,7 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
+        const { roomId, place, ...requestInput } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
@@ -577,6 +578,25 @@ const requestResolver = {
           }
         })
         if (!request) throw new Error("Request not found")
+
+        const now = new Date()
+        const updatedStart = newStart ? newStart : request.arrival
+        const updatedEnd = newEnd ? newEnd : request.departure
+
+        if (updatedEnd < updatedStart) {
+          throw new Error(
+            "the end of an Request cannot be before its beginning"
+          )
+        }
+
+        const wantsPlacement = roomId != null
+        const isHotelChange =
+          requestInput.hotelId != null &&
+          requestInput.hotelId !== request.hotelId
+
+        if (isHotelChange && request.arrival <= now) {
+          throw new Error("Нельзя изменить отель после даты заселения")
+        }
 
         if (input.personId) {
           await prisma.request.update({
@@ -688,15 +708,6 @@ const requestResolver = {
           return request
         }
 
-        const updatedStart = newStart ? newStart : request.arrival
-        const updatedEnd = newEnd ? newEnd : request.departure
-
-        if (updatedEnd < updatedStart) {
-          throw new Error(
-            "the end of an Request cannot be before its beginning"
-          )
-        }
-
         const enabledMeals = {
           breakfast: request.mealPlan?.breakfastEnabled,
           lunch: request.mealPlan?.lunchEnabled,
@@ -705,7 +716,12 @@ const requestResolver = {
 
         let mealPlanData = request.mealPlan
 
-        if (request.hotelChess && request.hotelChess.length != 0) {
+        if (
+          request.hotelChess &&
+          request.hotelChess.length != 0 &&
+          !wantsPlacement &&
+          !isHotelChange
+        ) {
           await ensureNoOverlap(
             request.hotelChess[0].roomId,
             request.hotelChess[0].place,
@@ -757,12 +773,112 @@ const requestResolver = {
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
         }
 
-        if (input.hotelId != undefined) {
-          if (request.hotelChess && request.hotelChess.length != 0) {
-            await prisma.hotelChess.delete({
-              where: { id: request.hotelChess[0].id }
-            })
+        let placementHotelId = request.hotelId
+        let placementRoom = null
+        let placementPlace = null
+        let shouldRemoveHotelChess = false
+
+        if (wantsPlacement) {
+          placementRoom = await prisma.room.findUnique({
+            where: { id: roomId },
+            select: {
+              id: true,
+              hotelId: true,
+              name: true,
+              category: true,
+              places: true
+            }
+          })
+          if (!placementRoom) {
+            throw new Error("Room not found")
           }
+
+          if (
+            requestInput.hotelId &&
+            requestInput.hotelId !== placementRoom.hotelId
+          ) {
+            throw new Error("Номер не относится к указанному отелю")
+          }
+
+          if (
+            request.arrival <= now &&
+            placementRoom.hotelId !== request.hotelId
+          ) {
+            throw new Error("Нельзя изменить отель после даты заселения")
+          }
+
+          placementHotelId = placementRoom.hotelId
+          placementPlace = await resolveAvailablePlace(
+            placementRoom,
+            updatedStart,
+            updatedEnd,
+            place,
+            request.hotelChess?.[0]?.id
+          )
+          shouldRemoveHotelChess = true
+        } else if (requestInput.hotelId != null) {
+          shouldRemoveHotelChess = true
+          placementHotelId = requestInput.hotelId
+        }
+
+        if (shouldRemoveHotelChess && request.hotelChess?.length) {
+          await prisma.hotelChess.delete({
+            where: { id: request.hotelChess[0].id }
+          })
+        }
+
+        if (wantsPlacement) {
+          const hotel = await prisma.hotel.findUnique({
+            where: { id: placementHotelId },
+            select: {
+              breakfast: true,
+              lunch: true,
+              dinner: true,
+              name: true
+            }
+          })
+
+          if (!hotel) {
+            throw new Error("Hotel not found")
+          }
+
+          const mealTimes = {
+            breakfast: hotel.breakfast,
+            lunch: hotel.lunch,
+            dinner: hotel.dinner
+          }
+
+          const calculatedMealPlan = calculateMeal(
+            updatedStart,
+            updatedEnd,
+            mealTimes,
+            enabledMeals
+          )
+
+          mealPlanData = {
+            included: request.mealPlan?.included,
+            breakfast: calculatedMealPlan.totalBreakfast,
+            breakfastEnabled: enabledMeals.breakfast,
+            lunch: calculatedMealPlan.totalLunch,
+            lunchEnabled: enabledMeals.lunch,
+            dinner: calculatedMealPlan.totalDinner,
+            dinnerEnabled: enabledMeals.dinner,
+            dailyMeals: calculatedMealPlan.dailyMeals
+          }
+
+          const newHotelChess = await prisma.hotelChess.create({
+            data: {
+              hotel: { connect: { id: placementHotelId } },
+              room: { connect: { id: placementRoom.id } },
+              place: placementPlace,
+              start: updatedStart,
+              end: updatedEnd,
+              request: { connect: { id: requestId } },
+              mealPlan: mealPlanData
+            }
+          })
+
+          pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
         }
 
         const updatedRequest = await prisma.request.update({
@@ -771,8 +887,25 @@ const requestResolver = {
             arrival: updatedStart,
             departure: updatedEnd,
             mealPlan: mealPlanData,
-            status: status,
-            ...input
+            status: wantsPlacement ? "done" : status,
+            ...requestInput,
+            ...(wantsPlacement
+              ? {
+                  hotelId: placementHotelId,
+                  roomCategory: placementRoom?.category || null,
+                  roomNumber: placementRoom?.name || null,
+                  placementAt: formattedTime,
+                  posted: { connect: { id: user.id } }
+                }
+              : {}),
+            ...(isHotelChange && !wantsPlacement
+              ? {
+                  roomCategory: null,
+                  roomNumber: null,
+                  placementAt: null,
+                  posted: { disconnect: true }
+                }
+              : {})
           },
           include: {
             hotelChess: true,
@@ -1379,6 +1512,57 @@ const requestResolver = {
       return { totalCount, totalPages, logs }
     }
   }
+}
+
+const getOverlappingPlaces = async (roomId, start, end, excludeId) => {
+  return await prisma.hotelChess.findMany({
+    where: {
+      roomId,
+      start: { lt: end },
+      end: { gt: start },
+      ...(excludeId ? { id: { not: excludeId } } : {})
+    },
+    select: { place: true }
+  })
+}
+
+const resolveAvailablePlace = async (
+  room,
+  start,
+  end,
+  requestedPlace,
+  excludeId
+) => {
+  const overlaps = await getOverlappingPlaces(room.id, start, end, excludeId)
+
+  if (requestedPlace != null) {
+    const requested = Number(requestedPlace)
+    const occupied = overlaps.some((item) => Number(item.place) === requested)
+    if (occupied) {
+      throw new Error("Невозможно разместить заявку: выбранное место занято")
+    }
+    return requested
+  }
+
+  const totalPlaces = Math.max(1, Math.floor(Number(room.places) || 1))
+  const hasWholeRoomOccupancy = overlaps.some((item) => item.place == null)
+  if (hasWholeRoomOccupancy) {
+    throw new Error("Невозможно разместить заявку: номер занят")
+  }
+
+  const usedPlaces = new Set(
+    overlaps
+      .map((item) => Number(item.place))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  )
+
+  for (let place = 1; place <= totalPlaces; place += 1) {
+    if (!usedPlaces.has(place)) {
+      return place
+    }
+  }
+
+  throw new Error("Невозможно разместить заявку: свободных мест нет")
 }
 
 export default requestResolver
