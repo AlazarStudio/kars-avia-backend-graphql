@@ -11,7 +11,8 @@ import {
   airlineAdminMiddleware,
   allMiddleware,
   hotelAdminMiddleware,
-  superAdminMiddleware
+  superAdminMiddleware,
+  dispatcherOrSuperAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
@@ -451,7 +452,8 @@ const userResolver = {
         positionId,
         hotelId,
         airlineId,
-        airlineDepartmentId
+        airlineDepartmentId,
+        dispatcherDepartmentId
       } = input
       // Если обновляет не сам пользователь, разрешено только админам
       if (context.user.id !== id && (await adminHotelAirMiddleware(context))) {
@@ -459,6 +461,29 @@ const userResolver = {
       }
       // Получаем текущие данные пользователя из базы
       const currentUser = await prisma.user.findUnique({ where: { id } })
+      
+      // Проверка прав доступа для изменения отдела диспетчера
+      if (dispatcherDepartmentId !== undefined) {
+        await dispatcherOrSuperAdminMiddleware(context)
+        
+        // Проверяем, что пользователь, которому назначается отдел, является диспетчером или суперадмином
+        if (currentUser.role !== "SUPERADMIN" && currentUser.dispatcher !== true) {
+          throw new Error(
+            "Пользователь должен быть диспетчером или суперадмином для назначения в отдел диспетчеров"
+          )
+        }
+        
+        // Если отдел указан, проверяем его существование
+        if (dispatcherDepartmentId !== null) {
+          const department = await prisma.dispatcherDepartment.findUnique({
+            where: { id: dispatcherDepartmentId }
+          })
+          if (!department || !department.active) {
+            throw new Error("Отдел диспетчеров не найден или неактивен")
+          }
+        }
+      }
+      
       // Формируем объект обновления, добавляя только те поля, которые заданы
       const updatedData = {}
       if (name !== undefined) updatedData.name = name
@@ -477,6 +502,8 @@ const userResolver = {
       if (airlineId !== undefined) updatedData.airlineId = airlineId
       if (airlineDepartmentId !== undefined)
         updatedData.airlineDepartmentId = airlineDepartmentId
+      if (dispatcherDepartmentId !== undefined)
+        updatedData.dispatcherDepartmentId = dispatcherDepartmentId
 
       // Обработка загрузки новых изображений
       if (images && images.length > 0) {

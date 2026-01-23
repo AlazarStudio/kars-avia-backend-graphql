@@ -162,6 +162,7 @@ const userTypeDef = /* GraphQL */ `
     hotelId: ID
     airlineId: ID
     airlineDepartmentId: ID
+    dispatcherDepartmentId: ID
   }
 
   input TwoFAMethodInput {
