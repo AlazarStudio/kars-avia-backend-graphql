@@ -218,8 +218,34 @@ const userResolver = {
         hotelId,
         airlineId,
         dispatcher,
-        airlineDepartmentId
+        airlineDepartmentId,
+        dispatcherDepartmentId
       } = input
+      
+      // Проверка прав доступа для назначения отдела диспетчера
+      if (dispatcherDepartmentId !== undefined && dispatcherDepartmentId !== null) {
+        await dispatcherOrSuperAdminMiddleware(context)
+        
+        // Проверяем, что пользователь будет диспетчером или суперадмином
+        const finalRole = role || "USER"
+        const isDispatcher = dispatcher === true
+        const isSuperAdmin = finalRole === "SUPERADMIN"
+        
+        if (!isSuperAdmin && !isDispatcher) {
+          throw new Error(
+            "Пользователь должен быть диспетчером (dispatcher = true) или суперадмином для назначения в отдел диспетчеров"
+          )
+        }
+        
+        // Проверяем существование и активность отдела
+        const department = await prisma.dispatcherDepartment.findUnique({
+          where: { id: dispatcherDepartmentId }
+        })
+        if (!department || !department.active) {
+          throw new Error("Отдел диспетчеров не найден или неактивен")
+        }
+      }
+      
       // Хэширование пароля с помощью argon2
       const hashedPassword = await argon2.hash(password)
 
@@ -271,6 +297,7 @@ const userResolver = {
         positionId,
         dispatcher: dispatcher || false,
         airlineDepartmentId: airlineDepartmentId || null,
+        dispatcherDepartmentId: dispatcherDepartmentId || null,
         images: imagePaths
       }
 

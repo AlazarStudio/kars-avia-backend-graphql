@@ -146,6 +146,7 @@ const userTypeDef = /* GraphQL */ `
     airlineId: ID
     dispatcher: Boolean
     airlineDepartmentId: ID
+    dispatcherDepartmentId: ID
   }
 
   input UpdateUserInput {
