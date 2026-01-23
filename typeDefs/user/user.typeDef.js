@@ -49,6 +49,8 @@ const userTypeDef = /* GraphQL */ `
     twoFAMethod: TwoFAMethod
     airlineDepartmentId: ID
     airlineDepartment: AirlineDepartment
+    dispatcherDepartmentId: ID
+    dispatcherDepartment: DispatcherDepartment
     support: Boolean
     active: Boolean
     refreshToken: String
