@@ -3,12 +3,15 @@ import {
   pubsub,
   COMPANY_CHANGED,
   PRICECATEGORY_CHANGED,
-  NOTIFICATION
+  NOTIFICATION,
+  DISPATCHER_DEPARTMENT_CREATED,
+  DISPATCHER_DEPARTMENT_UPDATED
 } from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
-  superAdminMiddleware
+  superAdminMiddleware,
+  dispatcherOrSuperAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 
@@ -170,6 +173,41 @@ const dispatcherResolver = {
     getPosition: async (_, { id }, context) => {
       await allMiddleware(context)
       return await prisma.position.findUnique({ where: { id } })
+    },
+    dispatcherDepartments: async (_, { pagination }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context)
+      const { skip, take, all } = pagination || {}
+      const totalCount = await prisma.dispatcherDepartment.count({
+        where: { active: true }
+      })
+      const departments = all
+        ? await prisma.dispatcherDepartment.findMany({
+            where: { active: true },
+            include: {
+              dispatchers: true
+            },
+            orderBy: { name: "asc" }
+          })
+        : await prisma.dispatcherDepartment.findMany({
+            where: { active: true },
+            skip: skip ? skip * take : undefined,
+            take: take || undefined,
+            include: {
+              dispatchers: true
+            },
+            orderBy: { name: "asc" }
+          })
+      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
+      return { departments, totalCount, totalPages }
+    },
+    dispatcherDepartment: async (_, { id }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context)
+      return await prisma.dispatcherDepartment.findUnique({
+        where: { id },
+        include: {
+          dispatchers: true
+        }
+      })
     }
   },
   Mutation: {
@@ -296,6 +334,146 @@ const dispatcherResolver = {
         }
       })
       return position
+    },
+    createDispatcherDepartment: async (_, { input }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context)
+      const { dispatcherIds, ...restInput } = input
+
+      // Проверяем, что все пользователи являются диспетчерами или суперадминами
+      if (dispatcherIds && dispatcherIds.length > 0) {
+        const users = await prisma.user.findMany({
+          where: {
+            id: { in: dispatcherIds }
+          },
+          select: {
+            id: true,
+            dispatcher: true,
+            role: true
+          }
+        })
+
+        const invalidUsers = users.filter(
+          (user) => user.role !== "SUPERADMIN" && user.dispatcher !== true
+        )
+
+        if (invalidUsers.length > 0) {
+          throw new GraphQLError(
+            `Пользователи с ID ${invalidUsers.map((u) => u.id).join(", ")} не являются диспетчерами или суперадминами`,
+            {
+              extensions: { code: "FORBIDDEN" }
+            }
+          )
+        }
+      }
+
+      const department = await prisma.dispatcherDepartment.create({
+        data: {
+          ...restInput,
+          dispatchers: dispatcherIds
+            ? {
+                connect: dispatcherIds.map((id) => ({ id }))
+              }
+            : undefined
+        },
+        include: {
+          dispatchers: true
+        }
+      })
+
+      pubsub.publish(DISPATCHER_DEPARTMENT_CREATED, {
+        dispatcherDepartmentCreated: department
+      })
+
+      return department
+    },
+    updateDispatcherDepartment: async (_, { id, input }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context)
+      const { dispatcherIds, ...restInput } = input
+
+      // Проверяем, что все пользователи являются диспетчерами или суперадминами
+      if (dispatcherIds && dispatcherIds.length > 0) {
+        const users = await prisma.user.findMany({
+          where: {
+            id: { in: dispatcherIds }
+          },
+          select: {
+            id: true,
+            dispatcher: true,
+            role: true
+          }
+        })
+
+        const invalidUsers = users.filter(
+          (user) => user.role !== "SUPERADMIN" && user.dispatcher !== true
+        )
+
+        if (invalidUsers.length > 0) {
+          throw new GraphQLError(
+            `Пользователи с ID ${invalidUsers.map((u) => u.id).join(", ")} не являются диспетчерами или суперадминами`,
+            {
+              extensions: { code: "FORBIDDEN" }
+            }
+          )
+        }
+      }
+
+      const updateData = {
+        ...restInput
+      }
+
+      if (dispatcherIds !== undefined) {
+        // Получаем текущих диспетчеров отдела
+        const currentDepartment = await prisma.dispatcherDepartment.findUnique({
+          where: { id },
+          select: {
+            dispatchers: {
+              select: { id: true }
+            }
+          }
+        })
+
+        const currentIds = currentDepartment?.dispatchers.map((d) => d.id) || []
+        const newIds = dispatcherIds
+
+        // Вычисляем какие id нужно добавить, а какие убрать
+        const toConnect = newIds.filter((id) => !currentIds.includes(id))
+        const toDisconnect = currentIds.filter((id) => !newIds.includes(id))
+
+        updateData.dispatchers = {
+          connect: toConnect.map((userId) => ({ id: userId })),
+          disconnect: toDisconnect.map((userId) => ({ id: userId }))
+        }
+      }
+
+      const department = await prisma.dispatcherDepartment.update({
+        where: { id },
+        data: updateData,
+        include: {
+          dispatchers: true
+        }
+      })
+
+      pubsub.publish(DISPATCHER_DEPARTMENT_UPDATED, {
+        dispatcherDepartmentUpdated: department
+      })
+
+      return department
+    },
+    deleteDispatcherDepartment: async (_, { id }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context)
+      const department = await prisma.dispatcherDepartment.update({
+        where: { id },
+        data: { active: false },
+        include: {
+          dispatchers: true
+        }
+      })
+
+      pubsub.publish(DISPATCHER_DEPARTMENT_UPDATED, {
+        dispatcherDepartmentUpdated: department
+      })
+
+      return department
     }
     // allDataUpdate: async (_, {}, context) => {
     //   await superAdminMiddleware(context)
@@ -379,6 +557,32 @@ const dispatcherResolver = {
           }
 
           return false
+        }
+      )
+    },
+    dispatcherDepartmentCreated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят создание отделов
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
+        }
+      )
+    },
+    dispatcherDepartmentUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // Только SUPERADMIN и диспетчеры видят обновление отделов
+          return subject.role === "SUPERADMIN" || subject.dispatcher === true
         }
       )
     }

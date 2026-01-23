@@ -177,6 +177,34 @@ export const allMiddleware = async (context) => {
   ])
 }
 
+// Middleware для проверки прав диспетчеров и суперадминов
+export const dispatcherOrSuperAdminMiddleware = async (context) => {
+  const { subject, subjectType } = context
+
+  if (!subject || subjectType !== "USER") {
+    throw new GraphQLError("Access forbidden: No auth subject provided.", {
+      extensions: { code: "UNAUTHORIZED" }
+    })
+  }
+
+  const isSuperAdmin = subject.role === "SUPERADMIN"
+  const isDispatcher = subject.dispatcher === true
+
+  if (!isSuperAdmin && !isDispatcher) {
+    throw new GraphQLError("Access forbidden: Only dispatchers and superadmins allowed.", {
+      extensions: { code: "FORBIDDEN" }
+    })
+  }
+
+  // lastSeen — только для USER
+  await prisma.user.update({
+    where: { id: subject.id },
+    data: { lastSeen: new Date() }
+  })
+
+  return true
+}
+
 // ----------------------------------------------------------------
 
 export default authMiddleware

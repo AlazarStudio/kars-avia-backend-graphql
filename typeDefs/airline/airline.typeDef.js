@@ -37,6 +37,8 @@ const airlineTypeDef = /* GraphQL */ `
     name: String
     email: String
     password: String
+    refreshToken: String
+    fingerprint: String
     number: String
     position: Position
     gender: String

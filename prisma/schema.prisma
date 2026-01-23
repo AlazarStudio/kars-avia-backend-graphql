@@ -182,52 +182,67 @@ type Information {
 // Пользователи  ---------------- ↓↓↓↓
 
 model User {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  lastSeen             DateTime?
-  name                 String
-  email                String                @unique
-  number               String?
-  login                String                @unique
-  password             String
-  images               String[]
-  role                 Role
+  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  lastSeen               DateTime?
+  name                   String
+  email                  String                @unique
+  number                 String?
+  login                  String                @unique
+  password               String
+  images                 String[]
+  role                   Role
   // position             String?
-  sender               Request[]             @relation(name: "sender")
-  receiver             Request[]             @relation(name: "receiver")
-  reserve              Reserve[]
-  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId            String?               @db.ObjectId
-  airlineDepartment    AirlineDepartment?    @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
-  airlineDepartmentId  String?               @db.ObjectId
-  hotel                Hotel?                @relation(fields: [hotelId], references: [id], onDelete: NoAction)
-  hotelId              String?               @db.ObjectId
-  chats                ChatUser[]
-  messageSender        Message[]             @relation(name: "messageSender")
-  messageReceiver      Message[]             @relation(name: "messageReceiver")
-  logs                 Log[]
-  dispatcher           Boolean?              @default(false)
-  support              Boolean?              @default(false)
-  refreshToken         String?
-  fingerprint          String?
-  is2FAEnabled         Boolean               @default(false)
-  twoFASecret          String?
-  twoFAMethod          TwoFAMethod?
-  messageRead          MessageRead[]
-  NotificationRead     NotificationRead[]
-  resetPasswordToken   String? // для хранения токена восстановления
-  resetPasswordExpires DateTime? // срок действия токена
-  active               Boolean               @default(true)
-  position             Position?             @relation(fields: [positionId], references: [id])
-  positionId           String?               @db.ObjectId
-  postedRequests       Request[]             @relation(name: "posted")
-  passengerRequests    PassengerRequest[]
-  transfers            Transfer[]
-  transferChats        TransferChat[]
-  transferMessages     TransferMessage[]
-  transferMessageReads TransferMessageRead[]
-  deviceTokens         device_tokens[]
+  sender                 Request[]             @relation(name: "sender")
+  receiver               Request[]             @relation(name: "receiver")
+  reserve                Reserve[]
+  airline                Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId              String?               @db.ObjectId
+  airlineDepartment      AirlineDepartment?    @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId    String?               @db.ObjectId
+  hotel                  Hotel?                @relation(fields: [hotelId], references: [id], onDelete: NoAction)
+  hotelId                String?               @db.ObjectId
+  chats                  ChatUser[]
+  messageSender          Message[]             @relation(name: "messageSender")
+  messageReceiver        Message[]             @relation(name: "messageReceiver")
+  logs                   Log[]
+  dispatcher             Boolean?              @default(false)
+  support                Boolean?              @default(false)
+  refreshToken           String?
+  fingerprint            String?
+  is2FAEnabled           Boolean               @default(false)
+  twoFASecret            String?
+  twoFAMethod            TwoFAMethod?
+  messageRead            MessageRead[]
+  NotificationRead       NotificationRead[]
+  resetPasswordToken     String? // для хранения токена восстановления
+  resetPasswordExpires   DateTime? // срок действия токена
+  active                 Boolean               @default(true)
+  position               Position?             @relation(fields: [positionId], references: [id])
+  positionId             String?               @db.ObjectId
+  postedRequests         Request[]             @relation(name: "posted")
+  passengerRequests      PassengerRequest[]
+  transfers              Transfer[]
+  transferChats          TransferChat[]
+  transferMessages       TransferMessage[]
+  transferMessageReads   TransferMessageRead[]
+  deviceTokens           device_tokens[]
+  dispatcherDepartment   DispatcherDepartment? @relation(fields: [dispatcherDepartmentId], references: [id])
+  dispatcherDepartmentId String?               @db.ObjectId
+}
+
+model DispatcherDepartment {
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  name             String
+  email            String?
+  dispatchers      User[]
+  active           Boolean           @default(true)
+  accessMenu       AccessMenu?
+  notificationMenu NotificationMenu?
+  // position         PositionOnDepartment[]
 }
 
 model PositionOnDepartment {
@@ -544,6 +559,8 @@ model AirlinePersonal {
   login                 String?
   password              String?
   // position     String?
+  refreshToken          String?
+  fingerprint           String?
   gender                String?
   married               Boolean?               @default(false)
   husband               AirlinePersonal?       @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1143,6 +1160,8 @@ model Driver {
   number                 String?
   email                  String?                  @unique
   password               String?
+  refreshToken           String?
+  fingerprint            String?
   car                    String?
   vehicleNumber          String?
   driverLicenseNumber    String?

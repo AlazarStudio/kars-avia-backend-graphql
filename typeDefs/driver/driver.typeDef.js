@@ -39,6 +39,8 @@ const driverTypeDef = /* GraphQL */ `
     number: String
     email: String
     password: String!
+    refreshToken: String
+    fingerprint: String
     car: String
     vehicleNumber: String
     driverLicenseNumber: String

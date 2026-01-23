@@ -6,6 +6,7 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { createWriteStream } from "fs"
 import path from "path" // Импортируем модуль path
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { v4 as uuidv4 } from "uuid"
 
 const SUBJECT = {
   USER: "USER",
@@ -102,7 +103,7 @@ const globalResolver = {
       }
 
       let jwtPayload = { subjectType: type }
-      // let refreshToken = null
+      let refreshToken = null
 
       // 3. Спец-логика по типам
 
@@ -137,14 +138,15 @@ const globalResolver = {
           userId: entity.id,
           role: entity.role,
           hotelId: entity.hotelId,
-          airlineId: entity.airlineId
+          airlineId: entity.airlineId,
+          departmentId: entity.airlineDepartmentId
         }
 
-        // refreshToken = uuidv4()
-        // await prisma.user.update({
-        //   where: { id: entity.id },
-        //   data: { refreshToken, fingerprint }
-        // })
+        refreshToken = uuidv4()
+        await prisma.user.update({
+          where: { id: entity.id },
+          data: { refreshToken, fingerprint }
+        })
       }
 
       if (type === SUBJECT.DRIVER) {
@@ -155,7 +157,12 @@ const globalResolver = {
           organizationId: entity.organizationId,
           registrationStatus: entity.registrationStatus
         }
-        // если нужен refreshToken для водителя — тут же создаёшь/сохраняешь
+
+        refreshToken = uuidv4()
+        await prisma.driver.update({
+          where: { id: entity.id },
+          data: { refreshToken, fingerprint }
+        })
       }
 
       if (type === SUBJECT.AIRLINE_PERSONAL) {
@@ -165,6 +172,12 @@ const globalResolver = {
           role: "AIRLINE_PERSONAL",
           airlineId: entity.airlineId
         }
+
+        refreshToken = uuidv4()
+        await prisma.airlinePersonal.update({
+          where: { id: entity.id },
+          data: { refreshToken, fingerprint }
+        })
       }
 
       // 4. Генерим JWT
@@ -175,11 +188,74 @@ const globalResolver = {
       // 5. Общий ответ
       return {
         token,
-        // refreshToken,
+        refreshToken,
         subjectType: type,
         user: type === SUBJECT.USER ? entity : null,
         driver: type === SUBJECT.DRIVER ? entity : null,
         airlinePersonal: type === SUBJECT.AIRLINE_PERSONAL ? entity : null
+      }
+    },
+    refreshDriverToken: async (_, { refreshToken, fingerprint }) => {
+      const driver = await prisma.driver.findFirst({
+        where: { refreshToken }
+      })
+      if (!driver) {
+        throw new Error("Invalid refresh token")
+      }
+      if (fingerprint !== driver.fingerprint) {
+        throw new Error("Invalid fingerprint")
+      }
+      const newAccessToken = jwt.sign(
+        {
+          subjectType: SUBJECT.DRIVER,
+          driverId: driver.id,
+          role: "DRIVER",
+          organizationId: driver.organizationId,
+          registrationStatus: driver.registrationStatus
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      )
+      const newRefreshToken = uuidv4()
+      await prisma.driver.update({
+        where: { id: driver.id },
+        data: { refreshToken: newRefreshToken }
+      })
+
+      return {
+        token: newAccessToken,
+        refreshToken: newRefreshToken
+      }
+    },
+    refreshAirlinePersonalToken: async (_, { refreshToken, fingerprint }) => {
+      const airlinePersonal = await prisma.airlinePersonal.findFirst({
+        where: { refreshToken }
+      })
+      if (!airlinePersonal) {
+        throw new Error("Invalid refresh token")
+      }
+      if (fingerprint !== airlinePersonal.fingerprint) {
+        throw new Error("Invalid fingerprint")
+      }
+      const newAccessToken = jwt.sign(
+        {
+          subjectType: SUBJECT.AIRLINE_PERSONAL,
+          airlinePersonalId: airlinePersonal.id,
+          role: "AIRLINE_PERSONAL",
+          airlineId: airlinePersonal.airlineId
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      )
+      const newRefreshToken = uuidv4()
+      await prisma.airlinePersonal.update({
+        where: { id: airlinePersonal.id },
+        data: { refreshToken: newRefreshToken }
+      })
+
+      return {
+        token: newAccessToken,
+        refreshToken: newRefreshToken
       }
     }
   }

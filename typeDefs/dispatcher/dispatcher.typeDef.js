@@ -145,6 +145,47 @@ const dispatcherTypeDef = /* GraphQL */ `
     information: InformationInput
   }
 
+  type DispatcherDepartment {
+    id: ID!
+    createdAt: Date!
+    updatedAt: Date!
+    name: String!
+    email: String
+    dispatchers: [User!]!
+    active: Boolean
+    accessMenu: AccessMenu
+    notificationMenu: NotificationMenu
+  }
+
+  input DispatcherDepartmentInput {
+    id: ID
+    name: String
+    email: String
+    accessMenu: AccessMenuInput
+    notificationMenu: NotificationMenuInput
+    dispatcherIds: [ID!]
+  }
+
+  input DispatcherDepartmentPaginationInput {
+    skip: Int
+    take: Int
+    all: Boolean
+  }
+
+  type DispatcherDepartmentConnection {
+    totalPages: Int!
+    totalCount: Int!
+    departments: [DispatcherDepartment!]!
+  }
+
+  input NotificationMenuInput {
+    request: Boolean
+  }
+
+  type NotificationMenu {
+    request: Boolean
+  }
+
   type Query {
     getAllCompany: [Company]
     getCompany(id: ID): Company
@@ -160,6 +201,8 @@ const dispatcherTypeDef = /* GraphQL */ `
     getDispatcherPositions: [Position]
     getTransferDispatcherPositions: [Position]
     getAllNotifications(pagination: PaginationInput): NotificationConnection!
+    dispatcherDepartments(pagination: DispatcherDepartmentPaginationInput): DispatcherDepartmentConnection!
+    dispatcherDepartment(id: ID!): DispatcherDepartment
   }
 
   type Mutation {
@@ -170,12 +213,17 @@ const dispatcherTypeDef = /* GraphQL */ `
     createPosition(input: PositionInput): Position
     updatePosition(input: PositionInput): Position
     allDataUpdate: Boolean
+    createDispatcherDepartment(input: DispatcherDepartmentInput!): DispatcherDepartment!
+    updateDispatcherDepartment(id: ID!, input: DispatcherDepartmentInput!): DispatcherDepartment!
+    deleteDispatcherDepartment(id: ID!): DispatcherDepartment!
   }
 
   type Subscription {
     notification: NotificationPayload!
     companyChanged: Company
     priceCategoryChanged: PriceCategory
+    dispatcherDepartmentCreated: DispatcherDepartment!
+    dispatcherDepartmentUpdated: DispatcherDepartment!
   }
 `
 
