@@ -49,6 +49,10 @@ const globalTypeDef = /* GraphQL */ `
     requestCreate: Boolean
     requestUpdate: Boolean
     requestChat: Boolean
+    transferMenu: Boolean
+    transferCreate: Boolean
+    transferUpdate: Boolean
+    transferChat: Boolean
     personalMenu: Boolean
     personalCreate: Boolean
     personalUpdate: Boolean
@@ -72,6 +76,10 @@ const globalTypeDef = /* GraphQL */ `
     requestCreate: Boolean
     requestUpdate: Boolean
     requestChat: Boolean
+    transferMenu: Boolean
+    transferCreate: Boolean
+    transferUpdate: Boolean
+    transferChat: Boolean
     personalMenu: Boolean
     personalCreate: Boolean
     personalUpdate: Boolean
