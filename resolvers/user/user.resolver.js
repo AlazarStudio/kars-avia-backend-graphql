@@ -18,7 +18,11 @@ import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
-import { pubsub, USER_CREATED, USER_ONLINE } from "../../services/infra/pubsub.js"
+import {
+  pubsub,
+  USER_CREATED,
+  USER_ONLINE
+} from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
@@ -221,22 +225,25 @@ const userResolver = {
         airlineDepartmentId,
         dispatcherDepartmentId
       } = input
-      
+
       // Проверка прав доступа для назначения отдела диспетчера
-      if (dispatcherDepartmentId !== undefined && dispatcherDepartmentId !== null) {
+      if (
+        dispatcherDepartmentId !== undefined &&
+        dispatcherDepartmentId !== null
+      ) {
         await dispatcherOrSuperAdminMiddleware(context)
-        
+
         // Проверяем, что пользователь будет диспетчером или суперадмином
         const finalRole = role || "USER"
         const isDispatcher = dispatcher === true
         const isSuperAdmin = finalRole === "SUPERADMIN"
-        
+
         if (!isSuperAdmin && !isDispatcher) {
           throw new Error(
             "Пользователь должен быть диспетчером (dispatcher = true) или суперадмином для назначения в отдел диспетчеров"
           )
         }
-        
+
         // Проверяем существование и активность отдела
         const department = await prisma.dispatcherDepartment.findUnique({
           where: { id: dispatcherDepartmentId }
@@ -245,7 +252,7 @@ const userResolver = {
           throw new Error("Отдел диспетчеров не найден или неактивен")
         }
       }
-      
+
       // Хэширование пароля с помощью argon2
       const hashedPassword = await argon2.hash(password)
 
@@ -279,9 +286,7 @@ const userResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          imagePaths.push(
-            await uploadImage(image, { bucket: "user"})
-          )
+          imagePaths.push(await uploadImage(image, { bucket: "user" }))
         }
       }
 
@@ -448,7 +453,8 @@ const userResolver = {
           role: user.role,
           hotelId: user.hotelId,
           airlineId: user.airlineId,
-          departmentId: user.airlineDepartmentId
+          airlineDepartmentId: user.airlineDepartmentId,
+          dispatcherDepartmentId: user.dispatcherDepartmentId
         },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
@@ -488,18 +494,21 @@ const userResolver = {
       }
       // Получаем текущие данные пользователя из базы
       const currentUser = await prisma.user.findUnique({ where: { id } })
-      
+
       // Проверка прав доступа для изменения отдела диспетчера
       if (dispatcherDepartmentId !== undefined) {
         await dispatcherOrSuperAdminMiddleware(context)
-        
+
         // Проверяем, что пользователь, которому назначается отдел, является диспетчером или суперадмином
-        if (currentUser.role !== "SUPERADMIN" && currentUser.dispatcher !== true) {
+        if (
+          currentUser.role !== "SUPERADMIN" &&
+          currentUser.dispatcher !== true
+        ) {
           throw new Error(
             "Пользователь должен быть диспетчером или суперадмином для назначения в отдел диспетчеров"
           )
         }
-        
+
         // Если отдел указан, проверяем его существование
         if (dispatcherDepartmentId !== null) {
           const department = await prisma.dispatcherDepartment.findUnique({
@@ -510,7 +519,7 @@ const userResolver = {
           }
         }
       }
-      
+
       // Формируем объект обновления, добавляя только те поля, которые заданы
       const updatedData = {}
       if (name !== undefined) updatedData.name = name
