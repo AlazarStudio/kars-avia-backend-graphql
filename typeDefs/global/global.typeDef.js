@@ -217,6 +217,7 @@ const globalTypeDef = /* GraphQL */ `
   type Mutation {
     transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
     singleUpload(file: Upload!): File!
+    
   }
 `
 
