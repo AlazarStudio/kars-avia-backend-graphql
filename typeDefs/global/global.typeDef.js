@@ -49,6 +49,10 @@ const globalTypeDef = /* GraphQL */ `
     requestCreate: Boolean
     requestUpdate: Boolean
     requestChat: Boolean
+    transferMenu: Boolean
+    transferCreate: Boolean
+    transferUpdate: Boolean
+    transferChat: Boolean
     personalMenu: Boolean
     personalCreate: Boolean
     personalUpdate: Boolean
@@ -72,6 +76,10 @@ const globalTypeDef = /* GraphQL */ `
     requestCreate: Boolean
     requestUpdate: Boolean
     requestChat: Boolean
+    transferMenu: Boolean
+    transferCreate: Boolean
+    transferUpdate: Boolean
+    transferChat: Boolean
     personalMenu: Boolean
     personalCreate: Boolean
     personalUpdate: Boolean
@@ -189,22 +197,17 @@ const globalTypeDef = /* GraphQL */ `
   input TransferSignInInput {
     identifier: String!
     password: String!
-    fingerprint: String!
+    # fingerprint: String
     # token2FA: String
   }
 
   type TransferSignInPayload {
     token: String!
-    refreshToken: String
+    # refreshToken: String
     subjectType: String!
     user: User
     driver: Driver
     airlinePersonal: AirlinePersonal
-  }
-
-  type RefreshTokenPayload {
-    token: String!
-    refreshToken: String!
   }
 
   # Query, Mutation
@@ -213,8 +216,6 @@ const globalTypeDef = /* GraphQL */ `
 
   type Mutation {
     transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
-    refreshDriverToken(refreshToken: String!, fingerprint: String!): RefreshTokenPayload!
-    refreshAirlinePersonalToken(refreshToken: String!, fingerprint: String!): RefreshTokenPayload!
     singleUpload(file: Upload!): File!
   }
 `
