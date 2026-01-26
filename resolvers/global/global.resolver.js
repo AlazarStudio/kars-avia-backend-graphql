@@ -195,69 +195,69 @@ const globalResolver = {
         airlinePersonal: type === SUBJECT.AIRLINE_PERSONAL ? entity : null
       }
     },
-    refreshDriverToken: async (_, { refreshToken, fingerprint }) => {
-      const driver = await prisma.driver.findFirst({
-        where: { refreshToken }
-      })
-      if (!driver) {
-        throw new Error("Invalid refresh token")
-      }
-      if (fingerprint !== driver.fingerprint) {
-        throw new Error("Invalid fingerprint")
-      }
-      const newAccessToken = jwt.sign(
-        {
-          subjectType: SUBJECT.DRIVER,
-          driverId: driver.id,
-          role: "DRIVER",
-          organizationId: driver.organizationId,
-          registrationStatus: driver.registrationStatus
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-      const newRefreshToken = uuidv4()
-      await prisma.driver.update({
-        where: { id: driver.id },
-        data: { refreshToken: newRefreshToken }
-      })
+    // refreshDriverToken: async (_, { refreshToken, fingerprint }) => {
+    //   const driver = await prisma.driver.findFirst({
+    //     where: { refreshToken }
+    //   })
+    //   if (!driver) {
+    //     throw new Error("Invalid refresh token")
+    //   }
+    //   if (fingerprint !== driver.fingerprint) {
+    //     throw new Error("Invalid fingerprint")
+    //   }
+    //   const newAccessToken = jwt.sign(
+    //     {
+    //       subjectType: SUBJECT.DRIVER,
+    //       driverId: driver.id,
+    //       role: "DRIVER",
+    //       organizationId: driver.organizationId,
+    //       registrationStatus: driver.registrationStatus
+    //     },
+    //     process.env.JWT_SECRET,
+    //     { expiresIn: "24h" }
+    //   )
+    //   const newRefreshToken = uuidv4()
+    //   await prisma.driver.update({
+    //     where: { id: driver.id },
+    //     data: { refreshToken: newRefreshToken }
+    //   })
 
-      return {
-        token: newAccessToken,
-        refreshToken: newRefreshToken
-      }
-    },
-    refreshAirlinePersonalToken: async (_, { refreshToken, fingerprint }) => {
-      const airlinePersonal = await prisma.airlinePersonal.findFirst({
-        where: { refreshToken }
-      })
-      if (!airlinePersonal) {
-        throw new Error("Invalid refresh token")
-      }
-      if (fingerprint !== airlinePersonal.fingerprint) {
-        throw new Error("Invalid fingerprint")
-      }
-      const newAccessToken = jwt.sign(
-        {
-          subjectType: SUBJECT.AIRLINE_PERSONAL,
-          airlinePersonalId: airlinePersonal.id,
-          role: "AIRLINE_PERSONAL",
-          airlineId: airlinePersonal.airlineId
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-      const newRefreshToken = uuidv4()
-      await prisma.airlinePersonal.update({
-        where: { id: airlinePersonal.id },
-        data: { refreshToken: newRefreshToken }
-      })
+    //   return {
+    //     token: newAccessToken,
+    //     refreshToken: newRefreshToken
+    //   }
+    // },
+    // refreshAirlinePersonalToken: async (_, { refreshToken, fingerprint }) => {
+    //   const airlinePersonal = await prisma.airlinePersonal.findFirst({
+    //     where: { refreshToken }
+    //   })
+    //   if (!airlinePersonal) {
+    //     throw new Error("Invalid refresh token")
+    //   }
+    //   if (fingerprint !== airlinePersonal.fingerprint) {
+    //     throw new Error("Invalid fingerprint")
+    //   }
+    //   const newAccessToken = jwt.sign(
+    //     {
+    //       subjectType: SUBJECT.AIRLINE_PERSONAL,
+    //       airlinePersonalId: airlinePersonal.id,
+    //       role: "AIRLINE_PERSONAL",
+    //       airlineId: airlinePersonal.airlineId
+    //     },
+    //     process.env.JWT_SECRET,
+    //     { expiresIn: "24h" }
+    //   )
+    //   const newRefreshToken = uuidv4()
+    //   await prisma.airlinePersonal.update({
+    //     where: { id: airlinePersonal.id },
+    //     data: { refreshToken: newRefreshToken }
+    //   })
 
-      return {
-        token: newAccessToken,
-        refreshToken: newRefreshToken
-      }
-    }
+    //   return {
+    //     token: newAccessToken,
+    //     refreshToken: newRefreshToken
+    //   }
+    // }
   }
 }
 
