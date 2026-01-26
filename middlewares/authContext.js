@@ -46,7 +46,7 @@ export async function buildAuthContext(authHeader) {
         position: true,
         airlineId: true,
         airlineDepartmentId: true,
-        airlineDepartment: true,
+        dispatcherDepartmentId: true,
         hotelId: true,
         dispatcher: true,
         support: true
