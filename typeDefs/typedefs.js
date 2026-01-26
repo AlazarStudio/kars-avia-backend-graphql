@@ -40,6 +40,7 @@ const mergedTypeDefs = mergeTypeDefs([
   supportTypeDef,
   transferTypeDef,
   userTypeDef
+  
 ])
 
 export default mergedTypeDefs
