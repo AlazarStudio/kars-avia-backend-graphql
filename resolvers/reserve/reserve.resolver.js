@@ -24,8 +24,7 @@ import {
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { formatDate } from "../../services/format/dateTimeFormater.js"
 import {
-  generateReserveExcel,
-  generateReservePdf
+  generateReserveExcel
 } from "../../services/reserve/generateReservePas.js"
 import path from "path"
 import fs from "fs"

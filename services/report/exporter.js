@@ -1,9 +1,5 @@
 import ExcelJS from "exceljs"
-import pdfMake from "pdfmake/build/pdfmake.js"
-import * as pdfFonts from "pdfmake/build/vfs_fonts.js"
 import fs from "fs"
-
-pdfMake.vfs = pdfFonts.default?.pdfMake?.vfs || pdfFonts.pdfMake?.vfs
 
 const formatCurrency = (value) => {
   if (!value || isNaN(value)) return "0 ₽"
