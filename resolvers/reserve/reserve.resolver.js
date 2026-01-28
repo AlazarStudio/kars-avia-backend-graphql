@@ -445,7 +445,31 @@ const reserveResolver = {
               separator: "important",
               createdAt: formattedTime
             },
-            include: { sender: true }
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  number: true,
+                  images: true,
+                  role: true,
+                  position: true,
+                  airlineId: true,
+                  airlineDepartmentId: true,
+                  hotelId: true,
+                  dispatcher: true
+                }
+              },
+              chat: {
+                select: {
+                  id: true,
+                  requestId: true,
+                  reserveId: true,
+                  airlineId: true,
+                  hotelId: true
+                }
+              }
+            }
           })
           await prisma.notification.create({
             data: {
@@ -467,7 +491,7 @@ const reserveResolver = {
               ...extendReserve
             }
           })
-          pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+          pubsub.publish(MESSAGE_SENT, { messageSent: message })
         }
 
         return extendReserve

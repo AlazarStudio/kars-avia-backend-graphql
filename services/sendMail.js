@@ -8,22 +8,29 @@ export async function sendEmail({ to, subject, html }) {
     return
   }
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.beget.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  })
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.beget.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    })
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    html
-  })
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      html
+    })
+    
+    console.log(`[EMAIL SENT] Письмо отправлено. Кому: ${to}, Тема: ${subject}`)
+  } catch (error) {
+    console.error(`[EMAIL ERROR] Ошибка при отправке письма. Кому: ${to}, Тема: ${subject}`, error)
+    throw error
+  }
 }
 
 /*

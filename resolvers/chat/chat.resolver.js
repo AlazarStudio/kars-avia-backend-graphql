@@ -793,7 +793,17 @@ const chatResolver = {
           if (!message.chat && message.chatId) {
             const chat = await prisma.chat.findUnique({
               where: { id: message.chatId },
-              include: { participants: true }
+              include: {
+                participants: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true
+                      }
+                    }
+                  }
+                }
+              }
             })
 
             if (chat) {
@@ -804,7 +814,7 @@ const chatResolver = {
                 return true
               }
               const isParticipant = chat.participants?.some(
-                (participant) => participant.userId === subject.id
+                (participant) => participant.userId === subject.id || participant.user?.id === subject.id
               )
               if (isParticipant) return true
             }

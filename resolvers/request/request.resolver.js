@@ -665,6 +665,15 @@ const requestResolver = {
                   hotelId: true,
                   dispatcher: true
                 }
+              },
+              chat: {
+                select: {
+                  id: true,
+                  requestId: true,
+                  reserveId: true,
+                  airlineId: true,
+                  hotelId: true
+                }
               }
             }
           })
@@ -704,7 +713,7 @@ const requestResolver = {
               ...extendRequest
             }
           })
-          pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+          pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
           return request
         }
@@ -915,7 +924,7 @@ const requestResolver = {
         })
 
         const mailOptions = {
-          to: `${process.env.EMAIL_RESIEVER}`,
+          to: `${process.env.EMAIL_RECEIVER}`,
           subject: "Request updated",
           html: `Пользователь <span style='color:#545873'>${
             user.name
@@ -1319,6 +1328,15 @@ const requestResolver = {
                 hotelId: true,
                 dispatcher: true
               }
+            },
+            chat: {
+              select: {
+                id: true,
+                requestId: true,
+                reserveId: true,
+                airlineId: true,
+                hotelId: true
+              }
             }
           }
         })
@@ -1337,7 +1355,7 @@ const requestResolver = {
           // from: `${process.env.EMAIL_USER}`,
           to: `${process.env.EMAIL_KARS}`,
           subject: "Request cancelled",
-          html: `Пользователь <span style='color:#545873'>${user.name}</span> отпраил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
+          html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
         }
 
         // Отправка письма через настроенный транспортёр
@@ -1350,7 +1368,7 @@ const requestResolver = {
             ...request
           }
         })
-        pubsub.publish(`${MESSAGE_SENT}_${chat.id}`, { messageSent: message })
+        pubsub.publish(MESSAGE_SENT, { messageSent: message })
       }
 
       const canceledRequest = await prisma.request.update({
@@ -1363,10 +1381,10 @@ const requestResolver = {
         })
       }
 
-      const mailOptions = {
-        // from: `${process.env.EMAIL_USER}`,
-        to: `${process.env.EMAIL_RESIEVER}`,
-        subject: "Request canceled",
+        const mailOptions = {
+          // from: `${process.env.EMAIL_USER}`,
+          to: `${process.env.EMAIL_RECEIVER}`,
+          subject: "Request canceled",
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 

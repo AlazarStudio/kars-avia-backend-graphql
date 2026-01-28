@@ -660,7 +660,7 @@ const userResolver = {
             // from: `${process.env.EMAIL_USER}`,
             to: `${context.user.email}`,
             subject: "Your HOTP Code",
-            text: `Your HOTP code is ${token}`
+            html: `Your HOTP code is <b>${token}</b>`
           }
           // await transporter.sendMail(mailOptions)
           await sendEmail(mailOptions)
