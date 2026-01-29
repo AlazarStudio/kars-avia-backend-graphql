@@ -370,6 +370,7 @@ const chatResolver = {
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "MessageSentNotification",
+            action: "new_message",
             requestId: message.chat.requestId,
             chat: message.chat,
             text: message.text
@@ -402,6 +403,7 @@ const chatResolver = {
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "MessageSentNotification",
+            action: "new_message",
             reserveId: message.chat.reserveId,
             chat: message.chat,
             text: message.text

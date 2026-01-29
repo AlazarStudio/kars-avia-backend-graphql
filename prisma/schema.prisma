@@ -550,7 +550,18 @@ type AccessMenu {
 }
 
 type NotificationMenu {
-  request Boolean @default(true)
+  // Заявки
+  requestCreate          Boolean @default(true) // создание заявки
+  requestDatesChange     Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
+  requestPlacementChange Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
+  requestCancel          Boolean @default(true) // отмена заявки
+  // Брони
+  reserveCreate          Boolean @default(true) // создание брони
+  reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
+  reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
+  reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  // Сообщения
+  newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
 }
 
 model AirlinePersonal {

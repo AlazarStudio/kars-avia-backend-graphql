@@ -14,6 +14,7 @@ import {
 import nodemailer from "nodemailer"
 import {
   pubsub,
+  NOTIFICATION,
   REQUEST_UPDATED,
   HOTEL_CREATED,
   HOTEL_UPDATED,
@@ -395,7 +396,26 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   requestId: updatedRequest.id
                 })
-                // Публикуем событие обновления заявки
+                await prisma.notification.create({
+                  data: {
+                    request: { connect: { id: updatedRequest.id } },
+                    hotel: { connect: { id: hotelChess.hotelId } },
+                    airline: updatedRequest.airlineId
+                      ? { connect: { id: updatedRequest.airlineId } }
+                      : undefined,
+                    description: {
+                      action: "update_hotel_chess_request",
+                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                    }
+                  }
+                })
+                pubsub.publish(NOTIFICATION, {
+                  notification: {
+                    __typename: "RequestUpdatedNotification",
+                    action: "update_hotel_chess_request",
+                    ...updatedRequest
+                  }
+                })
                 pubsub.publish(REQUEST_UPDATED, {
                   requestUpdated: updatedRequest
                 })
@@ -419,6 +439,26 @@ const hotelResolver = {
                   newData: hotelChess,
                   hotelId: hotelChess.hotelId,
                   reserveId: hotelChess.reserveId
+                })
+                await prisma.notification.create({
+                  data: {
+                    reserve: { connect: { id: reserve.id } },
+                    hotel: { connect: { id: hotelChess.hotelId } },
+                    airline: reserve.airlineId
+                      ? { connect: { id: reserve.airlineId } }
+                      : undefined,
+                    description: {
+                      action: "update_hotel_chess_reserve",
+                      description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                    }
+                  }
+                })
+                pubsub.publish(NOTIFICATION, {
+                  notification: {
+                    __typename: "ReserveUpdatedNotification",
+                    action: "update_hotel_chess_reserve",
+                    ...reserve
+                  }
                 })
                 pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
               }

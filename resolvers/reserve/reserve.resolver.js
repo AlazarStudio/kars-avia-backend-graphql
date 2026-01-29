@@ -362,6 +362,7 @@ const reserveResolver = {
       pubsub.publish(NOTIFICATION, {
         notification: {
           __typename: "ReserveCreatedNotification",
+          action: "create_reserve",
           ...newReserve
         }
       })
@@ -488,6 +489,7 @@ const reserveResolver = {
           pubsub.publish(NOTIFICATION, {
             notification: {
               __typename: "ReserveUpdatedNotification",
+              action: "reserve_dates_change",
               ...extendReserve
             }
           })
@@ -584,6 +586,7 @@ const reserveResolver = {
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ReserveUpdatedNotification",
+            action: "update_reserve",
             ...updatedReserve
           }
         })

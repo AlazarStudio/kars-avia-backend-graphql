@@ -75,7 +75,7 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
-    }, 
+    },
     getPriceCategory: async (_, { id }, context) => {
       await allMiddleware(context)
       return await prisma.priceCategory.findUnique({
@@ -87,7 +87,7 @@ const dispatcherResolver = {
           airlinePrices: true
         }
       })
-    }, 
+    },
     getAllNotifications: async (_, { pagination }, context) => {
       await allMiddleware(context)
       const { user } = context
@@ -498,22 +498,61 @@ const dispatcherResolver = {
     notification: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([NOTIFICATION]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
 
-          // SUPERADMIN и диспетчеры видят все уведомления
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
-            return true
+          const notification = payload.notification
+          const action = notification?.action
+
+          // Для диспетчеров проверяем NotificationMenu отдела
+          if (subject.dispatcher === true && subject.id) {
+            const userWithDept = await prisma.user.findUnique({
+              where: { id: subject.id },
+              select: {
+                dispatcherDepartmentId: true,
+                dispatcherDepartment: {
+                  select: { notificationMenu: true }
+                }
+              }
+            })
+            const menu = userWithDept?.dispatcherDepartment?.notificationMenu
+            if (menu && action) {
+              const actionToMenuField = {
+                create_request: "requestCreate",
+                extend_request: "requestDatesChange",
+                update_request: "requestDatesChange",
+                update_hotel_chess_request: "requestPlacementChange",
+                cancel_request: "requestCancel",
+                new_message: "newMessage",
+                create_reserve: "reserveCreate",
+                reserve_dates_change: "reserveDatesChange",
+                update_reserve: "reserveUpdate",
+                update_hotel_chess_reserve: "reservePlacementChange"
+              }
+              const field = actionToMenuField[action]
+              if (field && menu[field] === false) return false
+            }
           }
 
-          // Проверяем права на уведомление через связанные сущности
-          const notification = payload.notification
-          if (notification.airlineId && subject.airlineId === notification.airlineId) {
+          // SUPERADMIN видит все уведомления
+          if (subject.role === "SUPERADMIN") return true
+
+          // Диспетчеры (после проверки меню) видят все
+          if (subject.dispatcher === true) return true
+
+          // Проверяем права на уведомление через связанные сущности (отель/авиакомпания)
+          if (
+            notification.airlineId &&
+            subject.airlineId === notification.airlineId
+          ) {
             return true
           }
-          if (notification.hotelId && subject.hotelId === notification.hotelId) {
+          if (
+            notification.hotelId &&
+            subject.hotelId === notification.hotelId
+          ) {
             return true
           }
 
@@ -549,7 +588,10 @@ const dispatcherResolver = {
 
           // Пользователи видят изменения для своих авиакомпаний/отелей
           const priceCategory = payload.priceCategoryChanged
-          if (subject.airlineId && priceCategory.airlineId === subject.airlineId) {
+          if (
+            subject.airlineId &&
+            priceCategory.airlineId === subject.airlineId
+          ) {
             return true
           }
           if (subject.hotelId && priceCategory.hotelId === subject.hotelId) {

@@ -179,11 +179,27 @@ const dispatcherTypeDef = /* GraphQL */ `
   }
 
   input NotificationMenuInput {
-    request: Boolean
+    requestCreate: Boolean
+    requestDatesChange: Boolean
+    requestPlacementChange: Boolean
+    requestCancel: Boolean
+    reserveCreate: Boolean
+    reserveDatesChange: Boolean
+    reserveUpdate: Boolean
+    reservePlacementChange: Boolean
+    newMessage: Boolean
   }
 
   type NotificationMenu {
-    request: Boolean
+    requestCreate: Boolean
+    requestDatesChange: Boolean
+    requestPlacementChange: Boolean
+    requestCancel: Boolean
+    reserveCreate: Boolean
+    reserveDatesChange: Boolean
+    reserveUpdate: Boolean
+    reservePlacementChange: Boolean
+    newMessage: Boolean
   }
 
   type Query {

@@ -539,6 +539,7 @@ const requestResolver = {
       pubsub.publish(NOTIFICATION, {
         notification: {
           __typename: "RequestCreatedNotification",
+          action: "create_request",
           ...newRequest
         }
       })
@@ -710,6 +711,7 @@ const requestResolver = {
           pubsub.publish(NOTIFICATION, {
             notification: {
               __typename: "ExtendRequestNotification",
+              action: "extend_request",
               ...extendRequest
             }
           })
@@ -1365,6 +1367,7 @@ const requestResolver = {
         pubsub.publish(NOTIFICATION, {
           notification: {
             __typename: "ExtendRequestNotification",
+            action: "cancel_request",
             ...request
           }
         })
@@ -1381,10 +1384,10 @@ const requestResolver = {
         })
       }
 
-        const mailOptions = {
-          // from: `${process.env.EMAIL_USER}`,
-          to: `${process.env.EMAIL_RECEIVER}`,
-          subject: "Request canceled",
+      const mailOptions = {
+        // from: `${process.env.EMAIL_USER}`,
+        to: `${process.env.EMAIL_RECEIVER}`,
+        subject: "Request canceled",
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 
