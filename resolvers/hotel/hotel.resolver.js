@@ -408,7 +408,7 @@ const hotelResolver = {
                 await prisma.notification.create({
                   data: {
                     request: { connect: { id: updatedRequest.id } },
-                    hotel: { connect: { id: hotelChess.hotelId } },
+                    hotel: { connect: { id } },
                     airline: updatedRequest.airlineId
                       ? { connect: { id: updatedRequest.airlineId } }
                       : undefined,
