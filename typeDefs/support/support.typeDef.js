@@ -87,7 +87,12 @@ const supportTypeDef = /* GraphQL */ `
     images: [Upload!]!
   }
 
-  #
+  enum SupportTicketStatus {
+    OPEN
+    IN_PROGRESS
+    RESOLVED
+  }
+
   type SupportChat {
     id: ID!
     requestId: ID
@@ -102,6 +107,10 @@ const supportTypeDef = /* GraphQL */ `
     hotelId: ID
     hotel: Hotel
     airline: Airline
+    supportStatus: SupportTicketStatus
+    assignedTo: User
+    resolvedAt: Date
+    resolvedBy: User
   }
   #
 
@@ -120,6 +129,8 @@ const supportTypeDef = /* GraphQL */ `
 
   type Mutation {
     createSupportChat(userId: ID!): Chat! # Создает чат между пользователем и поддержкой
+    claimSupportTicket(chatId: ID!): Chat! # Взять тикет в работу (только один агент может вести чат)
+    resolveSupportTicket(chatId: ID!): Chat! # Отметить тикет как решённый
     createPatchNote(data: PatchNoteInput!, images: [Upload!]): PatchNote!
     updatePatchNote(
       id: ID!

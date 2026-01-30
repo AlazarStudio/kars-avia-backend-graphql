@@ -230,6 +230,8 @@ model User {
   deviceTokens           device_tokens[]
   dispatcherDepartment   DispatcherDepartment? @relation(fields: [dispatcherDepartmentId], references: [id])
   dispatcherDepartmentId String?               @db.ObjectId
+  assignedSupportChats   Chat[]                @relation("AssignedSupportChats")
+  resolvedSupportChats   Chat[]                @relation("ResolvedSupportChats")
 }
 
 model DispatcherDepartment {
@@ -835,6 +837,13 @@ model Chat {
   Notification       Notification[]
   passengerRequest   PassengerRequest? @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
   passengerRequestId String?           @db.ObjectId
+  // Тикет техподдержки: статус, кто взял в работу, когда и кем закрыт
+  supportStatus      String?           // OPEN | IN_PROGRESS | RESOLVED
+  assignedTo         User?             @relation("AssignedSupportChats", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId       String?           @db.ObjectId
+  resolvedAt         DateTime?
+  resolvedBy         User?             @relation("ResolvedSupportChats", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedById       String?           @db.ObjectId
 }
 
 model Message {

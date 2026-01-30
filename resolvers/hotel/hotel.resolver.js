@@ -396,6 +396,15 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   requestId: updatedRequest.id
                 })
+
+                const mailOptions = {
+                  to: `${process.env.EMAIL_KARS}`,
+                  subject: "Request updated",
+                  html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                }
+
+                await sendEmail(mailOptions)
+
                 await prisma.notification.create({
                   data: {
                     request: { connect: { id: updatedRequest.id } },

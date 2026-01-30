@@ -311,6 +311,37 @@ const chatResolver = {
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
 
+      const chat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        select: { id: true, isSupport: true, supportStatus: true, assignedToId: true }
+      })
+      if (!chat) throw new Error("Чат не найден")
+
+      if (chat.isSupport) {
+        const sender = await prisma.user.findUnique({
+          where: { id: senderId },
+          select: { id: true, support: true }
+        })
+        if (!sender) throw new Error("Отправитель не найден")
+        if (sender.support) {
+          if (chat.assignedToId !== senderId) {
+            throw new Error("Ответить в чате техподдержки может только агент, принявший тикет. Сначала возьмите тикет в работу.")
+          }
+        } else {
+          if (chat.supportStatus === "RESOLVED") {
+            await prisma.chat.update({
+              where: { id: chatId },
+              data: {
+                supportStatus: "OPEN",
+                assignedToId: null,
+                resolvedAt: null,
+                resolvedById: null
+              }
+            })
+          }
+        }
+      }
+
       // Создаем сообщение и сразу получаем связанные данные о чате
       const message = await prisma.message.create({
         data: {
@@ -930,6 +961,22 @@ const chatResolver = {
             }
           }
         }
+      })
+    },
+    assignedTo: async (parent) => {
+      if (parent.assignedTo) return parent.assignedTo
+      if (!parent.assignedToId) return null
+      return prisma.user.findUnique({
+        where: { id: parent.assignedToId },
+        select: { id: true, name: true, email: true, images: true, support: true }
+      })
+    },
+    resolvedBy: async (parent) => {
+      if (parent.resolvedBy) return parent.resolvedBy
+      if (!parent.resolvedById) return null
+      return prisma.user.findUnique({
+        where: { id: parent.resolvedById },
+        select: { id: true, name: true, email: true, images: true, support: true }
       })
     }
   },

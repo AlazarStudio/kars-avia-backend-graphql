@@ -34,6 +34,10 @@ const chatTypeDef = /* GraphQL */ `
     hotelId: ID
     hotel: Hotel
     airline: Airline
+    supportStatus: String
+    assignedTo: User
+    resolvedAt: Date
+    resolvedBy: User
   }
 
   type Query {
