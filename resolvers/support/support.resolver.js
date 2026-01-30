@@ -76,6 +76,7 @@ const supportResolver = {
       // Возвращаем все чаты с участниками, сообщениями и данными тикета
       const chats = await prisma.chat.findMany({
         where: { isSupport: true },
+        orderBy: { createdAt: "desc" },
         include: {
           participants: {
             include: {
@@ -137,52 +138,69 @@ const supportResolver = {
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context)
-      // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
-      let chat = await prisma.chat.findFirst({
-        where: {
-          isSupport: true,
-          participants: { some: { userId } }
-        },
-        include: {
-          participants: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  number: true,
-                  images: true,
-                  role: true,
-                  position: true,
-                  airlineId: true,
-                  airlineDepartmentId: true,
-                  hotelId: true,
-                  dispatcher: true
-                }
+      const include = {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                number: true,
+                images: true,
+                role: true,
+                position: true,
+                airlineId: true,
+                airlineDepartmentId: true,
+                hotelId: true,
+                dispatcher: true
               }
             }
-          },
-          messages: true,
-          assignedTo: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              images: true,
-              support: true
-            }
-          },
-          resolvedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              images: true,
-              support: true
-            }
+          }
+        },
+        messages: true,
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            images: true,
+            support: true
+          }
+        },
+        resolvedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            images: true,
+            support: true
           }
         }
+      }
+
+      const baseWhere = {
+        isSupport: true,
+        participants: { some: { userId } }
+      }
+
+      // 1) Ищем активный чат (OPEN/IN_PROGRESS или пустой статус)
+      let chat = await prisma.chat.findFirst({
+        where: {
+          ...baseWhere,
+          OR: [{ supportStatus: { not: "RESOLVED" } }, { supportStatus: null }]
+        },
+        orderBy: { createdAt: "desc" },
+        include
       })
+
+      // 2) Если активного нет — возвращаем последний закрытый
+      if (!chat) {
+        chat = await prisma.chat.findFirst({
+          where: { ...baseWhere, supportStatus: "RESOLVED" },
+          orderBy: { createdAt: "desc" },
+          include
+        })
+      }
       // Если чат не найден, создаем новый
       if (!chat) {
         // Получаем всех пользователей, имеющих флаг поддержки (support: true)
@@ -206,27 +224,7 @@ const supportResolver = {
               ]
             }
           },
-          include: {
-            participants: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    number: true,
-                    images: true,
-                    role: true,
-                    position: true,
-                    airlineId: true,
-                    airlineDepartmentId: true,
-                    hotelId: true,
-                    dispatcher: true
-                  }
-                }
-              }
-            },
-            messages: true
-          }
+          include
         })
       }
       return chat

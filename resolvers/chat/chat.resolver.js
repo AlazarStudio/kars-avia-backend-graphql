@@ -317,6 +317,8 @@ const chatResolver = {
       })
       if (!chat) throw new Error("Чат не найден")
 
+      let targetChatId = chatId
+
       if (chat.isSupport) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
@@ -329,15 +331,27 @@ const chatResolver = {
           }
         } else {
           if (chat.supportStatus === "RESOLVED") {
-            await prisma.chat.update({
-              where: { id: chatId },
+            const supportUsers = await prisma.user.findMany({
+              where: { support: true }
+            })
+            if (supportUsers.length === 0) {
+              throw new Error("No support agents available")
+            }
+            const newChat = await prisma.chat.create({
               data: {
+                isSupport: true,
                 supportStatus: "OPEN",
-                assignedToId: null,
-                resolvedAt: null,
-                resolvedById: null
+                participants: {
+                  create: [
+                    { user: { connect: { id: senderId } } },
+                    ...supportUsers.map((support) => ({
+                      user: { connect: { id: support.id } }
+                    }))
+                  ]
+                }
               }
             })
+            targetChatId = newChat.id
           }
         }
       }
@@ -347,7 +361,7 @@ const chatResolver = {
         data: {
           text,
           sender: { connect: { id: senderId } },
-          chat: { connect: { id: chatId } },
+          chat: { connect: { id: targetChatId } },
           createdAt: formattedTime
         },
         include: {
