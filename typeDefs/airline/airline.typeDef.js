@@ -29,6 +29,7 @@ const airlineTypeDef = /* GraphQL */ `
     users: [User!]
     active: Boolean
     accessMenu: AccessMenu
+    notificationMenu: NotificationMenu
     position: [Position]
   }
 
@@ -77,6 +78,7 @@ const airlineTypeDef = /* GraphQL */ `
     name: String
     email: String
     accessMenu: AccessMenuInput
+    notificationMenu: NotificationMenuInput
     userIds: [ID!]
     positionIds: [ID!]
   }
@@ -142,6 +144,30 @@ const airlineTypeDef = /* GraphQL */ `
   type Subscription {
     airlineCreated: Airline!
     airlineUpdated: Airline!
+  }
+
+  input NotificationMenuInput {
+    requestCreate: Boolean
+    requestDatesChange: Boolean
+    requestPlacementChange: Boolean
+    requestCancel: Boolean
+    reserveCreate: Boolean
+    reserveDatesChange: Boolean
+    reserveUpdate: Boolean
+    reservePlacementChange: Boolean
+    newMessage: Boolean
+  }
+
+  type NotificationMenu {
+    requestCreate: Boolean
+    requestDatesChange: Boolean
+    requestPlacementChange: Boolean
+    requestCancel: Boolean
+    reserveCreate: Boolean
+    reserveDatesChange: Boolean
+    reserveUpdate: Boolean
+    reservePlacementChange: Boolean
+    newMessage: Boolean
   }
 `
 

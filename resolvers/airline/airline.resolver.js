@@ -255,6 +255,7 @@ const airlineResolver = {
                   name: depart.name,
                   email: depart.email,
                   accessMenu: depart.accessMenu,
+                  notificationMenu: depart.notificationMenu,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
