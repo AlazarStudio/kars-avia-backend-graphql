@@ -27,7 +27,6 @@ const mergedResolvers = mergeResolvers([
   chatResolver,
   cityResolver,
   contractResolver,
-  dispatcherResolver,
   driverResolver,
   globalResolver,
   hotelResolver,
@@ -39,7 +38,9 @@ const mergedResolvers = mergeResolvers([
   reserveResolver,
   supportResolver,
   transferResolver,
-  userResolver
+  userResolver,
+  // dispatcherResolver последним — подписка notification с фильтром NotificationMenu
+  dispatcherResolver
 ])
 
 export default mergedResolvers

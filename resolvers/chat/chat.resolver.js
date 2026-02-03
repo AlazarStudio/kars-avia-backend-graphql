@@ -870,11 +870,8 @@ const chatResolver = {
       subscribe: (_, { chatId }) =>
         pubsub.asyncIterator(`MESSAGE_READ_${chatId}`),
       resolve: (payload) => payload.messageRead
-    },
-    // Подписка на уведомления
-    notification: {
-      subscribe: () => pubsub.asyncIterator([NOTIFICATION])
     }
+    // notification — подписка с фильтром NotificationMenu в dispatcher.resolver.js
   },
 
   // Резольверы для полей типа Chat

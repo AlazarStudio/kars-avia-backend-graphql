@@ -23,6 +23,7 @@ import {
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
+import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -212,7 +213,7 @@ const hotelResolver = {
       if (input.hotelChesses && input.hotelChesses.length > 0) {
         await hotelModerMiddleware(context) // Если обновляются hotelChesses → проверяем права модератора
       } else {
-        hotelAdminMiddleware(context) // В остальных случаях → права администратора отеля
+        await hotelAdminMiddleware(context) // В остальных случаях → права администратора отеля
       }
 
       const previousHotelData = await prisma.hotel.findUnique({
@@ -403,7 +404,9 @@ const hotelResolver = {
                   html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
                 }
 
-                await sendEmail(mailOptions)
+                if (await AllowedEmailNotification("update_hotel_chess_request")) {
+                  await sendEmail(mailOptions)
+                }
 
                 await prisma.notification.create({
                   data: {
@@ -702,9 +705,9 @@ const hotelResolver = {
                   }</span>`
                 }
 
-                // Отправка письма через настроенный транспортёр
-                // await transporter.sendMail(mailOptions)
-                await sendEmail(mailOptions)
+                if (await AllowedEmailNotification("update_hotel_chess_request")) {
+                  await sendEmail(mailOptions)
+                }
 
                 await logAction({
                   context,

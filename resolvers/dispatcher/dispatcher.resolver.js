@@ -14,6 +14,7 @@ import {
   dispatcherOrSuperAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
+import { AllowedSiteNotification } from "../../services/notification/notificationMenuCheck.js"
 
 const dispatcherResolver = {
   Query: {
@@ -506,34 +507,17 @@ const dispatcherResolver = {
           const notification = payload.notification
           const action = notification?.action
 
-          // Для диспетчеров проверяем NotificationMenu отдела
-          if (subject.dispatcher === true && subject.id) {
-            const userWithDept = await prisma.user.findUnique({
-              where: { id: subject.id },
-              select: {
-                dispatcherDepartmentId: true,
-                dispatcherDepartment: {
-                  select: { notificationMenu: true }
-                }
-              }
-            })
-            const menu = userWithDept?.dispatcherDepartment?.notificationMenu
-            if (menu && action) {
-              const actionToMenuField = {
-                create_request: "requestCreate",
-                extend_request: "requestDatesChange",
-                update_request: "requestDatesChange",
-                update_hotel_chess_request: "requestPlacementChange",
-                cancel_request: "requestCancel",
-                new_message: "newMessage",
-                create_reserve: "reserveCreate",
-                reserve_dates_change: "reserveDatesChange",
-                update_reserve: "reserveUpdate",
-                update_hotel_chess_reserve: "reservePlacementChange"
-              }
-              const field = actionToMenuField[action]
-              if (field && menu[field] === false) return false
-            }
+          // Проверка NotificationMenu: диспетчеры и пользователи авиакомпании с отделом
+          const needsMenuCheck =
+            (subject.dispatcher && subject.id) ||
+            (notification.airlineId &&
+              subject.airlineId === notification.airlineId &&
+              subject.airlineDepartmentId &&
+              subject.id)
+
+          if (needsMenuCheck && action) {
+            const allowed = await AllowedSiteNotification(subject, action)
+            if (!allowed) return false
           }
 
           // SUPERADMIN видит все уведомления

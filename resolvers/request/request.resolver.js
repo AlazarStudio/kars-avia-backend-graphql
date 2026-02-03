@@ -28,6 +28,7 @@ import {
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { sendEmail } from "../../services/sendMail.js"
+import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
@@ -489,9 +490,10 @@ const requestResolver = {
         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
       }
 
-      // Отправка письма через настроенный транспортёр
-      // await transporter.sendMail(mailOptions)
-      await sendEmail(mailOptions)
+      // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
+      if (await AllowedEmailNotification("create_request")) {
+        await sendEmail(mailOptions)
+      }
 
       // Логирование создания заявки
       try {
@@ -706,7 +708,9 @@ const requestResolver = {
             )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
           }
 
-          await sendEmail(mailOptions)
+          if (await AllowedEmailNotification("extend_request")) {
+            await sendEmail(mailOptions)
+          }
 
           pubsub.publish(NOTIFICATION, {
             notification: {
@@ -943,7 +947,9 @@ const requestResolver = {
           )} - ${formatDate(updatedEnd)}</span>`
         }
 
-        await sendEmail(mailOptions)
+        if (await AllowedEmailNotification("update_request")) {
+          await sendEmail(mailOptions)
+        }
 
         try {
           await logAction({
@@ -1360,9 +1366,9 @@ const requestResolver = {
           html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
         }
 
-        // Отправка письма через настроенный транспортёр
-        // await transporter.sendMail(mailOptions)
-        await sendEmail(mailOptions)
+        if (await AllowedEmailNotification("cancel_request")) {
+          await sendEmail(mailOptions)
+        }
 
         pubsub.publish(NOTIFICATION, {
           notification: {
@@ -1391,9 +1397,9 @@ const requestResolver = {
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 
-      // Отправка письма через настроенный транспортёр
-      // await transporter.sendMail(mailOptions)
-      await sendEmail(mailOptions)
+      if (await AllowedEmailNotification("cancel_request")) {
+        await sendEmail(mailOptions)
+      }
 
       await logAction({
         context,
@@ -1466,11 +1472,8 @@ const requestResolver = {
           return false
         }
       )
-    },
-    // Подписка на уведомления
-    notification: {
-      subscribe: () => pubsub.asyncIterator([NOTIFICATION])
     }
+    // notification — подписка с фильтром NotificationMenu в dispatcher.resolver.js
   },
 
   // Резольверы для полей типа Request,
