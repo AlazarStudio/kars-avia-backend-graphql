@@ -739,3 +739,85 @@ v3.2.2 (2025-10-09)
 - **airline.typeDef.js**, **airline.resolver.js**:
   - Доступ отделов добавлен в схемы
   - Ограничение доступа и редактирование добавлено в резольверы
+
+v3.2.3 (2026-01-23)
+
+- **authMiddleware.js**:
+
+  - Обновлена авторизация
+  - Обновлена работа с refresh-токеном
+
+- **user.resolver.js**:
+
+  - Обновление пользователей
+  - Добавлен сброс пароля
+
+- **dispatcher.resolver.js**:
+
+  - Доработка диспетчерских функций
+
+v3.2.4 (2026-01-26)
+
+- **Общие изменения**:
+
+  - Обновление зависимостей
+  - Удаление уязвимых пакетов
+  - Обновление Prisma
+  - Удалены неиспользуемые бэкапы и файлы
+
+v3.2.5 (2026-01-28)
+
+- **chat.resolver.js**:
+
+  - Обновление чатов
+  - Обновление подписок
+
+- **support.resolver.js**:
+
+  - Обновление чатов поддержки
+  - Обновление документации
+
+- **sendMail.js**:
+
+  - Доработка отправки писем
+
+v3.2.6 (2026-01-30)
+
+- **Общие изменения**:
+
+  - Добавлена интеграция с Firebase (push-уведомления)
+
+- **services/notification/notificationMenuCheck.js**:
+
+  - Новый сервис проверки меню уведомлений
+
+- **services/infra/fbsendtoken.js**:
+
+  - Отправка push-уведомлений через Firebase
+
+v3.3.0 (2026-02-03)
+
+- **schema.prisma**:
+
+  - Обновление схемы (модели, связи)
+
+- **Общие изменения**:
+
+  - Обновление доступа к уведомлениям
+
+- **resolvers**:
+
+  - **request.resolver.js**, **reserve.resolver.js**: обновление заявок и резервов
+  - **hotel.resolver.js**: доработка отелей
+  - **analytics.resolver.js**: обновление аналитики, personStaySummary
+  - **contract.resolver.js**: обновление фильтров договоров
+  - **transfer.resolver.js**: обновление контекста и пагинации
+  - **report.resolver.js**: оптимизация отчётов
+
+- **services**:
+
+  - **analyticsRequests.js**, **personStaySummary.js**: аналитика
+  - **contractFilters.js**: фильтры договоров
+  - **roomUtils.js**, **roomAvailability.js**: работа с комнатами
+  - **documentationTree.js**, **documentationUtils.js**: документация
+  - **migrateUploads.js**, **backfill.js**: миграции
