@@ -93,12 +93,23 @@ const supportTypeDef = /* GraphQL */ `
     RESOLVED
   }
 
+  type SupportTicket {
+    id: ID!
+    ticketNumber: Int!
+    status: SupportTicketStatus!
+    assignedTo: User
+    resolvedAt: Date
+    resolvedBy: User
+    messages: [Message!]!
+  }
+
   type SupportChat {
     id: ID!
     requestId: ID
     reserveId: ID
     messages: [Message!]!
     participants: [User!]!
+    tickets: [SupportTicket!]!
     createdAt: Date!
     isSupport: Boolean!
     unreadMessagesCount: Int
@@ -114,6 +125,12 @@ const supportTypeDef = /* GraphQL */ `
   }
   #
 
+  type SupportTicketStats {
+    totalAppeals: Int!
+    totalClosed: Int!
+    totalOpen: Int!
+  }
+
   type Query {
     getAllPatchNotes: [PatchNote!]!
     getAllDocumentations(
@@ -125,6 +142,7 @@ const supportTypeDef = /* GraphQL */ `
     getDocumentation(id: ID!): Documentation
     supportChats: [SupportChat!]! # Для поддержки: все чаты с пользователями
     userSupportChat(userId: ID!): Chat! # Для пользователя: один чат с поддержкой
+    supportTicketStats(startDate: Date, endDate: Date): SupportTicketStats!
   }
 
   type Mutation {

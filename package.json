@@ -11,7 +11,8 @@
     "pmm": "pm2 monit",
     "dev": "nodemon server2.js",
     "prisma": "prisma",
-    "migrateupload": "node services/migrations/migrateUploads.js"
+    "migrateupload": "node services/migrations/migrateUploads.js",
+    "migrate-support-tickets": "node services/migrations/supportTicketsMigration.js"
   },
   "type": "module",
   "keywords": [],

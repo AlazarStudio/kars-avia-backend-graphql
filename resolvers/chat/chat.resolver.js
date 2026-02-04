@@ -313,10 +313,13 @@ const chatResolver = {
 
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
-        select: { id: true, isSupport: true, supportStatus: true, assignedToId: true }
+        include: {
+          tickets: { orderBy: { ticketNumber: "desc" } }
+        }
       })
       if (!chat) throw new Error("Чат не найден")
 
+      let currentTicketId = null
       if (chat.isSupport) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
@@ -329,6 +332,18 @@ const chatResolver = {
           }
         } else {
           if (chat.supportStatus === "RESOLVED") {
+            const maxTicketNumber =
+              chat.tickets?.length > 0
+                ? Math.max(...chat.tickets.map((t) => t.ticketNumber))
+                : 0
+            const newTicket = await prisma.supportTicket.create({
+              data: {
+                chatId,
+                ticketNumber: maxTicketNumber + 1,
+                status: "OPEN"
+              }
+            })
+            currentTicketId = newTicket.id
             await prisma.chat.update({
               where: { id: chatId },
               data: {
@@ -340,16 +355,37 @@ const chatResolver = {
             })
           }
         }
+        if (!currentTicketId) {
+          const activeTicket = chat.tickets?.find(
+            (t) => t.status === "OPEN" || t.status === "IN_PROGRESS"
+          )
+          if (activeTicket) {
+            currentTicketId = activeTicket.id
+          } else if (chat.tickets?.length === 0) {
+            const firstTicket = await prisma.supportTicket.create({
+              data: {
+                chatId,
+                ticketNumber: 1,
+                status: chat.supportStatus || "OPEN"
+              }
+            })
+            currentTicketId = firstTicket.id
+          }
+        }
       }
 
       // Создаем сообщение и сразу получаем связанные данные о чате
+      const messageData = {
+        text,
+        sender: { connect: { id: senderId } },
+        chat: { connect: { id: chatId } },
+        createdAt: formattedTime
+      }
+      if (currentTicketId) {
+        messageData.supportTicket = { connect: { id: currentTicketId } }
+      }
       const message = await prisma.message.create({
-        data: {
-          text,
-          sender: { connect: { id: senderId } },
-          chat: { connect: { id: chatId } },
-          createdAt: formattedTime
-        },
+        data: messageData,
         include: {
           sender: {
             select: {

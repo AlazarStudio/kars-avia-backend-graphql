@@ -60,6 +60,32 @@ const supportResolver = {
       const tree = await buildDocumentationTree(id)
       return tree // возвращаем JSON
     },
+    supportTicketStats: async (_, { startDate, endDate }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      if (!user.support) {
+        throw new GraphQLError("Доступ только для агентов техподдержки")
+      }
+      const where = {}
+      if (startDate || endDate) {
+        where.createdAt = {}
+        if (startDate) where.createdAt.gte = new Date(startDate)
+        if (endDate) where.createdAt.lte = new Date(endDate)
+      }
+      const [totalAppeals, totalClosed, totalOpen] = await Promise.all([
+        prisma.supportTicket.count({ where }),
+        prisma.supportTicket.count({
+          where: { ...where, status: "RESOLVED" }
+        }),
+        prisma.supportTicket.count({
+          where: {
+            ...where,
+            status: { in: ["OPEN", "IN_PROGRESS"] }
+          }
+        })
+      ])
+      return { totalAppeals, totalClosed, totalOpen }
+    },
     // Query: supportChats
     // Возвращает список всех чатов поддержки.
     // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
@@ -97,6 +123,30 @@ const supportResolver = {
             }
           },
           messages: true,
+          tickets: {
+            orderBy: { ticketNumber: "asc" },
+            include: {
+              messages: true,
+              assignedTo: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  images: true,
+                  support: true
+                }
+              },
+              resolvedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  images: true,
+                  support: true
+                }
+              }
+            }
+          },
           assignedTo: {
             select: {
               id: true,
@@ -192,7 +242,7 @@ const supportResolver = {
         if (supportUsers.length === 0) {
           throw new Error("No support agents available")
         }
-        // Создаем новый чат поддержки, добавляя в качестве участников указанного пользователя и всех агентов поддержки
+        // Создаем новый чат поддержки с первым тикетом
         chat = await prisma.chat.create({
           data: {
             isSupport: true,
@@ -204,6 +254,12 @@ const supportResolver = {
                   user: { connect: { id: support.id } }
                 }))
               ]
+            },
+            tickets: {
+              create: {
+                ticketNumber: 1,
+                status: "OPEN"
+              }
             }
           },
           include: {
@@ -225,7 +281,8 @@ const supportResolver = {
                 }
               }
             },
-            messages: true
+            messages: true,
+            tickets: true
           }
         })
       }
@@ -561,7 +618,31 @@ const supportResolver = {
       })
 
       if (existingChat) {
-        return existingChat
+        return prisma.chat.findUnique({
+          where: { id: existingChat.id },
+          include: {
+            participants: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    number: true,
+                    images: true,
+                    role: true,
+                    position: true,
+                    airlineId: true,
+                    airlineDepartmentId: true,
+                    hotelId: true,
+                    dispatcher: true
+                  }
+                }
+              }
+            },
+            assignedTo: true,
+            resolvedBy: true
+          }
+        })
       }
 
       // Получаем всех пользователей-агентов поддержки
@@ -573,7 +654,7 @@ const supportResolver = {
         throw new Error("No support agents available")
       }
 
-      // Создаем новый чат поддержки с участниками: указанный пользователь и все поддерживающие агенты
+      // Создаем новый чат поддержки с первым тикетом
       const chat = await prisma.chat.create({
         data: {
           isSupport: true,
@@ -585,6 +666,12 @@ const supportResolver = {
                 user: { connect: { id: support.id } }
               }))
             ]
+          },
+          tickets: {
+            create: {
+              ticketNumber: 1,
+              status: "OPEN"
+            }
           }
         },
         include: {
@@ -607,7 +694,8 @@ const supportResolver = {
             }
           },
           assignedTo: true,
-          resolvedBy: true
+          resolvedBy: true,
+          tickets: true
         }
       })
 
@@ -621,7 +709,7 @@ const supportResolver = {
       }
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
-        include: { assignedTo: true }
+        include: { assignedTo: true, tickets: { orderBy: { ticketNumber: "desc" } } }
       })
       if (!chat || !chat.isSupport) {
         throw new GraphQLError("Чат поддержки не найден")
@@ -635,11 +723,30 @@ const supportResolver = {
           include: {
             participants: { include: { user: true } },
             messages: true,
+            tickets: { orderBy: { ticketNumber: "asc" } },
             assignedTo: true,
             resolvedBy: true
           }
         })
       }
+      let activeTicket = chat.tickets?.find(
+        (t) => t.status === "OPEN" || t.status === "IN_PROGRESS"
+      )
+      if (!activeTicket && chat.tickets?.length === 0) {
+        activeTicket = await prisma.supportTicket.create({
+          data: {
+            chatId,
+            ticketNumber: 1,
+            status: "OPEN"
+          }
+        })
+      } else if (!activeTicket && chat.tickets?.length > 0) {
+        throw new GraphQLError("Нет активного тикета для взятия в работу")
+      }
+      await prisma.supportTicket.update({
+        where: { id: activeTicket.id },
+        data: { status: "IN_PROGRESS", assignedToId: user.id }
+      })
       const updated = await prisma.chat.update({
         where: { id: chatId },
         data: {
@@ -649,6 +756,14 @@ const supportResolver = {
         include: {
           participants: { include: { user: true } },
           messages: true,
+          tickets: {
+            orderBy: { ticketNumber: "asc" },
+            include: {
+              messages: true,
+              assignedTo: true,
+              resolvedBy: true
+            }
+          },
           assignedTo: {
             select: {
               id: true,
@@ -671,7 +786,7 @@ const supportResolver = {
       }
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
-        include: { assignedTo: true }
+        include: { assignedTo: true, tickets: { orderBy: { ticketNumber: "desc" } } }
       })
       if (!chat || !chat.isSupport) {
         throw new GraphQLError("Чат поддержки не найден")
@@ -679,6 +794,27 @@ const supportResolver = {
       if (chat.assignedToId !== user.id) {
         throw new GraphQLError("Закрыть тикет может только агент, ведущий этот чат")
       }
+      let activeTicket = chat.tickets?.find((t) => t.status === "IN_PROGRESS")
+      if (!activeTicket && chat.tickets?.length === 0) {
+        activeTicket = await prisma.supportTicket.create({
+          data: {
+            chatId,
+            ticketNumber: 1,
+            status: "IN_PROGRESS",
+            assignedToId: user.id
+          }
+        })
+      } else if (!activeTicket) {
+        throw new GraphQLError("Нет активного тикета для закрытия")
+      }
+      await prisma.supportTicket.update({
+        where: { id: activeTicket.id },
+        data: {
+          status: "RESOLVED",
+          resolvedAt: new Date(),
+          resolvedById: user.id
+        }
+      })
       const updated = await prisma.chat.update({
         where: { id: chatId },
         data: {
@@ -689,6 +825,14 @@ const supportResolver = {
         include: {
           participants: { include: { user: true } },
           messages: true,
+          tickets: {
+            orderBy: { ticketNumber: "asc" },
+            include: {
+              messages: true,
+              assignedTo: true,
+              resolvedBy: true
+            }
+          },
           assignedTo: true,
           resolvedBy: {
             select: {
@@ -719,6 +863,7 @@ const supportResolver = {
     }
   },
   SupportChat: {
+    tickets: (parent) => parent.tickets ?? [],
     // Возвращает список участников чата, извлекая данные пользователей из связей в таблице chatUser.
     participants: async (parent) => {
       const chatUsers = await prisma.chatUser.findMany({
