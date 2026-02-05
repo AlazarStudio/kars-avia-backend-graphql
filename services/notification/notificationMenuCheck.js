@@ -23,8 +23,8 @@ function isActionEnabledInMenu(menu, action) {
 /**
  * Проверяет, разрешено ли пользователю получать уведомление по NotificationMenu его отдела.
  * Для диспетчеров — dispatcherDepartment, для авиакомпании — airlineDepartment.
- * Для пользователей без отдела возвращает true.
- * @param {object} subject - пользователь (id, dispatcher, airlineId, airlineDepartmentId)
+ * Приоритет: dispatcher → airlineDepartment. Для пользователей без отдела возвращает true.
+ * @param {object} subject - пользователь (id)
  * @param {string} action - тип действия (create_request, extend_request, и т.д.)
  * @returns {Promise<boolean>}
  */
@@ -34,20 +34,24 @@ export async function AllowedSiteNotification(subject, action) {
   const user = await prisma.user.findUnique({
     where: { id: subject.id },
     select: {
+      dispatcher: true,
+      airlineDepartmentId: true,
       dispatcherDepartment: { select: { notificationMenu: true } },
       airlineDepartment: { select: { notificationMenu: true } }
     }
   })
 
+  if (!user) return true
+
   let menu = null
-  if (subject.dispatcher && user?.dispatcherDepartment) {
-    menu = user.dispatcherDepartment.notificationMenu
-  } else if (subject.airlineDepartmentId && user?.airlineDepartment) {
+  if (user.dispatcher === true) {
+    menu = user.dispatcherDepartment?.notificationMenu ?? null
+  } else if (user.airlineDepartmentId && user.airlineDepartment) {
     menu = user.airlineDepartment.notificationMenu
   }
 
   if (!menu) return true
-  return isActionEnabledInMenu(menu, action)
+  return Boolean(isActionEnabledInMenu(menu, action))
 }
 
 /**
@@ -59,7 +63,6 @@ export async function AllowedSiteNotification(subject, action) {
  */
 export async function AllowedEmailNotification(action) {
   const field = ACTION_TO_MENU_FIELD[action]
-  console.log(" field: " + field)
   if (!field) return true
 
   const [dispatcherDepts, airlineDepts] = await Promise.all([
@@ -73,18 +76,17 @@ export async function AllowedEmailNotification(action) {
     })
   ])
 
-  const hasEnabledInDispatcher = dispatcherDepts.length === 0 ||
+  const hasEnabledInDispatcher =
+    dispatcherDepts.length === 0 ||
     dispatcherDepts.some((dept) =>
       isActionEnabledInMenu(dept.notificationMenu, action)
     )
 
-  const hasEnabledInAirline = airlineDepts.length === 0 ||
+  const hasEnabledInAirline =
+    airlineDepts.length === 0 ||
     airlineDepts.some((dept) =>
       isActionEnabledInMenu(dept.notificationMenu, action)
     )
 
-    console.log(" hasEnabledInDispatcher: " + hasEnabledInDispatcher)
-    console.log(" hasEnabledInAirline: " + hasEnabledInAirline)
-
-  return hasEnabledInDispatcher || hasEnabledInAirline
+  return Boolean(hasEnabledInDispatcher || hasEnabledInAirline)
 } 
