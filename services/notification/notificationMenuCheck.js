@@ -59,6 +59,7 @@ export async function AllowedSiteNotification(subject, action) {
  */
 export async function AllowedEmailNotification(action) {
   const field = ACTION_TO_MENU_FIELD[action]
+  console.log(" field: " + field)
   if (!field) return true
 
   const [dispatcherDepts, airlineDepts] = await Promise.all([
@@ -81,6 +82,9 @@ export async function AllowedEmailNotification(action) {
     airlineDepts.some((dept) =>
       isActionEnabledInMenu(dept.notificationMenu, action)
     )
+
+    console.log(" hasEnabledInDispatcher: " + hasEnabledInDispatcher)
+    console.log(" hasEnabledInAirline: " + hasEnabledInAirline)
 
   return hasEnabledInDispatcher || hasEnabledInAirline
 } 
