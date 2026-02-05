@@ -22,11 +22,10 @@ function isActionEnabledInMenu(menu, action) {
 
 /**
  * Проверяет, разрешено ли пользователю получать уведомление по NotificationMenu его отдела.
- * Для диспетчеров — dispatcherDepartment, для авиакомпании — airlineDepartment.
- * Приоритет: dispatcher → airlineDepartment. Для пользователей без отдела возвращает true.
+ * У пользователя может быть только dispatcherDepartment ИЛИ airlineDepartment (взаимоисключающие).
  * @param {object} subject - пользователь (id)
  * @param {string} action - тип действия (create_request, extend_request, и т.д.)
- * @returns {Promise<boolean>}
+ * @returns {Promise<boolean>} всегда true или false
  */
 export async function AllowedSiteNotification(subject, action) {
   if (!subject?.id) return true
@@ -34,8 +33,6 @@ export async function AllowedSiteNotification(subject, action) {
   const user = await prisma.user.findUnique({
     where: { id: subject.id },
     select: {
-      dispatcher: true,
-      airlineDepartmentId: true,
       dispatcherDepartment: { select: { notificationMenu: true } },
       airlineDepartment: { select: { notificationMenu: true } }
     }
@@ -43,15 +40,15 @@ export async function AllowedSiteNotification(subject, action) {
 
   if (!user) return true
 
-  let menu = null
-  if (user.dispatcher === true) {
-    menu = user.dispatcherDepartment?.notificationMenu ?? null
-  } else if (user.airlineDepartmentId && user.airlineDepartment) {
-    menu = user.airlineDepartment.notificationMenu
-  }
+  // dispatcherDepartment и airlineDepartment взаимоисключающие — берём только один
+  const menu =
+    user.dispatcherDepartment?.notificationMenu ??
+    user.airlineDepartment?.notificationMenu ??
+    null
 
   if (!menu) return true
-  return Boolean(isActionEnabledInMenu(menu, action))
+  const enabled = isActionEnabledInMenu(menu, action)
+  return enabled === true
 }
 
 /**
@@ -88,5 +85,6 @@ export async function AllowedEmailNotification(action) {
       isActionEnabledInMenu(dept.notificationMenu, action)
     )
 
-  return Boolean(hasEnabledInDispatcher || hasEnabledInAirline)
+  const result = hasEnabledInDispatcher || hasEnabledInAirline
+  return result === true
 } 
