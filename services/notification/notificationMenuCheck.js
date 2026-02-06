@@ -27,6 +27,7 @@ function isActionEnabledInMenu(menu, action) {
  * @param {string} action - тип действия (create_request, extend_request, и т.д.)
  * @returns {Promise<boolean>} всегда true или false
  */
+
 export async function AllowedSiteNotification(subject, action) {
   if (!subject?.id) return true
 
@@ -58,6 +59,7 @@ export async function AllowedSiteNotification(subject, action) {
  * @param {string} action - тип действия (create_request, extend_request, и т.д.)
  * @returns {Promise<boolean>}
  */
+
 export async function AllowedEmailNotification(action) {
   const field = ACTION_TO_MENU_FIELD[action]
   if (!field) return true
