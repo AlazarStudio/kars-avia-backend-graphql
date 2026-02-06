@@ -404,7 +404,7 @@ const hotelResolver = {
                   html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
                 }
 
-                if (await AllowedEmailNotification("update_hotel_chess_request")) {
+                if (await AllowedEmailNotification(user, "update_hotel_chess_request")) {
                   await sendEmail(mailOptions)
                 }
 
@@ -705,7 +705,7 @@ const hotelResolver = {
                   }</span>`
                 }
 
-                if (await AllowedEmailNotification("update_hotel_chess_request")) {
+                if (await AllowedEmailNotification(user, "update_hotel_chess_request")) {
                   await sendEmail(mailOptions)
                 }
 

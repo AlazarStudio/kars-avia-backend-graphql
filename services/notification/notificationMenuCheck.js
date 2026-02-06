@@ -60,33 +60,26 @@ export async function AllowedSiteNotification(subject, action) {
  * @returns {Promise<boolean>}
  */
 
-export async function AllowedEmailNotification(action) {
-  const field = ACTION_TO_MENU_FIELD[action]
-  if (!field) return true
+export async function AllowedEmailNotification(subject, action) {
+  if (!subject?.id) return true
 
-  const [dispatcherDepts, airlineDepts] = await Promise.all([
-    prisma.dispatcherDepartment.findMany({
-      where: { active: true },
-      select: { notificationMenu: true }
-    }),
-    prisma.airlineDepartment.findMany({
-      where: { active: true },
-      select: { notificationMenu: true }
-    })
-  ])
+  const user = await prisma.user.findUnique({
+    where: { id: subject.id },
+    select: {
+      dispatcherDepartment: { select: { notificationMenu: true } },
+      airlineDepartment: { select: { notificationMenu: true } }
+    }
+  })
 
-  const hasEnabledInDispatcher =
-    dispatcherDepts.length === 0 ||
-    dispatcherDepts.some((dept) =>
-      isActionEnabledInMenu(dept.notificationMenu, action)
-    )
+  if (!user) return true
 
-  const hasEnabledInAirline =
-    airlineDepts.length === 0 ||
-    airlineDepts.some((dept) =>
-      isActionEnabledInMenu(dept.notificationMenu, action)
-    )
+  // dispatcherDepartment и airlineDepartment взаимоисключающие — берём только один
+  const menu =
+    user.dispatcherDepartment?.notificationMenu ??
+    user.airlineDepartment?.notificationMenu ??
+    null
 
-  const result = hasEnabledInDispatcher || hasEnabledInAirline
-  return result === true
-} 
+  if (!menu) return true
+  const enabled = isActionEnabledInMenu(menu, action)
+  return enabled === true
+}

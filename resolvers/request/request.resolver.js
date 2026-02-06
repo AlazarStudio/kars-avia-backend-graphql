@@ -491,7 +491,7 @@ const requestResolver = {
       }
 
       // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
-      if (await AllowedEmailNotification("create_request")) {
+      if (await AllowedEmailNotification(user, "create_request")) {
         await sendEmail(mailOptions)
       }
 
@@ -708,7 +708,7 @@ const requestResolver = {
             )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
           }
 
-          if (await AllowedEmailNotification("extend_request")) {
+          if (await AllowedEmailNotification(user, "extend_request")) {
             await sendEmail(mailOptions)
           }
 
@@ -947,7 +947,7 @@ const requestResolver = {
           )} - ${formatDate(updatedEnd)}</span>`
         }
 
-        if (await AllowedEmailNotification("update_request")) {
+        if (await AllowedEmailNotification(user, "update_request")) {
           await sendEmail(mailOptions)
         }
 
@@ -1366,7 +1366,7 @@ const requestResolver = {
           html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
         }
 
-        if (await AllowedEmailNotification("cancel_request")) {
+        if (await AllowedEmailNotification(user, "cancel_request")) {
           await sendEmail(mailOptions)
         }
 
@@ -1397,7 +1397,7 @@ const requestResolver = {
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 
-      if (await AllowedEmailNotification("cancel_request")) {
+      if (await AllowedEmailNotification(user, "cancel_request")) {
         await sendEmail(mailOptions)
       }
 
