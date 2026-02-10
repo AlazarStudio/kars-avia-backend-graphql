@@ -536,7 +536,6 @@ const dispatcherResolver = {
               subject.id)
 
           console.log(
-            "nt " + JSON.stringify(notification),
             "\n ac " + action,
             "\n nmc " + needsMenuCheck
           )
