@@ -149,7 +149,7 @@ const dispatcherResolver = {
       const notifications = await prisma.notification.findMany({
         where: {
           ...filter,
-          ...menuActionFilter
+          // ...menuActionFilter
         },
         skip: skip * take,
         take: take,
