@@ -20,16 +20,15 @@ function isActionEnabledInMenu(menu, action) {
   return value !== false
 }
 
-/**
- * Проверяет, разрешено ли пользователю получать уведомление по NotificationMenu его отдела.
- * У пользователя может быть только dispatcherDepartment ИЛИ airlineDepartment (взаимоисключающие).
- * @param {object} subject - пользователь (id)
- * @param {string} action - тип действия (create_request, extend_request, и т.д.)
- * @returns {Promise<boolean>} всегда true или false
- */
+export function getDisabledActionsFromMenu(menu) {
+  if (!menu) return []
+  return Object.entries(ACTION_TO_MENU_FIELD)
+    .filter(([, field]) => menu?.[field] === false)
+    .map(([action]) => action)
+}
 
-export async function AllowedSiteNotification(subject, action) {
-  if (!subject?.id) return true
+export async function getNotificationMenuForUser(subject) {
+  if (!subject?.id) return null
 
   const user = await prisma.user.findUnique({
     where: { id: subject.id },
@@ -39,14 +38,25 @@ export async function AllowedSiteNotification(subject, action) {
     }
   })
 
-  if (!user) return true
+  if (!user) return null
 
-  // dispatcherDepartment и airlineDepartment взаимоисключающие — берём только один
-  const menu =
+  return (
     user.dispatcherDepartment?.notificationMenu ??
     user.airlineDepartment?.notificationMenu ??
     null
+  )
+}
 
+/**
+ * Проверяет, разрешено ли пользователю получать уведомление по NotificationMenu его отдела.
+ * У пользователя может быть только dispatcherDepartment ИЛИ airlineDepartment (взаимоисключающие).
+ * @param {object} subject - пользователь (id)
+ * @param {string} action - тип действия (create_request, extend_request, и т.д.)
+ * @returns {Promise<boolean>} всегда true или false
+ */
+
+export async function AllowedSiteNotification(subject, action) {
+  const menu = await getNotificationMenuForUser(subject)
   if (!menu) return true
   const enabled = isActionEnabledInMenu(menu, action)
   return enabled === true
@@ -61,24 +71,7 @@ export async function AllowedSiteNotification(subject, action) {
  */
 
 export async function AllowedEmailNotification(subject, action) {
-  if (!subject?.id) return true
-
-  const user = await prisma.user.findUnique({
-    where: { id: subject.id },
-    select: {
-      dispatcherDepartment: { select: { notificationMenu: true } },
-      airlineDepartment: { select: { notificationMenu: true } }
-    }
-  })
-
-  if (!user) return true
-
-  // dispatcherDepartment и airlineDepartment взаимоисключающие — берём только один
-  const menu =
-    user.dispatcherDepartment?.notificationMenu ??
-    user.airlineDepartment?.notificationMenu ??
-    null
-
+  const menu = await getNotificationMenuForUser(subject)
   if (!menu) return true
   const enabled = isActionEnabledInMenu(menu, action)
   return enabled === true
