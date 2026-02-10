@@ -535,17 +535,17 @@ const dispatcherResolver = {
               subject.airlineDepartmentId &&
               subject.id)
 
-          if (needsMenuCheck && action) {
-            const allowed = await AllowedSiteNotification(subject, action)
-            if (!allowed) return false
-          }
-
           console.log(
             "nt " + JSON.stringify(notification),
             "\n ac " + action,
-            "\n nmc " + needsMenuCheck,
-            "\n al" + allowed
+            "\n nmc " + needsMenuCheck
           )
+
+          if (needsMenuCheck && action) {
+            const allowed = await AllowedSiteNotification(subject, action)
+            console.log("\n al" + allowed)
+            if (!allowed) return false
+          }
 
           // SUPERADMIN видит все уведомления
           if (subject.role === "SUPERADMIN") return true
