@@ -404,7 +404,12 @@ const hotelResolver = {
                   html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
                 }
 
-                if (await AllowedEmailNotification(user, "update_hotel_chess_request")) {
+                if (
+                  await AllowedEmailNotification(
+                    user,
+                    "update_hotel_chess_request"
+                  )
+                ) {
                   await sendEmail(mailOptions)
                 }
 
@@ -705,7 +710,12 @@ const hotelResolver = {
                   }</span>`
                 }
 
-                if (await AllowedEmailNotification(user, "update_hotel_chess_request")) {
+                if (
+                  await AllowedEmailNotification(
+                    user,
+                    "update_hotel_chess_request"
+                  )
+                ) {
                   await sendEmail(mailOptions)
                 }
 
@@ -730,6 +740,27 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   requestId: hotelChess.requestId,
                   reserveId: hotelChess.reserveId
+                })
+
+                await prisma.notification.create({
+                  data: {
+                    request: { connect: { id: updatedRequest.id } },
+                    hotel: { connect: { id } },
+                    airline: updatedRequest.airlineId
+                      ? { connect: { id: updatedRequest.airlineId } }
+                      : undefined,
+                    description: {
+                      action: "update_hotel_chess_request",
+                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                    }
+                  }
+                })
+                pubsub.publish(NOTIFICATION, {
+                  notification: {
+                    __typename: "RequestUpdatedNotification",
+                    action: "update_hotel_chess_request",
+                    ...updatedRequest
+                  }
                 })
 
                 // Публикуем событие обновления заявки
