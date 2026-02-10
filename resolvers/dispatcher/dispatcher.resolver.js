@@ -527,7 +527,7 @@ const dispatcherResolver = {
           const notification = payload.notification
           const action = notification?.action
 
-          console.log("nt " + notification, "\n ac " + action)
+          console.log("nt " + JSON.stringify(notification), "\n ac " + action)
 
           // Проверка NotificationMenu: диспетчеры и пользователи авиакомпании с отделом
           const needsMenuCheck =
