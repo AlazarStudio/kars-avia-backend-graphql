@@ -527,8 +527,6 @@ const dispatcherResolver = {
           const notification = payload.notification
           const action = notification?.action
 
-          console.log("nt " + JSON.stringify(notification), "\n ac " + action)
-
           // Проверка NotificationMenu: диспетчеры и пользователи авиакомпании с отделом
           const needsMenuCheck =
             (subject.dispatcher && subject.id) ||
@@ -541,6 +539,13 @@ const dispatcherResolver = {
             const allowed = await AllowedSiteNotification(subject, action)
             if (!allowed) return false
           }
+
+          console.log(
+            "nt " + JSON.stringify(notification),
+            "\n ac " + action,
+            "\n nmc " + needsMenuCheck,
+            "\n al" + allowed
+          )
 
           // SUPERADMIN видит все уведомления
           if (subject.role === "SUPERADMIN") return true
