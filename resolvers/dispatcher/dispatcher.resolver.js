@@ -139,8 +139,8 @@ const dispatcherResolver = {
 
       const totalCount = await prisma.notification.count({
         where: {
-          ...filter,
-          ...menuActionFilter
+          ...filter,  
+          // ...menuActionFilter
         }
       })
 
