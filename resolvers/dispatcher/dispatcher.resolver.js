@@ -123,19 +123,19 @@ const dispatcherResolver = {
       //     ? { status: { in: status } }
       //     : {}
 
-      const needsMenuCheck =
-        user.dispatcher === true || (user.airlineId && user.airlineDepartmentId)
+      // const needsMenuCheck =
+      //   user.dispatcher === true || (user.airlineId && user.airlineDepartmentId)
 
-      let menuActionFilter = {}
-      if (needsMenuCheck) {
-        const menu = await getNotificationMenuForUser(user)
-        const disabledActions = getDisabledActionsFromMenu(menu)
-        if (disabledActions.length > 0) {
-          menuActionFilter = {
-            NOT: { description: { is: { action: { in: disabledActions } } } }
-          }
-        }
-      }
+      // let menuActionFilter = {}
+      // if (needsMenuCheck) {
+      //   const menu = await getNotificationMenuForUser(user)
+      //   const disabledActions = getDisabledActionsFromMenu(menu)
+      //   if (disabledActions.length > 0) {
+      //     menuActionFilter = {
+      //       NOT: { description: { is: { action: { in: disabledActions } } } }
+      //     }
+      //   }
+      // }
 
       const totalCount = await prisma.notification.count({
         where: {
@@ -535,14 +535,8 @@ const dispatcherResolver = {
               subject.airlineDepartmentId &&
               subject.id)
 
-          console.log(
-            "\n ac " + action,
-            "\n nmc " + needsMenuCheck
-          )
-
           if (needsMenuCheck && action) {
             const allowed = await AllowedSiteNotification(subject, action)
-            console.log("\n al" + allowed)
             if (!allowed) return false
           }
 
