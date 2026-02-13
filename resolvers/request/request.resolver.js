@@ -744,9 +744,9 @@ const requestResolver = {
         }
 
         const enabledMeals = {
-          breakfast: request.mealPlan?.breakfastEnabled,
-          lunch: request.mealPlan?.lunchEnabled,
-          dinner: request.mealPlan?.dinnerEnabled
+          breakfast: inputMealPlan?.breakfastEnabled ?? request.mealPlan?.breakfastEnabled ?? true,
+          lunch: inputMealPlan?.lunchEnabled ?? request.mealPlan?.lunchEnabled ?? true,
+          dinner: inputMealPlan?.dinnerEnabled ?? request.mealPlan?.dinnerEnabled ?? true
         }
 
         let mealPlanData = request.mealPlan
@@ -786,7 +786,7 @@ const requestResolver = {
             enabledMeals
           )
           mealPlanData = {
-            included: request.mealPlan.included,
+            included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
             breakfast: calculatedMealPlan.totalBreakfast,
             breakfastEnabled: enabledMeals.breakfast,
             lunch: calculatedMealPlan.totalLunch,
@@ -891,7 +891,7 @@ const requestResolver = {
           )
 
           mealPlanData = {
-            included: request.mealPlan?.included,
+            included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
             breakfast: calculatedMealPlan.totalBreakfast,
             breakfastEnabled: enabledMeals.breakfast,
             lunch: calculatedMealPlan.totalLunch,
@@ -916,17 +916,21 @@ const requestResolver = {
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
         }
 
-        // if (
-        //   inputMealPlan &&
-        //   !wantsPlacement &&
-        //   !isHotelChange &&
-        //   request.mealPlan
-        // ) {
-        //   mealPlanData = {
-        //     ...request.mealPlan,
-        //     included: inputMealPlan.included
-        //   }
-        // }
+        if (inputMealPlan && request.mealPlan) {
+          mealPlanData = {
+            ...mealPlanData,
+            included: inputMealPlan.included,
+            breakfastEnabled: inputMealPlan.breakfastEnabled ?? mealPlanData.breakfastEnabled,
+            lunchEnabled: inputMealPlan.lunchEnabled ?? mealPlanData.lunchEnabled,
+            dinnerEnabled: inputMealPlan.dinnerEnabled ?? mealPlanData.dinnerEnabled
+          }
+          if (!inputMealPlan.included) {
+            mealPlanData.breakfast = 0
+            mealPlanData.lunch = 0
+            mealPlanData.dinner = 0
+            mealPlanData.dailyMeals = []
+          }
+        }
 
         const updatedRequest = await prisma.request.update({
           where: { id: requestId },
