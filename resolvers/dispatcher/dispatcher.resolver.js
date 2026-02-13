@@ -14,7 +14,11 @@ import {
   dispatcherOrSuperAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
-import { AllowedSiteNotification } from "../../services/notification/notificationMenuCheck.js"
+import {
+  AllowedSiteNotification,
+  getDisabledActionsFromMenu,
+  getNotificationMenuForUser
+} from "../../services/notification/notificationMenuCheck.js"
 
 const dispatcherResolver = {
   Query: {
@@ -119,9 +123,24 @@ const dispatcherResolver = {
       //     ? { status: { in: status } }
       //     : {}
 
+      // const needsMenuCheck =
+      //   user.dispatcher === true || (user.airlineId && user.airlineDepartmentId)
+
+      // let menuActionFilter = {}
+      // if (needsMenuCheck) {
+      //   const menu = await getNotificationMenuForUser(user)
+      //   const disabledActions = getDisabledActionsFromMenu(menu)
+      //   if (disabledActions.length > 0) {
+      //     menuActionFilter = {
+      //       NOT: { description: { is: { action: { in: disabledActions } } } }
+      //     }
+      //   }
+      // }
+
       const totalCount = await prisma.notification.count({
         where: {
-          ...filter
+          ...filter,  
+          // ...menuActionFilter
         }
       })
 
@@ -129,7 +148,8 @@ const dispatcherResolver = {
 
       const notifications = await prisma.notification.findMany({
         where: {
-          ...filter
+          ...filter,
+          // ...menuActionFilter
         },
         skip: skip * take,
         take: take,

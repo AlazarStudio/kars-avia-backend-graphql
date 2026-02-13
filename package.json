@@ -6,13 +6,14 @@
     "backup": "node services/cron/backup.js",
     "start": "node server2.js",
     "production": "nodemon server.js",
+    "dev": "nodemon server2.js",
     "pm": "pm2 start server.js -i max",
     "pms": "pm2 stop all",
     "pmm": "pm2 monit",
-    "dev": "nodemon server2.js",
-    "prisma": "prisma",
-    "migrateupload": "node services/migrations/migrateUploads.js",
-    "migrate-support-tickets": "node services/migrations/supportTicketsMigration.js"
+    "pg": "prisma generate",
+    "pp": "prisma db push",
+    "ps": "prisma studio",
+    "migrateupload": "node services/migrations/migrateUploads.js"
   },
   "type": "module",
   "keywords": [],

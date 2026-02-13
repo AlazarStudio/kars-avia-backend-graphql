@@ -477,7 +477,7 @@ const reserveResolver = {
               reserve: { connect: { id: extendReserve.id } },
               airline: { connect: { id: reserve.airlineId } },
               description: {
-                action: "update_reserve",
+                action: "reserve_dates_change",
                 description: `Запрос на изменение дат заявки ${
                   reserve.reserveNumber
                 } с ${formatDate(reserve.arrival)} - ${formatDate(

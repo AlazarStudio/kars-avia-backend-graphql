@@ -228,6 +228,7 @@ model User {
   transferMessages       TransferMessage[]
   transferMessageReads   TransferMessageRead[]
   deviceTokens           device_tokens[]
+  // dispatcherDepartment и airlineDepartment взаимоисключающие — у пользователя может быть только один
   dispatcherDepartment   DispatcherDepartment? @relation(fields: [dispatcherDepartmentId], references: [id])
   dispatcherDepartmentId String?               @db.ObjectId
   assignedSupportChats   Chat[]                @relation("AssignedSupportChats")

@@ -290,6 +290,15 @@ const userResolver = {
         }
       }
 
+      // dispatcherDepartment и airlineDepartment взаимоисключающие — приоритет у dispatcherDepartment
+      let finalDispatcherDeptId = null
+      let finalAirlineDeptId = null
+      if (dispatcherDepartmentId !== undefined && dispatcherDepartmentId !== null) {
+        finalDispatcherDeptId = dispatcherDepartmentId
+      } else if (airlineDepartmentId !== undefined && airlineDepartmentId !== null) {
+        finalAirlineDeptId = airlineDepartmentId
+      }
+
       // Формирование данных для создания нового пользователя
       const createdData = {
         name,
@@ -301,8 +310,8 @@ const userResolver = {
         role: role || "USER",
         positionId,
         dispatcher: dispatcher || false,
-        airlineDepartmentId: airlineDepartmentId || null,
-        dispatcherDepartmentId: dispatcherDepartmentId || null,
+        airlineDepartmentId: finalAirlineDeptId,
+        dispatcherDepartmentId: finalDispatcherDeptId,
         images: imagePaths
       }
 
@@ -536,10 +545,14 @@ const userResolver = {
       if (positionId !== undefined) updatedData.positionId = positionId
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
-      if (airlineDepartmentId !== undefined)
-        updatedData.airlineDepartmentId = airlineDepartmentId
-      if (dispatcherDepartmentId !== undefined)
+      // dispatcherDepartment и airlineDepartment взаимоисключающие — приоритет у dispatcherDepartment
+      if (dispatcherDepartmentId !== undefined) {
         updatedData.dispatcherDepartmentId = dispatcherDepartmentId
+        updatedData.airlineDepartmentId = null
+      } else if (airlineDepartmentId !== undefined) {
+        updatedData.airlineDepartmentId = airlineDepartmentId
+        updatedData.dispatcherDepartmentId = null
+      }
 
       // Обработка загрузки новых изображений
       if (images && images.length > 0) {
