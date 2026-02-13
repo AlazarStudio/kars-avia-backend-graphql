@@ -568,7 +568,7 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
-        const { roomId, place, ...requestInput } = input
+        const { roomId, place, airlineId, mealPlan: inputMealPlan, ...requestInput } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
@@ -600,6 +600,25 @@ const requestResolver = {
 
         if (isHotelChange && request.arrival <= now) {
           throw new Error("Нельзя изменить отель после даты заселения")
+        }
+
+        const isAirlineChange =
+          airlineId != null && airlineId !== request.airlineId
+
+        if (isAirlineChange) {
+          await prisma.request.update({
+            where: { id: requestId },
+            data: {
+              person: { disconnect: true },
+              airline: { connect: { id: airlineId } }
+            }
+          })
+          if (request.hotelChess?.length > 0) {
+            await prisma.hotelChess.update({
+              where: { id: request.hotelChess[0].id },
+              data: { client: { disconnect: true } }
+            })
+          }
         }
 
         if (input.personId) {
@@ -895,6 +914,18 @@ const requestResolver = {
           })
 
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
+        }
+
+        if (
+          inputMealPlan &&
+          !wantsPlacement &&
+          !isHotelChange &&
+          request.mealPlan
+        ) {
+          mealPlanData = {
+            ...request.mealPlan,
+            included: inputMealPlan.included
+          }
         }
 
         const updatedRequest = await prisma.request.update({

@@ -68,6 +68,7 @@ const requestTypeDef = /* GraphQL */ `
 
   input UpdateRequestInput {
     personId: ID
+    airlineId: ID
     arrival: Date
     departure: Date
     roomCategory: String
