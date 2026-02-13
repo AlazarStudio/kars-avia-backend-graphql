@@ -916,17 +916,17 @@ const requestResolver = {
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
         }
 
-        if (
-          inputMealPlan &&
-          !wantsPlacement &&
-          !isHotelChange &&
-          request.mealPlan
-        ) {
-          mealPlanData = {
-            ...request.mealPlan,
-            included: inputMealPlan.included
-          }
-        }
+        // if (
+        //   inputMealPlan &&
+        //   !wantsPlacement &&
+        //   !isHotelChange &&
+        //   request.mealPlan
+        // ) {
+        //   mealPlanData = {
+        //     ...request.mealPlan,
+        //     included: inputMealPlan.included
+        //   }
+        // }
 
         const updatedRequest = await prisma.request.update({
           where: { id: requestId },
