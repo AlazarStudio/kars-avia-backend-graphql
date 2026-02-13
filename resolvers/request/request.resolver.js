@@ -751,11 +751,16 @@ const requestResolver = {
 
         let mealPlanData = request.mealPlan
 
+        const datesChanged =
+          new Date(updatedStart).getTime() !== new Date(request.arrival).getTime() ||
+          new Date(updatedEnd).getTime() !== new Date(request.departure).getTime()
+
         if (
           request.hotelChess &&
           request.hotelChess.length != 0 &&
           !wantsPlacement &&
-          !isHotelChange
+          !isHotelChange &&
+          datesChanged
         ) {
           await ensureNoOverlap(
             request.hotelChess[0].roomId,
