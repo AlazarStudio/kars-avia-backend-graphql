@@ -648,15 +648,6 @@ const requestResolver = {
             newEnd
           }
 
-          const updatedStart = newStart ? newStart : request.arrival
-          const updatedEnd = newEnd ? newEnd : request.departure
-
-          if (updatedEnd < updatedStart) {
-            throw new Error(
-              "the end of an Request cannot be before its beginning"
-            )
-          }
-
           const chat = await prisma.chat.findFirst({
             where: { requestId: requestId, separator: "airline" }
           })
@@ -755,64 +746,6 @@ const requestResolver = {
           new Date(updatedStart).getTime() !== new Date(request.arrival).getTime() ||
           new Date(updatedEnd).getTime() !== new Date(request.departure).getTime()
 
-        if (
-          request.hotelChess &&
-          request.hotelChess.length != 0 &&
-          !wantsPlacement &&
-          !isHotelChange &&
-          datesChanged
-        ) {
-          await ensureNoOverlap(
-            request.hotelChess[0].roomId,
-            request.hotelChess[0].place,
-            updatedStart,
-            updatedEnd,
-            request.hotelChess[0].id
-          )
-
-          const hotel = await prisma.hotel.findUnique({
-            where: { id: request.hotelId },
-            select: {
-              breakfast: true,
-              lunch: true,
-              dinner: true
-            }
-          })
-
-          const mealTimes = {
-            breakfast: hotel.breakfast,
-            lunch: hotel.lunch,
-            dinner: hotel.dinner
-          }
-          const calculatedMealPlan = calculateMeal(
-            updatedStart,
-            updatedEnd,
-            mealTimes,
-            enabledMeals
-          )
-          mealPlanData = {
-            included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
-            breakfast: calculatedMealPlan.totalBreakfast,
-            breakfastEnabled: enabledMeals.breakfast,
-            lunch: calculatedMealPlan.totalLunch,
-            lunchEnabled: enabledMeals.lunch,
-            dinner: calculatedMealPlan.totalDinner,
-            dinnerEnabled: enabledMeals.dinner,
-            dailyMeals: calculatedMealPlan.dailyMeals
-          }
-
-          const updatedHotelChess = await prisma.hotelChess.update({
-            where: { id: request.hotelChess[0].id },
-            data: {
-              start: updatedStart,
-              end: updatedEnd,
-              mealPlan: mealPlanData
-            }
-          })
-
-          pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
-        }
-
         let placementHotelId = request.hotelId
         let placementRoom = null
         let placementPlace = null
@@ -867,45 +800,93 @@ const requestResolver = {
           })
         }
 
-        if (wantsPlacement) {
+        const mealIncludedChanged =
+          inputMealPlan?.included !== undefined &&
+          inputMealPlan.included !== request.mealPlan?.included
+        const breakfastEnabledChanged =
+          inputMealPlan?.breakfastEnabled !== undefined &&
+          inputMealPlan.breakfastEnabled !== request.mealPlan?.breakfastEnabled
+        const lunchEnabledChanged =
+          inputMealPlan?.lunchEnabled !== undefined &&
+          inputMealPlan.lunchEnabled !== request.mealPlan?.lunchEnabled
+        const dinnerEnabledChanged =
+          inputMealPlan?.dinnerEnabled !== undefined &&
+          inputMealPlan.dinnerEnabled !== request.mealPlan?.dinnerEnabled
+
+        const needRecalcMeal =
+          datesChanged ||
+          isHotelChange ||
+          wantsPlacement ||
+          mealIncludedChanged ||
+          breakfastEnabledChanged ||
+          lunchEnabledChanged ||
+          dinnerEnabledChanged
+
+        const hotelIdForMeal = wantsPlacement
+          ? placementHotelId
+          : (requestInput.hotelId ?? request.hotelId)
+
+        if (needRecalcMeal && hotelIdForMeal) {
           const hotel = await prisma.hotel.findUnique({
-            where: { id: placementHotelId },
+            where: { id: hotelIdForMeal },
             select: {
               breakfast: true,
               lunch: true,
-              dinner: true,
-              name: true
+              dinner: true
             }
           })
-
-          if (!hotel) {
-            throw new Error("Hotel not found")
+          if (hotel) {
+            const mealTimes = {
+              breakfast: hotel.breakfast,
+              lunch: hotel.lunch,
+              dinner: hotel.dinner
+            }
+            const calculatedMealPlan = calculateMeal(
+              updatedStart,
+              updatedEnd,
+              mealTimes,
+              enabledMeals
+            )
+            mealPlanData = {
+              included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
+              breakfast: calculatedMealPlan.totalBreakfast,
+              breakfastEnabled: enabledMeals.breakfast,
+              lunch: calculatedMealPlan.totalLunch,
+              lunchEnabled: enabledMeals.lunch,
+              dinner: calculatedMealPlan.totalDinner,
+              dinnerEnabled: enabledMeals.dinner,
+              dailyMeals: calculatedMealPlan.dailyMeals
+            }
           }
+        }
 
-          const mealTimes = {
-            breakfast: hotel.breakfast,
-            lunch: hotel.lunch,
-            dinner: hotel.dinner
+        if (
+          request.hotelChess &&
+          request.hotelChess.length !== 0 &&
+          !wantsPlacement &&
+          !isHotelChange
+        ) {
+          if (datesChanged) {
+            await ensureNoOverlap(
+              request.hotelChess[0].roomId,
+              request.hotelChess[0].place,
+              updatedStart,
+              updatedEnd,
+              request.hotelChess[0].id
+            )
           }
+          const updatedHotelChess = await prisma.hotelChess.update({
+            where: { id: request.hotelChess[0].id },
+            data: {
+              start: updatedStart,
+              end: updatedEnd,
+              mealPlan: mealPlanData
+            }
+          })
+          pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
+        }
 
-          const calculatedMealPlan = calculateMeal(
-            updatedStart,
-            updatedEnd,
-            mealTimes,
-            enabledMeals
-          )
-
-          mealPlanData = {
-            included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
-            breakfast: calculatedMealPlan.totalBreakfast,
-            breakfastEnabled: enabledMeals.breakfast,
-            lunch: calculatedMealPlan.totalLunch,
-            lunchEnabled: enabledMeals.lunch,
-            dinner: calculatedMealPlan.totalDinner,
-            dinnerEnabled: enabledMeals.dinner,
-            dailyMeals: calculatedMealPlan.dailyMeals
-          }
-
+        if (wantsPlacement) {
           const newHotelChess = await prisma.hotelChess.create({
             data: {
               hotel: { connect: { id: placementHotelId } },
@@ -917,7 +898,6 @@ const requestResolver = {
               mealPlan: mealPlanData
             }
           })
-
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
         }
 

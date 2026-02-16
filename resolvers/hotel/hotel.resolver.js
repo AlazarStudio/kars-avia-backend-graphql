@@ -422,7 +422,7 @@ const hotelResolver = {
                       : undefined,
                     description: {
                       action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
                     }
                   }
                 })
@@ -466,7 +466,7 @@ const hotelResolver = {
                       : undefined,
                     description: {
                       action: "update_hotel_chess_reserve",
-                      description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                      description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> `
                     }
                   }
                 })
@@ -751,7 +751,7 @@ const hotelResolver = {
                       : undefined,
                     description: {
                       action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
+                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
                     }
                   }
                 })
