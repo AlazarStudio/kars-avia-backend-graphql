@@ -39,8 +39,8 @@ const mergedTypeDefs = mergeTypeDefs([
   reserveTypeDef,
   supportTypeDef,
   transferTypeDef,
-  userTypeDef
-  
+  userTypeDef,
+  documentationTypeDef
 ])
 
 export default mergedTypeDefs

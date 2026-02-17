@@ -39,7 +39,8 @@ const mergedResolvers = mergeResolvers([
   reserveResolver,
   supportResolver,
   transferResolver,
-  userResolver
+  userResolver,
+  documentationResolver
 ])
 
 export default mergedResolvers

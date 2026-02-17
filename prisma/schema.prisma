@@ -1384,3 +1384,39 @@ model TransferMessageRead {
   personalId String?          @db.ObjectId
   readAt     DateTime         @default(now())
 }
+
+
+// Схемы для документации
+model Section {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  title String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Родительский раздел (самоссылка)
+  parentId String?  @db.ObjectId
+  parent   Section? @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Подразделы (дочерние разделы)
+  children Section[] @relation("SectionHierarchy")
+
+  // Статьи внутри этого раздела
+  articles Article[]       
+
+  // Индекс для быстрого поиска по родителю
+  @@index([parentId])
+}
+
+model Article {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  title String
+  content      Json?
+
+  // Раздел, к которому принадлежит статья
+  sectionId String?  @db.ObjectId
+  section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+//---------------------------------------------------------------------------------------------------------------------
