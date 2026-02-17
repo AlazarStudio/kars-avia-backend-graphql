@@ -1,5 +1,6 @@
 const documentationTypeDef = `#graphql
     scalar Date
+    scalar Upload
 
     type Section {
         id: ID
@@ -63,6 +64,9 @@ const documentationTypeDef = `#graphql
         createArticle(input: createArticleInput): Article!
         updateArticle(id: ID input: updateArticleInput): Article!
         deleteArticle(id: ID): String!
+
+        uploadDocumentationImage(file: Upload!): String!
+        uploadDocumentationFile(file: Upload!): String!
 
         createSection(input: createSectionInput): Section!
         updateSection(id: ID input: updateSectionInput): Section!

@@ -1,8 +1,13 @@
 import { prisma } from "../../prisma.js"
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
+import { uploadImage } from "../../services/files/uploadImage.js"
+import { uploadFiles } from "../../services/files/uploadFiles.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { deleteSectionCascade } from "./cascadeDeletefunc.js"
 import { getSectionsHierarchyJSONOptimized } from "./getSectionsWithHierarhyFunc.js"
 
 const documentationResolver = {
+    Upload: GraphQLUpload,
     Query: {
         articles: async () => {
             return await prisma.article.findMany({
@@ -51,8 +56,18 @@ const documentationResolver = {
         }
     },
     Mutation: {
-        createArticle: async (_, { input }) => {
-        
+        uploadDocumentationImage: async (_, { file }, context) => {
+            await allMiddleware(context)
+            const path = await uploadImage(file, { bucket: "documentation" })
+            return path
+        },
+        uploadDocumentationFile: async (_, { file }, context) => {
+            await allMiddleware(context)
+            const path = await uploadFiles(file, { bucket: "documentation" })
+            return path
+        },
+        createArticle: async (_, { input }, context) => {
+            await allMiddleware(context)
             const newArticle = await prisma.article.create({
                 data: input,
                 include: {
@@ -62,7 +77,8 @@ const documentationResolver = {
 
             return newArticle
         },
-        updateArticle: async (_, { id, input }) => {
+        updateArticle: async (_, { id, input }, context) => {
+            await allMiddleware(context)
             return await prisma.article.update({
                 where: { id: id },
                 data: input,
