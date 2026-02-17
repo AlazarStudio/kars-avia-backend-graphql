@@ -19,6 +19,7 @@ import reserveResolver from "./reserve/reserve.resolver.js"
 import supportResolver from "./support/support.resolver.js"
 import transferResolver from "./transfer/transfer.resolver.js"
 import userResolver from "./user/user.resolver.js"
+import documentationResolver from "./documentation/documentation.resolver.js"
 
 const mergedResolvers = mergeResolvers([
   airlineResolver,

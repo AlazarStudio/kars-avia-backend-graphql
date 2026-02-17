@@ -19,6 +19,7 @@ import reserveTypeDef from "./reserve/reserve.typeDef.js"
 import supportTypeDef from "./support/support.typeDef.js"
 import transferTypeDef from "./transfer/transfer.typeDef.js"
 import userTypeDef from "./user/user.typeDef.js"
+import documentationTypeDef from "./documentation/documentation.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
   airlineTypeDef,
