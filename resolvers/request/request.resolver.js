@@ -887,6 +887,7 @@ const requestResolver = {
         }
 
         if (wantsPlacement) {
+          const personIdForClient = input.personId || request.personId
           const newHotelChess = await prisma.hotelChess.create({
             data: {
               hotel: { connect: { id: placementHotelId } },
@@ -895,7 +896,8 @@ const requestResolver = {
               start: updatedStart,
               end: updatedEnd,
               request: { connect: { id: requestId } },
-              mealPlan: mealPlanData
+              mealPlan: mealPlanData,
+              ...(personIdForClient ? { client: { connect: { id: personIdForClient } } } : {})
             }
           })
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
@@ -925,6 +927,7 @@ const requestResolver = {
             mealPlan: mealPlanData,
             status: wantsPlacement ? "done" : status,
             ...requestInput,
+            ...(input.personId ? { person: { connect: { id: input.personId } } } : {}),
             ...(wantsPlacement
               ? {
                   hotel: { connect: { id: placementHotelId } },
