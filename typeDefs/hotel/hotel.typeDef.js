@@ -282,7 +282,7 @@ const hotelTypeDef = /* GraphQL */ `
   }
 
   input HotelFilter {
-    city: String
+    cityId: ID
     stars: String
     usStars: String
   }

@@ -1,12 +1,12 @@
 export const buildHotelWhere = (filter) => {
   if (!filter) return {}
-  const { city, stars, usStars } = filter
+  const { cityId, stars, usStars } = filter
 
   const AND = []
 
-  if (city?.trim()) {
+  if (cityId) {
     AND.push({
-      information: { city: city.trim() }
+      hotelContract: { some: { cityId } }
     })
   }
   if (stars?.trim()) {
