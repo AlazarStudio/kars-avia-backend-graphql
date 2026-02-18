@@ -568,7 +568,7 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
-        const { roomId, place, airlineId, mealPlan: inputMealPlan, personId, ...requestInput } = input
+        const { roomId, place, airlineId, mealPlan: inputMealPlan, personId, hotelId: inputHotelId, ...requestInput } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
@@ -595,8 +595,8 @@ const requestResolver = {
 
         const wantsPlacement = roomId != null
         const isHotelChange =
-          requestInput.hotelId != null &&
-          requestInput.hotelId !== request.hotelId
+          inputHotelId != null &&
+          inputHotelId !== request.hotelId
 
         if (isHotelChange && request.arrival <= now) {
           throw new Error("Нельзя изменить отель после даты заселения")
@@ -767,8 +767,8 @@ const requestResolver = {
           }
 
           if (
-            requestInput.hotelId &&
-            requestInput.hotelId !== placementRoom.hotelId
+            inputHotelId &&
+            inputHotelId !== placementRoom.hotelId
           ) {
             throw new Error("Номер не относится к указанному отелю")
           }
@@ -789,9 +789,9 @@ const requestResolver = {
             request.hotelChess?.[0]?.id
           )
           shouldRemoveHotelChess = true
-        } else if (requestInput.hotelId != null) {
+        } else if (inputHotelId != null) {
           shouldRemoveHotelChess = true
-          placementHotelId = requestInput.hotelId
+          placementHotelId = inputHotelId
         }
 
         if (shouldRemoveHotelChess && request.hotelChess?.length) {
@@ -824,7 +824,7 @@ const requestResolver = {
 
         const hotelIdForMeal = wantsPlacement
           ? placementHotelId
-          : (requestInput.hotelId ?? request.hotelId)
+          : (inputHotelId ?? request.hotelId)
 
         if (needRecalcMeal && hotelIdForMeal) {
           const hotel = await prisma.hotel.findUnique({
@@ -927,7 +927,7 @@ const requestResolver = {
             ...requestInput,
             ...(wantsPlacement
               ? {
-                  hotelId: placementHotelId,
+                  hotel: { connect: { id: placementHotelId } },
                   roomCategory: placementRoom?.category || null,
                   roomNumber: placementRoom?.name || null,
                   placementAt: formattedTime,
@@ -936,6 +936,7 @@ const requestResolver = {
               : {}),
             ...(isHotelChange && !wantsPlacement
               ? {
+                  hotel: { connect: { id: inputHotelId } },
                   roomCategory: null,
                   roomNumber: null,
                   placementAt: null,
