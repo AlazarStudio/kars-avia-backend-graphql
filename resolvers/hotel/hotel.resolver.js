@@ -32,6 +32,7 @@ import {
   updateHotelRoomCounts,
   updateRoomKindCounts
 } from "../../services/hotel/roomUtils.js"
+import { buildHotelWhere } from "../../services/hotel/hotelFilters.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -52,14 +53,19 @@ const hotelResolver = {
   Query: {
     // Получение списка отелей с возможностью пагинации.
     // При запросе возвращаются отели с включением связанных комнат (rooms) и записей hotelChesses.
-    hotels: async (_, { pagination }, context) => {
+    hotels: async (_, { pagination, filter }, context) => {
       await allMiddleware(context)
       const { user } = context
       const { skip, take, all } = pagination || {}
 
       const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
 
-      const where = isSuper ? { active: true } : { active: true, show: true }
+      const baseWhere = isSuper ? { active: true } : { active: true, show: true }
+      const filterWhere = buildHotelWhere(filter)
+      const where =
+        Object.keys(filterWhere).length > 0
+          ? { AND: [baseWhere, ...filterWhere.AND] }
+          : baseWhere
 
       const totalCount = await prisma.hotel.count({ where })
 

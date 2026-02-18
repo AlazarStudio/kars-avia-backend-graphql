@@ -281,6 +281,12 @@ const hotelTypeDef = /* GraphQL */ `
     all: Boolean
   }
 
+  input HotelFilter {
+    city: String
+    stars: String
+    usStars: String
+  }
+
   input ManyRoomsInput {
     hotelId: ID
     roomKindId: ID
@@ -293,7 +299,7 @@ const hotelTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    hotels(pagination: HotelPaginationInput): HotelConnection!
+    hotels(pagination: HotelPaginationInput, filter: HotelFilter): HotelConnection!
     hotel(id: ID!): Hotel
   }
 
