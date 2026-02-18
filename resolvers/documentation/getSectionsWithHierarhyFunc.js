@@ -14,77 +14,76 @@ export async function getSectionsHierarchyJSONOptimized() {
       }
     },
     orderBy: {
-      createdAt: 'asc'
+      createdAt: "asc"
     }
-  });
+  })
 
   // Создаем карту разделов по ID для быстрого доступа
-  const sectionsMap = new Map();
-  allSections.forEach(section => {
+  const sectionsMap = new Map()
+  allSections.forEach((section) => {
     sectionsMap.set(section.id, {
       ...section,
       childrens: [] // Инициализируем пустой массив для детей
-    });
-  });
+    })
+  })
 
   // Строим иерархию
-  const rootSections = [];
+  const rootSections = []
 
-  sectionsMap.forEach(section => {
+  sectionsMap.forEach((section) => {
     if (section.parentId) {
-      const parent = sectionsMap.get(section.parentId);
+      const parent = sectionsMap.get(section.parentId)
       if (parent) {
-        parent.childrens.push(section);
+        parent.childrens.push(section)
       }
     } else {
-      rootSections.push(section);
+      rootSections.push(section)
     }
-  });
+  })
 
   // Рекурсивная функция для преобразования в JSON
   function buildSectionJSON(section) {
     const result = {
       id: section.id,
       title: section.title,
-      type: 'section',
-    };
+      type: "section"
+    }
 
     // Добавляем детей, если они есть
     if (section.childrens && section.childrens.length > 0) {
-      result.childrens = section.childrens.map(buildSectionJSON);
+      result.childrens = section.childrens.map(buildSectionJSON)
     }
 
     // Добавляем статьи, если они есть
     if (section.articles && section.articles.length > 0) {
-      result.articles = section.articles.map(article => ({
+      result.articles = section.articles.map((article) => ({
         id: article.id,
-        title: article.title,  
+        title: article.title,
         content: article.content
-      }));
+      }))
     }
 
-    return result;
+    return result
   }
 
   // Преобразуем корневые разделы
-  const jsonResult = rootSections.map(buildSectionJSON);
+  const jsonResult = rootSections.map(buildSectionJSON)
 
   // Добавляем статьи без раздела (sectionId: null)
   const rootArticles = await prisma.article.findMany({
     where: { sectionId: null },
     select: { id: true, title: true, content: true },
-    orderBy: { createdAt: 'asc' }
-  });
+    orderBy: { createdAt: "asc" }
+  })
 
-  const rootArticlesJSON = rootArticles.map(article => ({
+  const rootArticlesJSON = rootArticles.map((article) => ({
     id: article.id,
     title: article.title,
     content: article.content,
-    type: 'article'
-  }));
+    type: "article"
+  }))
 
-  const combined = [...jsonResult, ...rootArticlesJSON];
+  const combined = [...jsonResult, ...rootArticlesJSON]
 
-  return combined.length === 1 ? combined[0] : combined;
+  return combined.length === 1 ? combined[0] : combined
 }
-
