@@ -5,7 +5,9 @@ export const buildHotelWhere = (filter) => {
   const AND = []
 
   if (city?.trim()) {
-    AND.push({ information: { city: city.trim() } })
+    AND.push({
+      information: { city: city.trim() }
+    })
   }
   if (stars?.trim()) {
     AND.push({ stars: stars.trim() })
