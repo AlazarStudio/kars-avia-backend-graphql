@@ -568,7 +568,7 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
-        const { roomId, place, airlineId, mealPlan: inputMealPlan, ...requestInput } = input
+        const { roomId, place, airlineId, mealPlan: inputMealPlan, personId, ...requestInput } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
