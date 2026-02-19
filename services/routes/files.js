@@ -2,41 +2,119 @@ import express from "express"
 import path from "path"
 import fs from "fs"
 import { buildAuthContext } from "../../middlewares/authContext.js"
+import { checkFileAccess } from "../files/checkFileAccess.js"
+import { logger } from "../infra/logger.js"
 
 const router = express.Router()
 
 const UPLOADS_ROOT = path.join(process.cwd(), "uploads")
+const REPORTS_ROOT = path.join(process.cwd(), "reports")
+const RESERVE_FILES_ROOT = path.join(process.cwd(), "reserve_files")
 
+/**
+ * Определяет корневую директорию по пути файла
+ */
+function getRootDirectory(filePath) {
+  const normalizedPath = filePath.replace(/^\/+/, "").replace(/\\/g, "/")
+  const parts = normalizedPath.split("/")
+  
+  if (parts[0] === "uploads") {
+    return UPLOADS_ROOT
+  }
+  if (parts[0] === "reports") {
+    return REPORTS_ROOT
+  }
+  if (parts[0] === "reserve_files") {
+    return RESERVE_FILES_ROOT
+  }
+  
+  // По умолчанию используем uploads
+  return UPLOADS_ROOT
+}
+
+/**
+ * Защищенный роут для получения файлов
+ * Требует JWT токен и проверяет права доступа
+ * 
+ * Поддерживает два формата URL:
+ * - /files/uploads/... (новый формат)
+ * - /files/reports/...
+ * - /files/reserve_files/...
+ */
 router.get("/files/*", async (req, res) => {
   try {
     const authHeader = req.headers.authorization || null
     const context = await buildAuthContext(authHeader)
 
     if (!context.subject) {
-      return res.status(401).json({ error: "Unauthorized" })
+      return res.status(401).json({ 
+        error: "Unauthorized",
+        message: "Authentication required. Please provide a valid JWT token in the Authorization header."
+      })
     }
 
-    // путь из URL
-    const relativePath = req.params[0]
-    const absolutePath = path.join(UPLOADS_ROOT, relativePath)
+    // путь из URL (например: "uploads/requests/123/2024/01/15/file.png")
+    let relativePath = req.params[0]
+    
+    // Убираем префикс /files/ если он есть (для обратной совместимости)
+    relativePath = relativePath.replace(/^files\//, "")
+    
+    // Определяем корневую директорию
+    const rootDir = getRootDirectory(relativePath)
+    // Убираем префикс типа "uploads/", "reports/" или "reserve_files/" из пути для построения абсолютного пути
+    const pathWithoutPrefix = relativePath.replace(/^(uploads|reports|reserve_files)\//, "")
+    const absolutePath = path.join(rootDir, pathWithoutPrefix)
 
-    // защита от ../../
-    if (!absolutePath.startsWith(UPLOADS_ROOT)) {
+    // Защита от path traversal (../..)
+    if (!absolutePath.startsWith(rootDir)) {
+      logger.warn(`[FILE ACCESS] Path traversal attempt: ${relativePath}`)
       return res.status(403).json({ error: "Forbidden" })
     }
 
+    // Проверяем существование файла
     if (!fs.existsSync(absolutePath)) {
       return res.status(404).json({ error: "File not found" })
     }
 
-    // TODO: тут можно добавить проверку прав:
-    // - принадлежит ли файл заявке пользователя
-    // - роль (ADMIN, AIRLINE, HOTEL, etc.)
+    // Проверяем права доступа к файлу
+    const hasAccess = await checkFileAccess(context, relativePath)
+    
+    if (!hasAccess) {
+      logger.warn(
+        `[FILE ACCESS] Access denied for user ${context.subject.id} to file ${relativePath}`
+      )
+      return res.status(403).json({ error: "Access denied" })
+    }
 
+    // Определяем Content-Type на основе расширения файла
+    const ext = path.extname(absolutePath).toLowerCase()
+    const contentTypes = {
+      ".pdf": "application/pdf",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ".xls": "application/vnd.ms-excel",
+      ".doc": "application/msword",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".txt": "text/plain",
+      ".csv": "text/csv"
+    }
+    
+    const contentType = contentTypes[ext] || "application/octet-stream"
+    res.setHeader("Content-Type", contentType)
     res.setHeader("Content-Disposition", "inline")
+    
+    // Отправляем файл
     res.sendFile(absolutePath)
   } catch (e) {
-    res.status(401).json({ error: "Invalid token" })
+    logger.error("[FILE ACCESS] Error serving file", e)
+    if (e.message === "Token expired" || e.message === "Invalid token") {
+      return res.status(401).json({ error: e.message })
+    }
+    return res.status(500).json({ error: "Internal server error" })
   }
 })
 

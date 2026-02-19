@@ -61,7 +61,9 @@ export const uploadFiles = async (file, options = {}) => {
     stream.pipe(out)
 
     out.on("finish", () => {
-      const publicPath = "/" + path.posix.join(...relParts, finalName)
+      // Возвращаем путь с префиксом /files/ для защищенного доступа
+      const relativePath = path.posix.join(...relParts, finalName)
+      const publicPath = "/files/" + relativePath
       resolve(publicPath)
     })
 

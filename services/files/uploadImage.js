@@ -67,7 +67,9 @@ export const uploadImage = async (image, options = {}) => {
 
   await sharp(buffer).rotate().webp({ quality }).toFile(absPath)
 
-  return "/" + path.posix.join(...relParts, finalName)
+  // Возвращаем путь с префиксом /files/ для защищенного доступа
+  const relativePath = path.posix.join(...relParts, finalName)
+  return "/files/" + relativePath
 }
 
 /* =========================

@@ -24,6 +24,7 @@ import { buildAuthContext } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
 import { logger } from "./services/infra/logger.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
+import filesRouter from "./services/routes/files.js"
 
 dotenv.config()
 const app = express()
@@ -147,9 +148,15 @@ await server.start()
 // app.use(limiter)
 
 app.use(graphqlUploadExpress())
-app.use("/uploads", express.static("uploads"))
-app.use("/reports", express.static("reports"))
-app.use("/reserve_files", express.static("reserve_files"))
+
+// Защищенный роут для файлов (требует JWT токен и проверяет права доступа)
+app.use("/files", filesRouter)
+
+// Убрана статическая раздача файлов для безопасности
+// Все файлы теперь доступны только через /files/* с авторизацией
+// app.use("/uploads", express.static("uploads"))
+// app.use("/reports", express.static("reports"))
+// app.use("/reserve_files", express.static("reserve_files"))
 
 app.use(
   "/",

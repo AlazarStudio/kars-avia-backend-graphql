@@ -266,7 +266,7 @@ const reportResolver = {
 
       const reportRecord = {
         name: reportName,
-        url: `/reports/${reportName}`,
+        url: `/files/reports/${reportName}`,
         startDate: new Date(filter.startDate),
         endDate: new Date(filter.endDate),
         createdAt: new Date(),
@@ -387,7 +387,7 @@ const reportResolver = {
 
       const reportRecord = {
         name: reportName,
-        url: `/reports/${reportName}`,
+        url: `/files/reports/${reportName}`,
         startDate: new Date(filter.startDate),
         endDate: new Date(filter.endDate),
         createdAt: new Date(),

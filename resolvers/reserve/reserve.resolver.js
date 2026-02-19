@@ -804,7 +804,7 @@ const reserveResolver = {
       const updatedReserve = await prisma.reserve.update({
         where: { id: reserveId },
         data: {
-          passengerList: { set: [`/reserve_files/${listName}`] }
+          passengerList: { set: [`/files/reserve_files/${listName}`] }
         }
       })
 
@@ -812,7 +812,7 @@ const reserveResolver = {
 
       return {
         name: listName,
-        url: `/reserve_files/${listName}`
+        url: `/files/reserve_files/${listName}`
       }
     },
 
