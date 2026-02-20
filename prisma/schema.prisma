@@ -552,6 +552,11 @@ type AccessMenu {
   airlineMenu     Boolean @default(true)
   airlineUpdate   Boolean @default(true)
   contracts       Boolean @default(true)
+  organizationMenu        Boolean @default(true)
+  organizationCreate      Boolean @default(true)
+  organizationUpdate      Boolean @default(true)
+  organizationAddDrivers  Boolean @default(true)
+  organizationAcceptDrivers Boolean @default(true)
 }
 
 type NotificationMenu {

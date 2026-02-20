@@ -26,7 +26,12 @@ const DEFAULT = {
   userUpdate: true,
   airlineMenu: true,
   airlineUpdate: true,
-  contracts: true
+  contracts: true,
+  organizationMenu: true,
+  organizationCreate: true,
+  organizationUpdate: true,
+  organizationAddDrivers: true,
+  organizationAcceptDrivers: true
 }
 
 async function main() {
@@ -37,12 +42,17 @@ async function main() {
     select: { id: true, accessMenu: true }
   })
 
-  const buildTransferMerge = (accessMenu) => ({
+  const buildMerge = (accessMenu) => ({
     ...accessMenu,
     transferMenu: accessMenu?.transferMenu ?? true,
     transferCreate: accessMenu?.transferCreate ?? true,
     transferUpdate: accessMenu?.transferUpdate ?? true,
-    transferChat: accessMenu?.transferChat ?? true
+    transferChat: accessMenu?.transferChat ?? true,
+    organizationMenu: accessMenu?.organizationMenu ?? true,
+    organizationCreate: accessMenu?.organizationCreate ?? true,
+    organizationUpdate: accessMenu?.organizationUpdate ?? true,
+    organizationAddDrivers: accessMenu?.organizationAddDrivers ?? true,
+    organizationAcceptDrivers: accessMenu?.organizationAcceptDrivers ?? true
   })
 
   const toUpdate = []
@@ -58,17 +68,22 @@ async function main() {
       continue
     }
 
-    const needsTransfer =
+    const needsUpdate =
       row.accessMenu.transferMenu == null ||
       row.accessMenu.transferCreate == null ||
       row.accessMenu.transferUpdate == null ||
-      row.accessMenu.transferChat == null
+      row.accessMenu.transferChat == null ||
+      row.accessMenu.organizationMenu == null ||
+      row.accessMenu.organizationCreate == null ||
+      row.accessMenu.organizationUpdate == null ||
+      row.accessMenu.organizationAddDrivers == null ||
+      row.accessMenu.organizationAcceptDrivers == null
 
-    if (needsTransfer) {
+    if (needsUpdate) {
       toUpdate.push(
         prisma.airlineDepartment.update({
           where: { id: row.id },
-          data: { accessMenu: { set: buildTransferMerge(row.accessMenu) } }
+          data: { accessMenu: { set: buildMerge(row.accessMenu) } }
         })
       )
     }
@@ -85,17 +100,22 @@ async function main() {
       continue
     }
 
-    const needsTransfer =
+    const needsUpdate =
       row.accessMenu.transferMenu == null ||
       row.accessMenu.transferCreate == null ||
       row.accessMenu.transferUpdate == null ||
-      row.accessMenu.transferChat == null
+      row.accessMenu.transferChat == null ||
+      row.accessMenu.organizationMenu == null ||
+      row.accessMenu.organizationCreate == null ||
+      row.accessMenu.organizationUpdate == null ||
+      row.accessMenu.organizationAddDrivers == null ||
+      row.accessMenu.organizationAcceptDrivers == null
 
-    if (needsTransfer) {
+    if (needsUpdate) {
       toUpdate.push(
         prisma.dispatcherDepartment.update({
           where: { id: row.id },
-          data: { accessMenu: { set: buildTransferMerge(row.accessMenu) } }
+          data: { accessMenu: { set: buildMerge(row.accessMenu) } }
         })
       )
     }

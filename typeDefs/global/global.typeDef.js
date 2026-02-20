@@ -69,6 +69,11 @@ const globalTypeDef = /* GraphQL */ `
     airlineMenu: Boolean
     airlineUpdate: Boolean
     contracts: Boolean
+    organizationMenu: Boolean
+    organizationCreate: Boolean
+    organizationUpdate: Boolean
+    organizationAddDrivers: Boolean
+    organizationAcceptDrivers: Boolean
   }
 
   input AccessMenuInput {
@@ -96,6 +101,11 @@ const globalTypeDef = /* GraphQL */ `
     airlineMenu: Boolean
     airlineUpdate: Boolean
     contracts: Boolean
+    organizationMenu: Boolean
+    organizationCreate: Boolean
+    organizationUpdate: Boolean
+    organizationAddDrivers: Boolean
+    organizationAcceptDrivers: Boolean
   }
 
   # Типы для питания
