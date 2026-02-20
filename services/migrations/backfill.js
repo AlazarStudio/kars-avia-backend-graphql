@@ -27,6 +27,8 @@ const DEFAULT = {
   airlineMenu: true,
   airlineUpdate: true,
   contracts: true,
+  contractCreate: true,
+  contractUpdate: true,
   organizationMenu: true,
   organizationCreate: true,
   organizationUpdate: true,
@@ -52,7 +54,9 @@ async function main() {
     organizationCreate: accessMenu?.organizationCreate ?? true,
     organizationUpdate: accessMenu?.organizationUpdate ?? true,
     organizationAddDrivers: accessMenu?.organizationAddDrivers ?? true,
-    organizationAcceptDrivers: accessMenu?.organizationAcceptDrivers ?? true
+    organizationAcceptDrivers: accessMenu?.organizationAcceptDrivers ?? true,
+    contractCreate: accessMenu?.contractCreate ?? true,
+    contractUpdate: accessMenu?.contractUpdate ?? true
   })
 
   const toUpdate = []
@@ -77,7 +81,9 @@ async function main() {
       row.accessMenu.organizationCreate == null ||
       row.accessMenu.organizationUpdate == null ||
       row.accessMenu.organizationAddDrivers == null ||
-      row.accessMenu.organizationAcceptDrivers == null
+      row.accessMenu.organizationAcceptDrivers == null ||
+      row.accessMenu.contractCreate == null ||
+      row.accessMenu.contractUpdate == null
 
     if (needsUpdate) {
       toUpdate.push(
@@ -109,7 +115,9 @@ async function main() {
       row.accessMenu.organizationCreate == null ||
       row.accessMenu.organizationUpdate == null ||
       row.accessMenu.organizationAddDrivers == null ||
-      row.accessMenu.organizationAcceptDrivers == null
+      row.accessMenu.organizationAcceptDrivers == null ||
+      row.accessMenu.contractCreate == null ||
+      row.accessMenu.contractUpdate == null
 
     if (needsUpdate) {
       toUpdate.push(

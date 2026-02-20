@@ -69,6 +69,8 @@ const globalTypeDef = /* GraphQL */ `
     airlineMenu: Boolean
     airlineUpdate: Boolean
     contracts: Boolean
+    contractCreate: Boolean
+    contractUpdate: Boolean
     organizationMenu: Boolean
     organizationCreate: Boolean
     organizationUpdate: Boolean
@@ -101,6 +103,8 @@ const globalTypeDef = /* GraphQL */ `
     airlineMenu: Boolean
     airlineUpdate: Boolean
     contracts: Boolean
+    contractCreate: Boolean
+    contractUpdate: Boolean
     organizationMenu: Boolean
     organizationCreate: Boolean
     organizationUpdate: Boolean
