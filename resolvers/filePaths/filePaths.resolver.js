@@ -78,6 +78,9 @@ const filePathsResolver = {
   Hotel: {
     images: (parent) => {
       return normalizeFilePaths(parent.images || [])
+    },
+    gallery: (parent) => {
+      return normalizeFilePaths(parent.gallery || [])
     }
   },
 

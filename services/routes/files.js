@@ -41,15 +41,20 @@ function getRootDirectory(filePath) {
  * - /files/reports/...
  * - /files/reserve_files/...
  */
-router.get("/files/*", async (req, res) => {
+router.get("/*", async (req, res) => {
   try {
-    const authHeader = req.headers.authorization || null
+    // <img src> и подобные browser-запросы обычно не умеют отправлять Authorization header.
+    // Поэтому поддерживаем fallback через query-параметр ?token=<jwt>.
+    const queryToken =
+      typeof req.query.token === "string" ? req.query.token.trim() : null
+    const authHeader = req.headers.authorization || (queryToken ? `Bearer ${queryToken}` : null)
     const context = await buildAuthContext(authHeader)
 
     if (!context.subject) {
       return res.status(401).json({ 
         error: "Unauthorized",
-        message: "Authentication required. Please provide a valid JWT token in the Authorization header."
+        message:
+          "Authentication required. Provide a valid JWT token in Authorization header or ?token query parameter."
       })
     }
 
