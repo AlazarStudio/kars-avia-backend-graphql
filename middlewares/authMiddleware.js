@@ -6,12 +6,30 @@ import { error } from "console"
 
 // Общий мидлвар для авторизации
 const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization
-  if (!token) {
+  const authHeader = req.headers.authorization
+  if (!authHeader) {
     return res.status(401).json({ message: "Authorization token missing" })
   }
   try {
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : authHeader.trim()
+
+    if (!token) {
+      return res.status(401).json({ message: "Invalid token" })
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+    if (!decoded?.exp || typeof decoded.exp !== "number") {
+      return res.status(401).json({ message: "Invalid token" })
+    }
+
+    const nowInSeconds = Math.floor(Date.now() / 1000)
+    if (decoded.exp <= nowInSeconds) {
+      return res.status(401).json({ message: "Token expired" })
+    }
+
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
     if (!user) {
       return res.status(401).json({ message: "User not found" })

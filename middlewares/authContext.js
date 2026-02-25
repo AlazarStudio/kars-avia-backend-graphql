@@ -11,9 +11,14 @@ export async function buildAuthContext(authHeader) {
     return emptyContext()
   }
 
-  const token = authHeader.startsWith("Bearer ")
+  const rawToken = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
     : authHeader
+  const token = typeof rawToken === "string" ? rawToken.trim() : ""
+
+  if (!token) {
+    throw new Error("Invalid token")
+  }
 
   let decoded
   try {
@@ -25,6 +30,19 @@ export async function buildAuthContext(authHeader) {
     }
     logger.error("[AUTH] Invalid token", e)
     throw new Error("Invalid token")
+  }
+
+  // Жестко требуем exp в access-токене, чтобы не принимать "бессрочные" legacy JWT.
+  if (!decoded?.exp || typeof decoded.exp !== "number") {
+    logger.warn("[AUTH] Token has no exp claim")
+    throw new Error("Invalid token")
+  }
+
+  // Дополнительная явная проверка срока годности (для предсказуемого поведения во всех окружениях).
+  const nowInSeconds = Math.floor(Date.now() / 1000)
+  if (decoded.exp <= nowInSeconds) {
+    logger.warn("[AUTH] Token expired")
+    throw new Error("Token expired")
   }
 
   const { subjectType, userId, driverId, airlinePersonalId } = decoded

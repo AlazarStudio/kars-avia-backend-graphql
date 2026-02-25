@@ -111,6 +111,10 @@ router.get("/*", async (req, res) => {
     const contentType = contentTypes[ext] || "application/octet-stream"
     res.setHeader("Content-Type", contentType)
     res.setHeader("Content-Disposition", "inline")
+    // Не даем браузеру/прокси кешировать защищенные файлы.
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private")
+    res.setHeader("Pragma", "no-cache")
+    res.setHeader("Expires", "0")
     
     // Отправляем файл
     res.sendFile(absolutePath)
