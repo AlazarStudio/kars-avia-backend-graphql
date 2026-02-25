@@ -433,6 +433,55 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    removePassengerRequestHotelPerson: async (
+      _,
+      { requestId, hotelIndex, personIndex },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: []
+      }
+      const hotels = living.hotels || []
+      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid hotelIndex")
+      }
+      const people = hotels[hotelIndex].people || []
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+
+      const hotelsClone = hotels.map((h, i) => {
+        if (i !== hotelIndex) return { ...h, people: h.people ? [...h.people] : [] }
+        const newPeople = [...(h.people || [])]
+        newPeople.splice(personIndex, 1)
+        return { ...h, people: newPeople }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone
+          }
+        }
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     // добавить водителя (для варианта проживание+трансфер)
     addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
       const existing = await prisma.passengerRequest.findUnique({
