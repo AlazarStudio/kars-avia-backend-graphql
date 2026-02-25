@@ -1,9 +1,15 @@
 import { prisma } from "../../prisma.js"
-import { GraphQLError } from "graphql"
+import { GraphQLError, subscribe } from "graphql"
 import {
   resolveUserId,
   updateTimes
 } from "../../services/passengerRequest/utils.js"
+import { withFilter } from "graphql-subscriptions"
+import {
+  pubsub,
+  PASSENGER_REQUEST_CREATED,
+  PASSENGER_REQUEST_UPDATED
+} from "../../services/infra/pubsub.js"
 
 const passengerRequestResolvers = {
   // --------- поля связей ---------
@@ -113,8 +119,13 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
+      const passengerRequest = await prisma.passengerRequest.create({ data })
 
-      return prisma.passengerRequest.create({ data })
+      pubsub.publish(PASSENGER_REQUEST_CREATED, {
+        passengerRequestCreated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     // обновление шапки + планов
@@ -174,8 +185,16 @@ const passengerRequestResolvers = {
           })
         }
       }
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id },
+        data
+      })
 
-      return prisma.passengerRequest.update({ where: { id }, data })
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
@@ -303,7 +322,16 @@ const passengerRequestResolvers = {
         }
       }
 
-      return prisma.passengerRequest.update({ where: { id: requestId }, data })
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     // добавить водителя (для варианта проживание+трансфер)
@@ -332,7 +360,65 @@ const passengerRequestResolvers = {
         }
       }
 
-      return prisma.passengerRequest.update({ where: { id: requestId }, data })
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    }
+  },
+
+  Subscription: {
+    passengerRequestCreated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи "представитель"
+          // const agent = payload.agent
+          // if (subject.agentId && agent.id === subject.agentId) {
+          //   return true
+          // }
+
+          return false
+        }
+      )
+    },
+    passengerRequestUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
+        (payload, variables, context) => {
+          const { subject, subjectType } = context
+
+          if (!subject || subjectType !== "USER") return false
+
+          // SUPERADMIN и диспетчеры видят все
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          // Пользователи "представитель"
+          // const agent = payload.agent
+          // if (subject.agentId && agent.id === subject.agentId) {
+          //   return true
+          // }
+
+          return false
+        }
+      )
     }
   }
 }

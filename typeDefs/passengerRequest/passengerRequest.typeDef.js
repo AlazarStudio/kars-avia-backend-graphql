@@ -249,6 +249,11 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
   }
+
+  type Subscription {
+    passengerRequestCreated: PassengerRequest!
+    passengerRequestUpdated: PassengerRequest!
+  }
 `
 
 export default passengerRequestTypeDef

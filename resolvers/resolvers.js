@@ -7,6 +7,8 @@ import chatResolver from "./chat/chat.resolver.js"
 import cityResolver from "./city/city.resolver.js"
 import contractResolver from "./contract/contract.resolver.js"
 import dispatcherResolver from "./dispatcher/dispatcher.resolver.js"
+import documentationResolver from "./documentation/documentation.resolver.js"
+import filePathsResolver from "./filePaths/filePaths.resolver.js"
 import driverResolver from "./driver/driver.resolver.js"
 import globalResolver from "./global/global.resolver.js"
 import hotelResolver from "./hotel/hotel.resolver.js"
@@ -19,8 +21,6 @@ import reserveResolver from "./reserve/reserve.resolver.js"
 import supportResolver from "./support/support.resolver.js"
 import transferResolver from "./transfer/transfer.resolver.js"
 import userResolver from "./user/user.resolver.js"
-import documentationResolver from "./documentation/documentation.resolver.js"
-import filePathsResolver from "./filePaths/filePaths.resolver.js"
 
 const mergedResolvers = mergeResolvers([
   airlineResolver,
@@ -30,7 +30,9 @@ const mergedResolvers = mergeResolvers([
   cityResolver,
   contractResolver,
   dispatcherResolver,
+  documentationResolver,
   driverResolver,
+  filePathsResolver,
   globalResolver,
   hotelResolver,
   logResolver,
@@ -41,9 +43,7 @@ const mergedResolvers = mergeResolvers([
   reserveResolver,
   supportResolver,
   transferResolver,
-  userResolver,
-  documentationResolver,
-  filePathsResolver
+  userResolver
 ])
 
 export default mergedResolvers

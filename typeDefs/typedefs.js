@@ -7,6 +7,7 @@ import chatTypeDef from "./chat/chat.typeDef.js"
 import cityTypeDef from "./city/city.typeDef.js"
 import contractTypeDef from "./contract/contract.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
+import documentationTypeDef from "./documentation/documentation.typeDef.js"
 import driverTypeDef from "./driver/driver.typeDef.js"
 import globalTypeDef from "./global/global.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
@@ -19,7 +20,6 @@ import reserveTypeDef from "./reserve/reserve.typeDef.js"
 import supportTypeDef from "./support/support.typeDef.js"
 import transferTypeDef from "./transfer/transfer.typeDef.js"
 import userTypeDef from "./user/user.typeDef.js"
-import documentationTypeDef from "./documentation/documentation.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
   airlineTypeDef,
@@ -29,6 +29,7 @@ const mergedTypeDefs = mergeTypeDefs([
   cityTypeDef,
   contractTypeDef,
   dispatcherTypeDef,
+  documentationTypeDef,
   driverTypeDef,
   globalTypeDef,
   hotelTypeDef,
@@ -40,8 +41,7 @@ const mergedTypeDefs = mergeTypeDefs([
   reserveTypeDef,
   supportTypeDef,
   transferTypeDef,
-  userTypeDef,
-  documentationTypeDef
+  userTypeDef
 ])
 
 export default mergedTypeDefs
