@@ -386,6 +386,53 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    addPassengerRequestHotelPerson: async (
+      _,
+      { requestId, hotelIndex, person },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: []
+      }
+      const hotels = living.hotels || []
+      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid hotelIndex")
+      }
+
+      const hotelsClone = hotels.map((h, i) =>
+        i === hotelIndex
+          ? {
+              ...h,
+              people: [...(h.people || []), person]
+            }
+          : { ...h, people: h.people ? [...h.people] : [] }
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone
+          }
+        }
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     // добавить водителя (для варианта проживание+трансфер)
     addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
       const existing = await prisma.passengerRequest.findUnique({

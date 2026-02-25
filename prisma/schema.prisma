@@ -1081,12 +1081,20 @@ type PassengerWaterFoodService {
   people PassengerServicePerson[] // список ФИО + время выдачи
 }
 
+type PassengerServiceHotelPerson {
+  fullName   String  // ФИО пассажира (обязательное)
+  phone      String?
+  gender     String?
+  roomNumber String?
+}
+
 type PassengerServiceHotel {
   hotelId     String? @db.ObjectId // ссылка на Hotel, если выбран из базы
   name        String // снэпшот названия
   peopleCount Int // «Количество мест»
   address     String?
   link        String? // колонка «Ссылка» в таблице
+  people      PassengerServiceHotelPerson[] // брони по отелю
 }
 
 type PassengerServiceDriver {

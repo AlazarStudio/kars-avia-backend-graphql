@@ -63,12 +63,20 @@ const passengerRequestTypeDef = /* GraphQL */ `
     people: [PassengerServicePerson!]!
   }
 
+  type PassengerServiceHotelPerson {
+    fullName: String!
+    phone: String
+    gender: String
+    roomNumber: String
+  }
+
   type PassengerServiceHotel {
     hotelId: ID
     name: String!
     peopleCount: Int!
     address: String
     link: String
+    people: [PassengerServiceHotelPerson!]!
   }
 
   type PassengerServiceDriver {
@@ -158,6 +166,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
     issuedAt: Date
     phone: String
     seat: String
+  }
+
+  input PassengerServiceHotelPersonInput {
+    fullName: String!
+    phone: String
+    gender: String
+    roomNumber: String
   }
 
   input PassengerServiceHotelInput {
@@ -254,6 +269,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestHotel(
       requestId: ID!
       hotel: PassengerServiceHotelInput!
+    ): PassengerRequest!
+
+    addPassengerRequestHotelPerson(
+      requestId: ID!
+      hotelIndex: Int!
+      person: PassengerServiceHotelPersonInput!
     ): PassengerRequest!
 
     addPassengerRequestDriver(
