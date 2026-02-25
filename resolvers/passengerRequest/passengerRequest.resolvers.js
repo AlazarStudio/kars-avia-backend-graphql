@@ -72,6 +72,7 @@ const passengerRequestResolvers = {
         waterService,
         mealService,
         livingService,
+        transferService,
         status,
         createdById: inputCreatorId,
         ...rest
@@ -112,10 +113,17 @@ const passengerRequestResolvers = {
       if (livingService) {
         data.livingService = {
           plan: livingService.plan || null,
-          withTransfer: livingService.withTransfer ?? false,
           status: "NEW",
           times: null,
-          hotels: [],
+          hotels: []
+        }
+      }
+
+      if (transferService) {
+        data.transferService = {
+          plan: transferService.plan || null,
+          status: "NEW",
+          times: null,
           drivers: []
         }
       }
@@ -141,6 +149,7 @@ const passengerRequestResolvers = {
         waterService,
         mealService,
         livingService,
+        transferService,
         ...rest
       } = input
 
@@ -179,9 +188,16 @@ const passengerRequestResolvers = {
         const prev = existing.livingService || {}
         data.livingService = {
           ...prev,
-          ...(livingService.plan !== undefined && { plan: livingService.plan }),
-          ...(livingService.withTransfer !== undefined && {
-            withTransfer: livingService.withTransfer
+          ...(livingService.plan !== undefined && { plan: livingService.plan })
+        }
+      }
+
+      if (transferService) {
+        const prev = existing.transferService || {}
+        data.transferService = {
+          ...prev,
+          ...(transferService.plan !== undefined && {
+            plan: transferService.plan
           })
         }
       }
@@ -198,7 +214,14 @@ const passengerRequestResolvers = {
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
-      await prisma.passengerRequest.delete({ where: { id } })
+      const passengerRequest = await prisma.passengerRequest.delete({
+        where: { id }
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
       return true
     },
 
@@ -211,13 +234,19 @@ const passengerRequestResolvers = {
 
       const statusTimes = updateTimes(existing.statusTimes, status)
 
-      return prisma.passengerRequest.update({
+      const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
         data: {
           status,
           statusTimes
         }
       })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     // статус конкретного сервиса
@@ -248,15 +277,31 @@ const passengerRequestResolvers = {
           times: updateTimes(prev.times, status)
         }
       } else if (service === "LIVING") {
-        const prev = existing.livingService || { hotels: [], drivers: [] }
+        const prev = existing.livingService || { hotels: [] }
         data.livingService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
+      } else if (service === "TRANSFER") {
+        const prev = existing.transferService || { drivers: [] }
+        data.transferService = {
           ...prev,
           status,
           times: updateTimes(prev.times, status)
         }
       }
 
-      return prisma.passengerRequest.update({ where: { id }, data })
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id },
+        data
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     // добавить ФИО из скана / вручную
@@ -294,7 +339,16 @@ const passengerRequestResolvers = {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
 
-      return prisma.passengerRequest.update({ where: { id: requestId }, data })
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
     },
 
     // добавить отель
@@ -306,11 +360,9 @@ const passengerRequestResolvers = {
 
       const prev = existing.livingService || {
         plan: null,
-        withTransfer: false,
         status: "NEW",
         times: null,
-        hotels: [],
-        drivers: []
+        hotels: []
       }
 
       const hotels = [...(prev.hotels || []), hotel]
@@ -341,21 +393,18 @@ const passengerRequestResolvers = {
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.livingService || {
+      const prev = existing.transferService || {
         plan: null,
-        withTransfer: true,
         status: "NEW",
         times: null,
-        hotels: [],
         drivers: []
       }
 
       const drivers = [...(prev.drivers || []), driver]
 
       const data = {
-        livingService: {
+        transferService: {
           ...prev,
-          withTransfer: true,
           drivers
         }
       }
@@ -397,6 +446,7 @@ const passengerRequestResolvers = {
         }
       )
     },
+    
     passengerRequestUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),

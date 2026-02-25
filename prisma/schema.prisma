@@ -1098,12 +1098,17 @@ type PassengerServiceDriver {
 }
 
 type PassengerLivingService {
-  plan         PassengerServicePlan? // план по людям/времени заселения
-  withTransfer Boolean                  @default(false) // чекбоксы: Проживание / Трансфер+Проживание
-  status       PassengerServiceStatus   @default(NEW)
-  times        PassengerStatusTimes?
-  hotels       PassengerServiceHotel[] // таб «Проживание» и «Трансфер+проживание»
-  drivers      PassengerServiceDriver[] // только если withTransfer = true
+  plan   PassengerServicePlan? // план по людям/времени заселения
+  status PassengerServiceStatus   @default(NEW)
+  times  PassengerStatusTimes?
+  hotels PassengerServiceHotel[] // таб «Проживание»
+}
+
+type PassengerTransferService {
+  plan    PassengerServicePlan?
+  status  PassengerServiceStatus   @default(NEW)
+  times   PassengerStatusTimes?
+  drivers PassengerServiceDriver[]
 }
 
 model PassengerRequest {
@@ -1129,6 +1134,7 @@ model PassengerRequest {
   waterService  PassengerWaterFoodService?
   mealService   PassengerWaterFoodService?
   livingService PassengerLivingService?
+  transferService PassengerTransferService?
 
   // общий статус заявки
   status      PassengerRequestStatus @default(CREATED)

@@ -25,6 +25,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     WATER
     MEAL
     LIVING
+    TRANSFER
   }
 
   """
@@ -80,10 +81,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   type PassengerLivingService {
     plan: PassengerServicePlan
-    withTransfer: Boolean!
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
     hotels: [PassengerServiceHotel!]!
+  }
+
+  type PassengerTransferService {
+    plan: PassengerServicePlan
+    status: PassengerServiceStatus!
+    times: PassengerStatusTimes
     drivers: [PassengerServiceDriver!]!
   }
 
@@ -108,6 +114,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     waterService: PassengerWaterFoodService
     mealService: PassengerWaterFoodService
     livingService: PassengerLivingService
+    transferService: PassengerTransferService
 
     status: PassengerRequestStatus!
     statusTimes: PassengerStatusTimes
@@ -140,7 +147,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerLivingServiceInput {
     plan: PassengerServicePlanInput
-    withTransfer: Boolean
+  }
+
+  input PassengerTransferServiceInput {
+    plan: PassengerServicePlanInput
   }
 
   input PassengerServicePersonInput {
@@ -178,6 +188,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
+    transferService: PassengerTransferServiceInput
 
     status: PassengerRequestStatus
 
@@ -200,6 +211,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
+    transferService: PassengerTransferServiceInput
   }
 
   type Query {
