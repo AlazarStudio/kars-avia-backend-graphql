@@ -125,8 +125,8 @@ const server = new ApolloServer({
   cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
-    // ApolloServerPluginLandingPageDisabled(),
-    ApolloServerPluginLandingPageLocalDefault(),
+    ApolloServerPluginLandingPageDisabled(),
+    // ApolloServerPluginLandingPageLocalDefault(),
     {
       async serverWillStart() {
         return {
