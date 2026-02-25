@@ -1099,7 +1099,7 @@ type PassengerServiceDriver {
 
 type PassengerLivingService {
   plan   PassengerServicePlan? // план по людям/времени заселения
-  status PassengerServiceStatus   @default(NEW)
+  status PassengerServiceStatus  @default(NEW)
   times  PassengerStatusTimes?
   hotels PassengerServiceHotel[] // таб «Проживание»
 }
@@ -1131,9 +1131,9 @@ model PassengerRequest {
   plannedPassengersCount Int?
 
   // сервисы
-  waterService  PassengerWaterFoodService?
-  mealService   PassengerWaterFoodService?
-  livingService PassengerLivingService?
+  waterService    PassengerWaterFoodService?
+  mealService     PassengerWaterFoodService?
+  livingService   PassengerLivingService?
   transferService PassengerTransferService?
 
   // общий статус заявки
