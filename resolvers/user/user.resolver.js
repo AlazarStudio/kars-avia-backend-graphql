@@ -398,6 +398,12 @@ const userResolver = {
         }
       })
 
+      const sessionToken = uuidv4()
+      await prisma.user.update({
+        where: { id: newUser.id },
+        data: { refreshToken: sessionToken, fingerprint: null }
+      })
+
       // Генерация токена доступа с помощью jwt
       const token = jwt.sign(
         {
@@ -405,7 +411,8 @@ const userResolver = {
           userId: newUser.id,
           role: newUser.role,
           hotelId: newUser.hotelId,
-          airlineId: newUser.airlineId
+          airlineId: newUser.airlineId,
+          sessionToken
         },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
@@ -454,6 +461,13 @@ const userResolver = {
           throw new Error("Invalid 2FA token")
         }
       }
+      // Новый sessionToken инвалидирует предыдущие access-токены этого пользователя.
+      const sessionToken = uuidv4()
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken: sessionToken, fingerprint }
+      })
+
       // Генерация токена доступа
       const token = jwt.sign(
         {
@@ -463,20 +477,16 @@ const userResolver = {
           hotelId: user.hotelId,
           airlineId: user.airlineId,
           airlineDepartmentId: user.airlineDepartmentId,
-          dispatcherDepartmentId: user.dispatcherDepartmentId
+          dispatcherDepartmentId: user.dispatcherDepartmentId,
+          sessionToken
         },
         process.env.JWT_SECRET,
-        { expiresIn: "1m" }
+        { expiresIn: "24h" }
       )
-      const refreshToken = uuidv4()
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken, fingerprint }
-      })
       return {
         ...user,
         token,
-        refreshToken
+        refreshToken: sessionToken
       }
     },
 
@@ -734,26 +744,28 @@ const userResolver = {
       if (fingerprint != user.fingerprint) {
         throw new Error("Invalid fingerprint")
       }
+      const newSessionToken = uuidv4()
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken: newSessionToken }
+      })
+
       const newAccessToken = jwt.sign(
         {
           subjectType: "USER",
           userId: user.id,
           role: user.role,
           hotelId: user.hotelId,
-          airlineId: user.airlineId
+          airlineId: user.airlineId,
+          sessionToken: newSessionToken
         },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
       )
-      const newRefreshToken = uuidv4()
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken: newRefreshToken }
-      })
 
       return {
         token: newAccessToken,
-        refreshToken: newRefreshToken
+        refreshToken: newSessionToken
       }
     },
 

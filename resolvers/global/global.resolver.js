@@ -147,6 +147,10 @@ const globalResolver = {
           where: { id: entity.id },
           data: { refreshToken, fingerprint }
         })
+        jwtPayload = {
+          ...jwtPayload,
+          sessionToken: refreshToken
+        }
       }
 
       if (type === SUBJECT.DRIVER) {
@@ -163,6 +167,10 @@ const globalResolver = {
           where: { id: entity.id },
           data: { refreshToken, fingerprint }
         })
+        jwtPayload = {
+          ...jwtPayload,
+          sessionToken: refreshToken
+        }
       }
 
       if (type === SUBJECT.AIRLINE_PERSONAL) {
@@ -178,6 +186,10 @@ const globalResolver = {
           where: { id: entity.id },
           data: { refreshToken, fingerprint }
         })
+        jwtPayload = {
+          ...jwtPayload,
+          sessionToken: refreshToken
+        }
       }
 
       // 4. Генерим JWT

@@ -67,7 +67,8 @@ export async function buildAuthContext(authHeader) {
         dispatcherDepartmentId: true,
         hotelId: true,
         dispatcher: true,
-        support: true
+        support: true,
+        refreshToken: true
       }
     })
     subject = user
@@ -75,20 +76,40 @@ export async function buildAuthContext(authHeader) {
 
   if (subjectType === "DRIVER" && driverId) {
     driver = await prisma.driver.findUnique({
-      where: { id: driverId }
+      where: { id: driverId },
+      select: {
+        id: true,
+        refreshToken: true
+      }
     })
     subject = driver
   }
 
   if (subjectType === "AIRLINE_PERSONAL" && airlinePersonalId) {
     personal = await prisma.airlinePersonal.findUnique({
-      where: { id: airlinePersonalId }
+      where: { id: airlinePersonalId },
+      select: {
+        id: true,
+        refreshToken: true
+      }
     })
     subject = personal
   }
 
   if (!subject) {
     logger.warn("[AUTH] Subject not found")
+    throw new Error("Invalid token")
+  }
+
+  // Проверка актуальности сессии:
+  // при новом логине refreshToken в БД меняется, старые JWT становятся невалидными.
+  const sessionToken = decoded?.sessionToken
+  if (!sessionToken || typeof sessionToken !== "string") {
+    logger.warn("[AUTH] Token has no sessionToken")
+    throw new Error("Invalid token")
+  }
+  if (!subject.refreshToken || subject.refreshToken !== sessionToken) {
+    logger.warn("[AUTH] Session is not актуальна")
     throw new Error("Invalid token")
   }
 
