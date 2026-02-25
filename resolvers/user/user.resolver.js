@@ -466,7 +466,7 @@ const userResolver = {
           dispatcherDepartmentId: user.dispatcherDepartmentId
         },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "1m" }
       )
       const refreshToken = uuidv4()
       await prisma.user.update({
