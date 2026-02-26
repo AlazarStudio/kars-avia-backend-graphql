@@ -7,6 +7,8 @@ import {
   totalCreatedRequests
 } from "../../services/analytics/analyticsRequests.js"
 import { getPersonStaySummaries } from "../../services/analytics/personStaySummary.js"
+import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalytics.js"
+import { prisma } from "../../prisma.js"
 
 const analyticsResolver = {
   Query: {
@@ -68,6 +70,41 @@ const analyticsResolver = {
     analyticsPersonStaySummary: async (_, { input }) => {
       const { filters, startDate, endDate } = input
       return await getPersonStaySummaries({ filters, startDate, endDate })
+    },
+    analyticsUsersTime: async (_, { input }, context) => {
+      const requester = context?.user
+      if (!requester) {
+        throw new Error("Unauthorized")
+      }
+
+      const targetUserId = input?.userId || requester.id
+      const canViewAll =
+        requester.role === "SUPERADMIN" || requester.dispatcher === true
+
+      if (!canViewAll && targetUserId !== requester.id) {
+        throw new Error("Нет доступа к аналитике другого пользователя")
+      }
+
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          id: true,
+          totalTimeMinutes: true,
+          dailyTimeStats: true
+        }
+      })
+
+      if (!targetUser) {
+        throw new Error("Пользователь не найден")
+      }
+
+      return buildUserTimeAnalytics({
+        dailyTimeStats: targetUser.dailyTimeStats || [],
+        totalTimeMinutes: targetUser.totalTimeMinutes || 0,
+        period: input?.period || "WEEK",
+        startDate: input?.startDate,
+        endDate: input?.endDate
+      })
     }
   }
 }

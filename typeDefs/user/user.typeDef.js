@@ -31,6 +31,10 @@ const userTypeDef = /* GraphQL */ `
   type User {
     id: ID!
     lastSeen: Date
+    isOnline: Boolean
+    sessionStartedAt: Date
+    totalTimeMinutes: Int
+    dailyTimeStats: [UserDailyTime!]
     name: String!
     email: String!
     number: String
@@ -56,6 +60,12 @@ const userTypeDef = /* GraphQL */ `
     refreshToken: String
     fingerprint: String
     online: Boolean
+  }
+
+  type UserDailyTime {
+    date: String!
+    minutes: Int!
+    hours: Float!
   }
 
   type Position {
@@ -108,6 +118,8 @@ const userTypeDef = /* GraphQL */ `
     verify2FA(token: String!): SuccessResponse
     requestResetPassword(email: String!): String!
     resetPassword(token: String!, newPassword: String!): String!
+    markUserOnline: User!
+    markUserOffline: User!
   }
 
   input SignUpInput {

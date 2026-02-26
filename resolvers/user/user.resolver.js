@@ -27,6 +27,7 @@ import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
 import { logger } from "../../services/infra/logger.js"
+import { buildClosedSessionStats } from "../../services/user/userActivity.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -38,6 +39,22 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD
   }
 })
+
+const buildOfflineUpdateData = ({ currentUser, now }) => {
+  const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
+    sessionStartedAt: currentUser?.sessionStartedAt,
+    currentDailyStats: currentUser?.dailyTimeStats || [],
+    now
+  })
+
+  return {
+    isOnline: false,
+    sessionStartedAt: null,
+    lastSeen: now,
+    totalTimeMinutes: (currentUser?.totalTimeMinutes || 0) + addedMinutes,
+    dailyTimeStats: nextDailyStats
+  }
+}
 
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
@@ -465,7 +482,13 @@ const userResolver = {
       const sessionToken = uuidv4()
       await prisma.user.update({
         where: { id: user.id },
-        data: { refreshToken: sessionToken, fingerprint }
+        data: {
+          refreshToken: sessionToken,
+          fingerprint,
+          lastSeen: new Date(),
+          isOnline: true,
+          sessionStartedAt: new Date()
+        }
       })
 
       // Генерация токена доступа
@@ -772,11 +795,68 @@ const userResolver = {
     // Выход (logout) пользователя: очищается refreshToken в базе.
     logout: async (_, __, context) => {
       if (!context.user) throw new Error("Not authenticated")
-      await prisma.user.update({
+      const now = new Date()
+      const currentUser = await prisma.user.findUnique({
         where: { id: context.user.id },
-        data: { refreshToken: null, fingerprint: null }
+        select: {
+          totalTimeMinutes: true,
+          sessionStartedAt: true,
+          dailyTimeStats: true
+        }
       })
+
+      const updatedUser = await prisma.user.update({
+        where: { id: context.user.id },
+        data: {
+          refreshToken: null,
+          fingerprint: null,
+          ...buildOfflineUpdateData({ currentUser, now })
+        }
+      })
+      pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
       return { message: "Logged out successfully" }
+    },
+    markUserOnline: async (_, __, context) => {
+      await allMiddleware(context)
+      const now = new Date()
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: context.user.id },
+        select: { sessionStartedAt: true }
+      })
+
+      const updatedUser = await prisma.user.update({
+        where: { id: context.user.id },
+        data: {
+          isOnline: true,
+          lastSeen: now,
+          sessionStartedAt: currentUser?.sessionStartedAt || now
+        }
+      })
+
+      pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
+      return updatedUser
+    },
+    markUserOffline: async (_, __, context) => {
+      await allMiddleware(context)
+      const now = new Date()
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: context.user.id },
+        select: {
+          totalTimeMinutes: true,
+          sessionStartedAt: true,
+          dailyTimeStats: true
+        }
+      })
+
+      const updatedUser = await prisma.user.update({
+        where: { id: context.user.id },
+        data: buildOfflineUpdateData({ currentUser, now })
+      })
+
+      pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
+      return updatedUser
     },
 
     // Удаление пользователя.
@@ -898,10 +978,17 @@ const userResolver = {
       return null
     },
     online: async (parent) => {
+      if (typeof parent.isOnline === "boolean") {
+        return parent.isOnline
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: parent.id },
-        select: { lastSeen: true }
+        select: { isOnline: true, lastSeen: true }
       })
+
+      if (user?.isOnline) return true
+      if (!user?.lastSeen) return false
 
       const lastSeenDate =
         user.lastSeen instanceof Date ? user.lastSeen : new Date(user.lastSeen)
@@ -911,11 +998,15 @@ const userResolver = {
       const fiveMinutesInMs = 5 * 60 * 1000
       const lastSeenPlus5 = new Date(lastSeenDate.getTime() + fiveMinutesInMs)
 
-      if (now <= lastSeenPlus5) {
-        return true
-      } else {
-        return false
-      }
+      return now <= lastSeenPlus5
+    },
+    dailyTimeStats: (parent) => {
+      if (!Array.isArray(parent.dailyTimeStats)) return []
+      return parent.dailyTimeStats.map((item) => ({
+        date: item.date,
+        minutes: item.minutes || 0,
+        hours: Number(((item.minutes || 0) / 60).toFixed(2))
+      }))
     },
     airline: async (parent) => {
       if (parent.airlineId) {

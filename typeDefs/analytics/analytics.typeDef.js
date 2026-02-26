@@ -52,6 +52,29 @@ const analyticsTypeDef = /* GraphQL */ `
     count: Int
   }
 
+  enum AnalyticsPeriod {
+    WEEK
+    MONTH
+    CUSTOM
+  }
+
+  type UserTimeDayStat {
+    date: String!
+    minutes: Int!
+    hours: Float!
+  }
+
+  type UserTimeAnalytics {
+    periodStart: Date
+    periodEnd: Date
+    totalMinutes: Int!
+    totalHours: Float!
+    periodTotalMinutes: Int!
+    periodTotalHours: Float!
+    averageMinutesPerActiveDay: Int!
+    days: [UserTimeDayStat!]!
+  }
+
   input AnalyticsInput {
     startDate: Date
     endDate: Date
@@ -70,10 +93,18 @@ const analyticsTypeDef = /* GraphQL */ `
     personId: String
   }
 
+  input UserTimeAnalyticsInput {
+    userId: ID
+    period: AnalyticsPeriod = WEEK
+    startDate: Date
+    endDate: Date
+  }
+
   type Query {
     analyticsEntityRequests(input: AnalyticsInput): Analytics
     analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
     analyticsPersonStaySummary(input: AnalyticsInput): [PersonStaySummary!]!
+    analyticsUsersTime(input: UserTimeAnalyticsInput): UserTimeAnalytics!
   }
 `
 
