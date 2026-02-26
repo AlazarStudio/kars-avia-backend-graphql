@@ -310,9 +310,15 @@ const userResolver = {
       // dispatcherDepartment и airlineDepartment взаимоисключающие — приоритет у dispatcherDepartment
       let finalDispatcherDeptId = null
       let finalAirlineDeptId = null
-      if (dispatcherDepartmentId !== undefined && dispatcherDepartmentId !== null) {
+      if (
+        dispatcherDepartmentId !== undefined &&
+        dispatcherDepartmentId !== null
+      ) {
         finalDispatcherDeptId = dispatcherDepartmentId
-      } else if (airlineDepartmentId !== undefined && airlineDepartmentId !== null) {
+      } else if (
+        airlineDepartmentId !== undefined &&
+        airlineDepartmentId !== null
+      ) {
         finalAirlineDeptId = airlineDepartmentId
       }
 
