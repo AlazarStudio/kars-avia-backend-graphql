@@ -455,12 +455,15 @@ const userResolver = {
       const { login, password, fingerprint, token2FA } = input
       // Ищем пользователя по логину
       const user = await prisma.user.findUnique({ where: { login } })
+      if (!user) {
+        throw new Error("Invalid credentials")
+      }
       // Проверка корректности пароля с помощью argon2.verify
       if (!user.active) {
         throw new Error("User is not active")
       }
 
-      if (!user || !(await argon2.verify(user.password, password))) {
+      if (!(await argon2.verify(user.password, password))) {
         throw new Error("Invalid credentials")
       }
       // Если у пользователя включена двухфакторная аутентификация, проверяем токен 2FA
@@ -486,16 +489,26 @@ const userResolver = {
       }
       // Новый sessionToken инвалидирует предыдущие access-токены этого пользователя.
       const sessionToken = uuidv4()
-      await prisma.user.update({
+      const now = new Date()
+      const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
+        sessionStartedAt: user.sessionStartedAt,
+        currentDailyStats: user.dailyTimeStats || [],
+        now
+      })
+
+      const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
           refreshToken: sessionToken,
           fingerprint,
-          lastSeen: new Date(),
+          lastSeen: now,
           isOnline: true,
-          sessionStartedAt: new Date()
+          sessionStartedAt: now,
+          totalTimeMinutes: (user.totalTimeMinutes || 0) + addedMinutes,
+          dailyTimeStats: nextDailyStats
         }
       })
+      pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
 
       // Генерация токена доступа
       const token = jwt.sign(
@@ -513,7 +526,7 @@ const userResolver = {
         { expiresIn: "24h" }
       )
       return {
-        ...user,
+        ...updatedUser,
         token,
         refreshToken: sessionToken
       }
