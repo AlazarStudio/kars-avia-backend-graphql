@@ -350,7 +350,18 @@ const passengerRequestResolvers = {
           people: []
         }
         const people = [...(prev.people || []), person]
-        data.waterService = { ...prev, people }
+        let nextStatus = prev.status
+        let nextTimes = prev.times
+        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
+          nextStatus = "IN_PROGRESS"
+          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
+        }
+        const planCount = prev.plan?.peopleCount
+        if (planCount != null && people.length >= planCount) {
+          nextStatus = "COMPLETED"
+          nextTimes = updateTimes(nextTimes, "COMPLETED")
+        }
+        data.waterService = { ...prev, people, status: nextStatus, times: nextTimes }
       } else if (service === "MEAL") {
         const prev = existing.mealService || {
           plan: null,
@@ -359,7 +370,18 @@ const passengerRequestResolvers = {
           people: []
         }
         const people = [...(prev.people || []), person]
-        data.mealService = { ...prev, people }
+        let nextStatus = prev.status
+        let nextTimes = prev.times
+        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
+          nextStatus = "IN_PROGRESS"
+          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
+        }
+        const planCount = prev.plan?.peopleCount
+        if (planCount != null && people.length >= planCount) {
+          nextStatus = "COMPLETED"
+          nextTimes = updateTimes(nextTimes, "COMPLETED")
+        }
+        data.mealService = { ...prev, people, status: nextStatus, times: nextTimes }
       } else {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
