@@ -960,10 +960,17 @@ model SavedReport {
   updatedAt DateTime @updatedAt @map("updated_at")
   name      String
   url       String
+  reportType String?
   hotel     Hotel?   @relation(fields: [hotelId], references: [id])
   hotelId   String?  @db.ObjectId
   airline   Airline? @relation(fields: [airlineId], references: [id])
   airlineId String?  @db.ObjectId
+  passengerRequest   PassengerRequest? @relation(fields: [passengerRequestId], references: [id])
+  passengerRequestId String?           @db.ObjectId
+  passengerTotal     Float?
+  passengerServices  Json?
+  passengerHotels    Json?
+  passengerInput     Json?
   startDate DateTime
   endDate   DateTime
   separator String?
@@ -1163,6 +1170,7 @@ model PassengerRequest {
 
   // общий чат по заявке (если понадобится)
   chats Chat[]
+  savedReport SavedReport[]
 }
 
 // ====================== TRANSFER / DRIVER ======================

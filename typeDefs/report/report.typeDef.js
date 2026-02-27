@@ -79,6 +79,7 @@ const reportTypeDef = /* GraphQL */ `
     id: ID!
     name: String!
     url: String! # Ссылка для загрузки отчёта
+    reportType: String
     startDate: Date! # Начальная дата
     endDate: Date! # Конечная дата
     createdAt: Date!
@@ -86,6 +87,10 @@ const reportTypeDef = /* GraphQL */ `
     hotel: Hotel
     airlineId: ID
     airline: Airline
+    passengerRequestId: ID
+    passengerTotal: Float
+    passengerServices: [PassengerRequestServiceReport!]
+    passengerHotels: [PassengerRequestHotelReport!]
     archived: Boolean
   }
 

@@ -1,5 +1,7 @@
 import { prisma } from "../../prisma.js"
 import { GraphQLError, subscribe } from "graphql"
+import path from "path"
+import fs from "fs"
 import {
   resolveUserId,
   updateTimes
@@ -8,7 +10,8 @@ import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
   PASSENGER_REQUEST_CREATED,
-  PASSENGER_REQUEST_UPDATED
+  PASSENGER_REQUEST_UPDATED,
+  REPORT_CREATED
 } from "../../services/infra/pubsub.js"
 
 const passengerRequestResolvers = {
@@ -564,6 +567,195 @@ const passengerRequestResolvers = {
       })
 
       return passengerRequest
+    },
+
+    buildPassengerRequestReport: async (_, { requestId, input }, context) => {
+      const request = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!request) throw new GraphQLError("PassengerRequest not found")
+
+      const toNumber = (value) =>
+        typeof value === "number" && Number.isFinite(value) ? value : null
+
+      const mealPriceGlobal = toNumber(input?.mealPrice)
+      const livingPriceGlobal = toNumber(input?.livingPrice)
+      const daysCountGlobal =
+        typeof input?.daysCount === "number" ? Math.max(input.daysCount, 0) : 0
+      const mealsPerDayGlobal =
+        typeof input?.mealsPerDay === "number"
+          ? Math.max(input.mealsPerDay, 0)
+          : 0
+
+      const waterPeopleCount = request.waterService?.people?.length || 0
+      const mealPeopleCount = request.mealService?.people?.length || 0
+
+      const hotels = request.livingService?.hotels || []
+      const hotelInputMap = new Map(
+        (input?.hotels || []).map((item) => [item.hotelIndex, item])
+      )
+
+      const hotelReports = hotels.map((hotel, hotelIndex) => {
+        const hotelInput = hotelInputMap.get(hotelIndex) || {}
+
+        const peopleCount =
+          typeof hotel.peopleCount === "number"
+            ? hotel.peopleCount
+            : hotel.people?.length || 0
+
+        const livingPrice = toNumber(hotelInput.livingPrice) ?? livingPriceGlobal
+        const mealPrice = toNumber(hotelInput.mealPrice) ?? mealPriceGlobal
+        const daysCount =
+          typeof hotelInput.daysCount === "number"
+            ? Math.max(hotelInput.daysCount, 0)
+            : daysCountGlobal
+        const mealsPerDay =
+          typeof hotelInput.mealsPerDay === "number"
+            ? Math.max(hotelInput.mealsPerDay, 0)
+            : mealsPerDayGlobal
+
+        const livingTotal = (livingPrice || 0) * peopleCount * daysCount
+        const mealTotal = (mealPrice || 0) * peopleCount * daysCount * mealsPerDay
+        const total = livingTotal + mealTotal
+
+        return {
+          hotelIndex,
+          hotelId: hotel.hotelId || null,
+          hotelName: hotel.name,
+          peopleCount,
+          livingPrice,
+          mealPrice,
+          daysCount,
+          mealsPerDay,
+          livingTotal,
+          mealTotal,
+          total
+        }
+      })
+
+      const livingPeopleCount = hotelReports.reduce(
+        (sum, hotel) => sum + hotel.peopleCount,
+        0
+      )
+
+      const transferDrivers = request.transferService?.drivers || []
+      const transferPeopleCount = transferDrivers.reduce((sum, driver) => {
+        if (typeof driver.peopleCount === "number") {
+          return sum + driver.peopleCount
+        }
+        return sum
+      }, 0)
+
+      const mealTotalFromHotels = hotelReports.reduce(
+        (sum, hotel) => sum + hotel.mealTotal,
+        0
+      )
+      const livingTotalFromHotels = hotelReports.reduce(
+        (sum, hotel) => sum + hotel.livingTotal,
+        0
+      )
+
+      const mealTotalGlobal =
+        hotelReports.length > 0
+          ? mealTotalFromHotels
+          : (mealPriceGlobal || 0) *
+            mealPeopleCount *
+            daysCountGlobal *
+            mealsPerDayGlobal
+      const livingTotalGlobal =
+        hotelReports.length > 0
+          ? livingTotalFromHotels
+          : (livingPriceGlobal || 0) * livingPeopleCount * daysCountGlobal
+
+      const services = [
+        {
+          service: "WATER",
+          status: request.waterService?.status || null,
+          peopleCount: waterPeopleCount,
+          unitPrice: null,
+          daysCount: null,
+          mealsPerDay: null,
+          total: 0
+        },
+        {
+          service: "MEAL",
+          status: request.mealService?.status || null,
+          peopleCount: mealPeopleCount,
+          unitPrice: mealPriceGlobal,
+          daysCount: daysCountGlobal,
+          mealsPerDay: mealsPerDayGlobal,
+          total: mealTotalGlobal
+        },
+        {
+          service: "LIVING",
+          status: request.livingService?.status || null,
+          peopleCount: livingPeopleCount,
+          unitPrice: livingPriceGlobal,
+          daysCount: daysCountGlobal,
+          mealsPerDay: null,
+          total: livingTotalGlobal
+        },
+        {
+          service: "TRANSFER",
+          status: request.transferService?.status || null,
+          peopleCount: transferPeopleCount,
+          unitPrice: null,
+          daysCount: null,
+          mealsPerDay: null,
+          total: 0
+        }
+      ]
+
+      const total = services.reduce((sum, item) => sum + item.total, 0)
+
+      const reportPayload = {
+        requestId: request.id,
+        flightNumber: request.flightNumber,
+        flightDate: request.flightDate,
+        routeFrom: request.routeFrom,
+        routeTo: request.routeTo,
+        total,
+        services,
+        hotels: hotelReports,
+        generatedAt: new Date().toISOString(),
+        input: input || {}
+      }
+
+      const reportName = `passenger_request_report_${request.id}_${Date.now()}.json`
+      const reportDir = path.resolve("./reports/passengerReport")
+      const reportPath = path.join(reportDir, reportName)
+      fs.mkdirSync(reportDir, { recursive: true })
+      fs.writeFileSync(reportPath, JSON.stringify(reportPayload, null, 2), "utf-8")
+
+      const savedReport = await prisma.savedReport.create({
+        data: {
+          name: reportName,
+          url: `/files/reports/passengerReport/${reportName}`,
+          reportType: "PASSENGER_REQUEST",
+          startDate: request.flightDate || new Date(),
+          endDate: request.flightDate || new Date(),
+          separator: "passenger",
+          airlineId: request.airlineId,
+          passengerRequestId: request.id,
+          passengerTotal: total,
+          passengerServices: services,
+          passengerHotels: hotelReports,
+          passengerInput: input || {}
+        }
+      })
+      pubsub.publish(REPORT_CREATED, { reportCreated: savedReport })
+
+      return {
+        requestId: request.id,
+        flightNumber: request.flightNumber,
+        flightDate: request.flightDate,
+        routeFrom: request.routeFrom,
+        routeTo: request.routeTo,
+        savedReport,
+        total,
+        services,
+        hotels: hotelReports
+      }
     }
   },
 
