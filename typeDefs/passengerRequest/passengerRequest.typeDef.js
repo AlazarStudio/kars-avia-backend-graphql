@@ -283,6 +283,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
       personIndex: Int!
     ): PassengerRequest!
 
+    updatePassengerRequestHotelPerson(
+      requestId: ID!
+      hotelIndex: Int!
+      personIndex: Int!
+      person: PassengerServiceHotelPersonInput!
+    ): PassengerRequest!
+
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
