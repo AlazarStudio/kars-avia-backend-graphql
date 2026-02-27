@@ -1163,6 +1163,22 @@ model PassengerRequest {
 
   // общий чат по заявке (если понадобится)
   chats Chat[]
+
+  // сохранённые отчёты по отелям (таблица отчёта — данные строк)
+  hotelReports PassengerRequestHotelReport[]
+}
+
+/// Запись отчёта по отелю в заявке (все поля таблицы отчёта)
+model PassengerRequestHotelReport {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  passengerRequest     PassengerRequest @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
+  passengerRequestId   String   @db.ObjectId
+  hotelIndex           Int
+  reportRows           Json     /// массив строк: fullName, roomNumber, roomCategory, daysCount, breakfast, lunch, dinner, foodCost, accommodationCost
+
+  @@unique([passengerRequestId, hotelIndex])
 }
 
 // ====================== TRANSFER / DRIVER ======================

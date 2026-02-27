@@ -26,7 +26,32 @@ const passengerRequestResolvers = {
       prisma.user.findUnique({ where: { id: parent.createdById } }),
 
     chats: async (parent) =>
-      prisma.chat.findMany({ where: { passengerRequestId: parent.id } })
+      prisma.chat.findMany({ where: { passengerRequestId: parent.id } }),
+
+    hotelReport: async (parent, { hotelIndex }) => {
+      const report = await prisma.passengerRequestHotelReport.findUnique({
+        where: {
+          passengerRequestId_hotelIndex: {
+            passengerRequestId: parent.id,
+            hotelIndex
+          }
+        }
+      })
+      return report ?? null
+    },
+
+    hotelReports: async (parent) =>
+      prisma.passengerRequestHotelReport.findMany({
+        where: { passengerRequestId: parent.id },
+        orderBy: { hotelIndex: "asc" }
+      })
+  },
+
+  PassengerRequestHotelReport: {
+    reportRows: (parent) => {
+      const raw = parent.reportRows
+      return Array.isArray(raw) ? raw : []
+    }
   },
 
   // --------- запросы ---------
@@ -564,6 +589,46 @@ const passengerRequestResolvers = {
       })
 
       return passengerRequest
+    },
+
+    savePassengerRequestHotelReport: async (
+      _,
+      { requestId, hotelIndex, reportRows },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const rows = reportRows.map((row) => ({
+        fullName: row.fullName ?? "",
+        roomNumber: row.roomNumber ?? "",
+        roomCategory: row.roomCategory ?? "",
+        daysCount: row.daysCount ?? 0,
+        breakfast: row.breakfast ?? 0,
+        lunch: row.lunch ?? 0,
+        dinner: row.dinner ?? 0,
+        foodCost: row.foodCost ?? 0,
+        accommodationCost: row.accommodationCost ?? 0
+      }))
+
+      const report = await prisma.passengerRequestHotelReport.upsert({
+        where: {
+          passengerRequestId_hotelIndex: {
+            passengerRequestId: requestId,
+            hotelIndex
+          }
+        },
+        create: {
+          passengerRequestId: requestId,
+          hotelIndex,
+          reportRows: rows
+        },
+        update: { reportRows: rows }
+      })
+
+      return report
     }
   },
 

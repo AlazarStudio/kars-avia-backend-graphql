@@ -131,6 +131,33 @@ const passengerRequestTypeDef = /* GraphQL */ `
     createdBy: User!
 
     chats: [Chat!]!
+
+    """Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)"""
+    hotelReport(hotelIndex: Int!): PassengerRequestHotelReport
+    hotelReports: [PassengerRequestHotelReport!]!
+  }
+
+  """Одна строка таблицы отчёта по отелю"""
+  type PassengerRequestHotelReportRow {
+    fullName: String!
+    roomNumber: String
+    roomCategory: String
+    daysCount: Float
+    breakfast: Int
+    lunch: Int
+    dinner: Int
+    foodCost: Float
+    accommodationCost: Float
+  }
+
+  """Сохранённая запись отчёта по отелю"""
+  type PassengerRequestHotelReport {
+    id: ID!
+    createdAt: Date!
+    updatedAt: Date!
+    passengerRequestId: ID!
+    hotelIndex: Int!
+    reportRows: [PassengerRequestHotelReportRow!]!
   }
 
   """
@@ -189,6 +216,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
+  }
+
+  input PassengerRequestHotelReportRowInput {
+    fullName: String!
+    roomNumber: String
+    roomCategory: String
+    daysCount: Float
+    breakfast: Int
+    lunch: Int
+    dinner: Int
+    foodCost: Float
+    accommodationCost: Float
   }
 
   input PassengerRequestCreateInput {
@@ -294,6 +333,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
+
+    """Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель)."""
+    savePassengerRequestHotelReport(
+      requestId: ID!
+      hotelIndex: Int!
+      reportRows: [PassengerRequestHotelReportRowInput!]!
+    ): PassengerRequestHotelReport!
   }
 
   type Subscription {
