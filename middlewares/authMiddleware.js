@@ -64,6 +64,8 @@ export const roleMiddleware = (context, allowedRoles) => {
 export const roleMiddleware = async (context, allowedRoles) => {
   const { subject, subjectType } = context
 
+  console.log("subject - " + subject, "\n subjectType - " + subjectType)
+
   if (!subject) {
     throw new GraphQLError("Access forbidden: No auth subject provided.", {
       extensions: { code: "UNAUTHORIZED" }
@@ -209,9 +211,12 @@ export const dispatcherOrSuperAdminMiddleware = async (context) => {
   const isDispatcher = subject.dispatcher === true
 
   if (!isSuperAdmin && !isDispatcher) {
-    throw new GraphQLError("Access forbidden: Only dispatchers and superadmins allowed.", {
-      extensions: { code: "FORBIDDEN" }
-    })
+    throw new GraphQLError(
+      "Access forbidden: Only dispatchers and superadmins allowed.",
+      {
+        extensions: { code: "FORBIDDEN" }
+      }
+    )
   }
 
   // lastSeen — только для USER
