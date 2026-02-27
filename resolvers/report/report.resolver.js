@@ -267,7 +267,6 @@ const reportResolver = {
       const reportRecord = {
         name: reportName,
         url: `/files/reports/${reportName}`,
-        reportType: "AIRLINE",
         startDate: new Date(filter.startDate),
         endDate: new Date(filter.endDate),
         createdAt: new Date(),
@@ -389,7 +388,6 @@ const reportResolver = {
       const reportRecord = {
         name: reportName,
         url: `/files/reports/${reportName}`,
-        reportType: "HOTEL",
         startDate: new Date(filter.startDate),
         endDate: new Date(filter.endDate),
         createdAt: new Date(),

@@ -101,42 +101,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
     drivers: [PassengerServiceDriver!]!
   }
 
-  type PassengerRequestServiceReport {
-    service: PassengerServiceKind!
-    status: PassengerServiceStatus
-    peopleCount: Int!
-    unitPrice: Float
-    daysCount: Int
-    mealsPerDay: Int
-    total: Float!
-  }
-
-  type PassengerRequestHotelReport {
-    hotelIndex: Int!
-    hotelId: ID
-    hotelName: String!
-    peopleCount: Int!
-    livingPrice: Float
-    mealPrice: Float
-    daysCount: Int
-    mealsPerDay: Int
-    livingTotal: Float!
-    mealTotal: Float!
-    total: Float!
-  }
-
-  type PassengerRequestReport {
-    requestId: ID!
-    flightNumber: String!
-    flightDate: Date
-    routeFrom: String
-    routeTo: String
-    savedReport: SavedReport!
-    total: Float!
-    services: [PassengerRequestServiceReport!]!
-    hotels: [PassengerRequestHotelReport!]!
-  }
-
   type PassengerRequest {
     id: ID!
     createdAt: Date!
@@ -225,22 +189,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
-  }
-
-  input PassengerRequestHotelReportInput {
-    hotelIndex: Int!
-    livingPrice: Float
-    mealPrice: Float
-    daysCount: Int
-    mealsPerDay: Int
-  }
-
-  input PassengerRequestReportInput {
-    mealPrice: Float
-    livingPrice: Float
-    daysCount: Int
-    mealsPerDay: Int
-    hotels: [PassengerRequestHotelReportInput!]
   }
 
   input PassengerRequestCreateInput {
@@ -346,11 +294,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
-
-    buildPassengerRequestReport(
-      requestId: ID!
-      input: PassengerRequestReportInput!
-    ): PassengerRequestReport!
   }
 
   type Subscription {
