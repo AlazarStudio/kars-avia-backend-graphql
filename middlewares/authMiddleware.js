@@ -64,7 +64,7 @@ export const roleMiddleware = (context, allowedRoles) => {
 export const roleMiddleware = async (context, allowedRoles) => {
   const { subject, subjectType } = context
 
-  console.log("subject - " + JSON.stringify(subject), "\n subjectType - " + subjectType)
+  // console.log("subject - " + JSON.stringify(subject), "\n subjectType - " + subjectType)
 
   if (!subject) {
     throw new GraphQLError("Access forbidden: No auth subject provided.", {
