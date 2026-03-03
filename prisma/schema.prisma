@@ -10,26 +10,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//  ---------------- ↓↓↓↓
+//  ---------------- ↓↓↓↓ 
 
+// Common
 // Airline
-// AirlinePersonal
-// Company
 // Chat
+// Company
 // Documentation
 // Hotel
-// HotelChess
 // Log
-// Message
+// Passenger
 // Report
 // Request
 // Reserve
-// Passenger
+// Transfer
 // User
 
 //  ---------------- ↑↑↑↑
 
-// enum  ---------------- ↓↓↓↓
+// Common ---------------- ↓↓↓↓ 
 
 enum Role {
   SUPERADMIN
@@ -46,74 +45,67 @@ enum Role {
   DRIVER
 }
 
-enum Category {
-  apartment
-  studio
-  luxe
-  onePlace
-  twoPlace
-  threePlace
-  fourPlace
-  fivePlace
-  sixPlace
-  sevenPlace
-  eightPlace
-  ninePlace
-  tenPlace
-  // elevenPlace
-  // twelvePlace
-  // thirteenPlace
-  // fourteenPlace
-  // fifteenPlace
-  // sixteenPlace
-  // seventeenPlace
-  // eighteenPlace
-  // nineteenPlace
-  // twentyPlace
-}
-
 enum TwoFAMethod {
   HOTP
   TOTP
 }
 
-enum RoomType {
-  room
-  apartment
+type AccessMenu {
+  requestMenu               Boolean @default(true)
+  requestCreate             Boolean @default(true)
+  requestUpdate             Boolean @default(true)
+  requestChat               Boolean @default(true)
+  transferMenu              Boolean @default(true)
+  transferCreate            Boolean @default(true)
+  transferUpdate            Boolean @default(true)
+  transferChat              Boolean @default(true)
+  personalMenu              Boolean @default(true)
+  personalCreate            Boolean @default(true)
+  personalUpdate            Boolean @default(true)
+  reserveMenu               Boolean @default(true)
+  reserveCreate             Boolean @default(true)
+  reserveUpdate             Boolean @default(true)
+  analyticsMenu             Boolean @default(true)
+  analyticsUpload           Boolean @default(true)
+  reportMenu                Boolean @default(true)
+  reportCreate              Boolean @default(true)
+  userMenu                  Boolean @default(true)
+  userCreate                Boolean @default(true)
+  userUpdate                Boolean @default(true)
+  airlineMenu               Boolean @default(true)
+  airlineUpdate             Boolean @default(true)
+  contracts                 Boolean @default(true)
+  contractCreate            Boolean @default(true)
+  contractUpdate            Boolean @default(true)
+  organizationMenu          Boolean @default(true)
+  organizationCreate        Boolean @default(true)
+  organizationUpdate        Boolean @default(true)
+  organizationAddDrivers    Boolean @default(true)
+  organizationAcceptDrivers Boolean @default(true)
 }
 
-enum HotelType {
-  hotel
-  apartment
+type DailyMeal {
+  date      DateTime
+  breakfast Int
+  lunch     Int
+  dinner    Int
 }
 
-enum DocumentationType {
-  documentation
-  update
-  patch
-  etc
-}
-
-enum DocumentationFilter {
-  airline
-  hotel
-  dispatcher
-  etc
-}
-
-// enum  ---------------- ↑↑↑↑
-
-// type  ---------------- ↓↓↓↓
-
-type MealTime {
-  start String
-  end   String
-}
-
-type MealPrice {
-  breakfast Float?
-  lunch     Float?
-  dinner    Float?
+type Information {
+  country     String?
+  city        String?
+  address     String?
+  index       String?
+  email       String?
+  number      String?
+  inn         String?
+  ogrn        String?
+  rs          String?
+  bank        String?
+  bik         String?
+  link        String?
+  description String?
+  // airport String?
 }
 
 type MealPlan {
@@ -127,11 +119,36 @@ type MealPlan {
   dailyMeals       DailyMeal[]
 }
 
-type DailyMeal {
-  date      DateTime
-  breakfast Int
-  lunch     Int
-  dinner    Int
+type MealPrice {
+  breakfast Float?
+  lunch     Float?
+  dinner    Float?
+}
+
+type MealTime {
+  start String
+  end   String
+}
+
+type NotificationDescription {
+  action      String?
+  reason      String?
+  description String?
+}
+
+type NotificationMenu {
+  // Заявки
+  requestCreate          Boolean @default(true) // создание заявки
+  requestDatesChange     Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
+  requestPlacementChange Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
+  requestCancel          Boolean @default(true) // отмена заявки
+  // Брони
+  reserveCreate          Boolean @default(true) // создание брони
+  reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
+  reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
+  reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  // Сообщения
+  newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
 }
 
 type Price {
@@ -162,151 +179,514 @@ type Price {
   // pricetwentyCategory    Float? @default(0)
 }
 
-// type TransferPrice {
-//   somePrice Float? @default(0)
-// }
-
-type Information {
-  country     String?
-  city        String?
-  address     String?
-  index       String?
-  email       String?
-  number      String?
-  inn         String?
-  ogrn        String?
-  rs          String?
-  bank        String?
-  bik         String?
-  link        String?
-  description String?
-  // airport String?
-}
-
 type UserDailyTime {
   date    String
   minutes Int
 }
 
-// type  ---------------- ↑↑↑↑
+model Airport {
+  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String?
+  code                  String?
+  city                  String?
+  request               Request[]
+  reserve               Reserve[]
+  hotel                 Hotel[]
+  airportOnAirlinePrice AirportOnAirlinePrice[]
+  passengerRequests     PassengerRequest[]
+}
 
-// Пользователи  ---------------- ↓↓↓↓
+model City {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  city                  String
+  region                String
+  hotelContract         hotelContract[]
+  organizationContracts organizationContract[]
+}
 
-model User {
+model Notification {
+  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  readBy      NotificationRead[]
+  request     Request?                 @relation(fields: [requestId], references: [id])
+  requestId   String?                  @db.ObjectId
+  reserve     Reserve?                 @relation(fields: [reserveId], references: [id])
+  reserveId   String?                  @db.ObjectId
+  hotel       Hotel?                   @relation(fields: [hotelId], references: [id])
+  hotelId     String?                  @db.ObjectId
+  airline     Airline?                 @relation(fields: [airlineId], references: [id])
+  airlineId   String?                  @db.ObjectId
+  chat        Chat?                    @relation(fields: [chatId], references: [id])
+  chatId      String?                  @db.ObjectId
+  message     Message?                 @relation(fields: [messageId], references: [id])
+  messageId   String?                  @db.ObjectId
+  description NotificationDescription?
+}
+
+model NotificationRead {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  readAt         DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+}
+
+model PriceCategory {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  airline       Airline?       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId     String?        @db.ObjectId
+  hotel         Hotel?         @relation(fields: [hotelId], references: [id])
+  hotelId       String?        @db.ObjectId
+  company       Company?       @relation(fields: [companyId], references: [id])
+  companyId     String?        @db.ObjectId
+  name          String
+  airlinePrices AirlinePrice[]
+  // files                  String[]
+}
+
+// Common ---------------- ↑↑↑↑
+
+// Airline ---------------- ↓↓↓↓ 
+
+model Airline {
+  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  name                  String
+  nameFull              String?
+  images                String[]
+  information           Information?
+  department            AirlineDepartment[]
+  staff                 AirlinePersonal[]
+  request               Request[]
+  user                  User[]
+  logs                  Log[]
+  reserve               Reserve[]
+  // mealPrice             MealPrice?
+  savedReport           SavedReport[]
+  chat                  Chat[]
+  // prices       Price?
+  prices                AirlinePrice[]
+  // position              Position[]
+  Notification          Notification[]
+  active                Boolean                 @default(true)
+  airportOnAirlinePrice AirportOnAirlinePrice[]
+  airlinePriceCategory  PriceCategory[]
+  airlineContract       airlineContract[]
+  passengerRequests     PassengerRequest[]
+  transfers             Transfer[]
+}
+
+model AirlineDepartment {
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  name             String
+  email            String?
+  staff            AirlinePersonal[]
+  users            User[]
+  airline          Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId        String                 @db.ObjectId
+  active           Boolean                @default(true)
+  accessMenu       AccessMenu?
+  notificationMenu NotificationMenu?
+  position         PositionOnDepartment[]
+}
+
+model AirlinePersonal {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  name                  String
+  number                String?
+  email                 String?
+  login                 String?
+  password              String?
+  // position     String?
+  refreshToken          String?
+  fingerprint           String?
+  gender                String?
+  married               Boolean?               @default(false)
+  husband               AirlinePersonal?       @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  husbandId             String?                @db.ObjectId
+  marriedTo             AirlinePersonal[]      @relation(name: "Marriage")
+  airline               Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId             String?                @db.ObjectId
+  department            AirlineDepartment?     @relation(fields: [departmentId], references: [id], onDelete: NoAction)
+  departmentId          String?                @db.ObjectId
+  request               Request[]
+  hotelChess            HotelChess[]
+  active                Boolean                @default(true)
+  position              Position?              @relation(fields: [positionId], references: [id])
+  positionId            String?                @db.ObjectId
+  images                String[]
+  role                  Role                   @default(USER)
+  rating                Float?
+  transferPassengers    TransferPassenger[]
+  transferReviews       TransferReview[]
+  transferChatPersonals TransferChatPersonal[]
+  transferMessages      TransferMessage[]
+  transferMessageReads  TransferMessageRead[]
+}
+
+model AirlinePrice {
+  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  airline                Airline?                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId              String?                 @db.ObjectId
+  hotel                  Hotel?                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId                String?                 @db.ObjectId
+  airlinePriceCategory   PriceCategory?          @relation(fields: [airlinePriceCategoryId], references: [id])
+  airlinePriceCategoryId String?                 @db.ObjectId
+  airports               AirportOnAirlinePrice[]
+  name                   String
+  prices                 Price?
+  mealPrice              MealPrice?
+  // files                  String[]
+}
+
+model AirportOnAirlinePrice {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  airline        Airline       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId      String        @db.ObjectId
+  airport        Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
+  airportId      String        @db.ObjectId
+  airlinePrice   AirlinePrice? @relation(fields: [airlinePriceId], references: [id])
+  airlinePriceId String?       @db.ObjectId
+
+  @@unique([airlineId, airportId])
+}
+
+// Airline ---------------- ↑↑↑↑
+
+// Chat ---------------- ↓↓↓↓ 
+
+model Chat {
+  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  request            Request?          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId          String?           @db.ObjectId
+  messages           Message[]
+  participants       ChatUser[]
+  reserve            Reserve?          @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId          String?           @db.ObjectId
+  isSupport          Boolean           @default(false)
+  separator          String?
+  airline            Airline?          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId          String?           @db.ObjectId
+  hotel              Hotel?            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId            String?           @db.ObjectId
+  Notification       Notification[]
+  passengerRequest   PassengerRequest? @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
+  passengerRequestId String?           @db.ObjectId
+  // Тикет техподдержки: статус, кто взял в работу, когда и кем закрыт
+  supportStatus      String? // OPEN | IN_PROGRESS | RESOLVED
+  assignedTo         User?             @relation("AssignedSupportChats", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId       String?           @db.ObjectId
+  resolvedAt         DateTime?
+  resolvedBy         User?             @relation("ResolvedSupportChats", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedById       String?           @db.ObjectId
+  tickets            SupportTicket[]
+}
+
+model ChatUser {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  chat              Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId            String    @db.ObjectId
+  user              User      @relation(fields: [userId], references: [id])
+  userId            String    @db.ObjectId
+  lastReadMessageAt DateTime?
+
+  @@unique([chatId, userId])
+}
+
+model Message {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  text            String
+  sender          User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId        String         @db.ObjectId
+  receiver        User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: NoAction)
+  receiverId      String?        @db.ObjectId
+  chat            Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId          String?        @db.ObjectId
+  supportTicket   SupportTicket? @relation(fields: [supportTicketId], references: [id], onDelete: SetNull)
+  supportTicketId String?        @db.ObjectId
+  isRead          Boolean        @default(false)
+  readBy          MessageRead[]
+  separator       String?
+  Notification    Notification[]
+}
+
+model MessageRead {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId])
+}
+
+model SupportTicket {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  chat         Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId       String    @db.ObjectId
+  ticketNumber Int
+  status       String // OPEN | IN_PROGRESS | RESOLVED
+  assignedTo   User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId String?   @db.ObjectId
+  resolvedAt   DateTime?
+  resolvedBy   User?     @relation("ResolvedTickets", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedById String?   @db.ObjectId
+  messages     Message[]
+
+  @@index([chatId])
+}
+
+// Chat ---------------- ↑↑↑↑
+
+// Company ---------------- ↓↓↓↓ 
+
+model additionalAgreement {
   id                     String                @id @default(auto()) @map("_id") @db.ObjectId
   createdAt              DateTime              @default(now()) @map("created_at")
   updatedAt              DateTime              @updatedAt @map("updated_at")
-  lastSeen               DateTime?
-  isOnline               Boolean               @default(false)
-  sessionStartedAt       DateTime?
-  totalTimeMinutes       Int                   @default(0)
-  dailyTimeStats         UserDailyTime[]
-  name                   String
-  email                  String                @unique
-  number                 String?
-  login                  String                @unique
-  password               String
-  images                 String[]
-  role                   Role
-  // position             String?
-  sender                 Request[]             @relation(name: "sender")
-  receiver               Request[]             @relation(name: "receiver")
-  reserve                Reserve[]
-  airline                Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId              String?               @db.ObjectId
-  airlineDepartment      AirlineDepartment?    @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
-  airlineDepartmentId    String?               @db.ObjectId
-  hotel                  Hotel?                @relation(fields: [hotelId], references: [id], onDelete: NoAction)
-  hotelId                String?               @db.ObjectId
-  chats                  ChatUser[]
-  messageSender          Message[]             @relation(name: "messageSender")
-  messageReceiver        Message[]             @relation(name: "messageReceiver")
-  logs                   Log[]
-  dispatcher             Boolean?              @default(false)
-  support                Boolean?              @default(false)
-  refreshToken           String?
-  fingerprint            String?
-  is2FAEnabled           Boolean               @default(false)
-  twoFASecret            String?
-  twoFAMethod            TwoFAMethod?
-  messageRead            MessageRead[]
-  NotificationRead       NotificationRead[]
-  resetPasswordToken     String? // для хранения токена восстановления
-  resetPasswordExpires   DateTime? // срок действия токена
-  active                 Boolean               @default(true)
-  position               Position?             @relation(fields: [positionId], references: [id])
-  positionId             String?               @db.ObjectId
-  postedRequests         Request[]             @relation(name: "posted")
-  passengerRequests      PassengerRequest[]
-  transfers              Transfer[]
-  transferChats          TransferChat[]
-  transferMessages       TransferMessage[]
-  transferMessageReads   TransferMessageRead[]
-  deviceTokens           device_tokens[]
-  // dispatcherDepartment и airlineDepartment взаимоисключающие — у пользователя может быть только один
-  dispatcherDepartment   DispatcherDepartment? @relation(fields: [dispatcherDepartmentId], references: [id])
-  dispatcherDepartmentId String?               @db.ObjectId
-  assignedSupportChats   Chat[]                @relation("AssignedSupportChats")
-  resolvedSupportChats   Chat[]                @relation("ResolvedSupportChats")
-  assignedTickets        SupportTicket[]       @relation("AssignedTickets")
-  resolvedTickets        SupportTicket[]       @relation("ResolvedTickets")
+  airlineContract        airlineContract?      @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
+  airlineContractId      String?               @db.ObjectId
+  hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
+  hotelContractId        String?               @db.ObjectId
+  date                   DateTime?
+  contractNumber         String?
+  itemAgreement          String?
+  notes                  String?
+  files                  String[]
+  organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
+  organizationContractId String?               @db.ObjectId
 }
 
-model DispatcherDepartment {
-  id               String            @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-  name             String
-  email            String?
-  dispatchers      User[]
-  active           Boolean           @default(true)
-  accessMenu       AccessMenu?
-  notificationMenu NotificationMenu?
-  // position         PositionOnDepartment[]
+model airlineContract {
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  company              Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId            String?               @db.ObjectId
+  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId            String?               @db.ObjectId
+  date                 DateTime?
+  contractNumber       String?
+  region               String?
+  applicationType      String?
+  notes                String?
+  additionalAgreements additionalAgreement[]
+  files                String[]
 }
 
-model PositionOnDepartment {
-  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
-  airlineDepartment   AirlineDepartment @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
-  airlineDepartmentId String            @db.ObjectId
-  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  positionId          String            @db.ObjectId
-  // hotelChess HotelChess[]
-  // capacity   Int?
-  // passengers Passenger[]
-
-  @@unique([airlineDepartmentId, positionId])
+model Company {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  name                  String
+  priceCategory         PriceCategory[]
+  information           Information?
+  airlineContract       airlineContract[]
+  hotelContract         hotelContract[]
+  organizationContracts organizationContract[]
 }
 
-model Position {
-  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  separator         String?
-  category          String?
-  user              User[]
-  airlinePersonal   AirlinePersonal[]
-  airlineDepartment PositionOnDepartment[]
-  // airline           Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  // airlineId         String?                @db.ObjectId
-  // airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
-  // airlineDepartmentId String?            @db.ObjectId
-  // hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  // hotelId           String?                @db.ObjectId
+model hotelContract {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId           String?               @db.ObjectId
+  hotel               Hotel?                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId             String?               @db.ObjectId
+  date                DateTime?
+  contractNumber      String?
+  region              City?                 @relation(fields: [cityId], references: [id])
+  cityId              String?               @db.ObjectId
+  notes               String?
+  legalEntity         String?
+  signatureMark       String?
+  completionMark      String?
+  normativeAct        String?
+  applicationType     String?
+  executor            String?
+  files               String[]
+  additionalAgreement additionalAgreement[]
 }
 
-model device_tokens {
+model organizationContract {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId           String?               @db.ObjectId
+  organization        Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId      String?               @db.ObjectId
+  date                DateTime?
+  contractNumber      String?
+  region              City?                 @relation(fields: [cityId], references: [id])
+  cityId              String?               @db.ObjectId
+  notes               String?
+  // legalEntity         String?
+  // signatureMark       String?
+  // completionMark      String?
+  // normativeAct        String?
+  applicationType     String?
+  // executor            String?
+  files               String[]
+  additionalAgreement additionalAgreement[]
+}
+
+// Company ---------------- ↑↑↑↑
+
+// Documentation ---------------- ↓↓↓↓ 
+
+enum DocumentationFilter {
+  airline
+  hotel
+  dispatcher
+  etc
+}
+
+enum DocumentationType {
+  documentation
+  update
+  patch
+  etc
+}
+
+model Article {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  platform  String
-  token     String
+  title     String
+  content   Json?
+
+  // Раздел, к которому принадлежит статья
+  sectionId String?  @db.ObjectId
+  section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-// Пользователи  ---------------- ↑↑↑↑
+model Documentation {
+  id          String               @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  parentId    String?              @db.ObjectId
+  parent      Documentation?       @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Documentation[]      @relation("DocumentationHierarchy")
+  order       Int?
+  type        DocumentationType?
+  filter      DocumentationFilter?
+  name        String
+  description String?
+  clientKey   String?
+  files       String[]
+  images      String[]
+}
 
-// Отели  ---------------- ↓↓↓↓
+model PatchNote {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  date        DateTime
+  name        String
+  description String
+  files       String[]
+  images      String[]
+}
+
+// Схемы для документации
+model Section {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Родительский раздел (самоссылка)
+  parentId String?  @db.ObjectId
+  parent   Section? @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Подразделы (дочерние разделы)
+  children Section[] @relation("SectionHierarchy")
+
+  // Статьи внутри этого раздела
+  articles Article[]
+
+  // Индекс для быстрого поиска по родителю
+  @@index([parentId])
+}
+
+// Documentation ---------------- ↑↑↑↑
+
+// Hotel ---------------- ↓↓↓↓ 
+
+enum Category {
+  apartment
+  studio
+  luxe
+  onePlace
+  twoPlace
+  threePlace
+  fourPlace
+  fivePlace
+  sixPlace
+  sevenPlace
+  eightPlace
+  ninePlace
+  tenPlace
+  // elevenPlace
+  // twelvePlace
+  // thirteenPlace
+  // fourteenPlace
+  // fifteenPlace
+  // sixteenPlace
+  // seventeenPlace
+  // eighteenPlace
+  // nineteenPlace
+  // twentyPlace
+}
+
+enum HotelType {
+  hotel
+  apartment
+}
+
+enum RoomType {
+  room
+  apartment
+}
+
+model AdditionalServices {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  name            String?
+  description     String?
+  price           Float
+  priceForAirline Float?
+  images          String[]
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  hotelId         String   @db.ObjectId
+}
 
 model Hotel {
   id                 String               @id @default(auto()) @map("_id") @db.ObjectId
@@ -424,516 +804,9 @@ model RoomKind {
   hotelId         String   @db.ObjectId
 }
 
-model AdditionalServices {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  name            String?
-  description     String?
-  price           Float
-  priceForAirline Float?
-  images          String[]
-  hotel           Hotel    @relation(fields: [hotelId], references: [id])
-  hotelId         String   @db.ObjectId
-}
+// Hotel ---------------- ↑↑↑↑
 
-// model Tariff {
-//   id       String   @id @default(auto()) @map("_id") @db.ObjectId
-//   name     String
-//   price    Float
-//   category Category
-//   hotel    Hotel    @relation(fields: [hotelId], references: [id])
-//   hotelId  String   @db.ObjectId
-//   room     Room[]
-// }
-
-// Отели  ---------------- ↑↑↑↑
-
-// Авиакомпании  ---------------- ↓↓↓↓
-
-model Airline {
-  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
-  name                  String
-  nameFull              String?
-  images                String[]
-  information           Information?
-  department            AirlineDepartment[]
-  staff                 AirlinePersonal[]
-  request               Request[]
-  user                  User[]
-  logs                  Log[]
-  reserve               Reserve[]
-  // mealPrice             MealPrice?
-  savedReport           SavedReport[]
-  chat                  Chat[]
-  // prices       Price?
-  prices                AirlinePrice[]
-  // position              Position[]
-  Notification          Notification[]
-  active                Boolean                 @default(true)
-  airportOnAirlinePrice AirportOnAirlinePrice[]
-  airlinePriceCategory  PriceCategory[]
-  airlineContract       airlineContract[]
-  passengerRequests     PassengerRequest[]
-  transfers             Transfer[]
-}
-
-model PriceCategory {
-  id            String         @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  airline       Airline?       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId     String?        @db.ObjectId
-  hotel         Hotel?         @relation(fields: [hotelId], references: [id])
-  hotelId       String?        @db.ObjectId
-  company       Company?       @relation(fields: [companyId], references: [id])
-  companyId     String?        @db.ObjectId
-  name          String
-  airlinePrices AirlinePrice[]
-  // files                  String[]
-}
-
-model AirlinePrice {
-  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt              DateTime                @default(now()) @map("created_at")
-  updatedAt              DateTime                @updatedAt @map("updated_at")
-  airline                Airline?                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId              String?                 @db.ObjectId
-  hotel                  Hotel?                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId                String?                 @db.ObjectId
-  airlinePriceCategory   PriceCategory?          @relation(fields: [airlinePriceCategoryId], references: [id])
-  airlinePriceCategoryId String?                 @db.ObjectId
-  airports               AirportOnAirlinePrice[]
-  name                   String
-  prices                 Price?
-  mealPrice              MealPrice?
-  // files                  String[]
-}
-
-model AirportOnAirlinePrice {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  airline        Airline       @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId      String        @db.ObjectId
-  airport        Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
-  airportId      String        @db.ObjectId
-  airlinePrice   AirlinePrice? @relation(fields: [airlinePriceId], references: [id])
-  airlinePriceId String?       @db.ObjectId
-
-  @@unique([airlineId, airportId])
-}
-
-model AirlineDepartment {
-  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt        DateTime               @default(now()) @map("created_at")
-  updatedAt        DateTime               @updatedAt @map("updated_at")
-  name             String
-  email            String?
-  staff            AirlinePersonal[]
-  users            User[]
-  airline          Airline                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId        String                 @db.ObjectId
-  active           Boolean                @default(true)
-  accessMenu       AccessMenu?
-  notificationMenu NotificationMenu?
-  position         PositionOnDepartment[]
-}
-
-type AccessMenu {
-  requestMenu               Boolean @default(true)
-  requestCreate             Boolean @default(true)
-  requestUpdate             Boolean @default(true)
-  requestChat               Boolean @default(true)
-  transferMenu              Boolean @default(true)
-  transferCreate            Boolean @default(true)
-  transferUpdate            Boolean @default(true)
-  transferChat              Boolean @default(true)
-  personalMenu              Boolean @default(true)
-  personalCreate            Boolean @default(true)
-  personalUpdate            Boolean @default(true)
-  reserveMenu               Boolean @default(true)
-  reserveCreate             Boolean @default(true)
-  reserveUpdate             Boolean @default(true)
-  analyticsMenu             Boolean @default(true)
-  analyticsUpload           Boolean @default(true)
-  reportMenu                Boolean @default(true)
-  reportCreate              Boolean @default(true)
-  userMenu                  Boolean @default(true)
-  userCreate                Boolean @default(true)
-  userUpdate                Boolean @default(true)
-  airlineMenu               Boolean @default(true)
-  airlineUpdate             Boolean @default(true)
-  contracts                 Boolean @default(true)
-  contractCreate            Boolean @default(true)
-  contractUpdate            Boolean @default(true)
-  organizationMenu          Boolean @default(true)
-  organizationCreate        Boolean @default(true)
-  organizationUpdate        Boolean @default(true)
-  organizationAddDrivers    Boolean @default(true)
-  organizationAcceptDrivers Boolean @default(true)
-}
-
-type NotificationMenu {
-  // Заявки
-  requestCreate          Boolean @default(true) // создание заявки
-  requestDatesChange     Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
-  requestPlacementChange Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
-  requestCancel          Boolean @default(true) // отмена заявки
-  // Брони
-  reserveCreate          Boolean @default(true) // создание брони
-  reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
-  reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
-  reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
-  // Сообщения
-  newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
-}
-
-model AirlinePersonal {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  name                  String
-  number                String?
-  email                 String?
-  login                 String?
-  password              String?
-  // position     String?
-  refreshToken          String?
-  fingerprint           String?
-  gender                String?
-  married               Boolean?               @default(false)
-  husband               AirlinePersonal?       @relation(name: "Marriage", fields: [husbandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  husbandId             String?                @db.ObjectId
-  marriedTo             AirlinePersonal[]      @relation(name: "Marriage")
-  airline               Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId             String?                @db.ObjectId
-  department            AirlineDepartment?     @relation(fields: [departmentId], references: [id], onDelete: NoAction)
-  departmentId          String?                @db.ObjectId
-  request               Request[]
-  hotelChess            HotelChess[]
-  active                Boolean                @default(true)
-  position              Position?              @relation(fields: [positionId], references: [id])
-  positionId            String?                @db.ObjectId
-  images                String[]
-  role                  Role                   @default(USER)
-  rating                Float?
-  transferPassengers    TransferPassenger[]
-  transferReviews       TransferReview[]
-  transferChatPersonals TransferChatPersonal[]
-  transferMessages      TransferMessage[]
-  transferMessageReads  TransferMessageRead[]
-}
-
-// Авиакомпании  ---------------- ↑↑↑↑
-
-// Компании  ---------------- ↓↓↓↓
-
-model Company {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  name                  String
-  priceCategory         PriceCategory[]
-  information           Information?
-  airlineContract       airlineContract[]
-  hotelContract         hotelContract[]
-  organizationContracts organizationContract[]
-}
-
-model airlineContract {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  company              Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId            String?               @db.ObjectId
-  airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId            String?               @db.ObjectId
-  date                 DateTime?
-  contractNumber       String?
-  region               String?
-  applicationType      String?
-  notes                String?
-  additionalAgreements additionalAgreement[]
-  files                String[]
-}
-
-model hotelContract {
-  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt           DateTime              @default(now()) @map("created_at")
-  updatedAt           DateTime              @updatedAt @map("updated_at")
-  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId           String?               @db.ObjectId
-  hotel               Hotel?                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId             String?               @db.ObjectId
-  date                DateTime?
-  contractNumber      String?
-  region              City?                 @relation(fields: [cityId], references: [id])
-  cityId              String?               @db.ObjectId
-  notes               String?
-  legalEntity         String?
-  signatureMark       String?
-  completionMark      String?
-  normativeAct        String?
-  applicationType     String?
-  executor            String?
-  files               String[]
-  additionalAgreement additionalAgreement[]
-}
-
-model organizationContract {
-  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt           DateTime              @default(now()) @map("created_at")
-  updatedAt           DateTime              @updatedAt @map("updated_at")
-  company             Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId           String?               @db.ObjectId
-  organization        Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId      String?               @db.ObjectId
-  date                DateTime?
-  contractNumber      String?
-  region              City?                 @relation(fields: [cityId], references: [id])
-  cityId              String?               @db.ObjectId
-  notes               String?
-  // legalEntity         String?
-  // signatureMark       String?
-  // completionMark      String?
-  // normativeAct        String?
-  applicationType     String?
-  // executor            String?
-  files               String[]
-  additionalAgreement additionalAgreement[]
-}
-
-model additionalAgreement {
-  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt              DateTime              @default(now()) @map("created_at")
-  updatedAt              DateTime              @updatedAt @map("updated_at")
-  airlineContract        airlineContract?      @relation(fields: [airlineContractId], references: [id], onDelete: Cascade)
-  airlineContractId      String?               @db.ObjectId
-  hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
-  hotelContractId        String?               @db.ObjectId
-  date                   DateTime?
-  contractNumber         String?
-  itemAgreement          String?
-  notes                  String?
-  files                  String[]
-  organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
-  organizationContractId String?               @db.ObjectId
-}
-
-// Компании  ---------------- ↑↑↑↑
-
-model Airport {
-  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
-  name                  String?
-  code                  String?
-  city                  String?
-  request               Request[]
-  reserve               Reserve[]
-  hotel                 Hotel[]
-  airportOnAirlinePrice AirportOnAirlinePrice[]
-  passengerRequests     PassengerRequest[]
-}
-
-model City {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  city                  String
-  region                String
-  hotelContract         hotelContract[]
-  organizationContracts organizationContract[]
-}
-
-// Заявка  ---------------- ↓↓↓↓
-
-model Request {
-  id            String           @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
-  placementAt   DateTime?        @map("placement_at")
-  sender        User             @relation(name: "sender", fields: [senderId], references: [id])
-  senderId      String           @db.ObjectId
-  airport       Airport?         @relation(fields: [airportId], references: [id])
-  airportId     String?          @db.ObjectId
-  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId     String           @db.ObjectId
-  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
-  personId      String?          @db.ObjectId
-  arrival       DateTime
-  departure     DateTime
-  requestNumber String           @unique
-  roomCategory  String?
-  roomNumber    String?
-  mealPlan      MealPlan?
-  hotel         Hotel?           @relation(fields: [hotelId], references: [id])
-  hotelId       String?          @db.ObjectId
-  receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId    String?          @db.ObjectId
-  posted        User?            @relation(name: "posted", fields: [postedId], references: [id])
-  postedId      String?          @db.ObjectId
-  chat          Chat[]
-  status        String           @default("created")
-  hotelChess    HotelChess[]
-  logs          Log[]
-  archive       Boolean          @default(false)
-  files         String[]
-  reserve       Boolean          @default(false)
-  Notifications Notification[]
-}
-
-model Reserve {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  sender         User           @relation(fields: [senderId], references: [id])
-  senderId       String         @db.ObjectId
-  airport        Airport?       @relation(fields: [airportId], references: [id])
-  airportId      String?        @db.ObjectId
-  airline        Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId      String         @db.ObjectId
-  arrival        DateTime
-  departure      DateTime
-  reserveNumber  String         @unique
-  passengerCount Int?
-  mealPlan       MealPlan?
-  status         String         @default("created")
-  hotel          ReserveHotel[]
-  passengers     Passenger[]
-  chat           Chat[]
-  logs           Log[]
-  archive        Boolean        @default(false)
-  hotelChess     HotelChess[]
-  files          String[]
-  passengerList  String[]
-  Notifications  Notification[]
-}
-
-model Passenger {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  name           String?       @default("no name")
-  number         String?
-  gender         String?
-  child          Boolean       @default(false)
-  animal         Boolean       @default(false)
-  reserve        Reserve?      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId      String?       @db.ObjectId
-  temporary      Boolean       @default(true)
-  reserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
-  reserveHotelId String?       @db.ObjectId
-  hotelChess     HotelChess[]
-}
-
-model ReserveHotel {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt  DateTime     @default(now()) @map("created_at")
-  updatedAt  DateTime     @updatedAt @map("updated_at")
-  reserve    Reserve      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId  String       @db.ObjectId
-  hotel      Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId    String       @db.ObjectId
-  hotelChess HotelChess[]
-  capacity   Int?
-  passengers Passenger[]
-
-  @@unique([reserveId, hotelId])
-}
-
-// Заявка  ---------------- ↑↑↑↑
-
-// Чаты/сообщения  ---------------- ↓↓↓↓
-
-model Chat {
-  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
-  request            Request?          @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId          String?           @db.ObjectId
-  messages           Message[]
-  participants       ChatUser[]
-  reserve            Reserve?          @relation(fields: [reserveId], references: [id], onDelete: Cascade)
-  reserveId          String?           @db.ObjectId
-  isSupport          Boolean           @default(false)
-  separator          String?
-  airline            Airline?          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId          String?           @db.ObjectId
-  hotel              Hotel?            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId            String?           @db.ObjectId
-  Notification       Notification[]
-  passengerRequest   PassengerRequest? @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
-  passengerRequestId String?           @db.ObjectId
-  // Тикет техподдержки: статус, кто взял в работу, когда и кем закрыт
-  supportStatus      String? // OPEN | IN_PROGRESS | RESOLVED
-  assignedTo         User?             @relation("AssignedSupportChats", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedToId       String?           @db.ObjectId
-  resolvedAt         DateTime?
-  resolvedBy         User?             @relation("ResolvedSupportChats", fields: [resolvedById], references: [id], onDelete: SetNull)
-  resolvedById       String?           @db.ObjectId
-  tickets            SupportTicket[]
-}
-
-model Message {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  text            String
-  sender          User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId        String         @db.ObjectId
-  receiver        User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: NoAction)
-  receiverId      String?        @db.ObjectId
-  chat            Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId          String?        @db.ObjectId
-  supportTicket   SupportTicket? @relation(fields: [supportTicketId], references: [id], onDelete: SetNull)
-  supportTicketId String?        @db.ObjectId
-  isRead          Boolean        @default(false)
-  readBy          MessageRead[]
-  separator       String?
-  Notification    Notification[]
-}
-
-model MessageRead {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  messageId String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  readAt    DateTime @default(now())
-
-  @@unique([messageId, userId])
-}
-
-model ChatUser {
-  id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  chat              Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId            String    @db.ObjectId
-  user              User      @relation(fields: [userId], references: [id])
-  userId            String    @db.ObjectId
-  lastReadMessageAt DateTime?
-
-  @@unique([chatId, userId])
-}
-
-model SupportTicket {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  chat         Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId       String    @db.ObjectId
-  ticketNumber Int
-  status       String // OPEN | IN_PROGRESS | RESOLVED
-  assignedTo   User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedToId String?   @db.ObjectId
-  resolvedAt   DateTime?
-  resolvedBy   User?     @relation("ResolvedTickets", fields: [resolvedById], references: [id], onDelete: SetNull)
-  resolvedById String?   @db.ObjectId
-  messages     Message[]
-
-  @@index([chatId])
-}
-
-// Чаты/сообщения  ---------------- ↑↑↑↑
-
-// Логи  ---------------- ↓↓↓↓
+// Log ---------------- ↓↓↓↓ 
 
 model Log {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -956,102 +829,9 @@ model Log {
   newData     String?
 }
 
-// Логи  ---------------- ↑↑↑↑
+// Log ---------------- ↑↑↑↑
 
-// Отчёты  ---------------- ↓↓↓↓
-
-model SavedReport {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  name      String
-  url       String
-  hotel     Hotel?   @relation(fields: [hotelId], references: [id])
-  hotelId   String?  @db.ObjectId
-  airline   Airline? @relation(fields: [airlineId], references: [id])
-  airlineId String?  @db.ObjectId
-  startDate DateTime
-  endDate   DateTime
-  separator String?
-}
-
-// Отчёты  ---------------- ↑↑↑↑
-
-model Notification {
-  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime                 @default(now()) @map("created_at")
-  updatedAt   DateTime                 @updatedAt @map("updated_at")
-  readBy      NotificationRead[]
-  request     Request?                 @relation(fields: [requestId], references: [id])
-  requestId   String?                  @db.ObjectId
-  reserve     Reserve?                 @relation(fields: [reserveId], references: [id])
-  reserveId   String?                  @db.ObjectId
-  hotel       Hotel?                   @relation(fields: [hotelId], references: [id])
-  hotelId     String?                  @db.ObjectId
-  airline     Airline?                 @relation(fields: [airlineId], references: [id])
-  airlineId   String?                  @db.ObjectId
-  chat        Chat?                    @relation(fields: [chatId], references: [id])
-  chatId      String?                  @db.ObjectId
-  message     Message?                 @relation(fields: [messageId], references: [id])
-  messageId   String?                  @db.ObjectId
-  description NotificationDescription?
-}
-
-type NotificationDescription {
-  action      String?
-  reason      String?
-  description String?
-}
-
-model NotificationRead {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  notificationId String       @db.ObjectId
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         String       @db.ObjectId
-  readAt         DateTime     @default(now())
-
-  @@unique([notificationId, userId])
-}
-
-model PatchNote {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  date        DateTime
-  name        String
-  description String
-  files       String[]
-  images      String[]
-}
-
-// model Documentation {
-//   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-//   chapter     String
-//   category    String
-//   name        String
-//   description String
-//   files       String[]
-// }
-
-model Documentation {
-  id          String               @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @updatedAt @map("updated_at")
-  parentId    String?              @db.ObjectId
-  parent      Documentation?       @relation("DocumentationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children    Documentation[]      @relation("DocumentationHierarchy")
-  order       Int?
-  type        DocumentationType?
-  filter      DocumentationFilter?
-  name        String
-  description String?
-  clientKey   String?
-  files       String[]
-  images      String[]
-}
+// Passenger ---------------- ↓↓↓↓ 
 
 enum PassengerRequestStatus {
   CREATED
@@ -1069,38 +849,19 @@ enum PassengerServiceStatus {
   CANCELLED
 }
 
-type PassengerStatusTimes {
-  acceptedAt   DateTime?
-  inProgressAt DateTime?
-  finishedAt   DateTime?
-  cancelledAt  DateTime?
-}
-
-type PassengerServicePlan {
-  enabled     Boolean   @default(false) // чекбокс в форме
-  peopleCount Int?
-  plannedAt   DateTime? // «Введите время»
-}
-
-type PassengerServicePerson {
-  fullName String
-  issuedAt DateTime? // время выдачи (14:30 в таблице)
-  phone    String?
-  seat     String? // если достанешь из скана
-}
-
-type PassengerWaterFoodService {
-  plan   PassengerServicePlan? // включён ли сервис, сколько людей, во сколько
-  status PassengerServiceStatus   @default(NEW)
+type PassengerLivingService {
+  plan   PassengerServicePlan? // план по людям/времени заселения
+  status PassengerServiceStatus  @default(NEW)
   times  PassengerStatusTimes?
-  people PassengerServicePerson[] // список ФИО + время выдачи
+  hotels PassengerServiceHotel[] // таб «Проживание»
 }
 
-type PassengerServiceHotelPerson {
-  fullName   String // ФИО пассажира (обязательное)
-  phone      String?
-  gender     String?
-  roomNumber String?
+type PassengerServiceDriver {
+  fullName    String
+  phone       String?
+  peopleCount Int?
+  pickupAt    DateTime? // время подачи / выезда
+  link        String? // ссылка на маршрут, вотсап и т.д.
 }
 
 type PassengerServiceHotel {
@@ -1112,19 +873,31 @@ type PassengerServiceHotel {
   people      PassengerServiceHotelPerson[] // брони по отелю
 }
 
-type PassengerServiceDriver {
-  fullName    String
-  phone       String?
-  peopleCount Int?
-  pickupAt    DateTime? // время подачи / выезда
-  link        String? // ссылка на маршрут, вотсап и т.д.
+type PassengerServiceHotelPerson {
+  fullName   String // ФИО пассажира (обязательное)
+  phone      String?
+  gender     String?
+  roomNumber String?
 }
 
-type PassengerLivingService {
-  plan   PassengerServicePlan? // план по людям/времени заселения
-  status PassengerServiceStatus  @default(NEW)
-  times  PassengerStatusTimes?
-  hotels PassengerServiceHotel[] // таб «Проживание»
+type PassengerServicePerson {
+  fullName String
+  issuedAt DateTime? // время выдачи (14:30 в таблице)
+  phone    String?
+  seat     String? // если достанешь из скана
+}
+
+type PassengerServicePlan {
+  enabled     Boolean   @default(false) // чекбокс в форме
+  peopleCount Int?
+  plannedAt   DateTime? // «Введите время»
+}
+
+type PassengerStatusTimes {
+  acceptedAt   DateTime?
+  inProgressAt DateTime?
+  finishedAt   DateTime?
+  cancelledAt  DateTime?
 }
 
 type PassengerTransferService {
@@ -1132,6 +905,28 @@ type PassengerTransferService {
   status  PassengerServiceStatus   @default(NEW)
   times   PassengerStatusTimes?
   drivers PassengerServiceDriver[]
+}
+
+type PassengerWaterFoodService {
+  plan   PassengerServicePlan? // включён ли сервис, сколько людей, во сколько
+  status PassengerServiceStatus   @default(NEW)
+  times  PassengerStatusTimes?
+  people PassengerServicePerson[] // список ФИО + время выдачи
+}
+
+model Passenger {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  name           String?       @default("no name")
+  number         String?
+  gender         String?
+  child          Boolean       @default(false)
+  animal         Boolean       @default(false)
+  reserve        Reserve?      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId      String?       @db.ObjectId
+  temporary      Boolean       @default(true)
+  reserveHotel   ReserveHotel? @relation(fields: [reserveHotelId], references: [id])
+  reserveHotelId String?       @db.ObjectId
+  hotelChess     HotelChess[]
 }
 
 model PassengerRequest {
@@ -1187,25 +982,113 @@ model PassengerRequestHotelReport {
   @@unique([passengerRequestId, hotelIndex])
 }
 
-// ====================== TRANSFER / DRIVER ======================
+// Passenger ---------------- ↑↑↑↑
 
-// --- Enums
-enum TransferStatus {
-  PENDING
-  ASSIGNED
-  ACCEPTED
-  ARRIVED
-  IN_PROGRESS_TO_CLIENT
-  IN_PROGRESS_TO_HOTEL
-  COMPLETED
-  CANCELLED
+// Report ---------------- ↓↓↓↓ 
+
+model SavedReport {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  name      String
+  url       String
+  hotel     Hotel?   @relation(fields: [hotelId], references: [id])
+  hotelId   String?  @db.ObjectId
+  airline   Airline? @relation(fields: [airlineId], references: [id])
+  airlineId String?  @db.ObjectId
+  startDate DateTime
+  endDate   DateTime
+  separator String?
 }
 
-enum TransferChatType {
-  DISPATCHER_DRIVER
-  DISPATCHER_PERSONAL
-  DRIVER_PERSONAL
+// Report ---------------- ↑↑↑↑
+
+// Request ---------------- ↓↓↓↓ 
+
+model Request {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  placementAt   DateTime?        @map("placement_at")
+  sender        User             @relation(name: "sender", fields: [senderId], references: [id])
+  senderId      String           @db.ObjectId
+  airport       Airport?         @relation(fields: [airportId], references: [id])
+  airportId     String?          @db.ObjectId
+  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId     String           @db.ObjectId
+  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
+  personId      String?          @db.ObjectId
+  arrival       DateTime
+  departure     DateTime
+  requestNumber String           @unique
+  roomCategory  String?
+  roomNumber    String?
+  mealPlan      MealPlan?
+  hotel         Hotel?           @relation(fields: [hotelId], references: [id])
+  hotelId       String?          @db.ObjectId
+  receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId    String?          @db.ObjectId
+  posted        User?            @relation(name: "posted", fields: [postedId], references: [id])
+  postedId      String?          @db.ObjectId
+  chat          Chat[]
+  status        String           @default("created")
+  hotelChess    HotelChess[]
+  logs          Log[]
+  archive       Boolean          @default(false)
+  files         String[]
+  reserve       Boolean          @default(false)
+  Notifications Notification[]
 }
+
+// Request ---------------- ↑↑↑↑
+
+// Reserve ---------------- ↓↓↓↓ 
+
+model Reserve {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  sender         User           @relation(fields: [senderId], references: [id])
+  senderId       String         @db.ObjectId
+  airport        Airport?       @relation(fields: [airportId], references: [id])
+  airportId      String?        @db.ObjectId
+  airline        Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId      String         @db.ObjectId
+  arrival        DateTime
+  departure      DateTime
+  reserveNumber  String         @unique
+  passengerCount Int?
+  mealPlan       MealPlan?
+  status         String         @default("created")
+  hotel          ReserveHotel[]
+  passengers     Passenger[]
+  chat           Chat[]
+  logs           Log[]
+  archive        Boolean        @default(false)
+  hotelChess     HotelChess[]
+  files          String[]
+  passengerList  String[]
+  Notifications  Notification[]
+}
+
+model ReserveHotel {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+  reserve    Reserve      @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  reserveId  String       @db.ObjectId
+  hotel      Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId    String       @db.ObjectId
+  hotelChess HotelChess[]
+  capacity   Int?
+  passengers Passenger[]
+
+  @@unique([reserveId, hotelId])
+}
+
+// Reserve ---------------- ↑↑↑↑
+
+// Transfer ---------------- ↓↓↓↓ 
 
 enum ActorType {
   USER // диспетчер (модель User)
@@ -1219,9 +1102,27 @@ enum DriverRegistrationStatus {
   REJECTED
 }
 
+enum TransferChatType {
+  DISPATCHER_DRIVER
+  DISPATCHER_PERSONAL
+  DRIVER_PERSONAL
+}
+
 enum TransferReviewAuthor {
   DRIVER
   PERSONAL
+}
+
+// --- Enums
+enum TransferStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS_TO_CLIENT
+  IN_PROGRESS_TO_HOTEL
+  COMPLETED
+  CANCELLED
 }
 
 // --- Embedded types
@@ -1238,17 +1139,6 @@ type GeoPoint {
   lat       Float?
   lng       Float?
   updatedAt DateTime?
-}
-
-// --- Organization
-model Organization {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name                  String
-  images                String[]
-  information           Information?
-  drivers               Driver[]
-  active                Boolean                @default(true)
-  organizationContracts organizationContract[]
 }
 
 // --- Driver
@@ -1285,15 +1175,15 @@ model Driver {
   TransferMessageRead    TransferMessageRead[]
 }
 
-// --- Связка "заявка ↔ пассажиры (AirlinePersonal)"
-model TransferPassenger {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
-  transfer   Transfer        @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  transferId String          @db.ObjectId
-  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  personalId String          @db.ObjectId
-
-  @@unique([transferId, personalId])
+// --- Organization
+model Organization {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String
+  images                String[]
+  information           Information?
+  drivers               Driver[]
+  active                Boolean                @default(true)
+  organizationContracts organizationContract[]
 }
 
 // --- Transfer (заявка)
@@ -1343,36 +1233,6 @@ model Transfer {
   reviews TransferReview[]
 }
 
-// --- Отзывы (оценка/комментарий) со стороны водителя или пассажира
-model TransferReview {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  transferId String   @db.ObjectId
-
-  authorType TransferReviewAuthor // DRIVER | PERSONAL
-  driver     Driver?              @relation(fields: [driverId], references: [id])
-  driverId   String?              @db.ObjectId
-  personal   AirlinePersonal?     @relation(fields: [personalId], references: [id])
-  personalId String?              @db.ObjectId
-
-  rating    Int? // 1..5
-  comment   String?
-  createdAt DateTime @default(now())
-
-  @@unique([transferId, authorType]) // по 1 отзыву с каждой стороны
-}
-
-// --- Связка "чат ↔ пассажиры (AirlinePersonal)" для many-to-many связи
-model TransferChatPersonal {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
-  chat       TransferChat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId     String          @db.ObjectId
-  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  personalId String          @db.ObjectId
-
-  @@unique([chatId, personalId])
-}
-
 // --- Чаты по заявке (ровно три типа на заявку)
 model TransferChat {
   id         String           @id @default(auto()) @map("_id") @db.ObjectId
@@ -1393,6 +1253,17 @@ model TransferChat {
   messages TransferMessage[]
 
   @@unique([transferId, type]) // уникальность по типу чата на трансфер
+}
+
+// --- Связка "чат ↔ пассажиры (AirlinePersonal)" для many-to-many связи
+model TransferChatPersonal {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  chat       TransferChat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId     String          @db.ObjectId
+  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  personalId String          @db.ObjectId
+
+  @@unique([chatId, personalId])
 }
 
 // --- Сообщения в чатах трансфера с универсальным автором
@@ -1437,37 +1308,149 @@ model TransferMessageRead {
   readAt     DateTime         @default(now())
 }
 
-// Схемы для документации
-model Section {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  title     String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+// --- Связка "заявка ↔ пассажиры (AirlinePersonal)"
+model TransferPassenger {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer        @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String          @db.ObjectId
+  personal   AirlinePersonal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  personalId String          @db.ObjectId
 
-  // Родительский раздел (самоссылка)
-  parentId String?  @db.ObjectId
-  parent   Section? @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  // Подразделы (дочерние разделы)
-  children Section[] @relation("SectionHierarchy")
-
-  // Статьи внутри этого раздела
-  articles Article[]
-
-  // Индекс для быстрого поиска по родителю
-  @@index([parentId])
+  @@unique([transferId, personalId])
 }
 
-model Article {
+// --- Отзывы (оценка/комментарий) со стороны водителя или пассажира
+model TransferReview {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transferId String   @db.ObjectId
+
+  authorType TransferReviewAuthor // DRIVER | PERSONAL
+  driver     Driver?              @relation(fields: [driverId], references: [id])
+  driverId   String?              @db.ObjectId
+  personal   AirlinePersonal?     @relation(fields: [personalId], references: [id])
+  personalId String?              @db.ObjectId
+
+  rating    Int? // 1..5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([transferId, authorType]) // по 1 отзыву с каждой стороны
+}
+
+// Transfer ---------------- ↑↑↑↑
+// User ---------------- ↓↓↓↓ 
+
+model device_tokens {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  title     String
-  content   Json?
-
-  // Раздел, к которому принадлежит статья
-  sectionId String?  @db.ObjectId
-  section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  platform  String
+  token     String
 }
 
-//---------------------------------------------------------------------------------------------------------------------
+model DispatcherDepartment {
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  name             String
+  email            String?
+  dispatchers      User[]
+  active           Boolean           @default(true)
+  accessMenu       AccessMenu?
+  notificationMenu NotificationMenu?
+  // position         PositionOnDepartment[]
+}
+
+model Position {
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  separator         String?
+  category          String?
+  user              User[]
+  airlinePersonal   AirlinePersonal[]
+  airlineDepartment PositionOnDepartment[]
+  // airline           Airline?               @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  // airlineId         String?                @db.ObjectId
+  // airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id])
+  // airlineDepartmentId String?            @db.ObjectId
+  // hotel             Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // hotelId           String?                @db.ObjectId
+}
+
+model PositionOnDepartment {
+  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
+  airlineDepartment   AirlineDepartment @relation(fields: [airlineDepartmentId], references: [id], onDelete: Cascade)
+  airlineDepartmentId String            @db.ObjectId
+  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  positionId          String            @db.ObjectId
+  // hotelChess HotelChess[]
+  // capacity   Int?
+  // passengers Passenger[]
+
+  @@unique([airlineDepartmentId, positionId])
+}
+
+model User {
+  id                     String                @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  lastSeen               DateTime?
+  isOnline               Boolean               @default(false)
+  sessionStartedAt       DateTime?
+  totalTimeMinutes       Int                   @default(0)
+  dailyTimeStats         UserDailyTime[]
+  name                   String
+  email                  String                @unique
+  number                 String?
+  login                  String                @unique
+  password               String
+  images                 String[]
+  role                   Role
+  // position             String?
+  sender                 Request[]             @relation(name: "sender")
+  receiver               Request[]             @relation(name: "receiver")
+  reserve                Reserve[]
+  airline                Airline?              @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId              String?               @db.ObjectId
+  airlineDepartment      AirlineDepartment?    @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId    String?               @db.ObjectId
+  hotel                  Hotel?                @relation(fields: [hotelId], references: [id], onDelete: NoAction)
+  hotelId                String?               @db.ObjectId
+  chats                  ChatUser[]
+  messageSender          Message[]             @relation(name: "messageSender")
+  messageReceiver        Message[]             @relation(name: "messageReceiver")
+  logs                   Log[]
+  dispatcher             Boolean?              @default(false)
+  support                Boolean?              @default(false)
+  refreshToken           String?
+  fingerprint            String?
+  is2FAEnabled           Boolean               @default(false)
+  twoFASecret            String?
+  twoFAMethod            TwoFAMethod?
+  messageRead            MessageRead[]
+  NotificationRead       NotificationRead[]
+  resetPasswordToken     String? // для хранения токена восстановления
+  resetPasswordExpires   DateTime? // срок действия токена
+  active                 Boolean               @default(true)
+  position               Position?             @relation(fields: [positionId], references: [id])
+  positionId             String?               @db.ObjectId
+  postedRequests         Request[]             @relation(name: "posted")
+  passengerRequests      PassengerRequest[]
+  transfers              Transfer[]
+  transferChats          TransferChat[]
+  transferMessages       TransferMessage[]
+  transferMessageReads   TransferMessageRead[]
+  deviceTokens           device_tokens[]
+  // dispatcherDepartment и airlineDepartment взаимоисключающие — у пользователя может быть только один
+  dispatcherDepartment   DispatcherDepartment? @relation(fields: [dispatcherDepartmentId], references: [id])
+  dispatcherDepartmentId String?               @db.ObjectId
+  assignedSupportChats   Chat[]                @relation("AssignedSupportChats")
+  resolvedSupportChats   Chat[]                @relation("ResolvedSupportChats")
+  assignedTickets        SupportTicket[]       @relation("AssignedTickets")
+  resolvedTickets        SupportTicket[]       @relation("ResolvedTickets")
+}
+
+// User ---------------- ↑↑↑↑
