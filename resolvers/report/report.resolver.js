@@ -42,8 +42,8 @@ const reportResolver = {
           ...(filter && filter.airlineId
             ? { airlineId: filter.airlineId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
-            ? {}
-            : { airlineId: user.airlineId })
+              ? {}
+              : { airlineId: user.airlineId })
         },
         include: { airline: true },
         orderBy: { createdAt: "desc" }
@@ -94,8 +94,8 @@ const reportResolver = {
           ...(filter.hotelId
             ? { hotelId: filter.hotelId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
-            ? {}
-            : { hotelId: user.hotelId })
+              ? {}
+              : { hotelId: user.hotelId })
         },
         include: { hotel: true },
         orderBy: { createdAt: "desc" }
@@ -197,7 +197,7 @@ const reportResolver = {
 
         const airlinePrices = company?.prices
 
-        let airlinePriceId
+        let airlinePriceId = null
 
         for (const contract of airlinePrices) {
           if (contract.airports && contract.airports.length > 0) {
@@ -208,6 +208,10 @@ const reportResolver = {
               airlinePriceId = contract.id
             }
           }
+        }
+
+        if (airlinePriceId === null) {
+          throw new Error("Airline has no prices")
         }
 
         const contract = await prisma.airlinePrice.findUnique({

@@ -138,6 +138,8 @@ type Price {
   priceApartment     Float? @default(0)
   priceStudio        Float? @default(0)
   priceLuxe          Float? @default(0)
+  // priceComfort  Float? @default(0)
+  // priceImprovedComfort  Float? @default(0)
   priceOneCategory   Float? @default(0)
   priceTwoCategory   Float? @default(0)
   priceThreeCategory Float? @default(0)
@@ -159,6 +161,10 @@ type Price {
   // pricenineteenCategory  Float? @default(0)
   // pricetwentyCategory    Float? @default(0)
 }
+
+// type TransferPrice {
+//   somePrice Float? @default(0)
+// }
 
 type Information {
   country     String?
@@ -1091,14 +1097,14 @@ type PassengerWaterFoodService {
 }
 
 type PassengerServiceHotelPerson {
-  fullName   String  // ФИО пассажира (обязательное)
+  fullName   String // ФИО пассажира (обязательное)
   phone      String?
   gender     String?
   roomNumber String?
 }
 
 type PassengerServiceHotel {
-  hotelId     String? @db.ObjectId // ссылка на Hotel, если выбран из базы
+  hotelId     String?                       @db.ObjectId // ссылка на Hotel, если выбран из базы
   name        String // снэпшот названия
   peopleCount Int // «Количество мест»
   address     String?
@@ -1170,13 +1176,13 @@ model PassengerRequest {
 
 /// Запись отчёта по отелю в заявке (все поля таблицы отчёта)
 model PassengerRequestHotelReport {
-  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-  passengerRequest     PassengerRequest @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
-  passengerRequestId   String   @db.ObjectId
-  hotelIndex           Int
-  reportRows           Json     /// массив строк: fullName, roomNumber, roomCategory, daysCount, breakfast, lunch, dinner, foodCost, accommodationCost
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  passengerRequest   PassengerRequest @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
+  passengerRequestId String           @db.ObjectId
+  hotelIndex         Int
+  reportRows         Json /// массив строк: fullName, roomNumber, roomCategory, daysCount, breakfast, lunch, dinner, foodCost, accommodationCost
 
   @@unique([passengerRequestId, hotelIndex])
 }
