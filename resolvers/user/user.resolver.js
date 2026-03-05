@@ -359,7 +359,15 @@ const userResolver = {
       await logAction({
         context,
         action: "create_user",
-        description: `Пользователь <span style='color:#545873'>${context.user.name}</span> добавил нового пользователя <span style='color:#545873'>${createdData.name}</span>`
+        description: "Пользователь создан",
+        newData: {
+          id: newUser.id,
+          name: newUser.name,
+          role: newUser.role,
+          hotelId: newUser.hotelId,
+          airlineId: newUser.airlineId,
+          dispatcher: newUser.dispatcher
+        }
       })
 
       // Публикация события о создании пользователя для подписок

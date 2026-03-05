@@ -72,7 +72,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${hotelChess.room}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Заявка перенесена в номер ${hotelChess.room}`,
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId,
@@ -93,7 +93,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была перенесена в номер <span style='color:#545873'>${hotelChess.room}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Бронь перенесена в номер ${hotelChess.room}`,
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId,
@@ -234,7 +234,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `<span style='color:#545873'>${updatedRequest.person.name}</span> был размещён в отеле <span style='color:#545873'>${hotelInfo?.name}</span> в номер <span style='color:#545873'>${hotelChess.room}</span> по заявке № <span style='color:#545873'>${updatedRequest.requestNumber}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Размещение создано в номере ${hotelChess.room}`,
           oldData: null,
           newData: newHotelChess,
           hotelId: hotelChess.hotelId,
@@ -356,7 +356,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${hotelChess.room}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Заявка перенесена в номер ${hotelChess.room}`,
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId,
@@ -375,7 +375,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> перенесена в номер <span style='color:#545873'>${hotelChess.room}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Бронь перенесена в номер ${hotelChess.room}`,
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId,
@@ -494,17 +494,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `<span style='color:#545873'>${
-            updatedRequest.person.name
-          }</span> был размещён в отеле <span style='color:#545873'>${
-            hotel?.name || ""
-          }</span> в номер ${
-            hotelChess.room
-          } по заявке № <span style='color:#545873'>${
-            updatedRequest.requestNumber
-          }</span> пользователем <span style='color:#545873'>${
-            user.name
-          }</span>`,
+          description: `Размещение создано в номере ${hotelChess.room}`,
           oldData: null,
           newData: newHotelChess,
           hotelId: hotelChess.hotelId,
@@ -582,7 +572,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${hotelChess.room}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Заявка перенесена в номер ${hotelChess.room}`,
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId
@@ -604,7 +594,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была обновлена пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: "Данные брони обновлены в размещении",
           oldData: previousHotelChessData,
           newData: hotelChess,
           hotelId: hotelChess.hotelId
@@ -676,7 +666,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `<span style='color:#545873'>${updatedRequest.person.name}</span> был размещён в отеле <span style='color:#545873'>${hotel.name}</span> в номер <span style='color:#545873'>${hotelChess.room}</span> по заявке № <span style='color:#545873'>${updatedRequest.requestNumber}</span> пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: `Размещение создано в номере ${hotelChess.room}`,
           oldData: null,
           newData: newHotelChess,
           hotelId: hotelChess.hotelId,
@@ -699,7 +689,7 @@ if (hotelChesses) {
         await logAction({
           context,
           action: "update_hotel_chess",
-          description: `Бронь № <span style='color:#545873'>${hotelChess.reserveId}</span> была создана пользователем <span style='color:#545873'>${user.name}</span>`,
+          description: "Размещение по брони создано",
           oldData: null,
           newData: newHotelChess,
           hotelId: hotelChess.hotelId

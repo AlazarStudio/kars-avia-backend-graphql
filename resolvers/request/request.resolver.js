@@ -288,7 +288,7 @@ const requestResolver = {
             await logAction({
               context,
               action: "open_request",
-              description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> открыта пользователем <span style='color:#545873'>${user.name}</span>`,
+              description: "Заявка открыта",
               oldData: { status: "created" },
               newData: { status: "opened" },
               requestId: updatedRequest.id
@@ -497,13 +497,7 @@ const requestResolver = {
 
       // Логирование создания заявки
       try {
-        const description =
-          newRequest.person && newRequest.person.position
-            ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-            для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт 
-            <span style='color:#545873'>${newRequest.airport.name}</span>`
-            : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-            в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+        const description = "Заявка создана"
 
         await logAction({
           context,
@@ -976,19 +970,9 @@ const requestResolver = {
           await logAction({
             context,
             action: "update_request",
-            description: `Пользователь <span style='color:#545873'>${
-              user.name
-            }</span> изменил ${
-              updatedRequest.person
-                ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
-                : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
-            } c <span style='color:#545873'>${formatDate(
-              request.arrival
-            )} - ${formatDate(
-              request.departure
-            )}</span> до <span style='color:#545873'>${formatDate(
-              updatedStart
-            )} - ${formatDate(updatedEnd)}</span>`,
+            description: "Данные заявки обновлены",
+            oldData: request,
+            newData: updatedRequest,
             requestId: updatedRequest.id
           })
         } catch (error) {
@@ -1021,7 +1005,9 @@ const requestResolver = {
         await logAction({
           context,
           action: "update_request",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил питание для заявки<span style='color:#545873'> № ${request.requestNumber}</span>`,
+          description: "Питание заявки обновлено",
+          oldData: request,
+          newData: updatedMealPlan,
           requestId: request.id
         })
       } catch (error) {
@@ -1051,7 +1037,7 @@ const requestResolver = {
         await logAction({
           context,
           action: "archive_request",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил заявку <span style='color:#545873'>№ ${archiveRequest.requestNumber}</span> в архив`,
+          description: "Заявка архивирована",
           oldData: request,
           newData: { status: "archived" },
           hotelId: request.hotelId,
@@ -1175,7 +1161,7 @@ const requestResolver = {
       await logAction({
         context,
         action: "cancel_request",
-        description: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку № <span style='color:#545873'>${canceledRequest.requestNumber}</span>`,
+        description: "Заявка отменена",
         oldData: request,
         newData: { status: "canceled" },
         hotelId: request.hotelId,

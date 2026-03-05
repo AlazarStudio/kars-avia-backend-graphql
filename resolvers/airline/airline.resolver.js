@@ -146,7 +146,12 @@ const airlineResolver = {
       await logAction({
         context,
         action: "create_airline",
-        description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил авиакомпанию <span style='color:#545873'>${updatedAirline.name}</span>`,
+        description: "Авиакомпания создана",
+        newData: {
+          id: updatedAirline.id,
+          name: updatedAirline.name,
+          active: updatedAirline.active
+        },
         airlineName: updatedAirline.name,
         airlineId: updatedAirline.id
       })
@@ -309,7 +314,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь <span style='color:#545873'>${user.name}</span> изменил данные в отделе <span style='color:#545873'>${depart.name}</span> `,
+                description: `Данные отдела обновлены: ${depart.name}`,
                 airlineId: id
               })
             } else {
@@ -372,7 +377,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь <span style='color:#545873'>${user.name}</span> добавил отдел <span style='color:#545873'>${depart.name}</span> `,
+                description: `Отдел добавлен: ${depart.name}`,
                 airlineId: id
               })
             }
@@ -397,7 +402,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь  <span style='color:#545873'> ${user.name} </span>  обновил данные пользователя  <span style='color:#545873'> ${person.name} </span> `,
+                description: `Данные сотрудника обновлены: ${person.name}`,
                 airlineId: id
               })
             } else {
@@ -415,7 +420,7 @@ const airlineResolver = {
               await logAction({
                 context,
                 action: "update_airline",
-                description: `Пользователь <span style='color:#545873'> ${user.name} </span> добавил пользователя <span style='color:#545873'>${person.name}</span> `,
+                description: `Сотрудник добавлен: ${person.name}`,
                 airlineId: id
               })
             }
@@ -452,7 +457,9 @@ const airlineResolver = {
         await logAction({
           context,
           action: "update_airline",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> обновил данные авиакомпании <span style='color:#545873'>${airlineWithRelations.name}</span>`,
+          description: "Данные авиакомпании обновлены",
+          oldData: previousAirlineData,
+          newData: updatedAirline,
           airlineId: id
         })
         pubsub.publish(AIRLINE_UPDATED, {

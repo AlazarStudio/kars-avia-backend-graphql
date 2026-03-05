@@ -163,7 +163,7 @@ const reserveResolver = {
             await logAction({
               context,
               action: "open_reserve",
-              description: `Заявка № <span style='color:#545873'>${updatedReserve.reserveNumber}</span> открыта пользователем <span style='color:#545873'>${user.name}</span>`,
+              description: "Бронь открыта",
               oldData: { status: "created" },
               newData: { status: "opened" },
               reserveId: updatedReserve.id
@@ -344,7 +344,14 @@ const reserveResolver = {
       await logAction({
         context,
         action: "create_reserve",
-        description: `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку № <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span>`,
+        description: "Бронь создана",
+        newData: {
+          id: newReserve.id,
+          reserveNumber: newReserve.reserveNumber,
+          airlineId: newReserve.airlineId,
+          airportId: newReserve.airportId,
+          status: newReserve.status
+        },
         reserveId: newReserve.id,
         airlineId: newReserve.airlineId
       })
@@ -658,7 +665,7 @@ const reserveResolver = {
         await logAction({
           context,
           action: "update_reserve",
-          description: `К заявке <span style='color:#545873'>${updatedReserve.reserveNumber}</span> добавлен отель <span style='color:#545873'>${reserveHotel.hotel.name}</span>`,
+          description: `В бронь добавлен отель ${reserveHotel.hotel.name}`,
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
@@ -732,7 +739,7 @@ const reserveResolver = {
       await logAction({
         context,
         action: "update_reserve",
-        description: `Пассажир <span style='color:#545873'>${newPassenger.name}</span> добавлен в отель <span style='color:#545873'>${reserveHotel.hotel.name}</span> для заявки № <span style='color:#545873'>${reserve.reserveNumber}</span>`,
+        description: `В бронь добавлен пассажир в отель ${reserveHotel.hotel.name}`,
         reserveId: reservationId,
         hotelId: hotelId
       })
@@ -836,7 +843,7 @@ const reserveResolver = {
         await logAction({
           context,
           action: "archive_reserve",
-          description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил заявку № <span style='color:#545873'>${archiveReserve.reserveNumber}</span> в архив`,
+          description: "Бронь архивирована",
           oldData: reserve,
           newData: { status: "archived" },
           reserveId: reserve.id
