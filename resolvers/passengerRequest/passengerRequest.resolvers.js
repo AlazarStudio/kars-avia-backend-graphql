@@ -193,6 +193,8 @@ const passengerRequestResolvers = {
           plan: waterService.plan || null,
           status: "NEW",
           times: null,
+          earlyCompletionReason: null,
+          earlyCompletedAt: null,
           people: []
         }
       }
@@ -202,6 +204,8 @@ const passengerRequestResolvers = {
           plan: mealService.plan || null,
           status: "NEW",
           times: null,
+          earlyCompletionReason: null,
+          earlyCompletedAt: null,
           people: []
         }
       }
@@ -490,6 +494,8 @@ const passengerRequestResolvers = {
           plan: null,
           status: "NEW",
           times: null,
+          earlyCompletionReason: null,
+          earlyCompletedAt: null,
           people: []
         }
         const people = [...(prev.people || []), person]
@@ -510,6 +516,8 @@ const passengerRequestResolvers = {
           plan: null,
           status: "NEW",
           times: null,
+          earlyCompletionReason: null,
+          earlyCompletedAt: null,
           people: []
         }
         const people = [...(prev.people || []), person]
@@ -882,6 +890,110 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_baggage_driver",
         description: "Водитель добавлен в доставку багажа ФАП",
         fulldescription: `Пользователь ${context.user.name} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    completePassengerRequestWaterEarly: async (
+      _,
+      { requestId, reason },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const prev = existing.waterService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          waterService: {
+            ...prev,
+            status: "COMPLETED",
+            times: updateTimes(prev.times, "COMPLETED"),
+            earlyCompletionReason: reason.trim(),
+            earlyCompletedAt: new Date()
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_water_early",
+        reason: reason.trim(),
+        description: "Досрочно завершен сервис воды ФАП",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил сервис воды ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    completePassengerRequestMealEarly: async (
+      _,
+      { requestId, reason },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const prev = existing.mealService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          mealService: {
+            ...prev,
+            status: "COMPLETED",
+            times: updateTimes(prev.times, "COMPLETED"),
+            earlyCompletionReason: reason.trim(),
+            earlyCompletedAt: new Date()
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_meal_early",
+        reason: reason.trim(),
+        description: "Досрочно завершен сервис питания ФАП",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил сервис питания ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId

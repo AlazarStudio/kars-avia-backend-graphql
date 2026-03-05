@@ -61,6 +61,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlan
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
     people: [PassengerServicePerson!]!
   }
 
@@ -371,6 +373,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestBaggageDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+    ): PassengerRequest!
+
+    completePassengerRequestWaterEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
+    completePassengerRequestMealEarly(
+      requestId: ID!
+      reason: String!
     ): PassengerRequest!
 
     completePassengerRequestEarly(id: ID!, reason: String!): PassengerRequest!

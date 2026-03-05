@@ -932,6 +932,8 @@ type PassengerWaterFoodService {
   plan   PassengerServicePlan? // включён ли сервис, сколько людей, во сколько
   status PassengerServiceStatus   @default(NEW)
   times  PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt DateTime?
   people PassengerServicePerson[] // список ФИО + время выдачи
 }
 
