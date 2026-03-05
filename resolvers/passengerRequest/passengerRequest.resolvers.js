@@ -30,6 +30,8 @@ const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
 
 const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   ...person,
+  arrival: person.arrival ?? null,
+  departure: person.departure ?? null,
   roomCategory: person.roomCategory ?? null,
   roomKind: person.roomKind ?? null,
   accommodationChesses: ensureAccommodationChesses(person, hotelIndex, hotelName)

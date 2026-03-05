@@ -878,8 +878,9 @@ type PassengerServiceHotel {
 type PassengerServiceHotelPerson {
   fullName             String // ФИО пассажира (обязательное)
   phone                String?
-  gender               String?
   roomNumber           String?
+  arrival              DateTime?
+  departure            DateTime?
   roomCategory         String?
   roomKind             String?
   accommodationChesses PassengerAccommodationChess[]

@@ -69,8 +69,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type PassengerServiceHotelPerson {
     fullName: String!
     phone: String
-    gender: String
     roomNumber: String
+    arrival: Date
+    departure: Date
     roomCategory: String
     roomKind: String
     accommodationChesses: [PassengerAccommodationChess!]!
@@ -229,8 +230,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerServiceHotelPersonInput {
     fullName: String!
     phone: String
-    gender: String
     roomNumber: String
+    arrival: Date
+    departure: Date
     roomCategory: String
     roomKind: String
   }
