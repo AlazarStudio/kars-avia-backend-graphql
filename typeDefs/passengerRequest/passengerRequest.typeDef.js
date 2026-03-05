@@ -164,6 +164,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     """Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)"""
     hotelReport(hotelIndex: Int!): PassengerRequestHotelReport
     hotelReports: [PassengerRequestHotelReport!]!
+
+    """История действий по заявке ФАП"""
+    logs(pagination: LogPaginationInput): LogConnection!
   }
 
   """Одна строка таблицы отчёта по отелю"""

@@ -809,25 +809,27 @@ model RoomKind {
 // Log ---------------- ↓↓↓↓ 
 
 model Log {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  user        User?    @relation(fields: [userId], references: [id])
-  userId      String?  @db.ObjectId
-  hotel       Hotel?   @relation(fields: [hotelId], references: [id])
-  hotelId     String?  @db.ObjectId
-  airline     Airline? @relation(fields: [airlineId], references: [id])
-  airlineId   String?  @db.ObjectId
-  request     Request? @relation(fields: [requestId], references: [id])
-  requestId   String?  @db.ObjectId
-  reserve     Reserve? @relation(fields: [reserveId], references: [id])
-  reserveId   String?  @db.ObjectId
-  action      String
-  reason      String?
-  description String
-  fulldescription String?
-  oldData     String?
-  newData     String?
+  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  user               User?             @relation(fields: [userId], references: [id])
+  userId             String?           @db.ObjectId
+  hotel              Hotel?            @relation(fields: [hotelId], references: [id])
+  hotelId            String?           @db.ObjectId
+  airline            Airline?          @relation(fields: [airlineId], references: [id])
+  airlineId          String?           @db.ObjectId
+  request            Request?          @relation(fields: [requestId], references: [id])
+  requestId          String?           @db.ObjectId
+  reserve            Reserve?          @relation(fields: [reserveId], references: [id])
+  reserveId          String?           @db.ObjectId
+  passengerRequest   PassengerRequest? @relation(fields: [passengerRequestId], references: [id])
+  passengerRequestId String?           @db.ObjectId
+  action             String
+  reason             String?
+  description        String
+  fulldescription    String?
+  oldData            String?
+  newData            String?
 }
 
 // Log ---------------- ↑↑↑↑
@@ -910,11 +912,11 @@ type PassengerServicePerson {
 }
 
 type PassengerServicePlan {
-  enabled     Boolean   @default(false) // чекбокс в форме
-  peopleCount Int?
-  plannedAt   DateTime? // «Введите время»
+  enabled       Boolean   @default(false) // чекбокс в форме
+  peopleCount   Int?
+  plannedAt     DateTime? // «Введите время»
   plannedFromAt DateTime?
-  plannedToAt DateTime?
+  plannedToAt   DateTime?
 }
 
 type PassengerStatusTimes {
@@ -932,12 +934,12 @@ type PassengerTransferService {
 }
 
 type PassengerWaterFoodService {
-  plan   PassengerServicePlan? // включён ли сервис, сколько людей, во сколько
-  status PassengerServiceStatus   @default(NEW)
-  times  PassengerStatusTimes?
+  plan                  PassengerServicePlan? // включён ли сервис, сколько людей, во сколько
+  status                PassengerServiceStatus   @default(NEW)
+  times                 PassengerStatusTimes?
   earlyCompletionReason String?
-  earlyCompletedAt DateTime?
-  people PassengerServicePerson[] // список ФИО + время выдачи
+  earlyCompletedAt      DateTime?
+  people                PassengerServicePerson[] // список ФИО + время выдачи
 }
 
 model Passenger {
@@ -996,6 +998,9 @@ model PassengerRequest {
 
   // сохранённые отчёты по отелям (таблица отчёта — данные строк)
   hotelReports PassengerRequestHotelReport[]
+
+  // история действий по заявке
+  logs Log[]
 }
 
 /// Запись отчёта по отелю в заявке (все поля таблицы отчёта)

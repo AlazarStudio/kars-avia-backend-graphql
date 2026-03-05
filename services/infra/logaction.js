@@ -545,6 +545,7 @@ const createLog = async ({
   airlineId = null,
   requestId = null,
   reserveId = null,
+  passengerRequestId = null,
   oldData = null,
   newData = null
 }) => {
@@ -572,6 +573,7 @@ const createLog = async ({
         airlineId: airlineId ? airlineId : null,
         requestId: requestId ? requestId : null,
         reserveId: reserveId ? reserveId : null,
+        passengerRequestId: passengerRequestId ? passengerRequestId : null,
         oldData: compactPayload.oldData ? safeStringify(compactPayload.oldData) : null,
         newData: compactPayload.newData ? safeStringify(compactPayload.newData) : null,
         createdAt: formattedTime
@@ -594,7 +596,8 @@ const logAction = async ({
   hotelId = null,
   airlineId = null,
   requestId = null,
-  reserveId = null
+  reserveId = null,
+  passengerRequestId = null
 }) => {
   await createLog({
     userId: context.user.id,
@@ -606,6 +609,7 @@ const logAction = async ({
     airlineId,
     requestId,
     reserveId,
+    passengerRequestId,
     oldData,
     newData
   })

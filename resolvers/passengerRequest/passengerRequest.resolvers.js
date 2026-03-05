@@ -52,7 +52,8 @@ const logPassengerRequestAction = async ({
   reason = null,
   oldData = null,
   newData = null,
-  airlineId = null
+  airlineId = null,
+  passengerRequestId = null
 }) => {
   if (!context?.user?.id) return
   try {
@@ -64,7 +65,8 @@ const logPassengerRequestAction = async ({
       fulldescription,
       oldData,
       newData,
-      airlineId
+      airlineId,
+      passengerRequestId
     })
   } catch (error) {
     console.error("Ошибка логирования действия ФАП:", error)
@@ -104,7 +106,23 @@ const passengerRequestResolvers = {
       prisma.passengerRequestHotelReport.findMany({
         where: { passengerRequestId: parent.id },
         orderBy: { hotelIndex: "asc" }
+      }),
+
+    logs: async (parent, { pagination }) => {
+      const { skip, take } = pagination || {}
+      const totalCount = await prisma.log.count({
+        where: { passengerRequestId: parent.id }
       })
+      const logs = await prisma.log.findMany({
+        where: { passengerRequestId: parent.id },
+        include: { user: true },
+        skip,
+        take,
+        orderBy: { createdAt: "desc" }
+      })
+      const totalPages = take ? Math.ceil(totalCount / take) : 0
+      return { totalCount, totalPages, logs }
+    }
   },
 
   PassengerRequestHotelReport: {
@@ -246,7 +264,8 @@ const passengerRequestResolvers = {
         description: "ФАП создан",
         fulldescription: `Пользователь ${context.user.name} создал ФАП ${passengerRequest.flightNumber}`,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_CREATED, {
@@ -343,7 +362,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} обновил ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -363,7 +383,8 @@ const passengerRequestResolvers = {
         description: "ФАП удален",
         fulldescription: `Пользователь ${context.user.name} удалил ФАП ${passengerRequest.flightNumber}`,
         oldData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -396,7 +417,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -468,7 +490,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -550,7 +573,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} добавил пассажира в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -595,7 +619,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} добавил отель ${hotel.name} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -662,7 +687,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} добавил пассажира в отель ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -736,7 +762,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} обновил данные пассажира в отеле ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -805,7 +832,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} удалил пассажира из отеля ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -849,7 +877,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} добавил водителя в трансфер ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -894,7 +923,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -944,6 +974,7 @@ const passengerRequestResolvers = {
         reason: reason.trim(),
         description: "Досрочно завершен сервис воды ФАП",
         fulldescription: `Пользователь ${context.user.name} досрочно завершил сервис воды ФАП ${passengerRequest.flightNumber}`,
+        passengerRequestId: passengerRequest.id,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -998,7 +1029,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} досрочно завершил сервис питания ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1034,7 +1066,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} досрочно завершил ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1154,7 +1187,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} переселил пассажира в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1265,7 +1299,8 @@ const passengerRequestResolvers = {
         fulldescription: `Пользователь ${context.user.name} выселил пассажира из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
-        airlineId: passengerRequest.airlineId
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1318,7 +1353,8 @@ const passengerRequestResolvers = {
         description: "Отчет по отелю ФАП сохранен",
         fulldescription: `Пользователь ${context.user.name} сохранил отчет по отелю #${hotelIndex} для ФАП ${existing.flightNumber}`,
         newData: report,
-        airlineId: existing.airlineId
+        airlineId: existing.airlineId,
+        passengerRequestId: requestId
       })
 
       return report
