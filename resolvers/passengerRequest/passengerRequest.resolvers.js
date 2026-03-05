@@ -10,6 +10,62 @@ import {
   PASSENGER_REQUEST_CREATED,
   PASSENGER_REQUEST_UPDATED
 } from "../../services/infra/pubsub.js"
+import logAction from "../../services/infra/logaction.js"
+
+const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
+  const existing = Array.isArray(person?.accommodationChesses)
+    ? person.accommodationChesses
+    : []
+  if (existing.length > 0) return existing
+  return [
+    {
+      hotelIndex,
+      hotelName: hotelName || null,
+      startAt: new Date(),
+      endAt: null,
+      reason: null
+    }
+  ]
+}
+
+const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
+  ...person,
+  roomCategory: person.roomCategory ?? null,
+  roomKind: person.roomKind ?? null,
+  accommodationChesses: ensureAccommodationChesses(person, hotelIndex, hotelName)
+})
+
+const makeRoomCategoryLabel = (roomCategory, roomKind) => {
+  const category = roomCategory?.trim()
+  const kind = roomKind?.trim()
+  if (category && kind) return `${category} / ${kind}`
+  return category || kind || ""
+}
+
+const logPassengerRequestAction = async ({
+  context,
+  action,
+  description,
+  reason = null,
+  oldData = null,
+  newData = null,
+  airlineId = null
+}) => {
+  if (!context?.user?.id) return
+  try {
+    await logAction({
+      context,
+      action,
+      reason,
+      description,
+      oldData,
+      newData,
+      airlineId
+    })
+  } catch (error) {
+    console.error("Ошибка логирования действия ФАП:", error)
+  }
+}
 
 const passengerRequestResolvers = {
   // --------- поля связей ---------
@@ -52,6 +108,18 @@ const passengerRequestResolvers = {
       const raw = parent.reportRows
       return Array.isArray(raw) ? raw : []
     }
+  },
+
+  PassengerServiceHotelPerson: {
+    accommodationChesses: (parent) =>
+      Array.isArray(parent.accommodationChesses)
+        ? parent.accommodationChesses
+        : []
+  },
+
+  PassengerLivingService: {
+    evictions: (parent) =>
+      Array.isArray(parent.evictions) ? parent.evictions : []
   },
 
   // --------- запросы ---------
@@ -98,6 +166,7 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        baggageDeliveryService,
         status,
         createdById: inputCreatorId,
         ...rest
@@ -140,7 +209,8 @@ const passengerRequestResolvers = {
           plan: livingService.plan || null,
           status: "NEW",
           times: null,
-          hotels: []
+          hotels: [],
+          evictions: []
         }
       }
 
@@ -152,7 +222,23 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
+
+      if (baggageDeliveryService) {
+        data.baggageDeliveryService = {
+          plan: baggageDeliveryService.plan || null,
+          status: "NEW",
+          times: null,
+          drivers: []
+        }
+      }
       const passengerRequest = await prisma.passengerRequest.create({ data })
+      await logPassengerRequestAction({
+        context,
+        action: "create_passenger_request",
+        description: `Пользователь ${context.user.name} создал ФАП ${passengerRequest.flightNumber}`,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
 
       pubsub.publish(PASSENGER_REQUEST_CREATED, {
         passengerRequestCreated: passengerRequest
@@ -175,6 +261,7 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        baggageDeliveryService,
         ...rest
       } = input
 
@@ -226,9 +313,27 @@ const passengerRequestResolvers = {
           })
         }
       }
+
+      if (baggageDeliveryService) {
+        const prev = existing.baggageDeliveryService || {}
+        data.baggageDeliveryService = {
+          ...prev,
+          ...(baggageDeliveryService.plan !== undefined && {
+            plan: baggageDeliveryService.plan
+          })
+        }
+      }
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
         data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request",
+        description: `Пользователь ${context.user.name} обновил ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -241,6 +346,13 @@ const passengerRequestResolvers = {
     deletePassengerRequest: async (_, { id }, context) => {
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "delete_passenger_request",
+        description: `Пользователь ${context.user.name} удалил ФАП ${passengerRequest.flightNumber}`,
+        oldData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -265,6 +377,14 @@ const passengerRequestResolvers = {
           status,
           statusTimes
         }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_status",
+        description: `Пользователь ${context.user.name} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -302,9 +422,10 @@ const passengerRequestResolvers = {
           times: updateTimes(prev.times, status)
         }
       } else if (service === "LIVING") {
-        const prev = existing.livingService || { hotels: [] }
+        const prev = existing.livingService || { hotels: [], evictions: [] }
         data.livingService = {
           ...prev,
+          evictions: prev.evictions || [],
           status,
           times: updateTimes(prev.times, status)
         }
@@ -315,11 +436,26 @@ const passengerRequestResolvers = {
           status,
           times: updateTimes(prev.times, status)
         }
+      } else if (service === "BAGGAGE_DELIVERY") {
+        const prev = existing.baggageDeliveryService || { drivers: [] }
+        data.baggageDeliveryService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
       }
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
         data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_service_status",
+        description: `Пользователь ${context.user.name} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -390,6 +526,14 @@ const passengerRequestResolvers = {
         where: { id: requestId },
         data
       })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_person",
+        description: `Пользователь ${context.user.name} добавил пассажира в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
         passengerRequestUpdated: passengerRequest
@@ -409,7 +553,8 @@ const passengerRequestResolvers = {
         plan: null,
         status: "NEW",
         times: null,
-        hotels: []
+        hotels: [],
+        evictions: []
       }
 
       const hotels = [...(prev.hotels || []), hotel]
@@ -424,6 +569,14 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_hotel",
+        description: `Пользователь ${context.user.name} добавил отель ${hotel.name} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -447,7 +600,8 @@ const passengerRequestResolvers = {
         plan: null,
         status: "NEW",
         times: null,
-        hotels: []
+        hotels: [],
+        evictions: []
       }
       const hotels = living.hotels || []
       if (hotelIndex < 0 || hotelIndex >= hotels.length) {
@@ -458,9 +612,19 @@ const passengerRequestResolvers = {
         i === hotelIndex
           ? {
               ...h,
-              people: [...(h.people || []), person]
+              people: [
+                ...(h.people || []).map((item) =>
+                  ensureHotelPerson(item, i, h.name)
+                ),
+                ensureHotelPerson(person, i, h.name)
+              ]
             }
-          : { ...h, people: h.people ? [...h.people] : [] }
+          : {
+              ...h,
+              people: (h.people || []).map((item) =>
+                ensureHotelPerson(item, i, h.name)
+              )
+            }
       )
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -471,6 +635,14 @@ const passengerRequestResolvers = {
             hotels: hotelsClone
           }
         }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_hotel_person",
+        description: `Пользователь ${context.user.name} добавил пассажира в отель ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -494,7 +666,8 @@ const passengerRequestResolvers = {
         plan: null,
         status: "NEW",
         times: null,
-        hotels: []
+        hotels: [],
+        evictions: []
       }
       const hotels = living.hotels || []
       if (hotelIndex < 0 || hotelIndex >= hotels.length) {
@@ -506,9 +679,24 @@ const passengerRequestResolvers = {
       }
 
       const hotelsClone = hotels.map((h, i) => {
-        if (i !== hotelIndex) return { ...h, people: h.people ? [...h.people] : [] }
+        if (i !== hotelIndex) {
+          return {
+            ...h,
+            people: (h.people || []).map((item) =>
+              ensureHotelPerson(item, i, h.name)
+            )
+          }
+        }
         const newPeople = [...(h.people || [])]
-        newPeople[personIndex] = person
+        const previousPerson = newPeople[personIndex]
+        newPeople[personIndex] = {
+          ...person,
+          accommodationChesses: ensureAccommodationChesses(
+            previousPerson,
+            i,
+            h.name
+          )
+        }
         return { ...h, people: newPeople }
       })
 
@@ -520,6 +708,14 @@ const passengerRequestResolvers = {
             hotels: hotelsClone
           }
         }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_hotel_person",
+        description: `Пользователь ${context.user.name} обновил данные пассажира в отеле ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -543,7 +739,8 @@ const passengerRequestResolvers = {
         plan: null,
         status: "NEW",
         times: null,
-        hotels: []
+        hotels: [],
+        evictions: []
       }
       const hotels = living.hotels || []
       if (hotelIndex < 0 || hotelIndex >= hotels.length) {
@@ -555,10 +752,20 @@ const passengerRequestResolvers = {
       }
 
       const hotelsClone = hotels.map((h, i) => {
-        if (i !== hotelIndex) return { ...h, people: h.people ? [...h.people] : [] }
+        if (i !== hotelIndex) {
+          return {
+            ...h,
+            people: (h.people || []).map((item) =>
+              ensureHotelPerson(item, i, h.name)
+            )
+          }
+        }
         const newPeople = [...(h.people || [])]
         newPeople.splice(personIndex, 1)
-        return { ...h, people: newPeople }
+        return {
+          ...h,
+          people: newPeople.map((item) => ensureHotelPerson(item, i, h.name))
+        }
       })
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -569,6 +776,14 @@ const passengerRequestResolvers = {
             hotels: hotelsClone
           }
         }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_hotel_person",
+        description: `Пользователь ${context.user.name} удалил пассажира из отеля ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -605,6 +820,322 @@ const passengerRequestResolvers = {
         where: { id: requestId },
         data
       })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_driver",
+        description: `Пользователь ${context.user.name} добавил водителя в трансфер ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    addPassengerRequestBaggageDriver: async (
+      _,
+      { requestId, driver },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.baggageDeliveryService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+
+      const drivers = [...(prev.drivers || []), driver]
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          baggageDeliveryService: {
+            ...prev,
+            drivers
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_baggage_driver",
+        description: `Пользователь ${context.user.name} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    completePassengerRequestEarly: async (_, { id, reason }, context) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id },
+        data: {
+          status: "COMPLETED",
+          statusTimes: updateTimes(existing.statusTimes, "COMPLETED"),
+          earlyCompletionReason: reason.trim(),
+          earlyCompletedAt: new Date()
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_early",
+        reason: reason.trim(),
+        description: `Пользователь ${context.user.name} досрочно завершил ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    relocatePassengerRequestHotelPerson: async (
+      _,
+      { requestId, fromHotelIndex, toHotelIndex, personIndex, reason, movedAt },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: [],
+        evictions: []
+      }
+      const hotels = living.hotels || []
+      if (fromHotelIndex < 0 || fromHotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid fromHotelIndex")
+      }
+      if (toHotelIndex < 0 || toHotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid toHotelIndex")
+      }
+      if (fromHotelIndex === toHotelIndex) {
+        throw new GraphQLError("fromHotelIndex and toHotelIndex must be different")
+      }
+
+      const sourcePeople = hotels[fromHotelIndex].people || []
+      if (personIndex < 0 || personIndex >= sourcePeople.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+
+      const relocationDate = movedAt ? new Date(movedAt) : new Date()
+      const sourceHotel = hotels[fromHotelIndex]
+      const targetHotel = hotels[toHotelIndex]
+      const person = ensureHotelPerson(
+        sourcePeople[personIndex],
+        fromHotelIndex,
+        sourceHotel?.name
+      )
+
+      const chesses = [...(person.accommodationChesses || [])]
+      if (chesses.length === 0) {
+        chesses.push({
+          hotelIndex: fromHotelIndex,
+          hotelName: sourceHotel?.name || null,
+          startAt: relocationDate,
+          endAt: null,
+          reason: null
+        })
+      }
+
+      const openIndex = [...chesses].reverse().findIndex((item) => !item?.endAt)
+      if (openIndex !== -1) {
+        const idx = chesses.length - 1 - openIndex
+        chesses[idx] = {
+          ...chesses[idx],
+          endAt: relocationDate
+        }
+      }
+      chesses.push({
+        hotelIndex: toHotelIndex,
+        hotelName: targetHotel?.name || null,
+        startAt: relocationDate,
+        endAt: null,
+        reason: reason.trim()
+      })
+
+      const movedPerson = {
+        ...person,
+        accommodationChesses: chesses
+      }
+
+      const hotelsClone = hotels.map((hotel, index) => {
+        const people = (hotel.people || []).map((item) =>
+          ensureHotelPerson(item, index, hotel.name)
+        )
+        if (index === fromHotelIndex) {
+          const next = [...people]
+          next.splice(personIndex, 1)
+          return { ...hotel, people: next }
+        }
+        if (index === toHotelIndex) {
+          return { ...hotel, people: [...people, movedPerson] }
+        }
+        return { ...hotel, people }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            evictions: living.evictions || [],
+            hotels: hotelsClone
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "relocate_passenger_request_hotel_person",
+        reason: reason.trim(),
+        description: `Пользователь ${context.user.name} переселил пассажира в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    evictPassengerRequestHotelPerson: async (
+      _,
+      { requestId, hotelIndex, personIndex, reason, evictedAt },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: [],
+        evictions: []
+      }
+      const hotels = living.hotels || []
+      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid hotelIndex")
+      }
+      const people = hotels[hotelIndex].people || []
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+
+      const evictionDate = evictedAt ? new Date(evictedAt) : new Date()
+      const hotel = hotels[hotelIndex]
+      const person = ensureHotelPerson(people[personIndex], hotelIndex, hotel?.name)
+
+      const chesses = [...(person.accommodationChesses || [])]
+      const openIndex = [...chesses].reverse().findIndex((item) => !item?.endAt)
+      if (openIndex !== -1) {
+        const idx = chesses.length - 1 - openIndex
+        chesses[idx] = {
+          ...chesses[idx],
+          endAt: evictionDate,
+          reason: reason.trim()
+        }
+      } else {
+        chesses.push({
+          hotelIndex,
+          hotelName: hotel?.name || null,
+          startAt: evictionDate,
+          endAt: evictionDate,
+          reason: reason.trim()
+        })
+      }
+
+      const hotelsClone = hotels.map((item, index) => {
+        if (index !== hotelIndex) {
+          return {
+            ...item,
+            people: (item.people || []).map((p) =>
+              ensureHotelPerson(p, index, item.name)
+            )
+          }
+        }
+        const nextPeople = [...(item.people || [])]
+        nextPeople.splice(personIndex, 1)
+        return {
+          ...item,
+          people: nextPeople.map((p) => ensureHotelPerson(p, index, item.name))
+        }
+      })
+
+      const evictions = [
+        ...(living.evictions || []),
+        {
+          person: {
+            ...person,
+            accommodationChesses: chesses
+          },
+          hotelIndex,
+          hotelName: hotel?.name || null,
+          reason: reason.trim(),
+          evictedAt: evictionDate
+        }
+      ]
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone,
+            evictions
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "evict_passenger_request_hotel_person",
+        reason: reason.trim(),
+        description: `Пользователь ${context.user.name} выселил пассажира из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId
+      })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
         passengerRequestUpdated: passengerRequest
@@ -626,7 +1157,8 @@ const passengerRequestResolvers = {
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",
         roomNumber: row.roomNumber ?? "",
-        roomCategory: row.roomCategory ?? "",
+        roomCategory: makeRoomCategoryLabel(row.roomCategory, row.roomKind),
+        roomKind: row.roomKind ?? "",
         daysCount: row.daysCount ?? 0,
         breakfast: row.breakfast ?? 0,
         lunch: row.lunch ?? 0,
@@ -648,6 +1180,13 @@ const passengerRequestResolvers = {
           reportRows: rows
         },
         update: { reportRows: rows }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "save_passenger_request_hotel_report",
+        description: `Пользователь ${context.user.name} сохранил отчет по отелю #${hotelIndex} для ФАП ${existing.flightNumber}`,
+        newData: report,
+        airlineId: existing.airlineId
       })
 
       return report

@@ -850,10 +850,11 @@ enum PassengerServiceStatus {
 }
 
 type PassengerLivingService {
-  plan   PassengerServicePlan? // план по людям/времени заселения
-  status PassengerServiceStatus  @default(NEW)
-  times  PassengerStatusTimes?
-  hotels PassengerServiceHotel[] // таб «Проживание»
+  plan      PassengerServicePlan? // план по людям/времени заселения
+  status    PassengerServiceStatus           @default(NEW)
+  times     PassengerStatusTimes?
+  hotels    PassengerServiceHotel[] // таб «Проживание»
+  evictions PassengerLivingServiceEviction[] // история выселений
 }
 
 type PassengerServiceDriver {
@@ -874,10 +875,29 @@ type PassengerServiceHotel {
 }
 
 type PassengerServiceHotelPerson {
-  fullName   String // ФИО пассажира (обязательное)
-  phone      String?
-  gender     String?
-  roomNumber String?
+  fullName             String // ФИО пассажира (обязательное)
+  phone                String?
+  gender               String?
+  roomNumber           String?
+  roomCategory         String?
+  roomKind             String?
+  accommodationChesses PassengerAccommodationChess[]
+}
+
+type PassengerAccommodationChess {
+  hotelIndex Int?
+  hotelName  String?
+  startAt    DateTime?
+  endAt      DateTime?
+  reason     String?
+}
+
+type PassengerLivingServiceEviction {
+  person     PassengerServiceHotelPerson?
+  hotelIndex Int?
+  hotelName  String?
+  reason     String
+  evictedAt  DateTime?
 }
 
 type PassengerServicePerson {
@@ -949,14 +969,17 @@ model PassengerRequest {
   plannedPassengersCount Int?
 
   // сервисы
-  waterService    PassengerWaterFoodService?
-  mealService     PassengerWaterFoodService?
-  livingService   PassengerLivingService?
-  transferService PassengerTransferService?
+  waterService           PassengerWaterFoodService?
+  mealService            PassengerWaterFoodService?
+  livingService          PassengerLivingService?
+  transferService        PassengerTransferService?
+  baggageDeliveryService PassengerTransferService?
 
   // общий статус заявки
-  status      PassengerRequestStatus @default(CREATED)
-  statusTimes PassengerStatusTimes?
+  status                PassengerRequestStatus @default(CREATED)
+  statusTimes           PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt      DateTime?
 
   // кто создал (представитель)
   createdBy   User   @relation(fields: [createdById], references: [id])

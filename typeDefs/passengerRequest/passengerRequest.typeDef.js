@@ -26,6 +26,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     MEAL
     LIVING
     TRANSFER
+    BAGGAGE_DELIVERY
   }
 
   """
@@ -68,6 +69,25 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     gender: String
     roomNumber: String
+    roomCategory: String
+    roomKind: String
+    accommodationChesses: [PassengerAccommodationChess!]!
+  }
+
+  type PassengerAccommodationChess {
+    hotelIndex: Int
+    hotelName: String
+    startAt: Date
+    endAt: Date
+    reason: String
+  }
+
+  type PassengerLivingServiceEviction {
+    person: PassengerServiceHotelPerson
+    hotelIndex: Int
+    hotelName: String
+    reason: String!
+    evictedAt: Date
   }
 
   type PassengerServiceHotel {
@@ -92,6 +112,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
     hotels: [PassengerServiceHotel!]!
+    evictions: [PassengerLivingServiceEviction!]!
   }
 
   type PassengerTransferService {
@@ -123,9 +144,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     mealService: PassengerWaterFoodService
     livingService: PassengerLivingService
     transferService: PassengerTransferService
+    baggageDeliveryService: PassengerTransferService
 
     status: PassengerRequestStatus!
     statusTimes: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
 
     createdById: ID!
     createdBy: User!
@@ -142,6 +166,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     fullName: String!
     roomNumber: String
     roomCategory: String
+    roomKind: String
     daysCount: Float
     breakfast: Int
     lunch: Int
@@ -188,6 +213,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlanInput
   }
 
+  input PassengerBaggageDeliveryServiceInput {
+    plan: PassengerServicePlanInput
+  }
+
   input PassengerServicePersonInput {
     fullName: String!
     issuedAt: Date
@@ -200,6 +229,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     gender: String
     roomNumber: String
+    roomCategory: String
+    roomKind: String
   }
 
   input PassengerServiceHotelInput {
@@ -222,6 +253,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     fullName: String!
     roomNumber: String
     roomCategory: String
+    roomKind: String
     daysCount: Float
     breakfast: Int
     lunch: Int
@@ -243,6 +275,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    baggageDeliveryService: PassengerBaggageDeliveryServiceInput
 
     status: PassengerRequestStatus
 
@@ -266,6 +299,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    baggageDeliveryService: PassengerBaggageDeliveryServiceInput
   }
 
   type Query {
@@ -332,6 +366,30 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+    ): PassengerRequest!
+
+    addPassengerRequestBaggageDriver(
+      requestId: ID!
+      driver: PassengerServiceDriverInput!
+    ): PassengerRequest!
+
+    completePassengerRequestEarly(id: ID!, reason: String!): PassengerRequest!
+
+    relocatePassengerRequestHotelPerson(
+      requestId: ID!
+      fromHotelIndex: Int!
+      toHotelIndex: Int!
+      personIndex: Int!
+      reason: String!
+      movedAt: Date
+    ): PassengerRequest!
+
+    evictPassengerRequestHotelPerson(
+      requestId: ID!
+      hotelIndex: Int!
+      personIndex: Int!
+      reason: String!
+      evictedAt: Date
     ): PassengerRequest!
 
     """Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель)."""
