@@ -48,6 +48,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     enabled: Boolean!
     peopleCount: Int
     plannedAt: Date
+    plannedFromAt: Date
+    plannedToAt: Date
   }
 
   type PassengerServicePerson {
@@ -202,6 +204,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     enabled: Boolean
     peopleCount: Int
     plannedAt: Date
+    plannedFromAt: Date
+    plannedToAt: Date
   }
 
   input PassengerWaterFoodServiceInput {

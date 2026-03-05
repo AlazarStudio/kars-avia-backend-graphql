@@ -913,6 +913,8 @@ type PassengerServicePlan {
   enabled     Boolean   @default(false) // чекбокс в форме
   peopleCount Int?
   plannedAt   DateTime? // «Введите время»
+  plannedFromAt DateTime?
+  plannedToAt DateTime?
 }
 
 type PassengerStatusTimes {
