@@ -46,6 +46,7 @@ const logPassengerRequestAction = async ({
   context,
   action,
   description,
+  fulldescription = null,
   reason = null,
   oldData = null,
   newData = null,
@@ -58,6 +59,7 @@ const logPassengerRequestAction = async ({
       action,
       reason,
       description,
+      fulldescription,
       oldData,
       newData,
       airlineId
@@ -236,6 +238,7 @@ const passengerRequestResolvers = {
         context,
         action: "create_passenger_request",
         description: "ФАП создан",
+        fulldescription: `Пользователь ${context.user.name} создал ФАП ${passengerRequest.flightNumber}`,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
       })
@@ -331,6 +334,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request",
         description: "ФАП обновлен",
+        fulldescription: `Пользователь ${context.user.name} обновил ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -351,6 +355,7 @@ const passengerRequestResolvers = {
         context,
         action: "delete_passenger_request",
         description: "ФАП удален",
+        fulldescription: `Пользователь ${context.user.name} удалил ФАП ${passengerRequest.flightNumber}`,
         oldData: passengerRequest,
         airlineId: passengerRequest.airlineId
       })
@@ -382,6 +387,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request_status",
         description: "Статус ФАП обновлен",
+        fulldescription: `Пользователь ${context.user.name} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -453,6 +459,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request_service_status",
         description: `Статус сервиса обновлен: ${service}`,
+        fulldescription: `Пользователь ${context.user.name} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -530,6 +537,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_person",
         description: `Пассажир добавлен в сервис: ${service}`,
+        fulldescription: `Пользователь ${context.user.name} добавил пассажира в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -574,6 +582,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_hotel",
         description: `Отель добавлен в ФАП: ${hotel.name}`,
+        fulldescription: `Пользователь ${context.user.name} добавил отель ${hotel.name} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -640,6 +649,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_hotel_person",
         description: "Пассажир добавлен в отель ФАП",
+        fulldescription: `Пользователь ${context.user.name} добавил пассажира в отель ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -713,6 +723,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request_hotel_person",
         description: "Данные пассажира в отеле ФАП обновлены",
+        fulldescription: `Пользователь ${context.user.name} обновил данные пассажира в отеле ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -781,6 +792,7 @@ const passengerRequestResolvers = {
         context,
         action: "remove_passenger_request_hotel_person",
         description: "Пассажир удален из отеля ФАП",
+        fulldescription: `Пользователь ${context.user.name} удалил пассажира из отеля ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -824,6 +836,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_driver",
         description: "Водитель добавлен в трансфер ФАП",
+        fulldescription: `Пользователь ${context.user.name} добавил водителя в трансфер ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -868,6 +881,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_baggage_driver",
         description: "Водитель добавлен в доставку багажа ФАП",
+        fulldescription: `Пользователь ${context.user.name} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -903,6 +917,7 @@ const passengerRequestResolvers = {
         action: "complete_passenger_request_early",
         reason: reason.trim(),
         description: "ФАП завершен досрочно",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -1022,6 +1037,7 @@ const passengerRequestResolvers = {
         action: "relocate_passenger_request_hotel_person",
         reason: reason.trim(),
         description: "Пассажир переселен между отелями ФАП",
+        fulldescription: `Пользователь ${context.user.name} переселил пассажира в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -1132,6 +1148,7 @@ const passengerRequestResolvers = {
         action: "evict_passenger_request_hotel_person",
         reason: reason.trim(),
         description: "Пассажир выселен из отеля ФАП",
+        fulldescription: `Пользователь ${context.user.name} выселил пассажира из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId
@@ -1185,6 +1202,7 @@ const passengerRequestResolvers = {
         context,
         action: "save_passenger_request_hotel_report",
         description: "Отчет по отелю ФАП сохранен",
+        fulldescription: `Пользователь ${context.user.name} сохранил отчет по отелю #${hotelIndex} для ФАП ${existing.flightNumber}`,
         newData: report,
         airlineId: existing.airlineId
       })

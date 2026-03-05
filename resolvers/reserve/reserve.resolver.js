@@ -164,6 +164,7 @@ const reserveResolver = {
               context,
               action: "open_reserve",
               description: "Бронь открыта",
+              fulldescription: `Бронь № ${updatedReserve.reserveNumber} открыта пользователем ${user.name}`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               reserveId: updatedReserve.id
@@ -345,6 +346,7 @@ const reserveResolver = {
         context,
         action: "create_reserve",
         description: "Бронь создана",
+        fulldescription: `Пользователь ${user.name} создал бронь № ${newReserve.reserveNumber} в аэропорт ${newReserve.airport.name}`,
         newData: {
           id: newReserve.id,
           reserveNumber: newReserve.reserveNumber,
@@ -666,6 +668,7 @@ const reserveResolver = {
           context,
           action: "update_reserve",
           description: `В бронь добавлен отель ${reserveHotel.hotel.name}`,
+          fulldescription: `К брони № ${updatedReserve.reserveNumber} добавлен отель ${reserveHotel.hotel.name}`,
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
@@ -740,6 +743,7 @@ const reserveResolver = {
         context,
         action: "update_reserve",
         description: `В бронь добавлен пассажир в отель ${reserveHotel.hotel.name}`,
+        fulldescription: `Пассажир ${newPassenger.name} добавлен в отель ${reserveHotel.hotel.name} для брони № ${reserve.reserveNumber}`,
         reserveId: reservationId,
         hotelId: hotelId
       })
@@ -844,6 +848,7 @@ const reserveResolver = {
           context,
           action: "archive_reserve",
           description: "Бронь архивирована",
+          fulldescription: `Пользователь ${user.name} отправил бронь № ${archiveReserve.reserveNumber} в архив`,
           oldData: reserve,
           newData: { status: "archived" },
           reserveId: reserve.id

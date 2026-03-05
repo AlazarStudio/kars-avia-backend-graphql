@@ -360,6 +360,7 @@ const userResolver = {
         context,
         action: "create_user",
         description: "Пользователь создан",
+        fulldescription: `Пользователь ${context.user.name} добавил нового пользователя ${createdData.name}`,
         newData: {
           id: newUser.id,
           name: newUser.name,

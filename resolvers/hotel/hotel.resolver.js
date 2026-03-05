@@ -193,6 +193,7 @@ const hotelResolver = {
         context,
         action: "create_hotel",
         description: "Отель создан",
+        fulldescription: `Пользователь ${user.name} создал отель ${createdHotel.name}`,
         newData: {
           id: createdHotel.id,
           name: createdHotel.name,
@@ -403,6 +404,7 @@ const hotelResolver = {
                   context,
                   action: "update_hotel_chess",
                   description: `Заявка перенесена в номер ${room.name}`,
+                  fulldescription: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: { ...previousHotelChessData, ...hotelChess },
                   hotelId: hotelChess.hotelId,
@@ -463,6 +465,7 @@ const hotelResolver = {
                   context,
                   action: "update_hotel_chess",
                   description: `Бронь перенесена в номер ${room.name}`,
+                  fulldescription: `Бронь № ${reserve.reserveNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: { ...previousHotelChessData, ...hotelChess },
                   hotelId: hotelChess.hotelId,
@@ -734,6 +737,7 @@ const hotelResolver = {
                   context,
                   action: "create_hotel_chess",
                   description: `Размещение создано в номере ${room.name}`,
+                  fulldescription: `Размещение по заявке № ${updatedRequest.requestNumber} создано в отеле ${hotel?.name} в номере ${room.name} пользователем ${user.name}`,
                   oldData: null,
                   newData: newHotelChess,
                   hotelId: hotelChess.hotelId,
@@ -838,6 +842,7 @@ const hotelResolver = {
                 context,
                 action: "update_room",
                 description: "Данные комнаты обновлены",
+                fulldescription: `Пользователь ${user.name} обновил данные комнаты ${room.name}`,
                 oldData: previousRoomData,
                 newData: {
                   ...updatedRoomData,
@@ -902,6 +907,7 @@ const hotelResolver = {
                 context,
                 action: "create_room",
                 description: "Комната создана",
+                fulldescription: `Пользователь ${user.name} добавил комнату ${room.name}`,
                 newData: createdRoom,
                 hotelId: id
               })
@@ -1029,6 +1035,7 @@ const hotelResolver = {
           context,
           action: "update_hotel",
           description: "Данные отеля обновлены",
+          fulldescription: `Пользователь ${user.name} обновил данные отеля ${updatedHotel.name}`,
           oldData: previousHotelData,
           newData: updatedHotel,
           hotelId: updatedHotel.id
@@ -1172,6 +1179,7 @@ const hotelResolver = {
         context,
         action: "delete_hotel",
         description: "Отель удален",
+        fulldescription: `Пользователь ${context.user.name} удалил отель ${hotelToDelete.name}`,
         oldData: hotelToDelete,
         newData: hotelToDelete,
         hotelId: id
@@ -1202,6 +1210,7 @@ const hotelResolver = {
         context,
         action: "delete_room",
         description: "Комната удалена",
+        fulldescription: `Пользователь ${context.user.name} удалил комнату ${roomToDelete.name}`,
         oldData: roomToDelete,
         newData: roomToDelete,
         hotelId: roomToDelete.hotelId

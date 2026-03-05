@@ -147,6 +147,7 @@ const airlineResolver = {
         context,
         action: "create_airline",
         description: "Авиакомпания создана",
+        fulldescription: `Пользователь ${user.name} добавил авиакомпанию ${updatedAirline.name}`,
         newData: {
           id: updatedAirline.id,
           name: updatedAirline.name,
@@ -315,6 +316,7 @@ const airlineResolver = {
                 context,
                 action: "update_airline",
                 description: `Данные отдела обновлены: ${depart.name}`,
+                fulldescription: `Пользователь ${user.name} изменил данные отдела ${depart.name}`,
                 airlineId: id
               })
             } else {
@@ -378,6 +380,7 @@ const airlineResolver = {
                 context,
                 action: "update_airline",
                 description: `Отдел добавлен: ${depart.name}`,
+                fulldescription: `Пользователь ${user.name} добавил отдел ${depart.name}`,
                 airlineId: id
               })
             }
@@ -403,6 +406,7 @@ const airlineResolver = {
                 context,
                 action: "update_airline",
                 description: `Данные сотрудника обновлены: ${person.name}`,
+                fulldescription: `Пользователь ${user.name} обновил данные сотрудника ${person.name}`,
                 airlineId: id
               })
             } else {
@@ -421,6 +425,7 @@ const airlineResolver = {
                 context,
                 action: "update_airline",
                 description: `Сотрудник добавлен: ${person.name}`,
+                fulldescription: `Пользователь ${user.name} добавил сотрудника ${person.name}`,
                 airlineId: id
               })
             }
@@ -458,6 +463,7 @@ const airlineResolver = {
           context,
           action: "update_airline",
           description: "Данные авиакомпании обновлены",
+          fulldescription: `Пользователь ${user.name} обновил данные авиакомпании ${airlineWithRelations.name}`,
           oldData: previousAirlineData,
           newData: updatedAirline,
           airlineId: id

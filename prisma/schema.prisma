@@ -825,6 +825,7 @@ model Log {
   action      String
   reason      String?
   description String
+  fulldescription String?
   oldData     String?
   newData     String?
 }

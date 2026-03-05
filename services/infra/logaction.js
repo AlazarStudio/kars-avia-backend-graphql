@@ -540,6 +540,7 @@ const createLog = async ({
   action,
   reason = null,
   description,
+  fulldescription = null,
   hotelId = null,
   airlineId = null,
   requestId = null,
@@ -564,6 +565,9 @@ const createLog = async ({
         action,
         reason: reason ? reason : null,
         description: serializeDescription(description),
+        fulldescription: serializeDescription(
+          fulldescription ?? description
+        ),
         hotelId: hotelId ? hotelId : null,
         airlineId: airlineId ? airlineId : null,
         requestId: requestId ? requestId : null,
@@ -584,6 +588,7 @@ const logAction = async ({
   action,
   reason = null,
   description,
+  fulldescription = null,
   oldData = null,
   newData = null,
   hotelId = null,
@@ -596,6 +601,7 @@ const logAction = async ({
     action,
     reason,
     description,
+    fulldescription,
     hotelId,
     airlineId,
     requestId,

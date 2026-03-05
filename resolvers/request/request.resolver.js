@@ -289,6 +289,7 @@ const requestResolver = {
               context,
               action: "open_request",
               description: "Заявка открыта",
+              fulldescription: `Заявка № ${updatedRequest.requestNumber} открыта пользователем ${user.name}`,
               oldData: { status: "created" },
               newData: { status: "opened" },
               requestId: updatedRequest.id
@@ -498,11 +499,16 @@ const requestResolver = {
       // Логирование создания заявки
       try {
         const description = "Заявка создана"
+        const fulldescription =
+          newRequest.person && newRequest.person.position
+            ? `Пользователь ${user.name} создал заявку №${newRequest.requestNumber} для ${newRequest.person.position} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`
+            : `Пользователь ${user.name} создал предварительную бронь №${newRequest.requestNumber} в аэропорт ${newRequest.airport.name}`
 
         await logAction({
           context,
           action: "create_request",
           description,
+          fulldescription,
           newData: {
             requestNumber: newRequest.requestNumber,
             airportId,
@@ -971,6 +977,7 @@ const requestResolver = {
             context,
             action: "update_request",
             description: "Данные заявки обновлены",
+            fulldescription: `Пользователь ${user.name} обновил заявку № ${updatedRequest.requestNumber} с ${formatDate(request.arrival)} - ${formatDate(request.departure)} до ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
             oldData: request,
             newData: updatedRequest,
             requestId: updatedRequest.id
@@ -1006,6 +1013,7 @@ const requestResolver = {
           context,
           action: "update_request",
           description: "Питание заявки обновлено",
+          fulldescription: `Пользователь ${user.name} изменил питание для заявки № ${request.requestNumber}`,
           oldData: request,
           newData: updatedMealPlan,
           requestId: request.id
@@ -1038,6 +1046,7 @@ const requestResolver = {
           context,
           action: "archive_request",
           description: "Заявка архивирована",
+          fulldescription: `Пользователь ${user.name} отправил заявку № ${archiveRequest.requestNumber} в архив`,
           oldData: request,
           newData: { status: "archived" },
           hotelId: request.hotelId,
@@ -1162,6 +1171,7 @@ const requestResolver = {
         context,
         action: "cancel_request",
         description: "Заявка отменена",
+        fulldescription: `Пользователь ${user.name} отменил заявку № ${canceledRequest.requestNumber}`,
         oldData: request,
         newData: { status: "canceled" },
         hotelId: request.hotelId,
