@@ -55,6 +55,7 @@ const logPassengerRequestAction = async ({
   airlineId = null,
   passengerRequestId = null
 }) => {
+  console.log("logPassengerRequestAction", context, action, description, fulldescription, reason, oldData, newData, airlineId, passengerRequestId)
   if (!context?.user?.id) return
   try {
     await logAction({
@@ -487,7 +488,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request_service_status",
         description: `Статус сервиса обновлен: ${service}`,
-        fulldescription: `Пользователь ${context.user.name} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
+        fulldescription: `Пользователь ${context?.user?.name ?? "Пользователь"} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
