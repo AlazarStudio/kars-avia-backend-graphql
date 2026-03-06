@@ -55,8 +55,6 @@ const logPassengerRequestAction = async ({
   airlineId = null,
   passengerRequestId = null
 }) => {
-  console.log("logPassengerRequestAction", context, action, description, fulldescription, reason, oldData, newData, airlineId, passengerRequestId)
-  if (!context?.user?.id) return
   try {
     await logAction({
       context,
