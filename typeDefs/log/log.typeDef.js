@@ -8,6 +8,7 @@ const logTypeDef = /* GraphQL */ `
     hotel: Hotel
     airline: Airline
     action: String!
+    reason: String
     description: String
     fulldescription: String
     oldData: String
