@@ -15,6 +15,7 @@
     "ps": "prisma studio",
     "pdp": "npm run pg && npm run pp && clear",
     "pdps": "npm run pg && npm run pp && clear && npm run ps",
+    "upd": "git pull && npm run pg && npm run pp && clear && npm run ps",
     "migrateupload": "node services/migrations/migrateUploads.js"
   },
   "type": "module",
