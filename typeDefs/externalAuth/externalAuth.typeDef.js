@@ -39,6 +39,12 @@ const externalAuthTypeDef = /* GraphQL */ `
     passengerRequestExternalUser: PassengerRequestExternalUser
   }
 
+  type AdminMagicLinkIssueResult {
+    success: Boolean!
+    emailed: Boolean!
+    link: String!
+  }
+
   type ExternalUserConnection {
     totalPages: Int!
     totalCount: Int!
@@ -87,23 +93,27 @@ const externalAuthTypeDef = /* GraphQL */ `
   type Mutation {
     adminIssueExternalUserMagicLink(
       input: AdminIssueExternalUserMagicLinkInput!
-    ): Boolean!
+    ): AdminMagicLinkIssueResult!
     externalUserSignInWithMagicLink(
       token: String!
       fingerprint: String
     ): ExternalAuthPayload!
     adminExtendExternalUserSession(externalUserId: ID!): Boolean!
-    adminReissueExternalUserMagicLink(externalUserId: ID!): Boolean!
+    adminReissueExternalUserMagicLink(
+      externalUserId: ID!
+    ): AdminMagicLinkIssueResult!
 
     adminIssuePassengerRequestExternalUserMagicLink(
       input: AdminIssuePassengerRequestExternalUserMagicLinkInput!
-    ): Boolean!
+    ): AdminMagicLinkIssueResult!
     passengerRequestExternalUserSignInWithMagicLink(
       token: String!
       fingerprint: String
     ): ExternalAuthPayload!
     adminExtendPassengerRequestExternalUserSession(id: ID!): Boolean!
-    adminReissuePassengerRequestExternalUserMagicLink(id: ID!): Boolean!
+    adminReissuePassengerRequestExternalUserMagicLink(
+      id: ID!
+    ): AdminMagicLinkIssueResult!
   }
 `
 

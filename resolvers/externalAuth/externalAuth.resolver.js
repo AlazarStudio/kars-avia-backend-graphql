@@ -12,7 +12,10 @@ import {
   nextSessionExpiry,
   validateMagicLinkRecord
 } from "../../services/auth/externalMagicLink.js"
-import { sendExternalMagicLinkEmail } from "../../services/auth/sendExternalMagicLinkEmail.js"
+import {
+  buildExternalMagicLink,
+  sendExternalMagicLinkEmail
+} from "../../services/auth/sendExternalMagicLinkEmail.js"
 
 const SUBJECT_TYPE = {
   EXTERNAL_USER: "EXTERNAL_USER",
@@ -75,18 +78,24 @@ const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) =
   }
 
   const { rawToken, tokenHash } = createMagicLinkTokenPair()
+  const magicLinkUrl = buildExternalMagicLink({
+    token: rawToken,
+    kind: SUBJECT_TYPE.EXTERNAL_USER
+  })
   const expiresAt = new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS)
 
   await prisma.externalUserMagicLinkToken.create({
     data: {
       externalUserId,
       tokenHash,
+      rawToken,
+      magicLinkUrl,
       expiresAt,
       createdByAdminId
     }
   })
 
-  return { rawToken, tokenHash }
+  return { rawToken, tokenHash, magicLinkUrl }
 }
 
 const issueTokenForPassengerRequestExternalUser = async ({
@@ -119,18 +128,24 @@ const issueTokenForPassengerRequestExternalUser = async ({
   }
 
   const { rawToken, tokenHash } = createMagicLinkTokenPair()
+  const magicLinkUrl = buildExternalMagicLink({
+    token: rawToken,
+    kind: SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER
+  })
   const expiresAt = new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS)
 
   await prisma.passengerRequestExternalUserMagicLinkToken.create({
     data: {
       passengerRequestExternalUserId,
       tokenHash,
+      rawToken,
+      magicLinkUrl,
       expiresAt,
       createdByAdminId
     }
   })
 
-  return { rawToken, tokenHash }
+  return { rawToken, tokenHash, magicLinkUrl }
 }
 
 const buildExternalAuthPayload = ({ subjectType, entity, sessionToken }) => {
@@ -237,11 +252,12 @@ const externalAuthResolver = {
         }
       })
 
-      const { rawToken, tokenHash } = await issueTokenForExternalUser({
+      const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId: externalUser.id,
         createdByAdminId: adminId
       })
 
+      let emailed = true
       try {
         await sendExternalMagicLinkEmail({
           userEmail: externalUser.email,
@@ -249,13 +265,14 @@ const externalAuthResolver = {
           kind: "EXTERNAL_USER"
         })
       } catch (error) {
-        await prisma.externalUserMagicLinkToken.deleteMany({
-          where: { tokenHash, usedAt: null }
-        })
-        throw error
+        emailed = false
       }
 
-      return true
+      return {
+        success: true,
+        emailed,
+        link: magicLinkUrl
+      }
     },
 
     externalUserSignInWithMagicLink: async (_, { token }) => {
@@ -289,7 +306,11 @@ const externalAuthResolver = {
             usedAt: null,
             expiresAt: { gt: now }
           },
-          data: { usedAt: now }
+          data: {
+            usedAt: now,
+            rawToken: null,
+            magicLinkUrl: null
+          }
         })
         if (consumeResult.count !== 1) {
           throw new Error("Invalid or expired magic link")
@@ -347,11 +368,12 @@ const externalAuthResolver = {
         throwForbidden("Only admins can reissue magic links")
       }
 
-      const { rawToken, tokenHash } = await issueTokenForExternalUser({
+      const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId,
         createdByAdminId: adminId
       })
 
+      let emailed = true
       try {
         await sendExternalMagicLinkEmail({
           userEmail: externalUser.email,
@@ -359,13 +381,14 @@ const externalAuthResolver = {
           kind: "EXTERNAL_USER"
         })
       } catch (error) {
-        await prisma.externalUserMagicLinkToken.deleteMany({
-          where: { tokenHash, usedAt: null }
-        })
-        throw error
+        emailed = false
       }
 
-      return true
+      return {
+        success: true,
+        emailed,
+        link: magicLinkUrl
+      }
     },
 
     adminIssuePassengerRequestExternalUserMagicLink: async (
@@ -408,12 +431,13 @@ const externalAuthResolver = {
         }
       })
 
-      const { rawToken, tokenHash } =
+      const { rawToken, magicLinkUrl } =
         await issueTokenForPassengerRequestExternalUser({
           passengerRequestExternalUserId: passengerExternalUser.id,
           createdByAdminId: adminId
         })
 
+      let emailed = true
       try {
         await sendExternalMagicLinkEmail({
           userEmail: passengerExternalUser.email,
@@ -421,13 +445,14 @@ const externalAuthResolver = {
           kind: "PASSENGER_REQUEST_EXTERNAL_USER"
         })
       } catch (error) {
-        await prisma.passengerRequestExternalUserMagicLinkToken.deleteMany({
-          where: { tokenHash, usedAt: null }
-        })
-        throw error
+        emailed = false
       }
 
-      return true
+      return {
+        success: true,
+        emailed,
+        link: magicLinkUrl
+      }
     },
 
     passengerRequestExternalUserSignInWithMagicLink: async (_, { token }) => {
@@ -466,7 +491,11 @@ const externalAuthResolver = {
               usedAt: null,
               expiresAt: { gt: now }
             },
-            data: { usedAt: now }
+            data: {
+              usedAt: now,
+              rawToken: null,
+              magicLinkUrl: null
+            }
           })
         if (consumeResult.count !== 1) {
           throw new Error("Invalid or expired magic link")
@@ -534,12 +563,13 @@ const externalAuthResolver = {
         throwForbidden("Only admins can reissue magic links")
       }
 
-      const { rawToken, tokenHash } =
+      const { rawToken, magicLinkUrl } =
         await issueTokenForPassengerRequestExternalUser({
           passengerRequestExternalUserId: id,
           createdByAdminId: adminId
         })
 
+      let emailed = true
       try {
         await sendExternalMagicLinkEmail({
           userEmail: user.email,
@@ -547,13 +577,14 @@ const externalAuthResolver = {
           kind: "PASSENGER_REQUEST_EXTERNAL_USER"
         })
       } catch (error) {
-        await prisma.passengerRequestExternalUserMagicLinkToken.deleteMany({
-          where: { tokenHash, usedAt: null }
-        })
-        throw error
+        emailed = false
       }
 
-      return true
+      return {
+        success: true,
+        emailed,
+        link: magicLinkUrl
+      }
     }
   }
 }

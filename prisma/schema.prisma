@@ -1415,6 +1415,8 @@ model ExternalUserMagicLinkToken {
   externalUser     ExternalUser @relation(fields: [externalUserId], references: [id], onDelete: Cascade)
   externalUserId   String       @db.ObjectId
   tokenHash        String       @unique
+  rawToken         String?
+  magicLinkUrl     String?
   expiresAt        DateTime
   usedAt           DateTime?
   createdByAdmin   User?        @relation("ExternalUserMagicLinkTokenCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
@@ -1450,6 +1452,8 @@ model PassengerRequestExternalUserMagicLinkToken {
   passengerRequestExternalUser   PassengerRequestExternalUser @relation(fields: [passengerRequestExternalUserId], references: [id], onDelete: Cascade)
   passengerRequestExternalUserId String                       @db.ObjectId
   tokenHash                      String                       @unique
+  rawToken                       String?
+  magicLinkUrl                   String?
   expiresAt                      DateTime
   usedAt                         DateTime?
   createdByAdmin                 User?                        @relation("PassengerRequestExternalUserMagicLinkTokenCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
