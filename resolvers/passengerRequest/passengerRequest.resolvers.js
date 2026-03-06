@@ -4,6 +4,7 @@ import {
   resolveUserId,
   updateTimes
 } from "../../services/passengerRequest/utils.js"
+import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
@@ -599,7 +600,9 @@ const passengerRequestResolvers = {
         evictions: []
       }
 
-      const hotels = [...(prev.hotels || []), hotel]
+      const hotelWithItemId = ensurePassengerServiceHotelItemId(hotel)
+
+      const hotels = [...(prev.hotels || []), hotelWithItemId]
 
       const data = {
         livingService: {
@@ -615,8 +618,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_hotel",
-        description: `Отель добавлен в ФАП: ${hotel.name}`,
-        fulldescription: `Пользователь ${context.user.name} добавил отель ${hotel.name} в ФАП ${passengerRequest.flightNumber}`,
+        description: `Отель добавлен в ФАП: ${hotelWithItemId.name}`,
+        fulldescription: `Пользователь ${context.user.name} добавил отель ${hotelWithItemId.name} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

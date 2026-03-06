@@ -9,6 +9,7 @@ import contractTypeDef from "./contract/contract.typeDef.js"
 import dispatcherTypeDef from "./dispatcher/dispatcher.typeDef.js"
 import documentationTypeDef from "./documentation/documentation.typeDef.js"
 import driverTypeDef from "./driver/driver.typeDef.js"
+import externalAuthTypeDef from "./externalAuth/externalAuth.typeDef.js"
 import globalTypeDef from "./global/global.typeDef.js"
 import hotelTypeDef from "./hotel/hotel.typeDef.js"
 import logTypeDef from "./log/log.typeDef.js"
@@ -31,6 +32,7 @@ const mergedTypeDefs = mergeTypeDefs([
   dispatcherTypeDef,
   documentationTypeDef,
   driverTypeDef,
+  externalAuthTypeDef,
   globalTypeDef,
   hotelTypeDef,
   logTypeDef,

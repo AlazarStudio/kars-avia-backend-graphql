@@ -283,6 +283,7 @@ model Airline {
   airlineContract       airlineContract[]
   passengerRequests     PassengerRequest[]
   transfers             Transfer[]
+  externalUsers         ExternalUser[]
 }
 
 model AirlineDepartment {
@@ -734,6 +735,7 @@ model Hotel {
   AirlinePrice       AirlinePrice[]
   hotelContract      hotelContract[]
   additionalServices AdditionalServices[]
+  externalUsers      ExternalUser[]
 }
 
 model HotelChess {
@@ -869,6 +871,7 @@ type PassengerServiceDriver {
 }
 
 type PassengerServiceHotel {
+  itemId      String?
   hotelId     String?                       @db.ObjectId // ссылка на Hotel, если выбран из базы
   name        String // снэпшот названия
   peopleCount Int // «Количество мест»
@@ -997,7 +1000,8 @@ model PassengerRequest {
   chats Chat[]
 
   // сохранённые отчёты по отелям (таблица отчёта — данные строк)
-  hotelReports PassengerRequestHotelReport[]
+  hotelReports  PassengerRequestHotelReport[]
+  externalUsers PassengerRequestExternalUser[]
 
   // история действий по заявке
   logs Log[]
@@ -1218,6 +1222,7 @@ model Organization {
   drivers               Driver[]
   active                Boolean                @default(true)
   organizationContracts organizationContract[]
+  externalUsers         ExternalUser[]
 }
 
 // --- Transfer (заявка)
@@ -1385,6 +1390,76 @@ model device_tokens {
   token     String
 }
 
+model ExternalUser {
+  id               String                     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  email            String                     @unique
+  name             String?
+  hotel            Hotel?                     @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  hotelId          String?                    @db.ObjectId
+  organization     Organization?              @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId   String?                    @db.ObjectId
+  airline          Airline?                   @relation(fields: [airlineId], references: [id], onDelete: SetNull)
+  airlineId        String?                    @db.ObjectId
+  active           Boolean                    @default(true)
+  refreshToken     String?
+  sessionExpiresAt DateTime?
+  magicLinkTokens  ExternalUserMagicLinkToken[]
+}
+
+model ExternalUserMagicLinkToken {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  externalUser     ExternalUser  @relation(fields: [externalUserId], references: [id], onDelete: Cascade)
+  externalUserId   String        @db.ObjectId
+  tokenHash        String        @unique
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdByAdmin   User?         @relation("ExternalUserMagicLinkTokenCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByAdminId String?       @db.ObjectId
+
+  @@index([externalUserId, createdAt])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
+model PassengerRequestExternalUser {
+  id                          String                                          @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                   DateTime                                        @default(now()) @map("created_at")
+  updatedAt                   DateTime                                        @updatedAt @map("updated_at")
+  email                       String                                          @unique
+  name                        String?
+  passengerRequest            PassengerRequest                                @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
+  passengerRequestId          String                                          @db.ObjectId
+  passengerServiceHotelItemId String?
+  active                      Boolean                                         @default(true)
+  refreshToken                String?
+  sessionExpiresAt            DateTime?
+  magicLinkTokens             PassengerRequestExternalUserMagicLinkToken[]
+
+  @@index([passengerRequestId])
+  @@index([passengerServiceHotelItemId])
+}
+
+model PassengerRequestExternalUserMagicLinkToken {
+  id                             String                       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                      DateTime                     @default(now()) @map("created_at")
+  updatedAt                      DateTime                     @updatedAt @map("updated_at")
+  passengerRequestExternalUser   PassengerRequestExternalUser @relation(fields: [passengerRequestExternalUserId], references: [id], onDelete: Cascade)
+  passengerRequestExternalUserId String                       @db.ObjectId
+  tokenHash                      String                       @unique
+  expiresAt                      DateTime
+  usedAt                         DateTime?
+  createdByAdmin                 User?                        @relation("PassengerRequestExternalUserMagicLinkTokenCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByAdminId               String?                      @db.ObjectId
+
+  @@index([passengerRequestExternalUserId, createdAt])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
 model DispatcherDepartment {
   id               String            @id @default(auto()) @map("_id") @db.ObjectId
   createdAt        DateTime          @default(now()) @map("created_at")
@@ -1485,6 +1560,8 @@ model User {
   resolvedSupportChats   Chat[]                @relation("ResolvedSupportChats")
   assignedTickets        SupportTicket[]       @relation("AssignedTickets")
   resolvedTickets        SupportTicket[]       @relation("ResolvedTickets")
+  createdExternalUserMagicLinks ExternalUserMagicLinkToken[] @relation("ExternalUserMagicLinkTokenCreatedByAdmin")
+  createdPassengerExternalUserMagicLinks PassengerRequestExternalUserMagicLinkToken[] @relation("PassengerRequestExternalUserMagicLinkTokenCreatedByAdmin")
 }
 
 // User ---------------- ↑↑↑↑

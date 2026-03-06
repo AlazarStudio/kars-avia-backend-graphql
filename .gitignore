@@ -1,10 +1,11 @@
 .env
+documentations/
+reserve_files/
 node_modules/
 generated/
 uploads/
 backups/
 reports/
-reserve_files/
 logs/
 cert/
 data.csv

@@ -45,11 +45,20 @@ export async function buildAuthContext(authHeader) {
     throw new Error("Token expired")
   }
 
-  const { subjectType, userId, driverId, airlinePersonalId } = decoded
+  const {
+    subjectType,
+    userId,
+    driverId,
+    airlinePersonalId,
+    externalUserId,
+    passengerRequestExternalUserId
+  } = decoded
 
   let user = null
   let driver = null
   let personal = null
+  let externalUser = null
+  let passengerRequestExternalUser = null
   let subject = null
 
   if (subjectType === "USER" && userId) {
@@ -96,6 +105,40 @@ export async function buildAuthContext(authHeader) {
     subject = personal
   }
 
+  if (subjectType === "EXTERNAL_USER" && externalUserId) {
+    externalUser = await prisma.externalUser.findUnique({
+      where: { id: externalUserId },
+      select: {
+        id: true,
+        email: true,
+        active: true,
+        refreshToken: true,
+        sessionExpiresAt: true
+      }
+    })
+    subject = externalUser
+  }
+
+  if (
+    subjectType === "PASSENGER_REQUEST_EXTERNAL_USER" &&
+    passengerRequestExternalUserId
+  ) {
+    passengerRequestExternalUser =
+      await prisma.passengerRequestExternalUser.findUnique({
+        where: { id: passengerRequestExternalUserId },
+        select: {
+          id: true,
+          email: true,
+          passengerRequestId: true,
+          passengerServiceHotelItemId: true,
+          active: true,
+          refreshToken: true,
+          sessionExpiresAt: true
+        }
+      })
+    subject = passengerRequestExternalUser
+  }
+
   if (!subject) {
     logger.warn("[AUTH] Subject not found")
     throw new Error("Invalid token")
@@ -113,6 +156,17 @@ export async function buildAuthContext(authHeader) {
     throw new Error("Invalid token")
   }
 
+  if (
+    (subjectType === "EXTERNAL_USER" ||
+      subjectType === "PASSENGER_REQUEST_EXTERNAL_USER") &&
+    (!subject.active ||
+      !subject.sessionExpiresAt ||
+      new Date(subject.sessionExpiresAt).getTime() <= Date.now())
+  ) {
+    logger.warn("[AUTH] External session expired or inactive")
+    throw new Error("Invalid token")
+  }
+
   return {
     authHeader,
     token,
@@ -121,7 +175,9 @@ export async function buildAuthContext(authHeader) {
     subject,
     user,
     driver,
-    personal
+    personal,
+    externalUser,
+    passengerRequestExternalUser
   }
 }
 
@@ -134,6 +190,8 @@ function emptyContext() {
     subject: null,
     user: null,
     driver: null,
-    personal: null
+    personal: null,
+    externalUser: null,
+    passengerRequestExternalUser: null
   }
 }

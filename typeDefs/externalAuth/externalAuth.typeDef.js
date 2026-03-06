@@ -1,0 +1,110 @@
+const externalAuthTypeDef = /* GraphQL */ `
+  #graphql
+
+  enum ExternalSubjectType {
+    EXTERNAL_USER
+    PASSENGER_REQUEST_EXTERNAL_USER
+  }
+
+  type ExternalUser {
+    id: ID!
+    createdAt: Date!
+    updatedAt: Date!
+    email: String!
+    name: String
+    hotelId: ID
+    organizationId: ID
+    airlineId: ID
+    active: Boolean!
+    sessionExpiresAt: Date
+  }
+
+  type PassengerRequestExternalUser {
+    id: ID!
+    createdAt: Date!
+    updatedAt: Date!
+    email: String!
+    name: String
+    passengerRequestId: ID!
+    passengerServiceHotelItemId: String
+    active: Boolean!
+    sessionExpiresAt: Date
+  }
+
+  type ExternalAuthPayload {
+    token: String!
+    refreshToken: String!
+    subjectType: ExternalSubjectType!
+    externalUser: ExternalUser
+    passengerRequestExternalUser: PassengerRequestExternalUser
+  }
+
+  type ExternalUserConnection {
+    totalPages: Int!
+    totalCount: Int!
+    users: [ExternalUser!]!
+  }
+
+  input ExternalUserFilterInput {
+    hotelId: ID
+    organizationId: ID
+    airlineId: ID
+    active: Boolean
+  }
+
+  input ExternalUserPaginationInput {
+    skip: Int
+    take: Int
+    all: Boolean
+    search: String
+  }
+
+  input AdminIssueExternalUserMagicLinkInput {
+    email: String!
+    name: String
+    hotelId: ID
+    organizationId: ID
+    airlineId: ID
+  }
+
+  input AdminIssuePassengerRequestExternalUserMagicLinkInput {
+    email: String!
+    name: String
+    passengerRequestId: ID!
+    passengerServiceHotelItemId: String
+  }
+
+  type Query {
+    externalUsers(
+      pagination: ExternalUserPaginationInput
+      filter: ExternalUserFilterInput
+    ): ExternalUserConnection!
+    passengerRequestExternalUsers(
+      passengerRequestId: ID!
+    ): [PassengerRequestExternalUser!]!
+  }
+
+  type Mutation {
+    adminIssueExternalUserMagicLink(
+      input: AdminIssueExternalUserMagicLinkInput!
+    ): Boolean!
+    externalUserSignInWithMagicLink(
+      token: String!
+      fingerprint: String
+    ): ExternalAuthPayload!
+    adminExtendExternalUserSession(externalUserId: ID!): Boolean!
+    adminReissueExternalUserMagicLink(externalUserId: ID!): Boolean!
+
+    adminIssuePassengerRequestExternalUserMagicLink(
+      input: AdminIssuePassengerRequestExternalUserMagicLinkInput!
+    ): Boolean!
+    passengerRequestExternalUserSignInWithMagicLink(
+      token: String!
+      fingerprint: String
+    ): ExternalAuthPayload!
+    adminExtendPassengerRequestExternalUserSession(id: ID!): Boolean!
+    adminReissuePassengerRequestExternalUserMagicLink(id: ID!): Boolean!
+  }
+`
+
+export default externalAuthTypeDef

@@ -56,6 +56,29 @@ const buildOfflineUpdateData = ({ currentUser, now }) => {
   }
 }
 
+const buildUserAuthPayload = ({ user, sessionToken }) => {
+  const token = jwt.sign(
+    {
+      subjectType: "USER",
+      userId: user.id,
+      role: user.role,
+      hotelId: user.hotelId,
+      airlineId: user.airlineId,
+      airlineDepartmentId: user.airlineDepartmentId,
+      dispatcherDepartmentId: user.dispatcherDepartmentId,
+      sessionToken
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "24h" }
+  )
+
+  return {
+    ...user,
+    token,
+    refreshToken: sessionToken
+  }
+}
+
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
   // Подключаем тип Upload для поддержки загрузки файлов через GraphQL
@@ -519,26 +542,7 @@ const userResolver = {
       })
       pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
 
-      // Генерация токена доступа
-      const token = jwt.sign(
-        {
-          subjectType: "USER",
-          userId: user.id,
-          role: user.role,
-          hotelId: user.hotelId,
-          airlineId: user.airlineId,
-          airlineDepartmentId: user.airlineDepartmentId,
-          dispatcherDepartmentId: user.dispatcherDepartmentId,
-          sessionToken
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-      return {
-        ...updatedUser,
-        token,
-        refreshToken: sessionToken
-      }
+      return buildUserAuthPayload({ user: updatedUser, sessionToken })
     },
 
     // Обновление данных пользователя. Разрешено либо админам, либо самому пользователю.

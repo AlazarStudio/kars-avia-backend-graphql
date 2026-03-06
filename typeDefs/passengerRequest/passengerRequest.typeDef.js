@@ -96,6 +96,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerServiceHotel {
+    itemId: String
     hotelId: ID
     name: String!
     peopleCount: Int!
@@ -245,6 +246,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   input PassengerServiceHotelInput {
+    itemId: String
     hotelId: ID
     name: String!
     peopleCount: Int!
