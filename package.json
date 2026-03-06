@@ -13,6 +13,7 @@
     "pg": "prisma generate",
     "pp": "prisma db push",
     "ps": "prisma studio",
+    "pdp": "npm run pg && npm run pp",
     "migrateupload": "node services/migrations/migrateUploads.js"
   },
   "type": "module",
