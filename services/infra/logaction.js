@@ -600,7 +600,7 @@ const logAction = async ({
   passengerRequestId = null
 }) => {
   await createLog({
-    userId: context.user.id,
+    userId: context?.user?.id ?? null,
     action,
     reason,
     description,
