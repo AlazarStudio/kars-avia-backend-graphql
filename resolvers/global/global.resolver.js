@@ -270,6 +270,22 @@ const globalResolver = {
     //     refreshToken: newRefreshToken
     //   }
     // }
+  },
+  TransferPrice: {
+    airline: (parent) =>
+      parent.airlineId
+        ? prisma.airline.findUnique({ where: { id: parent.airlineId } })
+        : null,
+    organization: (parent) =>
+      parent.organizationId
+        ? prisma.organization.findUnique({
+            where: { id: parent.organizationId }
+          })
+        : null,
+    driver: (parent) =>
+      parent.driverId
+        ? prisma.driver.findUnique({ where: { id: parent.driverId } })
+        : null
   }
 }
 

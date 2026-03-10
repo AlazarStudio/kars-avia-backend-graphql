@@ -18,6 +18,7 @@ const airlineTypeDef = /* GraphQL */ `
     # position: [Position]
     airportOnAirlinePrice: [AirportOnAirlinePrice]
     airlineContract: [AirlineContract]
+    transferPrices: [TransferPrice!]
   }
 
   # Остальные типы оставляем без изменений (пример – департамент и персонал)
@@ -60,6 +61,7 @@ const airlineTypeDef = /* GraphQL */ `
     information: InformationInput
     # mealPrice: MealPriceInput
     prices: [AirlinePriceInput!] # теперь массив тарифов
+    transferPrices: [TransferPriceInput!]
   }
 
   input UpdateAirlineInput {
@@ -70,6 +72,7 @@ const airlineTypeDef = /* GraphQL */ `
     department: [AirlineDepartmentInput!]
     # mealPrice: MealPriceInput
     prices: [AirlinePriceInput!] # массив тарифов для обновления
+    transferPrices: [TransferPriceInput!]
     # position: [PositionInput!]
   }
 

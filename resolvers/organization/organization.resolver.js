@@ -29,7 +29,8 @@ const organizationResolver = {
               take: typeof take === "number" ? take : undefined
             }),
 
-        orderBy: { information: { city: "asc" } }
+        orderBy: { information: { city: "asc" } },
+        include: { transferPrices: { include: { airports: true, cities: true } } }
       })
 
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
@@ -38,7 +39,12 @@ const organizationResolver = {
     },
     organization: async (_, { id }) => {
       try {
-        return await prisma.organization.findUnique({ where: { id: id } })
+        return await prisma.organization.findUnique({
+          where: { id: id },
+          include: {
+            transferPrices: { include: { airports: true, cities: true } }
+          }
+        })
       } catch {
         return new Error("Неккоректный ID")
       }
@@ -46,7 +52,7 @@ const organizationResolver = {
   },
   Mutation: {
     createOrganization: async (_, { input, images }) => {
-      const { name, information } = input
+      const { name, information, transferPrices: transferPricesInput } = input
 
       const existingOrganization = await prisma.organization.findFirst({
         where: { name: name }
@@ -76,15 +82,36 @@ const organizationResolver = {
         }
       })
 
-      pubsub.publish(ORGANIZATION_CREATED, {
-        organizationCreated: newOrganization
+      if (transferPricesInput?.length) {
+        for (const tp of transferPricesInput) {
+          await prisma.transferPrice.create({
+            data: {
+              organizationId: newOrganization.id,
+              prices: tp.prices,
+              airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+              cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+            }
+          })
+        }
+      }
+
+      const orgWithRelations = await prisma.organization.findUnique({
+        where: { id: newOrganization.id },
+        include: {
+          transferPrices: { include: { airports: true, cities: true } }
+        }
       })
 
-      return newOrganization
+      pubsub.publish(ORGANIZATION_CREATED, {
+        organizationCreated: orgWithRelations
+      })
+
+      return orgWithRelations
     },
 
     updateOrganization: async (_, { id, input, images }) => {
-      // 1. Берём текущую организацию
+      const { transferPrices, ...restInput } = input
+
       const currentOrganization = await prisma.organization.findUnique({
         where: { id }
       })
@@ -95,24 +122,16 @@ const organizationResolver = {
 
       const newData = {}
 
-      // 2. Обновляем information — БЕЗ мутации старого объекта
-      if (input.information) {
+      if (restInput.information) {
         newData.information = {
           ...(currentOrganization.information || {}),
-          ...input.information
+          ...restInput.information
         }
       }
 
-      // 3. Простые поля
-      if (typeof input.name === "string") {
-        newData.name = input.name
+      if (typeof restInput.name === "string") {
+        newData.name = restInput.name
       }
-
-      // 4. Картинки
-      // Логика:
-      // - images === undefined | null → вообще не трогаем поле images
-      // - images === [] → явно очистить все картинки
-      // - images.length > 0 → загрузить и ДОБАВИТЬ к существующим
 
       let imagePaths = []
       if (images && images.length > 0) {
@@ -127,12 +146,42 @@ const organizationResolver = {
         data: newData
       })
 
-      // Я бы переименовал событие в ORGANIZATION_UPDATED, но оставляю как у тебя
-      pubsub.publish(ORGANIZATION_CREATED, {
-        organizationCreated: updatedOrganization
+      if (transferPrices) {
+        for (const tp of transferPrices) {
+          if (tp.id) {
+            await prisma.transferPrice.update({
+              where: { id: tp.id },
+              data: {
+                prices: tp.prices,
+                airports: { set: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                cities: { set: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              }
+            })
+          } else {
+            await prisma.transferPrice.create({
+              data: {
+                organizationId: id,
+                prices: tp.prices,
+                airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              }
+            })
+          }
+        }
+      }
+
+      const orgWithRelations = await prisma.organization.findUnique({
+        where: { id },
+        include: {
+          transferPrices: { include: { airports: true, cities: true } }
+        }
       })
 
-      return updatedOrganization
+      pubsub.publish(ORGANIZATION_CREATED, {
+        organizationCreated: orgWithRelations
+      })
+
+      return orgWithRelations
     },
     deleteOrganization: async (_, { id }) => {
       try {

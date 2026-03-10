@@ -24,13 +24,19 @@ const driverResolver = {
       const drivers = all
         ? await prisma.driver.findMany({
             where: { active: true },
-            include: { organization: true }
+            include: {
+              organization: true,
+              transferPrices: { include: { airports: true, cities: true } }
+            }
           })
         : await prisma.driver.findMany({
             where: { active: true },
             skip: skip,
             take: take,
-            include: { organization: true }
+            include: {
+              organization: true,
+              transferPrices: { include: { airports: true, cities: true } }
+            }
           })
 
       // const moscowDates = []
@@ -54,7 +60,10 @@ const driverResolver = {
       try {
         const driver = await prisma.driver.findUnique({
           where: { id: id },
-          include: { organization: true }
+          include: {
+            organization: true,
+            transferPrices: { include: { airports: true, cities: true } }
+          }
         })
         // const moscowDate = {}
 
@@ -72,7 +81,10 @@ const driverResolver = {
       try {
         const driver = await prisma.driver.findUnique({
           where: { email: email },
-          include: { organization: true }
+          include: {
+            organization: true,
+            transferPrices: { include: { airports: true, cities: true } }
+          }
         })
 
         // const moscowDate = {}
@@ -114,6 +126,8 @@ const driverResolver = {
         driverLicenseIssueYear,
         extraEquipment,
         organizationId,
+        seats,
+        transferPrices: transferPricesInput,
         registrationStatus
       } = input
 
@@ -204,15 +218,37 @@ const driverResolver = {
         driverLicenseIssueYear,
         extraEquipment,
         organizationId,
+        seats,
         registrationStatus: registrationStatus ?? "PENDING",
         documents
       }
 
       const newDriver = await prisma.driver.create({ data })
 
-      pubsub.publish(DRIVER_CREATED, { driverCreated: newDriver })
+      if (transferPricesInput?.length) {
+        for (const tp of transferPricesInput) {
+          await prisma.transferPrice.create({
+            data: {
+              driverId: newDriver.id,
+              prices: tp.prices,
+              airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+              cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+            }
+          })
+        }
+      }
 
-      return newDriver
+      const driverWithRelations = await prisma.driver.findUnique({
+        where: { id: newDriver.id },
+        include: {
+          organization: true,
+          transferPrices: { include: { airports: true, cities: true } }
+        }
+      })
+
+      pubsub.publish(DRIVER_CREATED, { driverCreated: driverWithRelations })
+
+      return driverWithRelations
     },
 
     updateDriver: async (
@@ -240,6 +276,7 @@ const driverResolver = {
         if (
           key !== "newPassword" &&
           key !== "oldPassword" &&
+          key !== "transferPrices" &&
           input[key] !== undefined
         ) {
           updatedData[key] = input[key]
@@ -334,16 +371,41 @@ const driverResolver = {
         data: updatedData
       })
 
-      pubsub.publish(DRIVER_UPDATED, { driverUpdated: updatedDriver })
+      if (input.transferPrices) {
+        for (const tp of input.transferPrices) {
+          if (tp.id) {
+            await prisma.transferPrice.update({
+              where: { id: tp.id },
+              data: {
+                prices: tp.prices,
+                airports: { set: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                cities: { set: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              }
+            })
+          } else {
+            await prisma.transferPrice.create({
+              data: {
+                driverId: id,
+                prices: tp.prices,
+                airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              }
+            })
+          }
+        }
+      }
 
-      // const moscowDate = {}
+      const driverWithRelations = await prisma.driver.findUnique({
+        where: { id },
+        include: {
+          organization: true,
+          transferPrices: { include: { airports: true, cities: true } }
+        }
+      })
 
-      // moscowDate["createdAt"] = dateFormatter(updatedDriver["createdAt"])
-      // moscowDate["updatedAt"] = dateFormatter(updatedDriver["updatedAt"])
+      pubsub.publish(DRIVER_UPDATED, { driverUpdated: driverWithRelations })
 
-      // Object.assign(updatedDriver, moscowDate)
-
-      return updatedDriver
+      return driverWithRelations
     },
 
     // transferSignIn: async (_, { input }) => {

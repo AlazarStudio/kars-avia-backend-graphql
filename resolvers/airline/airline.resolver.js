@@ -29,7 +29,8 @@ const airlineResolver = {
             include: {
               staff: true,
               department: true,
-              prices: true
+              prices: true,
+              transferPrices: { include: { airports: true, cities: true } }
             },
             orderBy: { name: "asc" }
           })
@@ -40,7 +41,8 @@ const airlineResolver = {
             include: {
               staff: true,
               department: true,
-              prices: true
+              prices: true,
+              transferPrices: { include: { airports: true, cities: true } }
             },
             orderBy: { name: "asc" }
           })
@@ -56,8 +58,9 @@ const airlineResolver = {
           staff: true,
           department: true,
           logs: true,
-          prices: true, // включаем тарифы
-          airportOnAirlinePrice: true
+          prices: true,
+          airportOnAirlinePrice: true,
+          transferPrices: { include: { airports: true, cities: true } }
         }
       })
     },
@@ -96,11 +99,13 @@ const airlineResolver = {
       await adminMiddleware(context)
 
       const airlinePriceData = input.prices || []
+      const transferPricesData = input.transferPrices || []
+      const { prices: _prices, transferPrices: _transferPrices, ...airlineInput } = input
 
       // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
         data: {
-          ...input,
+          ...airlineInput,
           images: [],
           prices: {
             create: airlinePriceData.map((priceInput) => ({
@@ -113,12 +118,20 @@ const airlineResolver = {
                   : []
               }
             }))
+          },
+          transferPrices: {
+            create: transferPricesData.map((tp) => ({
+              prices: tp.prices,
+              airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+              cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+            }))
           }
         },
         include: {
           staff: true,
           department: true,
-          prices: true
+          prices: true,
+          transferPrices: { include: { airports: true, cities: true } }
         }
       })
 
@@ -157,11 +170,21 @@ const airlineResolver = {
         airlineId: updatedAirline.id
       })
 
-      pubsub.publish(AIRLINE_CREATED, { airlineCreated: updatedAirline })
+      const airlineForReturn = await prisma.airline.findUnique({
+        where: { id: createdAirline.id },
+        include: {
+          staff: true,
+          department: true,
+          prices: true,
+          transferPrices: { include: { airports: true, cities: true } }
+        }
+      })
 
-      return updatedAirline
+      pubsub.publish(AIRLINE_CREATED, { airlineCreated: airlineForReturn })
+
+      return airlineForReturn
     },
-    
+
     updateAirline: async (_, { id, input, images }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)
@@ -174,7 +197,7 @@ const airlineResolver = {
         }
       }
       // Извлекаем поля для обновления (например, department, staff, position и новые цены)
-      const { department, staff, prices, ...restInput } = input
+      const { department, staff, prices, transferPrices, ...restInput } = input
       try {
         const previousAirlineData = await prisma.airline.findUnique({
           where: { id }
@@ -246,6 +269,30 @@ const airlineResolver = {
                   })
                 }
               }
+            }
+          }
+        }
+
+        if (transferPrices) {
+          for (const tp of transferPrices) {
+            if (tp.id) {
+              await prisma.transferPrice.update({
+                where: { id: tp.id },
+                data: {
+                  prices: tp.prices,
+                  airports: { set: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                  cities: { set: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+                }
+              })
+            } else {
+              await prisma.transferPrice.create({
+                data: {
+                  airlineId: id,
+                  prices: tp.prices,
+                  airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
+                  cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+                }
+              })
             }
           }
         }
@@ -457,7 +504,12 @@ const airlineResolver = {
 
         const airlineWithRelations = await prisma.airline.findUnique({
           where: { id },
-          include: { department: true, staff: true, prices: true }
+          include: {
+            department: true,
+            staff: true,
+            prices: true,
+            transferPrices: { include: { airports: true, cities: true } }
+          }
         })
         await logAction({
           context,

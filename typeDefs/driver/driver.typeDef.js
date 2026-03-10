@@ -54,8 +54,10 @@ const driverTypeDef = /* GraphQL */ `
     refusalReason: String
     location: GeoPoint
     rating: Float
+    seats: Int
     transfers: [Transfer]
     transferMessages: [TransferMessage]
+    transferPrices: [TransferPrice!]
     active: Boolean
     online: Boolean
     role: Role
@@ -82,6 +84,8 @@ const driverTypeDef = /* GraphQL */ `
     driverLicenseIssueYear: Int
     extraEquipment: [String]
     organizationId: String
+    seats: Int
+    transferPrices: [TransferPriceInput!]
     # documents: DriverDocumentsUpdateInput
     registrationStatus: DriverRegistrationStatus
   }
@@ -98,9 +102,11 @@ const driverTypeDef = /* GraphQL */ `
     driverLicenseIssueYear: Int
     location: GeoPointInput
     rating: Float
+    seats: Int
     extraEquipment: [String]
     organizationId: String
     organizationConfirmed: Boolean
+    transferPrices: [TransferPriceInput!]
     # documents: DriverDocumentsUpdateInput
     registrationStatus: DriverRegistrationStatus
     refusalReason: String

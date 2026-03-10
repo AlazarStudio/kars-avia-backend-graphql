@@ -10,6 +10,7 @@ const organizationTypeDef = /* GraphQL */ `
     images: [String]
     drivers: [Driver!]!
     active: Boolean!
+    transferPrices: [TransferPrice!]
   }
 
   input OrganizationPaginationInput {
@@ -27,11 +28,13 @@ const organizationTypeDef = /* GraphQL */ `
   input OrganizationInput {
     name: String!
     information: InformationInput
+    transferPrices: [TransferPriceInput!]
   }
 
   input UpdateOrganizationInput {
     name: String
     information: InformationInput
+    transferPrices: [TransferPriceInput!]
   }
 
   type Query {

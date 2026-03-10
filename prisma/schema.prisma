@@ -194,6 +194,7 @@ model Airport {
   hotel                 Hotel[]
   airportOnAirlinePrice AirportOnAirlinePrice[]
   passengerRequests     PassengerRequest[]
+  transferPrices        TransferPrice[]
 }
 
 model City {
@@ -202,6 +203,7 @@ model City {
   region                String
   hotelContract         hotelContract[]
   organizationContracts organizationContract[]
+  transferPrices        TransferPrice[]
 }
 
 model Notification {
@@ -284,6 +286,7 @@ model Airline {
   passengerRequests     PassengerRequest[]
   transfers             Transfer[]
   externalUsers         ExternalUser[]
+  transferPrices        TransferPrice[]
 }
 
 model AirlineDepartment {
@@ -1195,6 +1198,7 @@ model Driver {
   driverLicenseNumber    String?
   driverLicenseIssueYear Int?
   extraEquipment         String[] // доп. оборудование
+  seats                  Int? // количество мест в автомобиле
   organization           Organization?            @relation(fields: [organizationId], references: [id])
   organizationId         String?                  @db.ObjectId
   organizationConfirmed  Boolean?
@@ -1211,6 +1215,7 @@ model Driver {
   TransferReview         TransferReview[]
   TransferChat           TransferChat[]
   TransferMessageRead    TransferMessageRead[]
+  transferPrices         TransferPrice[]
 }
 
 // --- Organization
@@ -1223,6 +1228,7 @@ model Organization {
   active                Boolean                @default(true)
   organizationContracts organizationContract[]
   externalUsers         ExternalUser[]
+  transferPrices        TransferPrice[]
 }
 
 // --- Transfer (заявка)
@@ -1378,6 +1384,7 @@ model TransferReview {
 }
 
 // Transfer ---------------- ↑↑↑↑
+
 // User ---------------- ↓↓↓↓ 
 
 model device_tokens {
@@ -1569,3 +1576,38 @@ model User {
 }
 
 // User ---------------- ↑↑↑↑
+
+// Misc ---------------- ↓↓↓↓ 
+
+type TransferRoutePrices {
+  intercity Float? @default(0) // межгородний
+  city      Float? @default(0) // городской
+}
+
+type TransferPrices {
+  threeSeater TransferRoutePrices? // 3-местный
+  fiveSeater  TransferRoutePrices? // 5-местный
+  sevenSeater TransferRoutePrices? // 7-местный
+}
+
+model TransferPrice {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  prices TransferPrices // вложенный тип цен
+
+  // Опциональные связи
+  airline        Airline?      @relation(fields: [airlineId], references: [id], onDelete: SetNull)
+  airlineId      String?       @db.ObjectId
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId String?       @db.ObjectId
+  driver         Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  driverId       String?       @db.ObjectId
+
+  // Опциональная привязка к географии
+  airports Airport[]
+  cities   City[]
+}
+
+// Misc ---------------- ↑↑↑↑

@@ -202,6 +202,47 @@ const globalTypeDef = /* GraphQL */ `
     airport: Airport
   }
 
+  type TransferRoutePrices {
+    intercity: Float
+    city: Float
+  }
+
+  type TransferPrices {
+    threeSeater: TransferRoutePrices
+    fiveSeater: TransferRoutePrices
+    sevenSeater: TransferRoutePrices
+  }
+
+  type TransferPrice {
+    id: ID!
+    createdAt: Date
+    updatedAt: Date
+    prices: TransferPrices
+    airline: Airline
+    organization: Organization
+    driver: Driver
+    airports: [Airport]
+    cities: [City]
+  }
+
+  input TransferRoutePricesInput {
+    intercity: Float
+    city: Float
+  }
+
+  input TransferPricesInput {
+    threeSeater: TransferRoutePricesInput
+    fiveSeater: TransferRoutePricesInput
+    sevenSeater: TransferRoutePricesInput
+  }
+
+  input TransferPriceInput {
+    id: ID
+    prices: TransferPricesInput!
+    airportIds: [ID!]
+    cityIds: [ID!]
+  }
+
   type File {
     filename: String!
     mimetype: String!
