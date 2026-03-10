@@ -8,9 +8,9 @@ import cityResolver from "./city/city.resolver.js"
 import contractResolver from "./contract/contract.resolver.js"
 import dispatcherResolver from "./dispatcher/dispatcher.resolver.js"
 import documentationResolver from "./documentation/documentation.resolver.js"
+import driverResolver from "./driver/driver.resolver.js"
 import externalAuthResolver from "./externalAuth/externalAuth.resolver.js"
 import filePathsResolver from "./filePaths/filePaths.resolver.js"
-import driverResolver from "./driver/driver.resolver.js"
 import globalResolver from "./global/global.resolver.js"
 import hotelResolver from "./hotel/hotel.resolver.js"
 import logResolver from "./log/log.resolver.js"
@@ -32,8 +32,8 @@ const mergedResolvers = mergeResolvers([
   contractResolver,
   dispatcherResolver,
   documentationResolver,
-  externalAuthResolver,
   driverResolver,
+  externalAuthResolver,
   filePathsResolver,
   globalResolver,
   hotelResolver,

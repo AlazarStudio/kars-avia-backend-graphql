@@ -32,6 +32,7 @@ const driverResolver = {
                   cityOnTransferPrice: { include: { city: true } }
                 }
               }
+            }
           })
         : await prisma.driver.findMany({
             where: { active: true },
@@ -45,6 +46,7 @@ const driverResolver = {
                   cityOnTransferPrice: { include: { city: true } }
                 }
               }
+            }
           })
 
       // const moscowDates = []
@@ -269,11 +271,11 @@ const driverResolver = {
         include: {
           organization: true,
           transferPrices: {
-              include: {
-                airportOnTransferPrice: { include: { airport: true } },
-                cityOnTransferPrice: { include: { city: true } }
-              }
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
             }
+          }
         }
       })
 
@@ -455,11 +457,11 @@ const driverResolver = {
         include: {
           organization: true,
           transferPrices: {
-              include: {
-                airportOnTransferPrice: { include: { airport: true } },
-                cityOnTransferPrice: { include: { city: true } }
-              }
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
             }
+          }
         }
       })
 
