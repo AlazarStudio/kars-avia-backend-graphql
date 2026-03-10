@@ -194,7 +194,7 @@ model Airport {
   hotel                 Hotel[]
   airportOnAirlinePrice AirportOnAirlinePrice[]
   passengerRequests     PassengerRequest[]
-  transferPrices        TransferPrice[]
+  airportOnTransferPrice AirportOnTransferPrice[]
 }
 
 model City {
@@ -203,7 +203,7 @@ model City {
   region                String
   hotelContract         hotelContract[]
   organizationContracts organizationContract[]
-  transferPrices        TransferPrice[]
+  cityOnTransferPrice   CityOnTransferPrice[]
 }
 
 model Notification {
@@ -1605,9 +1605,33 @@ model TransferPrice {
   driver         Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
   driverId       String?       @db.ObjectId
 
-  // Опциональная привязка к географии
-  airports Airport[]
-  cities   City[]
+  // Опциональная привязка к географии (через join-модели для MongoDB)
+  airportOnTransferPrice AirportOnTransferPrice[]
+  cityOnTransferPrice    CityOnTransferPrice[]
+}
+
+model AirportOnTransferPrice {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  transferPrice   TransferPrice @relation(fields: [transferPriceId], references: [id], onDelete: Cascade)
+  transferPriceId String       @db.ObjectId
+  airport         Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
+  airportId       String        @db.ObjectId
+
+  @@unique([transferPriceId, airportId])
+}
+
+model CityOnTransferPrice {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  transferPrice   TransferPrice @relation(fields: [transferPriceId], references: [id], onDelete: Cascade)
+  transferPriceId String        @db.ObjectId
+  city            City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId          String        @db.ObjectId
+
+  @@unique([transferPriceId, cityId])
 }
 
 // Misc ---------------- ↑↑↑↑

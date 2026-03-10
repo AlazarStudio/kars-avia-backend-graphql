@@ -26,8 +26,12 @@ const driverResolver = {
             where: { active: true },
             include: {
               organization: true,
-              transferPrices: { include: { airports: true, cities: true } }
-            }
+              transferPrices: {
+                include: {
+                  airportOnTransferPrice: { include: { airport: true } },
+                  cityOnTransferPrice: { include: { city: true } }
+                }
+              }
           })
         : await prisma.driver.findMany({
             where: { active: true },
@@ -35,8 +39,12 @@ const driverResolver = {
             take: take,
             include: {
               organization: true,
-              transferPrices: { include: { airports: true, cities: true } }
-            }
+              transferPrices: {
+                include: {
+                  airportOnTransferPrice: { include: { airport: true } },
+                  cityOnTransferPrice: { include: { city: true } }
+                }
+              }
           })
 
       // const moscowDates = []
@@ -62,7 +70,12 @@ const driverResolver = {
           where: { id: id },
           include: {
             organization: true,
-            transferPrices: { include: { airports: true, cities: true } }
+            transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
           }
         })
         // const moscowDate = {}
@@ -83,7 +96,12 @@ const driverResolver = {
           where: { email: email },
           include: {
             organization: true,
-            transferPrices: { include: { airports: true, cities: true } }
+            transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
           }
         })
 
@@ -231,8 +249,16 @@ const driverResolver = {
             data: {
               driverId: newDriver.id,
               prices: tp.prices,
-              airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-              cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              airportOnTransferPrice: {
+                create: (tp.airportIds || []).map((airportId) => ({
+                  airport: { connect: { id: airportId } }
+                }))
+              },
+              cityOnTransferPrice: {
+                create: (tp.cityIds || []).map((cityId) => ({
+                  city: { connect: { id: cityId } }
+                }))
+              }
             }
           })
         }
@@ -242,7 +268,12 @@ const driverResolver = {
         where: { id: newDriver.id },
         include: {
           organization: true,
-          transferPrices: { include: { airports: true, cities: true } }
+          transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
         }
       })
 
@@ -376,19 +407,43 @@ const driverResolver = {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
-              data: {
-                prices: tp.prices,
-                airports: { set: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-                cities: { set: (tp.cityIds || []).map((cid) => ({ id: cid })) }
-              }
+              data: { prices: tp.prices }
             })
+            await prisma.airportOnTransferPrice.deleteMany({
+              where: { transferPriceId: tp.id }
+            })
+            await prisma.cityOnTransferPrice.deleteMany({
+              where: { transferPriceId: tp.id }
+            })
+            if (tp.airportIds?.length) {
+              for (const airportId of tp.airportIds) {
+                await prisma.airportOnTransferPrice.create({
+                  data: { transferPriceId: tp.id, airportId }
+                })
+              }
+            }
+            if (tp.cityIds?.length) {
+              for (const cityId of tp.cityIds) {
+                await prisma.cityOnTransferPrice.create({
+                  data: { transferPriceId: tp.id, cityId }
+                })
+              }
+            }
           } else {
             await prisma.transferPrice.create({
               data: {
                 driverId: id,
                 prices: tp.prices,
-                airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-                cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+                airportOnTransferPrice: {
+                  create: (tp.airportIds || []).map((airportId) => ({
+                    airport: { connect: { id: airportId } }
+                  }))
+                },
+                cityOnTransferPrice: {
+                  create: (tp.cityIds || []).map((cityId) => ({
+                    city: { connect: { id: cityId } }
+                  }))
+                }
               }
             })
           }
@@ -399,7 +454,12 @@ const driverResolver = {
         where: { id },
         include: {
           organization: true,
-          transferPrices: { include: { airports: true, cities: true } }
+          transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
         }
       })
 

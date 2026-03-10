@@ -30,7 +30,14 @@ const organizationResolver = {
             }),
 
         orderBy: { information: { city: "asc" } },
-        include: { transferPrices: { include: { airports: true, cities: true } } }
+        include: {
+          transferPrices: {
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
+            }
+          }
+        }
       })
 
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
@@ -42,7 +49,12 @@ const organizationResolver = {
         return await prisma.organization.findUnique({
           where: { id: id },
           include: {
-            transferPrices: { include: { airports: true, cities: true } }
+            transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
           }
         })
       } catch {
@@ -88,8 +100,16 @@ const organizationResolver = {
             data: {
               organizationId: newOrganization.id,
               prices: tp.prices,
-              airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-              cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+              airportOnTransferPrice: {
+                create: (tp.airportIds || []).map((airportId) => ({
+                  airport: { connect: { id: airportId } }
+                }))
+              },
+              cityOnTransferPrice: {
+                create: (tp.cityIds || []).map((cityId) => ({
+                  city: { connect: { id: cityId } }
+                }))
+              }
             }
           })
         }
@@ -98,7 +118,12 @@ const organizationResolver = {
       const orgWithRelations = await prisma.organization.findUnique({
         where: { id: newOrganization.id },
         include: {
-          transferPrices: { include: { airports: true, cities: true } }
+          transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
         }
       })
 
@@ -151,19 +176,43 @@ const organizationResolver = {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
-              data: {
-                prices: tp.prices,
-                airports: { set: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-                cities: { set: (tp.cityIds || []).map((cid) => ({ id: cid })) }
-              }
+              data: { prices: tp.prices }
             })
+            await prisma.airportOnTransferPrice.deleteMany({
+              where: { transferPriceId: tp.id }
+            })
+            await prisma.cityOnTransferPrice.deleteMany({
+              where: { transferPriceId: tp.id }
+            })
+            if (tp.airportIds?.length) {
+              for (const airportId of tp.airportIds) {
+                await prisma.airportOnTransferPrice.create({
+                  data: { transferPriceId: tp.id, airportId }
+                })
+              }
+            }
+            if (tp.cityIds?.length) {
+              for (const cityId of tp.cityIds) {
+                await prisma.cityOnTransferPrice.create({
+                  data: { transferPriceId: tp.id, cityId }
+                })
+              }
+            }
           } else {
             await prisma.transferPrice.create({
               data: {
                 organizationId: id,
                 prices: tp.prices,
-                airports: { connect: (tp.airportIds || []).map((aid) => ({ id: aid })) },
-                cities: { connect: (tp.cityIds || []).map((cid) => ({ id: cid })) }
+                airportOnTransferPrice: {
+                  create: (tp.airportIds || []).map((airportId) => ({
+                    airport: { connect: { id: airportId } }
+                  }))
+                },
+                cityOnTransferPrice: {
+                  create: (tp.cityIds || []).map((cityId) => ({
+                    city: { connect: { id: cityId } }
+                  }))
+                }
               }
             })
           }
@@ -173,7 +222,12 @@ const organizationResolver = {
       const orgWithRelations = await prisma.organization.findUnique({
         where: { id },
         include: {
-          transferPrices: { include: { airports: true, cities: true } }
+          transferPrices: {
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
+            }
         }
       })
 

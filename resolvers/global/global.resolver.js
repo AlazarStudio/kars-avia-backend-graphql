@@ -285,7 +285,27 @@ const globalResolver = {
     driver: (parent) =>
       parent.driverId
         ? prisma.driver.findUnique({ where: { id: parent.driverId } })
-        : null
+        : null,
+    airports: async (parent) => {
+      if (parent.airportOnTransferPrice) {
+        return parent.airportOnTransferPrice.map((j) => j.airport)
+      }
+      const joins = await prisma.airportOnTransferPrice.findMany({
+        where: { transferPriceId: parent.id },
+        include: { airport: true }
+      })
+      return joins.map((j) => j.airport)
+    },
+    cities: async (parent) => {
+      if (parent.cityOnTransferPrice) {
+        return parent.cityOnTransferPrice.map((j) => j.city)
+      }
+      const joins = await prisma.cityOnTransferPrice.findMany({
+        where: { transferPriceId: parent.id },
+        include: { city: true }
+      })
+      return joins.map((j) => j.city)
+    }
   }
 }
 
