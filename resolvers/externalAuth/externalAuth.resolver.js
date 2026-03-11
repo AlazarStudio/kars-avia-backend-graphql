@@ -51,6 +51,61 @@ const validatePassengerServiceHotelItem = async ({
   }
 }
 
+const updatePassengerServiceHotelLink = async ({
+  passengerRequestId,
+  passengerServiceHotelItemId,
+  link
+}) => {
+  if (!passengerServiceHotelItemId) {
+    return
+  }
+
+  const passengerRequest = await prisma.passengerRequest.findUnique({
+    where: { id: passengerRequestId },
+    select: { id: true, livingService: true }
+  })
+
+  if (!passengerRequest) {
+    throw new Error("PassengerRequest not found")
+  }
+
+  const livingService = passengerRequest.livingService || {
+    plan: null,
+    status: "NEW",
+    times: null,
+    hotels: [],
+    evictions: []
+  }
+  const hotels = livingService.hotels || []
+  let itemUpdated = false
+
+  const updatedHotels = hotels.map((hotel) => {
+    if (hotel?.itemId !== passengerServiceHotelItemId) {
+      return hotel
+    }
+
+    itemUpdated = true
+    return {
+      ...hotel,
+      link
+    }
+  })
+
+  if (!itemUpdated) {
+    throw new Error("PassengerServiceHotel item not found")
+  }
+
+  await prisma.passengerRequest.update({
+    where: { id: passengerRequestId },
+    data: {
+      livingService: {
+        ...livingService,
+        hotels: updatedHotels
+      }
+    }
+  })
+}
+
 const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) => {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_TTL_MS)
@@ -437,6 +492,12 @@ const externalAuthResolver = {
           createdByAdminId: adminId
         })
 
+      await updatePassengerServiceHotelLink({
+        passengerRequestId: passengerExternalUser.passengerRequestId,
+        passengerServiceHotelItemId: passengerExternalUser.passengerServiceHotelItemId,
+        link: magicLinkUrl
+      })
+
       let emailed = true
       try {
         await sendExternalMagicLinkEmail({
@@ -568,6 +629,12 @@ const externalAuthResolver = {
           passengerRequestExternalUserId: id,
           createdByAdminId: adminId
         })
+
+      await updatePassengerServiceHotelLink({
+        passengerRequestId: user.passengerRequestId,
+        passengerServiceHotelItemId: user.passengerServiceHotelItemId,
+        link: magicLinkUrl
+      })
 
       let emailed = true
       try {
