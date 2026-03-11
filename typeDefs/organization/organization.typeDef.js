@@ -55,6 +55,7 @@ const organizationTypeDef = /* GraphQL */ `
       images: [Upload!]
     ): Organization!
     deleteOrganization(id: ID!): Organization!
+    deleteOrganizationTransferPrice(id: ID!): Boolean!
     #добавить Update Delete
   }
 

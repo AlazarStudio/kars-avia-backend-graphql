@@ -19,6 +19,19 @@ import {
   buildOrderBy
 } from "../../services/contract/contractFilters.js"
 
+const deleteContractAndAgreementFiles = async (contract) => {
+  const filePaths = [
+    ...(contract?.files || []),
+    ...(contract?.additionalAgreements || []).flatMap(
+      (agreement) => agreement.files || []
+    )
+  ]
+
+  for (const filePath of filePaths) {
+    await deleteFiles(filePath)
+  }
+}
+
 const contractResolver = {
   Query: {
     // AIRLINE
@@ -212,14 +225,21 @@ const contractResolver = {
 
     deleteAirlineContract: async (_, { id }) => {
       const contract = await prisma.airlineContract.findUnique({
-        where: { id }
+        where: { id },
+        include: { additionalAgreements: true }
       })
-      if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.files) {
-          await deleteFiles(filePath)
-        }
-      }
-      await prisma.airlineContract.delete({ where: { id } })
+
+      if (!contract) return true
+
+      await deleteContractAndAgreementFiles(contract)
+
+      await prisma.$transaction([
+        prisma.additionalAgreement.deleteMany({
+          where: { airlineContractId: id }
+        }),
+        prisma.airlineContract.delete({ where: { id } })
+      ])
+
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
       return true
     },
@@ -324,14 +344,26 @@ const contractResolver = {
 
     deleteHotelContract: async (_, { id }) => {
       const contract = await prisma.hotelContract.findUnique({
-        where: { id }
+        where: { id },
+        include: { additionalAgreement: true }
       })
-      if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.files) {
-          await deleteFiles(filePath)
-        }
+
+      if (!contract) return true
+
+      const contractWithNormalizedRelations = {
+        ...contract,
+        additionalAgreements: contract.additionalAgreement || []
       }
-      await prisma.hotelContract.delete({ where: { id } })
+
+      await deleteContractAndAgreementFiles(contractWithNormalizedRelations)
+
+      await prisma.$transaction([
+        prisma.additionalAgreement.deleteMany({
+          where: { hotelContractId: id }
+        }),
+        prisma.hotelContract.delete({ where: { id } })
+      ])
+
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
       return true
     },
@@ -415,16 +447,25 @@ const contractResolver = {
 
     deleteOrganizationContract: async (_, { id }) => {
       const contract = await prisma.organizationContract.findUnique({
-        where: { id }
+        where: { id },
+        include: { additionalAgreement: true }
       })
 
-      if (contract?.files?.length) {
-        for (const filePath of contract.files) {
-          await deleteFiles(filePath)
-        }
+      if (!contract) return true
+
+      const contractWithNormalizedRelations = {
+        ...contract,
+        additionalAgreements: contract.additionalAgreement || []
       }
 
-      await prisma.organizationContract.delete({ where: { id } })
+      await deleteContractAndAgreementFiles(contractWithNormalizedRelations)
+
+      await prisma.$transaction([
+        prisma.additionalAgreement.deleteMany({
+          where: { organizationContractId: id }
+        }),
+        prisma.organizationContract.delete({ where: { id } })
+      ])
 
       pubsub.publish(CONTRACT_ORGANIZATION, {
         contractOrganization: contract

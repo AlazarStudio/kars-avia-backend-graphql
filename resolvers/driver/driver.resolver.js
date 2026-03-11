@@ -542,6 +542,45 @@ const driverResolver = {
       } catch {
         return new Error("Было введено не корректное ID или не существующее ID")
       }
+    },
+    deleteDriverTransferPrice: async (_, { id }) => {
+      const transferPrice = await prisma.transferPrice.findUnique({
+        where: { id },
+        select: { id: true, driverId: true }
+      })
+
+      if (!transferPrice?.driverId) {
+        return false
+      }
+
+      await prisma.$transaction([
+        prisma.airportOnTransferPrice.deleteMany({
+          where: { transferPriceId: id }
+        }),
+        prisma.cityOnTransferPrice.deleteMany({
+          where: { transferPriceId: id }
+        }),
+        prisma.transferPrice.delete({ where: { id } })
+      ])
+
+      const driverWithRelations = await prisma.driver.findUnique({
+        where: { id: transferPrice.driverId },
+        include: {
+          organization: true,
+          transferPrices: {
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
+            }
+          }
+        }
+      })
+
+      if (driverWithRelations) {
+        pubsub.publish(DRIVER_UPDATED, { driverUpdated: driverWithRelations })
+      }
+
+      return true
     }
   },
   Subscription: {

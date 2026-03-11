@@ -332,6 +332,39 @@ const dispatcherResolver = {
 
       return priceCategory
     },
+    deletePriceCategory: async (_, { id }, context) => {
+      await allMiddleware(context)
+
+      const priceCategory = await prisma.priceCategory.findUnique({
+        where: { id },
+        include: {
+          airline: true,
+          hotel: true,
+          company: true,
+          airlinePrices: true
+        }
+      })
+
+      if (!priceCategory) {
+        return false
+      }
+
+      await prisma.$transaction([
+        prisma.airlinePrice.updateMany({
+          where: { airlinePriceCategoryId: id },
+          data: { airlinePriceCategoryId: null }
+        }),
+        prisma.priceCategory.delete({
+          where: { id }
+        })
+      ])
+
+      pubsub.publish(PRICECATEGORY_CHANGED, {
+        priceCategoryChanged: priceCategory
+      })
+
+      return true
+    },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context)
       const { name, separator } = input

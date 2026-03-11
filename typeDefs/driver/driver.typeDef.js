@@ -169,6 +169,7 @@ const driverTypeDef = /* GraphQL */ `
     # transferSignIn(input: transferSignInput): DriverAuthPayload!
     updateDriverDocuments(id: ID!, input: DriverDocumentsUpdateInput!): Driver!
     deleteDriver(id: ID!): Driver!
+    deleteDriverTransferPrice(id: ID!): Boolean!
 
     #Создать typeDef И resolvers для transferMessage
   }

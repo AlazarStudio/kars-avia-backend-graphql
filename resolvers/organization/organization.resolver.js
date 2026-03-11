@@ -250,6 +250,46 @@ const organizationResolver = {
       } catch {
         return new Error("Некорректное ID")
       }
+    },
+    deleteOrganizationTransferPrice: async (_, { id }) => {
+      const transferPrice = await prisma.transferPrice.findUnique({
+        where: { id },
+        select: { id: true, organizationId: true }
+      })
+
+      if (!transferPrice?.organizationId) {
+        return false
+      }
+
+      await prisma.$transaction([
+        prisma.airportOnTransferPrice.deleteMany({
+          where: { transferPriceId: id }
+        }),
+        prisma.cityOnTransferPrice.deleteMany({
+          where: { transferPriceId: id }
+        }),
+        prisma.transferPrice.delete({ where: { id } })
+      ])
+
+      const orgWithRelations = await prisma.organization.findUnique({
+        where: { id: transferPrice.organizationId },
+        include: {
+          transferPrices: {
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
+            }
+          }
+        }
+      })
+
+      if (orgWithRelations) {
+        pubsub.publish(ORGANIZATION_CREATED, {
+          organizationCreated: orgWithRelations
+        })
+      }
+
+      return true
     }
   },
   Subscription: {

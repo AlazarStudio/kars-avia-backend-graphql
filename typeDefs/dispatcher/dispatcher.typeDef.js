@@ -226,6 +226,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     updateCompany(input: CompanyInput): Company
     createPriceCategory(input: PriceCategoryInput): PriceCategory
     updatePriceCategory(input: PriceCategoryInput): PriceCategory
+    deletePriceCategory(id: ID!): Boolean!
     createPosition(input: PositionInput): Position
     updatePosition(input: PositionInput): Position
     allDataUpdate: Boolean

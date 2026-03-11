@@ -713,6 +713,49 @@ const airlineResolver = {
         airlineUpdated: airlineWithRelations
       })
       return airlineWithRelations
+    },
+
+    deleteAirlinePrice: async (_, { id }, context) => {
+      await airlineAdminMiddleware(context)
+
+      const price = await prisma.airlinePrice.findUnique({
+        where: { id },
+        select: { id: true, airlineId: true }
+      })
+
+      if (!price?.airlineId) {
+        return false
+      }
+
+      await prisma.$transaction([
+        prisma.airportOnAirlinePrice.deleteMany({
+          where: { airlinePriceId: id }
+        }),
+        prisma.airlinePrice.delete({ where: { id } })
+      ])
+
+      const airlineWithRelations = await prisma.airline.findUnique({
+        where: { id: price.airlineId },
+        include: {
+          department: true,
+          staff: true,
+          prices: true,
+          transferPrices: {
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
+            }
+          }
+        }
+      })
+
+      if (airlineWithRelations) {
+        pubsub.publish(AIRLINE_UPDATED, {
+          airlineUpdated: airlineWithRelations
+        })
+      }
+
+      return true
     }
   },
 
