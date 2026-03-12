@@ -111,6 +111,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
+    addressFrom: String
+    addressTo: String
   }
 
   type PassengerLivingService {
@@ -260,6 +262,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
+    addressFrom: String
+    addressTo: String
   }
 
   input PassengerRequestHotelReportRowInput {
