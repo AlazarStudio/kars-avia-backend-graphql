@@ -143,6 +143,7 @@ const airlineTypeDef = /* GraphQL */ `
     deleteAirlineDepartment(id: ID!): AirlineDepartment!
     deleteAirlineStaff(id: ID!): AirlinePersonal!
     deleteAirlinePrice(id: ID!): Boolean!
+    deleteAirlineTransferPrice(id: ID!): Boolean!
   }
 
   type Subscription {
