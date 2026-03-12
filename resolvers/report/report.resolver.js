@@ -6,6 +6,7 @@ import {
 import path from "path"
 import fs from "fs"
 import {
+  allMiddleware,
   adminMiddleware,
   airlineAdminMiddleware,
   hotelAdminMiddleware
@@ -82,7 +83,7 @@ const reportResolver = {
 
     getHotelReport: async (_, { filter }, context) => {
       const { user } = context
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
 
       const separator = user.hotelId ? "hotel" : "dispatcher"
 
@@ -426,7 +427,7 @@ const reportResolver = {
         await airlineAdminMiddleware(context)
       }
       if (report.separator === "hotel") {
-        hotelAdminMiddleware(context)
+        await hotelAdminMiddleware(context)
       }
       if (report.url) {
         await deleteFiles(report.url)
@@ -441,7 +442,12 @@ const reportResolver = {
     reportCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([REPORT_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

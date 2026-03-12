@@ -20,7 +20,7 @@ const airlineResolver = {
 
   Query: {
     airlines: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.airline.count({ where: { active: true } })
       const airlines = all
@@ -61,7 +61,7 @@ const airlineResolver = {
     },
 
     airline: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.airline.findUnique({
         where: { id },
         include: {
@@ -81,7 +81,7 @@ const airlineResolver = {
     },
 
     airlineStaff: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.airlinePersonal.findUnique({
         where: { id },
         include: { hotelChess: true, position: true }
@@ -89,7 +89,7 @@ const airlineResolver = {
     },
 
     airlineStaffs: async (_, { id, city }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // add pagination
 
       return await prisma.airlinePersonal.findMany({
@@ -100,7 +100,7 @@ const airlineResolver = {
     },
 
     airlineDepartment: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       return await prisma.airlineDepartment.findUnique({
         where: { id }
@@ -604,6 +604,7 @@ const airlineResolver = {
     },
 
     updateAirlinePerson: async (_, { id, input, images }, context) => {
+      await airlineAdminMiddleware(context)
       const { email, password, oldPassword, name, number } = input
       const currentUser = await prisma.airlinePersonal.findUnique({
         where: { id }
@@ -809,7 +810,12 @@ const airlineResolver = {
     airlineCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -832,7 +838,12 @@ const airlineResolver = {
     airlineUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_UPDATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

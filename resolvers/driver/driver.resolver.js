@@ -12,13 +12,15 @@ import {
 import { withFilter } from "graphql-subscriptions"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 // import { errorMonitor } from "ws"
 
 const driverResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    drivers: async (_, { pagination }) => {
+    drivers: async (_, { pagination }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.driver.count({ where: { active: true } })
       const drivers = all
@@ -66,7 +68,8 @@ const driverResolver = {
 
       return { drivers, totalCount, totalPages }
     },
-    driverById: async (_, { id }) => {
+    driverById: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { id: id },
@@ -92,7 +95,8 @@ const driverResolver = {
         return new Error("Было введено некорректное ID или не существующее ID")
       }
     },
-    driverByEmail: async (_, { email }) => {
+    driverByEmail: async (_, { email }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { email: email },
@@ -133,8 +137,10 @@ const driverResolver = {
         ptsPhoto,
         osagoPhoto,
         licensePhoto
-      }
+      },
+      context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         name,
         number,
@@ -295,8 +301,10 @@ const driverResolver = {
         ptsPhoto,
         osagoPhoto,
         licensePhoto
-      }
+      },
+      context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const updatedData = {}
 
       const currentDriver = await prisma.driver.findUnique({
@@ -499,7 +507,8 @@ const driverResolver = {
     //   }
     // },
 
-    updateDriverDocuments: async (_, { id, documents }) => {
+    updateDriverDocuments: async (_, { id, documents }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const setDocs = await uploadFiles(documents)
       await prisma.driver.update({
         where: { id },
@@ -523,7 +532,8 @@ const driverResolver = {
 
       return driverWithUpdatedDocs
     },
-    deleteDriver: async (_, { id }) => {
+    deleteDriver: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const deletedDriver = await prisma.driver.delete({
           where: { id: id }
@@ -543,7 +553,8 @@ const driverResolver = {
         return new Error("Было введено не корректное ID или не существующее ID")
       }
     },
-    deleteDriverTransferPrice: async (_, { id }) => {
+    deleteDriverTransferPrice: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const transferPrice = await prisma.transferPrice.findUnique({
         where: { id },
         select: { id: true, driverId: true }
@@ -587,7 +598,12 @@ const driverResolver = {
     driverCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject) return false
@@ -613,7 +629,12 @@ const driverResolver = {
     driverUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_UPDATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject) return false

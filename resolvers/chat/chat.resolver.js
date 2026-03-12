@@ -18,7 +18,7 @@ const chatResolver = {
     // Возвращает чаты по указанным параметрам: requestId или reserveId.
     // Если передан reserveId, дополнительно проверяется наличие hotelId у пользователя.
     chat: async (_, { chatId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -63,7 +63,7 @@ const chatResolver = {
       return chat
     },
     chats: async (_, { requestId, reserveId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Извлекаем идентификатор отеля из контекста пользователя
       const hotelId = context.user.hotelId
       // Инициализируем условие запроса с массивом для OR-условий
@@ -98,7 +98,7 @@ const chatResolver = {
     // Возвращает список сообщений для заданного чата (chatId),
     // которые ещё не прочитаны указанным пользователем (userId).
     unreadMessages: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const unreadMessages = await prisma.message.findMany({
         where: {
           chatId,
@@ -133,7 +133,7 @@ const chatResolver = {
     // Сначала извлекаются все сообщения чата, затем – сообщения, которые пользователь уже прочитал,
     // и, наконец, вычисляется разница.
     unreadMessagesCount: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const unreadMessages = await prisma.message.count({
         where: {
           chatId,
@@ -151,7 +151,7 @@ const chatResolver = {
 
     // Возвращает все сообщения для указанного чата с включением информации об отправителе.
     messages: async (_, { chatId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.message.findMany({
         where: { chatId },
         include: {
@@ -306,7 +306,7 @@ const chatResolver = {
     // },
 
     sendMessage: async (_, { chatId, senderId, text }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -528,7 +528,7 @@ const chatResolver = {
     // },
 
     markMessageAsRead: async (_, { messageId, userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const currentTime = new Date()
 
       // Обновляем статус прочтения конкретного сообщения
@@ -622,7 +622,7 @@ const chatResolver = {
     // },
 
     markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const currentTime = new Date()
 
       // Обновляем дату последнего прочтения сообщений для пользователя в данном чате
@@ -690,7 +690,7 @@ const chatResolver = {
     // Создает новый чат, связанный с конкретной заявкой (requestId),
     // и добавляет указанных пользователей (userIds) в качестве участников.
     createChat: async (_, { requestId, userIds }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Создаем чат, привязанный к заявке
       const chat = await prisma.chat.create({
         data: {
@@ -722,7 +722,12 @@ const chatResolver = {
     requestUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -761,7 +766,12 @@ const chatResolver = {
     reserveUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator(RESERVE_UPDATED),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -823,6 +833,11 @@ const chatResolver = {
       subscribe: withFilter(
         (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
         async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -897,14 +912,62 @@ const chatResolver = {
     // Подписка на событие получения нового непрочитанного сообщения для конкретного пользователя.
     // Имя события включает как chatId, так и userId.
     newUnreadMessage: {
-      subscribe: (_, { userId }) =>
-        pubsub.asyncIterator(`NEW_UNREAD_MESSAGE_${userId}`),
+      subscribe: withFilter(
+        (_, { userId }) => pubsub.asyncIterator(`NEW_UNREAD_MESSAGE_${userId}`),
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
+
+          const { subject, subjectType } = context
+          if (!subject || subjectType !== "USER") return false
+
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          return subject.id === variables.userId
+        }
+      ),
       resolve: (payload) => payload.newUnreadMessage
     },
     // Подписка на событие, когда сообщение помечено как прочитанное.
     messageRead: {
-      subscribe: (_, { chatId }) =>
-        pubsub.asyncIterator(`MESSAGE_READ_${chatId}`),
+      subscribe: withFilter(
+        (_, { chatId }) => pubsub.asyncIterator(`MESSAGE_READ_${chatId}`),
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
+
+          const { subject, subjectType } = context
+          if (!subject || subjectType !== "USER") return false
+
+          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+            return true
+          }
+
+          const eventChatId = payload?.messageRead?.chatId || variables.chatId
+          if (!eventChatId || eventChatId !== variables.chatId) return false
+
+          const chat = await prisma.chat.findUnique({
+            where: { id: eventChatId }
+          })
+
+          if (!chat) return false
+          if (subject.airlineId && chat.airlineId === subject.airlineId) {
+            return true
+          }
+          if (subject.hotelId && chat.hotelId === subject.hotelId) {
+            return true
+          }
+          return false
+        }
+      ),
       resolve: (payload) => payload.messageRead
     }
     // notification — подписка с фильтром NotificationMenu в dispatcher.resolver.js

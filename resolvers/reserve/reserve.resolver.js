@@ -38,7 +38,7 @@ const reserveResolver = {
     // Получение списка резервов с пагинацией и фильтрацией по статусу.
     // Включаются связанные данные: airline, airport, пассажиры, hotel, hotelChess, chat, logs.
     reserves: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, status } = pagination
       // Если статус не указан или содержит "all", фильтр по статусу не применяется.
       const statusFilter =
@@ -124,7 +124,7 @@ const reserveResolver = {
 
     // Получение одного резерва по ID с включением всех связанных данных.
     reserve: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const reserve = await prisma.reserve.findUnique({
         where: { id },
         include: {
@@ -181,7 +181,7 @@ const reserveResolver = {
 
     // Получение списка резервных отелей (reserveHotel) для данного резерва по его ID.
     reservationHotels: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.reserveHotel.findMany({
         where: { reserveId: id },
         include: {
@@ -196,7 +196,7 @@ const reserveResolver = {
 
     // Получение одного резервного отеля (reserveHotel) по его ID.
     reservationHotel: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.reserveHotel.findUnique({
         where: { id },
         include: {
@@ -211,7 +211,7 @@ const reserveResolver = {
 
     // Получение списка пассажиров, связанных с резервом по ID резерва.
     reservationPassengers: async (_, { reservationId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.passenger.findMany({
         where: { reserveId: reservationId },
         include: {
@@ -625,7 +625,7 @@ const reserveResolver = {
       { reservationId, hotelId, capacity },
       context
     ) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       try {
         const reserveHotel = await prisma.reserveHotel.create({
@@ -698,7 +698,7 @@ const reserveResolver = {
       { reservationId, input, hotelId, capacity },
       context
     ) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const { name, number, gender, child, animal } = input
       const reserve = await prisma.reserve.findUnique({
@@ -754,7 +754,7 @@ const reserveResolver = {
     // Удаление пассажира из резерва.
     // После удаления возвращается обновленная информация о соответствующем reserveHotel.
     deletePassengerFromReserve: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const deletedPassenger = await prisma.passenger.delete({
         where: { id }
@@ -769,7 +769,7 @@ const reserveResolver = {
 
     // Генерация файла (например, Excel) с данными о пассажирах резерва.
     generateReservePassengerFile: async (_, { reserveId, format }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Получаем данные о резерве, включая информацию об отеле и пассажирах.
       const reserve = await prisma.reserve.findUnique({
         where: { id: reserveId },
@@ -866,7 +866,12 @@ const reserveResolver = {
     reserveCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -891,7 +896,12 @@ const reserveResolver = {
     reserveUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_UPDATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -924,7 +934,12 @@ const reserveResolver = {
     reserveHotel: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_HOTEL]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -956,7 +971,12 @@ const reserveResolver = {
     reservePersons: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_PERSONS]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

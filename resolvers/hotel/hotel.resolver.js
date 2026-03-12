@@ -54,7 +54,7 @@ const hotelResolver = {
     // Получение списка отелей с возможностью пагинации.
     // При запросе возвращаются отели с включением связанных комнат (rooms) и записей hotelChesses.
     hotels: async (_, { pagination, filter }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const { skip, take, all } = pagination || {}
 
@@ -97,7 +97,7 @@ const hotelResolver = {
     },
     // Получение данных одного отеля по его id с включением связанных комнат, hotelChesses и логов
     hotel: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -1063,7 +1063,7 @@ const hotelResolver = {
     },
 
     createManyRooms: async (_, { input }, context) => {
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
       const {
         hotelId,
         roomKindId,
@@ -1122,7 +1122,7 @@ const hotelResolver = {
       { id, imagesArray, imagesToDeleteArray },
       context
     ) => {
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
       const updatedRoomKind = await prisma.roomKind.update({
         where: { id },
         data: { images: imagesArray }
@@ -1140,7 +1140,7 @@ const hotelResolver = {
       { id, imagesArray, imagesToDeleteArray },
       context
     ) => {
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
       const updatedRoomKind = await prisma.hotel.update({
         where: { id },
         data: { gallery: imagesArray }
@@ -1197,7 +1197,7 @@ const hotelResolver = {
     // Проверяется доступ администратора отеля, затем комната удаляется,
     // обновляется подсчет комнат и производится логирование.
     deleteRoom: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
       const roomToDelete = await prisma.room.findUnique({
         where: { id }
       })
@@ -1231,7 +1231,7 @@ const hotelResolver = {
     },
 
     deleteRoomKind: async (_, { id }, context) => {
-      hotelAdminMiddleware(context)
+      await hotelAdminMiddleware(context)
       const roomToDelete = await prisma.roomKind.findUnique({
         where: { id }
       })
@@ -1250,7 +1250,7 @@ const hotelResolver = {
     },
 
     updateAllRoomKindCount: async (_, { __ }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const hotels = await prisma.hotel.findMany({
         select: { roomKind: true }
       })
@@ -1267,7 +1267,12 @@ const hotelResolver = {
     hotelCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -1291,7 +1296,12 @@ const hotelResolver = {
     hotelUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_UPDATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

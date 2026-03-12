@@ -23,7 +23,7 @@ import {
 const dispatcherResolver = {
   Query: {
     getAllCompany: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       return await prisma.company.findMany({
         include: {
@@ -32,7 +32,7 @@ const dispatcherResolver = {
       })
     },
     getCompany: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const company = await prisma.company.findUnique({
         where: { id },
@@ -50,7 +50,7 @@ const dispatcherResolver = {
       return company
     },
     // getAllPriceCategory: async (_, {}, context) => {
-    //   await allMiddleware(context)
+    //   await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
     //   return await prisma.priceCategory.findMany({
     //     include: {
     //       airline: true,
@@ -61,7 +61,7 @@ const dispatcherResolver = {
     //   })
     // },
     getAllPriceCategory: async (_, { filter }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const { companyId, airlineId, hotelId } = filter || {}
 
@@ -82,7 +82,7 @@ const dispatcherResolver = {
       })
     },
     getPriceCategory: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.priceCategory.findUnique({
         where: { id },
         include: {
@@ -94,7 +94,7 @@ const dispatcherResolver = {
       })
     },
     getAllNotifications: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const { skip, take, type, status } = pagination
       let filter
@@ -162,37 +162,37 @@ const dispatcherResolver = {
       return { totalPages, totalCount, notifications }
     },
     getAllPositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({})
     },
     getAirlinePositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({ where: { separator: "airline" } })
     },
     getAirlineUserPositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "airlineUser" }
       })
     },
     getHotelPositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({ where: { separator: "hotel" } })
     },
     getDispatcherPositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "dispatcher" }
       })
     },
     getTransferDispatcherPositions: async (_, {}, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "dispatcher", category: "transfer" }
       })
     },
     getPosition: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findUnique({ where: { id } })
     },
     dispatcherDepartments: async (_, { pagination }, context) => {
@@ -233,7 +233,7 @@ const dispatcherResolver = {
   },
   Mutation: {
     createCompany: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const company = await prisma.company.create({
         data: { ...input }
       })
@@ -243,7 +243,7 @@ const dispatcherResolver = {
       return company
     },
     updateCompany: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { id, ...data } = input // Убираем id из data
       const company = await prisma.company.update({
         where: { id },
@@ -255,7 +255,7 @@ const dispatcherResolver = {
       return company
     },
     createPriceCategory: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const data = {
         airlineId: input.airlineId || undefined,
@@ -289,7 +289,7 @@ const dispatcherResolver = {
       return priceCategory
     },
     updatePriceCategory: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const { id, airlineId, hotelId, companyId, name, airlinePrices } = input
 
@@ -333,7 +333,7 @@ const dispatcherResolver = {
       return priceCategory
     },
     deletePriceCategory: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const priceCategory = await prisma.priceCategory.findUnique({
         where: { id },
@@ -366,7 +366,7 @@ const dispatcherResolver = {
       return true
     },
     createPosition: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { name, separator } = input
       const position = await prisma.position.create({
         data: {
@@ -378,7 +378,7 @@ const dispatcherResolver = {
       return position
     },
     updatePosition: async (_, { input }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { name } = input
       const position = await prisma.position.update({
         where: { id: input.id },
@@ -553,6 +553,11 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([NOTIFICATION]),
         async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -600,7 +605,12 @@ const dispatcherResolver = {
     companyChanged: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([COMPANY_CHANGED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -613,7 +623,12 @@ const dispatcherResolver = {
     priceCategoryChanged: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PRICECATEGORY_CHANGED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -642,7 +657,12 @@ const dispatcherResolver = {
     dispatcherDepartmentCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -655,7 +675,12 @@ const dispatcherResolver = {
     dispatcherDepartmentUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_UPDATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

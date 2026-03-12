@@ -7,7 +7,7 @@ import { withFilter } from "graphql-subscriptions"
 const organizationResolver = {
   Query: {
     organizations: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const { skip, take, all } = pagination || {}
 
@@ -44,7 +44,8 @@ const organizationResolver = {
 
       return { organizations, totalCount, totalPages }
     },
-    organization: async (_, { id }) => {
+    organization: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         return await prisma.organization.findUnique({
           where: { id: id },
@@ -63,7 +64,8 @@ const organizationResolver = {
     }
   },
   Mutation: {
-    createOrganization: async (_, { input, images }) => {
+    createOrganization: async (_, { input, images }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { name, information, transferPrices: transferPricesInput } = input
 
       const existingOrganization = await prisma.organization.findFirst({
@@ -134,7 +136,8 @@ const organizationResolver = {
       return orgWithRelations
     },
 
-    updateOrganization: async (_, { id, input, images }) => {
+    updateOrganization: async (_, { id, input, images }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { transferPrices, ...restInput } = input
 
       const currentOrganization = await prisma.organization.findUnique({
@@ -237,7 +240,8 @@ const organizationResolver = {
 
       return orgWithRelations
     },
-    deleteOrganization: async (_, { id }) => {
+    deleteOrganization: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const deletedOrganization = await prisma.organization.update({
           where: { id: id },
@@ -251,7 +255,8 @@ const organizationResolver = {
         return new Error("Некорректное ID")
       }
     },
-    deleteOrganizationTransferPrice: async (_, { id }) => {
+    deleteOrganizationTransferPrice: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const transferPrice = await prisma.transferPrice.findUnique({
         where: { id },
         select: { id: true, organizationId: true }
@@ -296,7 +301,12 @@ const organizationResolver = {
     organizationCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([ORGANIZATION_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

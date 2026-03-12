@@ -4,7 +4,7 @@ import { prisma } from "../../prisma.js"
 const logResolver = {
   Query: {
     logs: async (_, { requestId, pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({

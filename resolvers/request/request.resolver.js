@@ -54,7 +54,7 @@ const requestResolver = {
     // Если у пользователя задан airlineId, добавляется фильтр по нему.
     // Исключаются архивные заявки (archive: true).
     requests: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const {
         skip = 0,
@@ -245,7 +245,7 @@ const requestResolver = {
     // Включает связанные данные: airline, airport, hotel, hotelChess, logs.
     // Если заявка имеет статус "created" и пользователь является диспетчером, статус обновляется на "opened".
     request: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const request = await prisma.request.findUnique({
         where: { id },
@@ -1188,7 +1188,12 @@ const requestResolver = {
     requestCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_CREATED),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -1214,7 +1219,12 @@ const requestResolver = {
     requestUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

@@ -5,7 +5,10 @@ import {
   updateTimes
 } from "../../services/passengerRequest/utils.js"
 import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
-import { representativeMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  allMiddleware,
+  representativeMiddleware
+} from "../../middlewares/authMiddleware.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
@@ -148,6 +151,7 @@ const passengerRequestResolvers = {
   // --------- запросы ---------
   Query: {
     passengerRequests: async (_, args, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { filter, skip, take } = args || {}
       const where = {}
 
@@ -174,14 +178,17 @@ const passengerRequestResolvers = {
       })
     },
 
-    passengerRequest: (_, { id }, context) =>
-      prisma.passengerRequest.findUnique({ where: { id } })
+    passengerRequest: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      return prisma.passengerRequest.findUnique({ where: { id } })
+    }
   },
 
   // --------- мутации ---------
   Mutation: {
     // создание
     createPassengerRequest: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         airlineId,
         airportId,
@@ -278,6 +285,7 @@ const passengerRequestResolvers = {
 
     // обновление шапки + планов
     updatePassengerRequest: async (_, { id, input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -375,6 +383,7 @@ const passengerRequestResolvers = {
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
       })
@@ -397,6 +406,7 @@ const passengerRequestResolvers = {
 
     // общий статус заявки
     setPassengerRequestStatus: async (_, { id, status }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -435,6 +445,7 @@ const passengerRequestResolvers = {
       { id, service, status },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -508,6 +519,7 @@ const passengerRequestResolvers = {
       { requestId, service, person },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -587,6 +599,7 @@ const passengerRequestResolvers = {
 
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -638,6 +651,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, person },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -706,6 +720,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, person },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -781,6 +796,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -848,6 +864,7 @@ const passengerRequestResolvers = {
 
     // добавить водителя (для варианта проживание+трансфер)
     addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -896,6 +913,7 @@ const passengerRequestResolvers = {
       { requestId, driver },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -942,6 +960,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -995,6 +1014,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1044,6 +1064,7 @@ const passengerRequestResolvers = {
     },
 
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -1085,6 +1106,7 @@ const passengerRequestResolvers = {
       { requestId, fromHotelIndex, toHotelIndex, personIndex, reason, movedAt },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1206,6 +1228,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, reason, evictedAt },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1318,6 +1341,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, reportRows },
       context
     ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })

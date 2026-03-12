@@ -110,7 +110,7 @@ const userResolver = {
   Query: {
     // Получение всех пользователей, сортированных по имени (возвращает всех)
     users: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
 
       const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
@@ -147,7 +147,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретной авиакомпании по airlineId
     airlineUsers: async (_, { airlineId, pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
@@ -182,7 +182,7 @@ const userResolver = {
     },
     // Получение пользователей, привязанных к конкретному отелю по hotelId
     hotelUsers: async (_, { hotelId, pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip = 0, take = 10, all, search } = pagination
       const searchFilter = search
         ? {
@@ -217,7 +217,7 @@ const userResolver = {
     },
     // Получение пользователей-диспетчеров
     dispatcherUsers: async (_, { pagination }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip = 0, take = 10, all, search, category } = pagination
       const searchFilter = search
         ? {
@@ -261,7 +261,7 @@ const userResolver = {
     },
     // Получение одного пользователя по его ID
     user: async (_, { userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return prisma.user.findUnique({
         where: { id: userId },
         include: { position: true }
@@ -771,6 +771,7 @@ const userResolver = {
     // Включение двухфакторной аутентификации (2FA) для текущего пользователя.
     // Генерируется секрет, сохраняется в базе, а для TOTP возвращается QR-код.
     enable2FA: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       if (!context.user) throw new Error("Unauthorized")
       let method = input.method
       // Генерация секрета для 2FA
@@ -815,6 +816,7 @@ const userResolver = {
 
     // Верификация 2FA токена для текущего пользователя.
     verify2FA: async (_, { token }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       if (!context.user) throw new Error("Unauthorized")
       const user = await prisma.user.findUnique({
         where: { id: context.user.id }
@@ -875,6 +877,7 @@ const userResolver = {
 
     // Выход (logout) пользователя: очищается refreshToken в базе.
     logout: async (_, __, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       if (!context.user) throw new Error("Not authenticated")
       const now = new Date()
       const currentUser = await prisma.user.findUnique({
@@ -898,7 +901,7 @@ const userResolver = {
       return { message: "Logged out successfully" }
     },
     markUserOnline: async (_, __, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const now = new Date()
 
       const currentUser = await prisma.user.findUnique({
@@ -919,7 +922,7 @@ const userResolver = {
       return updatedUser
     },
     markUserOffline: async (_, __, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const now = new Date()
 
       const currentUser = await prisma.user.findUnique({
@@ -975,7 +978,7 @@ const userResolver = {
 
       // Если пользователь привязан к отелю – проверяем права отельного администратора
       if (userForDelete.hotelId) {
-        hotelAdminMiddleware(context)
+        await hotelAdminMiddleware(context)
         if (userForDelete.images && userForDelete.images.length > 0) {
           for (const imagePath of userForDelete.images) {
             await deleteImage(imagePath)
@@ -1012,7 +1015,12 @@ const userResolver = {
     userCreated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_CREATED]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false
@@ -1025,7 +1033,12 @@ const userResolver = {
     userOnline: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_ONLINE]),
-        (payload, variables, context) => {
+        async (payload, variables, context) => {
+          try {
+            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+          } catch {
+            return false
+          }
           const { subject, subjectType } = context
 
           if (!subject || subjectType !== "USER") return false

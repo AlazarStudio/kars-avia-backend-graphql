@@ -27,14 +27,14 @@ const supportResolver = {
 
   Query: {
     getAllPatchNotes: async (_, __, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.patchNote.findMany({
         orderBy: { date: "desc" }
       })
     },
 
     getAllDocumentations: async (_, { type, filter }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.documentation.findMany({
         where: { type, filter, parent: { is: null } },
         orderBy: { createdAt: "asc" }
@@ -42,26 +42,26 @@ const supportResolver = {
     },
 
     getPatchNote: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.patchNote.findUnique({
         where: { id }
       })
     },
 
     getDocumentation: async (_, { id }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const doc = await prisma.documentation.findUnique({ where: { id } })
       if (!doc) throw new GraphQLError("Документация не найдена")
       return doc
     },
 
     documentationTree: async (_, { id }, context) => {
-      await allMiddleware(context) // проверка авторизации
+      await allMiddleware(context) // проверка авторизации // MIDDLEWARE_REVIEW: allMiddleware
       const tree = await buildDocumentationTree(id)
       return tree // возвращаем JSON
     },
     supportTicketStats: async (_, { startDate, endDate }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       if (!user.support) {
         throw new GraphQLError("Доступ только для агентов техподдержки")
@@ -91,7 +91,7 @@ const supportResolver = {
     // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
     // Каждый чат включает участников (participants) с данными о пользователе и сообщения (messages).
     supportChats: async (_, __, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
 
       // Если у текущего пользователя нет прав поддержки, выбрасываем ошибку
@@ -186,7 +186,7 @@ const supportResolver = {
     // Возвращает чат поддержки, связанный с указанным userId.
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
     userSupportChat: async (_, { userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -608,7 +608,7 @@ const supportResolver = {
       return true
     },
     createSupportChat: async (_, { userId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Проверяем, существует ли уже чат поддержки для данного userId
       const existingChat = await prisma.chat.findFirst({
         where: {
@@ -702,7 +702,7 @@ const supportResolver = {
       return chat
     },
     claimSupportTicket: async (_, { chatId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       if (!user.support) {
         throw new GraphQLError("Только агент техподдержки может взять тикет")
@@ -779,7 +779,7 @@ const supportResolver = {
       return updated
     },
     resolveSupportTicket: async (_, { chatId }, context) => {
-      await allMiddleware(context)
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       if (!user.support) {
         throw new GraphQLError("Только агент техподдержки может закрыть тикет")

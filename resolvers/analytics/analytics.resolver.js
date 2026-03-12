@@ -9,10 +9,12 @@ import {
 import { getPersonStaySummaries } from "../../services/analytics/personStaySummary.js"
 import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalytics.js"
 import { prisma } from "../../prisma.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
 const analyticsResolver = {
   Query: {
     analyticsEntityRequests: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { startDate, endDate, filters } = input
 
       // Формируем условия фильтрации
@@ -51,7 +53,8 @@ const analyticsResolver = {
         statusCounts
       }
     },
-    analyticsEntityUsers: async (_, { input }) => {
+    analyticsEntityUsers: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { filters, startDate, endDate } = input
 
       if (!filters?.personId) {
@@ -67,11 +70,13 @@ const analyticsResolver = {
 
       return result
     },
-    analyticsPersonStaySummary: async (_, { input }) => {
+    analyticsPersonStaySummary: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { filters, startDate, endDate } = input
       return await getPersonStaySummaries({ filters, startDate, endDate })
     },
     analyticsUsersTime: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const requester = context?.user
       if (!requester) {
         throw new Error("Unauthorized")
