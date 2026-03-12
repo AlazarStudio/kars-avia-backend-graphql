@@ -105,6 +105,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     people: [PassengerServiceHotelPerson!]!
   }
 
+  type PassengerServiceDriverPerson {
+    fullName: String!
+    phone: String
+    seat: String
+  }
+
   type PassengerServiceDriver {
     fullName: String!
     phone: String
@@ -113,6 +119,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     link: String
     addressFrom: String
     addressTo: String
+    people: [PassengerServiceDriverPerson!]!
   }
 
   type PassengerLivingService {
@@ -256,6 +263,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     link: String
   }
 
+  input PassengerServiceDriverPersonInput {
+    fullName: String!
+    phone: String
+    seat: String
+  }
+
   input PassengerServiceDriverInput {
     fullName: String!
     phone: String
@@ -388,6 +401,25 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestBaggageDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+    ): PassengerRequest!
+
+    addPassengerRequestDriverPerson(
+      requestId: ID!
+      driverIndex: Int!
+      person: PassengerServiceDriverPersonInput!
+    ): PassengerRequest!
+
+    updatePassengerRequestDriverPerson(
+      requestId: ID!
+      driverIndex: Int!
+      personIndex: Int!
+      person: PassengerServiceDriverPersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestDriverPerson(
+      requestId: ID!
+      driverIndex: Int!
+      personIndex: Int!
     ): PassengerRequest!
 
     completePassengerRequestWaterEarly(

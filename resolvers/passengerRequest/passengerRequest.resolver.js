@@ -61,7 +61,8 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   phone: normalizeOptionalString(driver?.phone),
   link: normalizeOptionalString(driver?.link),
   addressFrom: normalizeOptionalString(driver?.addressFrom),
-  addressTo: normalizeOptionalString(driver?.addressTo)
+  addressTo: normalizeOptionalString(driver?.addressTo),
+  people: Array.isArray(driver?.people) ? driver.people : []
 })
 
 const logPassengerRequestAction = async ({
@@ -156,6 +157,11 @@ const passengerRequestResolvers = {
       Array.isArray(parent.accommodationChesses)
         ? parent.accommodationChesses
         : []
+  },
+
+  PassengerServiceDriver: {
+    people: (parent) =>
+      Array.isArray(parent.people) ? parent.people : []
   },
 
   PassengerLivingService: {
@@ -965,6 +971,177 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_baggage_driver",
         description: "Водитель добавлен в доставку багажа ФАП",
         fulldescription: `Пользователь ${context.user.name} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    addPassengerRequestDriverPerson: async (
+      _,
+      { requestId, driverIndex, person },
+      context
+    ) => {
+      await allMiddleware(context)
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.transferService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+      const drivers = prev.drivers || []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        return {
+          ...normalized,
+          people: [...(normalized.people || []), person]
+        }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          transferService: { ...prev, drivers: driversClone }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_driver_person",
+        description: "Пассажир добавлен к водителю трансфера ФАП",
+        fulldescription: `Пользователь ${context.user.name} добавил пассажира к водителю #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    updatePassengerRequestDriverPerson: async (
+      _,
+      { requestId, driverIndex, personIndex, person },
+      context
+    ) => {
+      await allMiddleware(context)
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.transferService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+      const drivers = prev.drivers || []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+      const people = drivers[driverIndex].people || []
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        const newPeople = [...(normalized.people || [])]
+        newPeople[personIndex] = person
+        return { ...normalized, people: newPeople }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          transferService: { ...prev, drivers: driversClone }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_driver_person",
+        description: "Данные пассажира у водителя трансфера ФАП обновлены",
+        fulldescription: `Пользователь ${context.user.name} обновил данные пассажира #${personIndex} у водителя #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    removePassengerRequestDriverPerson: async (
+      _,
+      { requestId, driverIndex, personIndex },
+      context
+    ) => {
+      await allMiddleware(context)
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.transferService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+      const drivers = prev.drivers || []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+      const people = drivers[driverIndex].people || []
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        const newPeople = [...(normalized.people || [])]
+        newPeople.splice(personIndex, 1)
+        return { ...normalized, people: newPeople }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          transferService: { ...prev, drivers: driversClone }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_driver_person",
+        description: "Пассажир удален у водителя трансфера ФАП",
+        fulldescription: `Пользователь ${context.user.name} удалил пассажира #${personIndex} у водителя #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
