@@ -877,6 +877,8 @@ type PassengerServiceDriver {
   peopleCount Int?
   pickupAt    DateTime? // время подачи / выезда
   link        String? // ссылка на маршрут, вотсап и т.д.
+  addressFrom String?
+  addressTo   String?
 }
 
 type PassengerServiceHotel {

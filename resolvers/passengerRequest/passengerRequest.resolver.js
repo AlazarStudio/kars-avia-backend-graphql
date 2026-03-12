@@ -49,6 +49,21 @@ const makeRoomCategoryLabel = (roomCategory, roomKind) => {
   return category || kind || ""
 }
 
+const normalizeOptionalString = (value) => {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+const normalizePassengerServiceDriver = (driver = {}) => ({
+  ...driver,
+  fullName: driver?.fullName?.trim?.() || "",
+  phone: normalizeOptionalString(driver?.phone),
+  link: normalizeOptionalString(driver?.link),
+  addressFrom: normalizeOptionalString(driver?.addressFrom),
+  addressTo: normalizeOptionalString(driver?.addressTo)
+})
+
 const logPassengerRequestAction = async ({
   context,
   action,
@@ -869,6 +884,9 @@ const passengerRequestResolvers = {
         where: { id: requestId }
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!driver?.fullName?.trim()) {
+        throw new GraphQLError("Driver fullName is required")
+      }
 
       const prev = existing.transferService || {
         plan: null,
@@ -877,7 +895,8 @@ const passengerRequestResolvers = {
         drivers: []
       }
 
-      const drivers = [...(prev.drivers || []), driver]
+      const normalizedDriver = normalizePassengerServiceDriver(driver)
+      const drivers = [...(prev.drivers || []), normalizedDriver]
 
       const data = {
         transferService: {
@@ -918,6 +937,9 @@ const passengerRequestResolvers = {
         where: { id: requestId }
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!driver?.fullName?.trim()) {
+        throw new GraphQLError("Driver fullName is required")
+      }
 
       const prev = existing.baggageDeliveryService || {
         plan: null,
@@ -926,7 +948,8 @@ const passengerRequestResolvers = {
         drivers: []
       }
 
-      const drivers = [...(prev.drivers || []), driver]
+      const normalizedDriver = normalizePassengerServiceDriver(driver)
+      const drivers = [...(prev.drivers || []), normalizedDriver]
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
