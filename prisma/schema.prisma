@@ -41,8 +41,14 @@ enum Role {
   DISPATCHERUSER
   HOTELUSER
   AIRLINEUSER
+  REPRESENTATIVE
   USER
   DRIVER
+}
+
+enum UserType {
+  DEFAULT
+  REPRESENTATIVE
 }
 
 enum TwoFAMethod {
@@ -1169,6 +1175,7 @@ enum TransferStatus {
 enum PassengerRequestExternalAccountType {
   CRM
   PVA
+  REPRESENTATIVE
 }
 
 // --- Embedded types
@@ -1536,6 +1543,7 @@ model User {
   password                               String
   images                                 String[]
   role                                   Role
+  userType                               UserType                                     @default(DEFAULT)
   // position             String?
   sender                                 Request[]                                    @relation(name: "sender")
   receiver                               Request[]                                    @relation(name: "receiver")

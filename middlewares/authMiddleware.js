@@ -116,6 +116,16 @@ export const adminHotelAirMiddleware = async (context) => {
   ])
 }
 
+export const representativeMiddleware = async (context) => {
+  await roleMiddleware(context, [
+    "SUPERADMIN",
+    "DISPATCHERADMIN",
+    "HOTELADMIN",
+    "AIRLINEADMIN",
+    "REPRESENTATIVE"
+  ])
+}
+
 export const moderatorMiddleware = async (context) => {
   await roleMiddleware(context, [
     "SUPERADMIN",
@@ -192,6 +202,7 @@ export const allMiddleware = async (context) => {
     "DISPATCHERUSER",
     "HOTELUSER",
     "AIRLINEUSER",
+    "REPRESENTATIVE",
     "USER",
     "DRIVER"
   ])

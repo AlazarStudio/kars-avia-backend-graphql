@@ -310,7 +310,11 @@ const generateUniquePassengerExternalLogin = async (baseLogin) => {
   throw new Error("Unable to generate unique login")
 }
 
-const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) => {
+const issueTokenForExternalUser = async ({
+  externalUserId,
+  createdByAdminId,
+  linkType = "CRM"
+}) => {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_TTL_MS)
 
@@ -339,7 +343,8 @@ const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) =
   const { rawToken, tokenHash } = createMagicLinkTokenPair()
   const magicLinkUrl = buildExternalMagicLink({
     token: rawToken,
-    kind: SUBJECT_TYPE.EXTERNAL_USER
+    kind: SUBJECT_TYPE.EXTERNAL_USER,
+    linkType
   })
   const expiresAt = new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS)
 
@@ -359,7 +364,8 @@ const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) =
 
 const issueTokenForPassengerRequestExternalUser = async ({
   passengerRequestExternalUserId,
-  createdByAdminId
+  createdByAdminId,
+  linkType = "CRM"
 }) => {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_TTL_MS)
@@ -389,7 +395,8 @@ const issueTokenForPassengerRequestExternalUser = async ({
   const { rawToken, tokenHash } = createMagicLinkTokenPair()
   const magicLinkUrl = buildExternalMagicLink({
     token: rawToken,
-    kind: SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER
+    kind: SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER,
+    linkType
   })
   const expiresAt = new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS)
 
@@ -513,7 +520,8 @@ const externalAuthResolver = {
 
       const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId: externalUser.id,
-        createdByAdminId: adminId
+        createdByAdminId: adminId,
+        linkType: "CRM"
       })
 
       let emailed = true
@@ -521,7 +529,8 @@ const externalAuthResolver = {
         await sendExternalMagicLinkEmail({
           userEmail: externalUser.email,
           token: rawToken,
-          kind: "EXTERNAL_USER"
+          kind: "EXTERNAL_USER",
+          linkType: "CRM"
         })
       } catch (error) {
         emailed = false
@@ -629,7 +638,8 @@ const externalAuthResolver = {
 
       const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId,
-        createdByAdminId: adminId
+        createdByAdminId: adminId,
+        linkType: "CRM"
       })
 
       let emailed = true
@@ -637,7 +647,8 @@ const externalAuthResolver = {
         await sendExternalMagicLinkEmail({
           userEmail: externalUser.email,
           token: rawToken,
-          kind: "EXTERNAL_USER"
+          kind: "EXTERNAL_USER",
+          linkType: "CRM"
         })
       } catch (error) {
         emailed = false
@@ -662,7 +673,7 @@ const externalAuthResolver = {
           ? normalizeEmail(input.email)
           : null
 
-      if (!["CRM", "PVA"].includes(input.accountType)) {
+      if (!["CRM", "PVA", "REPRESENTATIVE"].includes(input.accountType)) {
         throw new Error("Invalid accountType")
       }
 
@@ -725,7 +736,8 @@ const externalAuthResolver = {
       const { rawToken, magicLinkUrl } =
         await issueTokenForPassengerRequestExternalUser({
           passengerRequestExternalUserId: passengerExternalUser.id,
-          createdByAdminId: adminId
+          createdByAdminId: adminId,
+          linkType: input.accountType
         })
 
       await updatePassengerServiceHotelLink({
@@ -740,7 +752,8 @@ const externalAuthResolver = {
           await sendExternalMagicLinkEmail({
             userEmail: passengerExternalUser.email,
             token: rawToken,
-            kind: "PASSENGER_REQUEST_EXTERNAL_USER"
+            kind: "PASSENGER_REQUEST_EXTERNAL_USER",
+            linkType: passengerExternalUser.accountType
           })
           emailed = true
         } catch (error) {
@@ -866,7 +879,8 @@ const externalAuthResolver = {
       const { rawToken, magicLinkUrl } =
         await issueTokenForPassengerRequestExternalUser({
           passengerRequestExternalUserId: id,
-          createdByAdminId: adminId
+          createdByAdminId: adminId,
+          linkType: user.accountType || "CRM"
         })
 
       await updatePassengerServiceHotelLink({
@@ -881,7 +895,8 @@ const externalAuthResolver = {
           await sendExternalMagicLinkEmail({
             userEmail: user.email,
             token: rawToken,
-            kind: "PASSENGER_REQUEST_EXTERNAL_USER"
+            kind: "PASSENGER_REQUEST_EXTERNAL_USER",
+            linkType: user.accountType || "CRM"
           })
           emailed = true
         } catch (error) {

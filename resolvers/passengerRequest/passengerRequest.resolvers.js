@@ -5,6 +5,7 @@ import {
   updateTimes
 } from "../../services/passengerRequest/utils.js"
 import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
+import { representativeMiddleware } from "../../middlewares/authMiddleware.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
@@ -1372,18 +1373,9 @@ const passengerRequestResolvers = {
 
           if (!subject || subjectType !== "USER") return false
 
-          // SUPERADMIN и диспетчеры видят все
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
-            return true
-          }
-
-          // Пользователи "представитель"
-          // const agent = payload.agent
-          // if (subject.agentId && agent.id === subject.agentId) {
-          //   return true
-          // }
-
-          return false
+          return representativeMiddleware(context)
+            .then(() => true)
+            .catch(() => false)
         }
       )
     },
@@ -1396,18 +1388,9 @@ const passengerRequestResolvers = {
 
           if (!subject || subjectType !== "USER") return false
 
-          // SUPERADMIN и диспетчеры видят все
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
-            return true
-          }
-
-          // Пользователи "представитель"
-          // const agent = payload.agent
-          // if (subject.agentId && agent.id === subject.agentId) {
-          //   return true
-          // }
-
-          return false
+          return representativeMiddleware(context)
+            .then(() => true)
+            .catch(() => false)
         }
       )
     }

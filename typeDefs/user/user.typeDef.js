@@ -13,8 +13,14 @@ const userTypeDef = /* GraphQL */ `
     DISPATCHERUSER
     HOTELUSER
     AIRLINEUSER
+    REPRESENTATIVE
     USER
     DRIVER
+  }
+
+  enum UserType {
+    DEFAULT
+    REPRESENTATIVE
   }
 
   enum UserCategory {
@@ -41,6 +47,7 @@ const userTypeDef = /* GraphQL */ `
     login: String!
     password: String!
     role: Role!
+    userType: UserType
     # position: String
     position: Position
     token: String
@@ -152,6 +159,7 @@ const userTypeDef = /* GraphQL */ `
     login: String!
     password: String!
     role: Role
+    userType: UserType
     # position: String
     positionId: ID
     hotelId: ID
@@ -170,6 +178,7 @@ const userTypeDef = /* GraphQL */ `
     password: String
     oldPassword: String
     role: Role
+    userType: UserType
     # position: String
     positionId: ID
     hotelId: ID
@@ -189,6 +198,7 @@ const userTypeDef = /* GraphQL */ `
     email: String
     login: String
     role: Role
+    userType: UserType
     # position: String
     position: Position
     token: String

@@ -9,6 +9,7 @@ const externalAuthTypeDef = /* GraphQL */ `
   enum PassengerRequestExternalAccountType {
     CRM
     PVA
+    REPRESENTATIVE
   }
 
   type ExternalUser {

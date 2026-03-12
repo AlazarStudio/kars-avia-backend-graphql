@@ -79,6 +79,29 @@ const buildUserAuthPayload = ({ user, sessionToken }) => {
   }
 }
 
+const USER_TYPE = {
+  DEFAULT: "DEFAULT",
+  REPRESENTATIVE: "REPRESENTATIVE"
+}
+
+const ROLE = {
+  REPRESENTATIVE: "REPRESENTATIVE"
+}
+
+const resolveRoleAndUserType = ({ role, userType, fallbackRole = "USER" }) => {
+  const finalRole = role || fallbackRole
+  let finalUserType = userType || USER_TYPE.DEFAULT
+
+  // Keep role/userType consistent for representative accounts.
+  if (finalRole === ROLE.REPRESENTATIVE) {
+    finalUserType = USER_TYPE.REPRESENTATIVE
+  } else if (finalUserType === USER_TYPE.REPRESENTATIVE) {
+    finalUserType = USER_TYPE.DEFAULT
+  }
+
+  return { finalRole, finalUserType }
+}
+
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
   // Подключаем тип Upload для поддержки загрузки файлов через GraphQL
@@ -258,6 +281,7 @@ const userResolver = {
         login,
         password,
         role,
+        userType,
         positionId,
         hotelId,
         airlineId,
@@ -265,6 +289,10 @@ const userResolver = {
         airlineDepartmentId,
         dispatcherDepartmentId
       } = input
+      const { finalRole, finalUserType } = resolveRoleAndUserType({
+        role,
+        userType
+      })
 
       // Проверка прав доступа для назначения отдела диспетчера
       if (
@@ -274,7 +302,6 @@ const userResolver = {
         await dispatcherOrSuperAdminMiddleware(context)
 
         // Проверяем, что пользователь будет диспетчером или суперадмином
-        const finalRole = role || "USER"
         const isDispatcher = dispatcher === true
         const isSuperAdmin = finalRole === "SUPERADMIN"
 
@@ -353,7 +380,8 @@ const userResolver = {
         password: hashedPassword,
         hotelId: hotelId || undefined,
         airlineId: airlineId || undefined,
-        role: role || "USER",
+        role: finalRole,
+        userType: finalUserType,
         positionId,
         dispatcher: dispatcher || false,
         airlineDepartmentId: finalAirlineDeptId,
@@ -411,7 +439,11 @@ const userResolver = {
 
       // Генерация секрета для двухфакторной аутентификации (2FA)
       const twoFASecret = speakeasy.generateSecret().base32
-      const { name, email, login, password, role } = input
+      const { name, email, login, password, role, userType } = input
+      const { finalRole, finalUserType } = resolveRoleAndUserType({
+        role,
+        userType
+      })
       const hashedPassword = await argon2.hash(password)
 
       // Проверка на существование пользователя с таким email или login
@@ -447,7 +479,8 @@ const userResolver = {
           email,
           login,
           password: hashedPassword,
-          role: role || "USER",
+          role: finalRole,
+          userType: finalUserType,
           images: imagePaths,
           twoFASecret
         }
@@ -556,6 +589,7 @@ const userResolver = {
         password,
         oldPassword, // Предыдущее значение пароля (для проверки при смене)
         role,
+        userType,
         positionId,
         hotelId,
         airlineId,
@@ -607,6 +641,12 @@ const userResolver = {
           updatedData.role = role
         }
       }
+      if (userType !== undefined) {
+        if (userType !== currentUser.userType) {
+          await adminHotelAirMiddleware(context)
+          updatedData.userType = userType
+        }
+      }
       if (positionId !== undefined) updatedData.positionId = positionId
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
@@ -644,6 +684,15 @@ const userResolver = {
         const hashedPassword = await argon2.hash(password)
         updatedData.password = hashedPassword
       }
+
+      const nextRole = updatedData.role ?? currentUser.role
+      const nextUserTypeInput = updatedData.userType ?? currentUser.userType
+      const { finalUserType: syncedUserType } = resolveRoleAndUserType({
+        role: nextRole,
+        userType: nextUserTypeInput,
+        fallbackRole: currentUser.role
+      })
+      updatedData.userType = syncedUserType
 
       // Обновляем пользователя в базе данных
       const updatedUser = await prisma.user.update({
