@@ -6,6 +6,11 @@ const externalAuthTypeDef = /* GraphQL */ `
     PASSENGER_REQUEST_EXTERNAL_USER
   }
 
+  enum PassengerRequestExternalAccountType {
+    CRM
+    PVA
+  }
+
   type ExternalUser {
     id: ID!
     createdAt: Date!
@@ -23,7 +28,9 @@ const externalAuthTypeDef = /* GraphQL */ `
     id: ID!
     createdAt: Date!
     updatedAt: Date!
-    email: String!
+    email: String
+    login: String!
+    accountType: PassengerRequestExternalAccountType!
     name: String
     passengerRequestId: ID!
     passengerServiceHotelItemId: String
@@ -74,7 +81,8 @@ const externalAuthTypeDef = /* GraphQL */ `
   }
 
   input AdminIssuePassengerRequestExternalUserMagicLinkInput {
-    email: String!
+    email: String
+    accountType: PassengerRequestExternalAccountType!
     name: String
     passengerRequestId: ID!
     passengerServiceHotelItemId: String

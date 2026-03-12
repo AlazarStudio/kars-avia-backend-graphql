@@ -129,6 +129,8 @@ export async function buildAuthContext(authHeader) {
         select: {
           id: true,
           email: true,
+          login: true,
+          accountType: true,
           passengerRequestId: true,
           passengerServiceHotelItemId: true,
           active: true,

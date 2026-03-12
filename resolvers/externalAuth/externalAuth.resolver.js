@@ -22,6 +22,50 @@ const SUBJECT_TYPE = {
   PASSENGER_REQUEST_EXTERNAL_USER: "PASSENGER_REQUEST_EXTERNAL_USER"
 }
 
+const PASSENGER_EXTERNAL_LOGIN_MAX_LENGTH = 64
+const PASSENGER_EXTERNAL_LOGIN_SEGMENT_LENGTHS = {
+  hotel: 24,
+  city: 16,
+  request: 12,
+  accountType: 4
+}
+
+const CYRILLIC_TO_LATIN_MAP = {
+  а: "a",
+  б: "b",
+  в: "v",
+  г: "g",
+  д: "d",
+  е: "e",
+  ё: "e",
+  ж: "zh",
+  з: "z",
+  и: "i",
+  й: "y",
+  к: "k",
+  л: "l",
+  м: "m",
+  н: "n",
+  о: "o",
+  п: "p",
+  р: "r",
+  с: "s",
+  т: "t",
+  у: "u",
+  ф: "f",
+  х: "h",
+  ц: "ts",
+  ч: "ch",
+  ш: "sh",
+  щ: "sch",
+  ъ: "",
+  ы: "y",
+  ь: "",
+  э: "e",
+  ю: "yu",
+  я: "ya"
+}
+
 const throwForbidden = (message = "Access forbidden") => {
   throw new GraphQLError(message, { extensions: { code: "FORBIDDEN" } })
 }
@@ -104,6 +148,166 @@ const updatePassengerServiceHotelLink = async ({
       }
     }
   })
+}
+
+const transliterateCyrillic = (value = "") =>
+  value
+    .split("")
+    .map((char) => {
+      const lower = char.toLowerCase()
+      const mapped = CYRILLIC_TO_LATIN_MAP[lower]
+      if (mapped === undefined) {
+        return char
+      }
+      return char === lower ? mapped : mapped
+    })
+    .join("")
+
+const toLoginSegment = (value, fallback, maxLength) => {
+  const normalized = transliterateCyrillic(String(value || ""))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+
+  const candidate = normalized || fallback
+  return candidate.slice(0, maxLength).replace(/-+$/g, "") || fallback
+}
+
+const withLoginSuffix = (baseLogin, suffixNumber) => {
+  if (!suffixNumber) {
+    return baseLogin.slice(0, PASSENGER_EXTERNAL_LOGIN_MAX_LENGTH)
+  }
+
+  const suffix = `-${suffixNumber}`
+  const maxBaseLength = PASSENGER_EXTERNAL_LOGIN_MAX_LENGTH - suffix.length
+  const trimmedBase = baseLogin.slice(0, maxBaseLength).replace(/-+$/g, "")
+  return `${trimmedBase}${suffix}`
+}
+
+const extractCityFromAddress = (address) => {
+  if (!address || typeof address !== "string") {
+    return null
+  }
+
+  const parts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return null
+  }
+
+  const cityLikePart = parts.find((part) => /[a-zа-яё]/i.test(part))
+  return cityLikePart || parts[0]
+}
+
+const resolvePassengerExternalLoginSource = async ({
+  passengerRequestId,
+  passengerServiceHotelItemId
+}) => {
+  const passengerRequest = await prisma.passengerRequest.findUnique({
+    where: { id: passengerRequestId },
+    select: {
+      id: true,
+      flightNumber: true,
+      livingService: true
+    }
+  })
+
+  if (!passengerRequest) {
+    throw new Error("PassengerRequest not found")
+  }
+
+  const hotels = Array.isArray(passengerRequest.livingService?.hotels)
+    ? passengerRequest.livingService.hotels
+    : []
+
+  let targetHotel = null
+  if (passengerServiceHotelItemId) {
+    targetHotel = hotels.find((hotel) => hotel?.itemId === passengerServiceHotelItemId)
+  }
+  if (!targetHotel) {
+    targetHotel = hotels[0] || null
+  }
+
+  let hotelName = targetHotel?.name || null
+  let city = extractCityFromAddress(targetHotel?.address)
+
+  if ((!hotelName || !city) && targetHotel?.hotelId) {
+    const hotelRecord = await prisma.hotel.findUnique({
+      where: { id: targetHotel.hotelId },
+      select: {
+        name: true,
+        information: true
+      }
+    })
+
+    if (!hotelName) {
+      hotelName = hotelRecord?.name || null
+    }
+    if (!city) {
+      city = hotelRecord?.information?.city || null
+    }
+  }
+
+  return {
+    requestNumber: passengerRequest.flightNumber || null,
+    hotelName,
+    city
+  }
+}
+
+const buildPassengerExternalBaseLogin = ({
+  hotelName,
+  city,
+  requestNumber,
+  accountType
+}) => {
+  const hotelSegment = toLoginSegment(
+    hotelName,
+    "hotel",
+    PASSENGER_EXTERNAL_LOGIN_SEGMENT_LENGTHS.hotel
+  )
+  const citySegment = toLoginSegment(
+    city,
+    "city",
+    PASSENGER_EXTERNAL_LOGIN_SEGMENT_LENGTHS.city
+  )
+  const requestSegment = toLoginSegment(
+    requestNumber,
+    "request",
+    PASSENGER_EXTERNAL_LOGIN_SEGMENT_LENGTHS.request
+  )
+  const accountTypeSegment = toLoginSegment(
+    accountType,
+    "crm",
+    PASSENGER_EXTERNAL_LOGIN_SEGMENT_LENGTHS.accountType
+  )
+
+  return `${hotelSegment}-${citySegment}-${requestSegment}-${accountTypeSegment}`
+}
+
+const generateUniquePassengerExternalLogin = async (baseLogin) => {
+  let suffixNumber = 0
+
+  // Keeps generating candidate logins until a free one is found.
+  while (suffixNumber < 10000) {
+    const candidate = withLoginSuffix(baseLogin, suffixNumber)
+    const existing = await prisma.passengerRequestExternalUser.findUnique({
+      where: { login: candidate },
+      select: { id: true }
+    })
+
+    if (!existing) {
+      return candidate
+    }
+
+    suffixNumber += 1
+  }
+
+  throw new Error("Unable to generate unique login")
 }
 
 const issueTokenForExternalUser = async ({ externalUserId, createdByAdminId }) => {
@@ -453,9 +657,13 @@ const externalAuthResolver = {
     ) => {
       await adminMiddleware(context)
 
-      const email = normalizeEmail(input.email)
-      if (!email) {
-        throw new Error("Email is required")
+      const email =
+        typeof input.email === "string" && input.email.trim()
+          ? normalizeEmail(input.email)
+          : null
+
+      if (!["CRM", "PVA"].includes(input.accountType)) {
+        throw new Error("Invalid accountType")
       }
 
       const adminId = context?.subjectType === "USER" ? context.subject.id : null
@@ -468,23 +676,51 @@ const externalAuthResolver = {
         passengerServiceHotelItemId: input.passengerServiceHotelItemId
       })
 
-      const passengerExternalUser = await prisma.passengerRequestExternalUser.upsert({
-        where: { email },
-        create: {
-          email,
-          name: input.name || null,
-          passengerRequestId: input.passengerRequestId,
-          passengerServiceHotelItemId: input.passengerServiceHotelItemId || null,
-          active: true
-        },
-        update: {
-          name: input.name ?? undefined,
-          passengerRequestId: input.passengerRequestId,
-          passengerServiceHotelItemId:
-            input.passengerServiceHotelItemId ?? undefined,
-          active: true
-        }
+      const loginSource = await resolvePassengerExternalLoginSource({
+        passengerRequestId: input.passengerRequestId,
+        passengerServiceHotelItemId: input.passengerServiceHotelItemId
       })
+      const baseLogin = buildPassengerExternalBaseLogin({
+        hotelName: loginSource.hotelName,
+        city: loginSource.city,
+        requestNumber: loginSource.requestNumber,
+        accountType: input.accountType
+      })
+
+      let passengerExternalUser = null
+      let createAttempts = 0
+      while (!passengerExternalUser && createAttempts < 20) {
+        const login = await generateUniquePassengerExternalLogin(baseLogin)
+        try {
+          passengerExternalUser = await prisma.passengerRequestExternalUser.create({
+            data: {
+              email,
+              login,
+              accountType: input.accountType,
+              name: input.name || null,
+              passengerRequestId: input.passengerRequestId,
+              passengerServiceHotelItemId: input.passengerServiceHotelItemId || null,
+              active: true
+            }
+          })
+        } catch (error) {
+          const isLoginConflict =
+            error?.code === "P2002" &&
+            (Array.isArray(error?.meta?.target)
+              ? error.meta.target.includes("login")
+              : false)
+
+          if (!isLoginConflict) {
+            throw error
+          }
+
+          createAttempts += 1
+        }
+      }
+
+      if (!passengerExternalUser) {
+        throw new Error("Unable to create external user account")
+      }
 
       const { rawToken, magicLinkUrl } =
         await issueTokenForPassengerRequestExternalUser({
@@ -498,15 +734,18 @@ const externalAuthResolver = {
         link: magicLinkUrl
       })
 
-      let emailed = true
-      try {
-        await sendExternalMagicLinkEmail({
-          userEmail: passengerExternalUser.email,
-          token: rawToken,
-          kind: "PASSENGER_REQUEST_EXTERNAL_USER"
-        })
-      } catch (error) {
-        emailed = false
+      let emailed = false
+      if (passengerExternalUser.email) {
+        try {
+          await sendExternalMagicLinkEmail({
+            userEmail: passengerExternalUser.email,
+            token: rawToken,
+            kind: "PASSENGER_REQUEST_EXTERNAL_USER"
+          })
+          emailed = true
+        } catch (error) {
+          emailed = false
+        }
       }
 
       return {
@@ -636,15 +875,18 @@ const externalAuthResolver = {
         link: magicLinkUrl
       })
 
-      let emailed = true
-      try {
-        await sendExternalMagicLinkEmail({
-          userEmail: user.email,
-          token: rawToken,
-          kind: "PASSENGER_REQUEST_EXTERNAL_USER"
-        })
-      } catch (error) {
-        emailed = false
+      let emailed = false
+      if (user.email) {
+        try {
+          await sendExternalMagicLinkEmail({
+            userEmail: user.email,
+            token: rawToken,
+            kind: "PASSENGER_REQUEST_EXTERNAL_USER"
+          })
+          emailed = true
+        } catch (error) {
+          emailed = false
+        }
       }
 
       return {
