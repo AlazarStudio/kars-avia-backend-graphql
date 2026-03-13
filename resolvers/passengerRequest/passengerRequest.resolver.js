@@ -995,6 +995,57 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    completePassengerRequestBaggageDriverDelivery: async (
+      _,
+      { requestId, driverIndex },
+      context
+    ) => {
+      await allMiddleware(context)
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const bds = existing.baggageDeliveryService
+      const drivers = bds?.drivers ?? []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Driver index out of range")
+      }
+
+      const now = new Date()
+      const updatedDrivers = drivers.map((d, i) =>
+        i === driverIndex ? { ...d, deliveryCompletedAt: now } : d
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          baggageDeliveryService: {
+            ...bds,
+            drivers: updatedDrivers
+          }
+        }
+      })
+
+      const driver = drivers[driverIndex]
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_baggage_driver_delivery",
+        description: "Отмечена выполненная доставка багажа водителем ФАП",
+        fulldescription: `Пользователь ${context.user.name} отметил доставку багажа выполненной для водителя ${driver?.fullName ?? driverIndex} (ФАП ${passengerRequest.flightNumber})`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     addPassengerRequestDriverPerson: async (
       _,
       { requestId, driverIndex, person },

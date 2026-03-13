@@ -119,6 +119,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressFrom: String
     addressTo: String
     description: String
+    deliveryCompletedAt: Date
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -401,6 +402,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestBaggageDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+    ): PassengerRequest!
+
+    """Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0)."""
+    completePassengerRequestBaggageDriverDelivery(
+      requestId: ID!
+      driverIndex: Int!
     ): PassengerRequest!
 
     addPassengerRequestDriverPerson(

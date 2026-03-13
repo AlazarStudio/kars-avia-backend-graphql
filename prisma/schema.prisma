@@ -879,15 +879,16 @@ type PassengerServiceDriverPerson {
 }
 
 type PassengerServiceDriver {
-  fullName    String
-  phone       String?
-  peopleCount Int?
-  pickupAt    DateTime? // время подачи / выезда
-  link        String? // ссылка на маршрут, вотсап и т.д.
-  addressFrom String?
-  addressTo   String?
-  description String? // описание заявки (для трансфера багажа)
-  people      PassengerServiceDriverPerson[]
+  fullName             String
+  phone                String?
+  peopleCount          Int?
+  pickupAt             DateTime? // время подачи / выезда
+  link                 String? // ссылка на маршрут, вотсап и т.д.
+  addressFrom          String?
+  addressTo            String?
+  description          String? // описание заявки (для трансфера багажа)
+  deliveryCompletedAt  DateTime? // когда отмечена выполненная доставка (для доставки багажа)
+  people               PassengerServiceDriverPerson[]
 }
 
 
