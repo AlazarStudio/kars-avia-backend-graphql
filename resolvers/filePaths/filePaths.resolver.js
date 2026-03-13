@@ -54,6 +54,13 @@ const filePathsResolver = {
     }
   },
 
+  // Airline
+  Airline: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    }
+  },
+
   // AirlinePersonal
   AirlinePersonal: {
     images: (parent) => {
@@ -84,10 +91,48 @@ const filePathsResolver = {
     }
   },
 
+  // Hotel nested entities
+  Room: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    }
+  },
+
+  RoomKind: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    }
+  },
+
+  AdditionalServices: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    }
+  },
+
   // Organization
   Organization: {
     images: (parent) => {
       return normalizeFilePaths(parent.images || [])
+    }
+  },
+
+  // Support/docs
+  PatchNote: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    },
+    files: (parent) => {
+      return normalizeFilePaths(parent.files || [])
+    }
+  },
+
+  Documentation: {
+    images: (parent) => {
+      return normalizeFilePaths(parent.images || [])
+    },
+    files: (parent) => {
+      return normalizeFilePaths(parent.files || [])
     }
   },
 

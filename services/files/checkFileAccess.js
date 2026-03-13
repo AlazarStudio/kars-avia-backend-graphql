@@ -2,6 +2,27 @@ import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import path from "path"
 
+function normalizeBucketName(bucket) {
+  switch (bucket) {
+    case "airlines":
+      return "airline"
+    case "airline_person":
+    case "airlinePersonal":
+      return "airline-personal"
+    case "users":
+    case "user":
+      return "users"
+    case "request":
+      return "requests"
+    case "reserve":
+      return "reserves"
+    case "hotels":
+      return "hotel"
+    default:
+      return bucket
+  }
+}
+
 /**
  * Определяет тип файла и связанную сущность по пути
  * @param {string} filePath - путь к файлу (например, "/uploads/requests/123/2024/01/15/file.png")
@@ -22,7 +43,7 @@ async function resolveFileOwner(filePath) {
   // Формат: uploads/bucket/entityId/YYYY/MM/DD/file.ext
   // или: uploads/bucket/YYYY/MM/DD/file.ext
   if (parts[0] === "uploads" && parts.length >= 5) {
-    const bucket = parts[1]
+    const bucket = normalizeBucketName(parts[1])
     // Проверяем, является ли третий элемент entityId (проверяем по длине и формату ObjectId)
     const possibleEntityId = parts[2]
     const isEntityId = /^[0-9a-fA-F]{24}$/.test(possibleEntityId)
@@ -286,9 +307,6 @@ export async function checkFileAccess(context, filePath) {
       return false
 
     case "airline":
-      return await checkAirlineFileAccess(user, entityId)
-      
-    case "airlines":
       return await checkAirlineFileAccess(user, entityId)
 
     case "misc":

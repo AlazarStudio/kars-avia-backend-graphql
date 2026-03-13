@@ -174,6 +174,14 @@ app.use("/graphql", (req, res, next) => {
   next()
 })
 
+// Backward compatibility for legacy file URLs stored as /uploads/*.
+// Redirect them to the protected files route to avoid GraphQL/CSRF responses.
+app.use("/uploads", (req, res) => {
+  const suffix = req.originalUrl.slice("/uploads".length)
+  const target = `/files/uploads${suffix}`
+  return res.redirect(307, target)
+})
+
 // Защищенный роут для файлов (требует JWT токен и проверяет права доступа)
 app.use("/files", filesRouter)
 
