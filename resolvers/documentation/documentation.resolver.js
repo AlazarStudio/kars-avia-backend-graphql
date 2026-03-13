@@ -37,9 +37,16 @@ const documentationResolver = {
         return error
       }
     },
-    sections: async (_, __, context) => {
+    sections: async (_, { type }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
+        if (type) {
+          const sections = await prisma.section.findMany({
+            where: { type: type }
+          })
+          
+          return sections
+        }
         const sections = await prisma.section.findMany({})
         return sections
       } catch {

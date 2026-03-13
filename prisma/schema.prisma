@@ -191,17 +191,17 @@ type UserDailyTime {
 }
 
 model Airport {
-  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
-  name                  String?
-  code                  String?
-  city                  String?
-  request               Request[]
-  reserve               Reserve[]
-  hotel                 Hotel[]
-  airportOnAirlinePrice AirportOnAirlinePrice[]
+  id                            String                              @id @default(auto()) @map("_id") @db.ObjectId
+  name                          String?
+  code                          String?
+  city                          String?
+  request                       Request[]
+  reserve                       Reserve[]
+  hotel                         Hotel[]
+  airportOnAirlinePrice         AirportOnAirlinePrice[]
   representativeDepartmentLinks RepresentativeDepartmentOnAirport[]
-  passengerRequests     PassengerRequest[]
-  airportOnTransferPrice AirportOnTransferPrice[]
+  passengerRequests             PassengerRequest[]
+  airportOnTransferPrice        AirportOnTransferPrice[]
 }
 
 model City {
@@ -266,35 +266,35 @@ model PriceCategory {
 // Airline ---------------- ↓↓↓↓ 
 
 model Airline {
-  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
-  name                  String
-  nameFull              String?
-  images                String[]
-  information           Information?
-  department            AirlineDepartment[]
-  staff                 AirlinePersonal[]
-  request               Request[]
-  user                  User[]
-  logs                  Log[]
-  reserve               Reserve[]
+  id                            String                              @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                     DateTime                            @default(now()) @map("created_at")
+  updatedAt                     DateTime                            @updatedAt @map("updated_at")
+  name                          String
+  nameFull                      String?
+  images                        String[]
+  information                   Information?
+  department                    AirlineDepartment[]
+  staff                         AirlinePersonal[]
+  request                       Request[]
+  user                          User[]
+  logs                          Log[]
+  reserve                       Reserve[]
   // mealPrice             MealPrice?
-  savedReport           SavedReport[]
-  chat                  Chat[]
+  savedReport                   SavedReport[]
+  chat                          Chat[]
   // prices       Price?
-  prices                AirlinePrice[]
+  prices                        AirlinePrice[]
   // position              Position[]
-  Notification          Notification[]
-  active                Boolean                 @default(true)
-  airportOnAirlinePrice AirportOnAirlinePrice[]
+  Notification                  Notification[]
+  active                        Boolean                             @default(true)
+  airportOnAirlinePrice         AirportOnAirlinePrice[]
   representativeDepartmentLinks RepresentativeDepartmentOnAirline[]
-  airlinePriceCategory  PriceCategory[]
-  airlineContract       airlineContract[]
-  passengerRequests     PassengerRequest[]
-  transfers             Transfer[]
-  externalUsers         ExternalUser[]
-  transferPrices        TransferPrice[]
+  airlinePriceCategory          PriceCategory[]
+  airlineContract               airlineContract[]
+  passengerRequests             PassengerRequest[]
+  transfers                     Transfer[]
+  externalUsers                 ExternalUser[]
+  transferPrices                TransferPrice[]
 }
 
 model AirlineDepartment {
@@ -593,6 +593,8 @@ model Article {
   title     String
   content   Json?
 
+  type String
+
   // Раздел, к которому принадлежит статья
   sectionId String?  @db.ObjectId
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -879,18 +881,17 @@ type PassengerServiceDriverPerson {
 }
 
 type PassengerServiceDriver {
-  fullName             String
-  phone                String?
-  peopleCount          Int?
-  pickupAt             DateTime? // время подачи / выезда
-  link                 String? // ссылка на маршрут, вотсап и т.д.
-  addressFrom          String?
-  addressTo            String?
-  description          String? // описание заявки (для трансфера багажа)
-  deliveryCompletedAt  DateTime? // когда отмечена выполненная доставка (для доставки багажа)
-  people               PassengerServiceDriverPerson[]
+  fullName            String
+  phone               String?
+  peopleCount         Int?
+  pickupAt            DateTime? // время подачи / выезда
+  link                String? // ссылка на маршрут, вотсап и т.д.
+  addressFrom         String?
+  addressTo           String?
+  description         String? // описание заявки (для трансфера багажа)
+  deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
+  people              PassengerServiceDriverPerson[]
 }
-
 
 type PassengerServiceHotel {
   itemId      String?
@@ -1683,7 +1684,7 @@ model AirportOnTransferPrice {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   transferPrice   TransferPrice @relation(fields: [transferPriceId], references: [id], onDelete: Cascade)
-  transferPriceId String       @db.ObjectId
+  transferPriceId String        @db.ObjectId
   airport         Airport       @relation(fields: [airportId], references: [id], onDelete: Cascade)
   airportId       String        @db.ObjectId
 
@@ -1693,7 +1694,7 @@ model AirportOnTransferPrice {
 model CityOnTransferPrice {
   id              String        @id @default(auto()) @map("_id") @db.ObjectId
   createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
   transferPrice   TransferPrice @relation(fields: [transferPriceId], references: [id], onDelete: Cascade)
   transferPriceId String        @db.ObjectId
   city            City          @relation(fields: [cityId], references: [id], onDelete: Cascade)

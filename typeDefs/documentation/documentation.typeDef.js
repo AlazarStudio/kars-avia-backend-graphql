@@ -2,6 +2,13 @@ const documentationTypeDef = `#graphql
     scalar Date
     scalar Upload
 
+    enum Type {
+        DISPATCHER
+        AIRLINE
+        HOTEL
+        REPRESENTATION
+    }
+
     type Section {
         id: ID
         title: String!
@@ -13,6 +20,8 @@ const documentationTypeDef = `#graphql
 
         children: [Section]
         articles: [Article]
+
+        type: Type
     }
 
     type Article {
@@ -25,17 +34,21 @@ const documentationTypeDef = `#graphql
 
         sectionId: String
         section: Section
+
+        type: Type
     }
 
 
     input createSectionInput {
         title: String
         parentId: String
+        type: Type
    }
 
     input updateSectionInput {
         title: String
         parentId: String
+        type: Type
     }
 
 
@@ -43,12 +56,14 @@ const documentationTypeDef = `#graphql
         title: String
         content: Json
         sectionId: String
+        type: Type
     }
 
     input updateArticleInput {
         title: String
         content: Json
         sectionId: String
+        type: Type
     }
 
     type Query {
@@ -56,7 +71,7 @@ const documentationTypeDef = `#graphql
         article(id: ID): Article!
         
         sectionsWithHierarhy: Json!
-        sections: [Section!]!
+        sections(type: Type): [Section!]!
         section(id: ID): Section!
     }
 
