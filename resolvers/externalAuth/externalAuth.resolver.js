@@ -490,9 +490,9 @@ const externalAuthResolver = {
       await adminMiddleware(context)
 
       const email = normalizeEmail(input.email)
-      if (!email) {
-        throw new Error("Email is required")
-      }
+      // if (!email) {
+      //   throw new Error("Email is required")
+      // }
 
       const adminId = context?.subjectType === "USER" ? context.subject.id : null
       if (!adminId) {
