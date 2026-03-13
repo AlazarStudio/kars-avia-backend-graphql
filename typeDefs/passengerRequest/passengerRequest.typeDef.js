@@ -118,6 +118,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     link: String
     addressFrom: String
     addressTo: String
+    description: String
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -275,6 +276,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     link: String
     addressFrom: String
     addressTo: String
+    description: String
   }
 
   input PassengerRequestHotelReportRowInput {

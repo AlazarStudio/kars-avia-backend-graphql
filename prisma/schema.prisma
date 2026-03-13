@@ -884,6 +884,7 @@ type PassengerServiceDriver {
   link        String? // ссылка на маршрут, вотсап и т.д.
   addressFrom String?
   addressTo   String?
+  description String? // описание заявки (для трансфера багажа)
   people      PassengerServiceDriverPerson[]
 }
 

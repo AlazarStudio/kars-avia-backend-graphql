@@ -67,6 +67,7 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   link: normalizeOptionalString(driver?.link),
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
+  description: normalizeOptionalString(driver?.description),
   people: Array.isArray(driver?.people) ? driver.people.map(ensureDriverPerson) : []
 })
 
