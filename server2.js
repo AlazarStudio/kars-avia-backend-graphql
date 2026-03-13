@@ -113,7 +113,11 @@ const serverCleanup = useServer(
 ========================= */
 const server = new ApolloServer({
   schema,
-  csrfPrevention: true,
+  csrfPrevention: {
+    // Разрешаем multipart upload-клиентам с JWT в Authorization работать
+    // при включенной CSRF-защите Apollo.
+    requestHeaders: ["authorization", "x-apollo-operation-name", "apollo-require-preflight"]
+  },
   cache: "bounded",
   introspection: process.env.NODE_ENV !== "production",
   plugins: [
@@ -144,6 +148,31 @@ await server.start()
 // app.use(limiter)
 
 app.use(graphqlUploadExpress())
+
+// Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
+app.use("/graphql", (req, res, next) => {
+  if (req.method === "POST") {
+    const contentType = req.headers["content-type"] || ""
+    const isMultipart = String(contentType).includes("multipart/form-data")
+    const operationName =
+      req.headers["x-apollo-operation-name"] || req.headers["apollo-operation-name"] || "unknown"
+    const hasCsrfHeaders =
+      Boolean(req.headers.authorization) ||
+      Boolean(req.headers["apollo-require-preflight"]) ||
+      Boolean(req.headers["x-apollo-operation-name"])
+
+    if (isMultipart) {
+      logger.info(`[GRAPHQL UPLOAD] multipart request operation=${operationName}`)
+    }
+
+    if (isMultipart && !hasCsrfHeaders) {
+      logger.warn(
+        "[GRAPHQL UPLOAD] multipart request without csrf-allow headers (authorization/apollo-require-preflight/x-apollo-operation-name)"
+      )
+    }
+  }
+  next()
+})
 
 // Защищенный роут для файлов (требует JWT токен и проверяет права доступа)
 app.use("/files", filesRouter)

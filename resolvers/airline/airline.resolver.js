@@ -168,7 +168,7 @@ const airlineResolver = {
       if (images?.length) {
         for (const image of images) {
           const uploadedPath = await uploadImage(image, {
-            bucket: "airlines",
+            bucket: "airline",
             entityId: createdAirline.id
           })
           imagePaths.push(uploadedPath)

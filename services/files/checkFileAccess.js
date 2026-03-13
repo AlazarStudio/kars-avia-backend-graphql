@@ -162,6 +162,52 @@ async function checkUserFileAccess(user, targetUserId) {
 }
 
 /**
+ * Проверяет доступ пользователя к файлу авиакомпании (bucket airline/airlines)
+ */
+async function checkAirlineFileAccess(user, airlineId) {
+  // SUPERADMIN и диспетчеры видят все
+  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
+    return true
+  }
+
+  // Пользователь авиакомпании видит файлы только своей авиакомпании
+  if (user.airlineId && user.airlineId === airlineId) {
+    return true
+  }
+
+  // Дополнительная проверка: целевая авиакомпания должна существовать
+  const airline = await prisma.airline.findUnique({
+    where: { id: airlineId },
+    select: { id: true }
+  })
+
+  return Boolean(airline && user.airlineId === airline.id)
+}
+
+/**
+ * Проверяет доступ пользователя к файлу отеля (bucket hotel)
+ */
+async function checkHotelFileAccess(user, hotelId) {
+  // SUPERADMIN и диспетчеры видят все
+  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
+    return true
+  }
+
+  // Пользователь отеля видит файлы только своего отеля
+  if (user.hotelId && user.hotelId === hotelId) {
+    return true
+  }
+
+  // Дополнительная проверка: целевой отель должен существовать
+  const hotel = await prisma.hotel.findUnique({
+    where: { id: hotelId },
+    select: { id: true }
+  })
+
+  return Boolean(hotel && user.hotelId === hotel.id)
+}
+
+/**
  * Проверяет доступ пользователя к файлу
  * @param {object} context - контекст авторизации (из buildAuthContext)
  * @param {string} filePath - путь к файлу
@@ -230,6 +276,13 @@ export async function checkFileAccess(context, filePath) {
         return true
       }
       return false
+
+    case "airline":
+    case "airlines":
+      return await checkAirlineFileAccess(user, entityId)
+
+    case "hotel":
+      return await checkHotelFileAccess(user, entityId)
     
     case "reserve_files":
       // Файлы резервов из папки reserve_files
