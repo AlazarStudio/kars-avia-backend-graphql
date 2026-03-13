@@ -55,6 +55,11 @@ const normalizeOptionalString = (value) => {
   return trimmed || null
 }
 
+const ensureDriverPerson = (p) => ({
+  fullName: (p?.fullName?.trim?.() ?? "") || "",
+  phone: normalizeOptionalString(p?.phone)
+})
+
 const normalizePassengerServiceDriver = (driver = {}) => ({
   ...driver,
   fullName: driver?.fullName?.trim?.() || "",
@@ -62,7 +67,7 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   link: normalizeOptionalString(driver?.link),
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
-  people: Array.isArray(driver?.people) ? driver.people : []
+  people: Array.isArray(driver?.people) ? driver.people.map(ensureDriverPerson) : []
 })
 
 const logPassengerRequestAction = async ({
@@ -1011,7 +1016,7 @@ const passengerRequestResolvers = {
         if (i !== driverIndex) return normalized
         return {
           ...normalized,
-          people: [...(normalized.people || []), person]
+          people: [...(normalized.people || []), ensureDriverPerson(person)]
         }
       })
 
@@ -1069,7 +1074,7 @@ const passengerRequestResolvers = {
         const normalized = normalizePassengerServiceDriver(d)
         if (i !== driverIndex) return normalized
         const newPeople = [...(normalized.people || [])]
-        newPeople[personIndex] = person
+        newPeople[personIndex] = ensureDriverPerson(person)
         return { ...normalized, people: newPeople }
       })
 

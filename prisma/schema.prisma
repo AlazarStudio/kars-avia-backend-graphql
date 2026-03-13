@@ -871,6 +871,11 @@ type PassengerLivingService {
   evictions PassengerLivingServiceEviction[] // история выселений
 }
 
+type PassengerServiceDriverPerson {
+  fullName String
+  phone    String?
+}
+
 type PassengerServiceDriver {
   fullName    String
   phone       String?
@@ -879,7 +884,9 @@ type PassengerServiceDriver {
   link        String? // ссылка на маршрут, вотсап и т.д.
   addressFrom String?
   addressTo   String?
+  people      PassengerServiceDriverPerson[]
 }
+
 
 type PassengerServiceHotel {
   itemId      String?
