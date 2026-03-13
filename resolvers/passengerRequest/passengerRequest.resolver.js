@@ -908,11 +908,16 @@ const passengerRequestResolvers = {
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
       const drivers = [...(prev.drivers || []), normalizedDriver]
+      const isFirstDriver = (prev.drivers || []).length === 0
+      const nextStatus = isFirstDriver ? "ACCEPTED" : prev.status
+      const nextTimes = isFirstDriver ? updateTimes(prev.times, "ACCEPTED") : prev.times
 
       const data = {
         transferService: {
           ...prev,
-          drivers
+          drivers,
+          status: nextStatus,
+          times: nextTimes
         }
       }
 
@@ -1020,10 +1025,35 @@ const passengerRequestResolvers = {
         }
       })
 
+      const totalPeopleBefore = (drivers || []).reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = (driversClone || []).reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const planCount = prev.plan?.peopleCount ?? null
+      let nextStatus = prev.status
+      let nextTimes = prev.times || {}
+      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
+      }
+      if (planCount != null && totalPeopleAfter >= planCount) {
+        nextStatus = "COMPLETED"
+        nextTimes = updateTimes(nextTimes, "COMPLETED")
+      }
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: { ...prev, drivers: driversClone }
+          transferService: {
+            ...prev,
+            drivers: driversClone,
+            status: nextStatus,
+            times: nextTimes
+          }
         }
       })
       await logPassengerRequestAction({
