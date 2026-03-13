@@ -121,11 +121,7 @@ const serverCleanup = useServer(
 ========================= */
 const server = new ApolloServer({
   schema,
-  csrfPrevention: {
-    // Разрешаем multipart upload-клиентам с JWT в Authorization работать
-    // при включенной CSRF-защите Apollo.
-    requestHeaders: ["authorization", "x-apollo-operation-name", "apollo-require-preflight"]
-  },
+  csrfPrevention: true,
   cache: "bounded",
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
