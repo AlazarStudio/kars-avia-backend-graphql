@@ -62,6 +62,8 @@ const userTypeDef = /* GraphQL */ `
     airlineDepartment: AirlineDepartment
     dispatcherDepartmentId: ID
     dispatcherDepartment: DispatcherDepartment
+    representativeDepartmentId: ID
+    representativeDepartment: RepresentativeDepartment
     support: Boolean
     active: Boolean
     refreshToken: String
@@ -167,6 +169,7 @@ const userTypeDef = /* GraphQL */ `
     dispatcher: Boolean
     airlineDepartmentId: ID
     dispatcherDepartmentId: ID
+    representativeDepartmentId: ID
   }
 
   input UpdateUserInput {
@@ -185,6 +188,7 @@ const userTypeDef = /* GraphQL */ `
     airlineId: ID
     airlineDepartmentId: ID
     dispatcherDepartmentId: ID
+    representativeDepartmentId: ID
   }
 
   input TwoFAMethodInput {

@@ -199,6 +199,7 @@ model Airport {
   reserve               Reserve[]
   hotel                 Hotel[]
   airportOnAirlinePrice AirportOnAirlinePrice[]
+  representativeDepartmentLinks RepresentativeDepartmentOnAirport[]
   passengerRequests     PassengerRequest[]
   airportOnTransferPrice AirportOnTransferPrice[]
 }
@@ -287,6 +288,7 @@ model Airline {
   Notification          Notification[]
   active                Boolean                 @default(true)
   airportOnAirlinePrice AirportOnAirlinePrice[]
+  representativeDepartmentLinks RepresentativeDepartmentOnAirline[]
   airlinePriceCategory  PriceCategory[]
   airlineContract       airlineContract[]
   passengerRequests     PassengerRequest[]
@@ -1508,6 +1510,44 @@ model DispatcherDepartment {
   // position         PositionOnDepartment[]
 }
 
+model RepresentativeDepartment {
+  id               String                              @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime                            @default(now()) @map("created_at")
+  updatedAt        DateTime                            @updatedAt @map("updated_at")
+  name             String
+  email            String?
+  representatives  User[]
+  active           Boolean                             @default(true)
+  accessMenu       AccessMenu?
+  notificationMenu NotificationMenu?
+  airlines         RepresentativeDepartmentOnAirline[]
+  airports         RepresentativeDepartmentOnAirport[]
+}
+
+model RepresentativeDepartmentOnAirline {
+  id                         String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                  DateTime                 @default(now()) @map("created_at")
+  updatedAt                  DateTime                 @updatedAt @map("updated_at")
+  representativeDepartment   RepresentativeDepartment @relation(fields: [representativeDepartmentId], references: [id], onDelete: Cascade)
+  representativeDepartmentId String                   @db.ObjectId
+  airline                    Airline                  @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId                  String                   @db.ObjectId
+
+  @@unique([representativeDepartmentId, airlineId])
+}
+
+model RepresentativeDepartmentOnAirport {
+  id                         String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                  DateTime                 @default(now()) @map("created_at")
+  updatedAt                  DateTime                 @updatedAt @map("updated_at")
+  representativeDepartment   RepresentativeDepartment @relation(fields: [representativeDepartmentId], references: [id], onDelete: Cascade)
+  representativeDepartmentId String                   @db.ObjectId
+  airport                    Airport                  @relation(fields: [airportId], references: [id], onDelete: Cascade)
+  airportId                  String                   @db.ObjectId
+
+  @@unique([representativeDepartmentId, airportId])
+}
+
 model Position {
   id                String                 @id @default(auto()) @map("_id") @db.ObjectId
   name              String
@@ -1592,6 +1632,8 @@ model User {
   // dispatcherDepartment и airlineDepartment взаимоисключающие — у пользователя может быть только один
   dispatcherDepartment                   DispatcherDepartment?                        @relation(fields: [dispatcherDepartmentId], references: [id])
   dispatcherDepartmentId                 String?                                      @db.ObjectId
+  representativeDepartment               RepresentativeDepartment?                    @relation(fields: [representativeDepartmentId], references: [id])
+  representativeDepartmentId             String?                                      @db.ObjectId
   assignedSupportChats                   Chat[]                                       @relation("AssignedSupportChats")
   resolvedSupportChats                   Chat[]                                       @relation("ResolvedSupportChats")
   assignedTickets                        SupportTicket[]                              @relation("AssignedTickets")

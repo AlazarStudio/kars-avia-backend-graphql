@@ -16,6 +16,7 @@ import hotelResolver from "./hotel/hotel.resolver.js"
 import logResolver from "./log/log.resolver.js"
 import organizationResolver from "./organization/organization.resolver.js"
 import passengerRequestResolver from "./passengerRequest/passengerRequest.resolver.js"
+import representativeResolver from "./representative/representative.resolver.js"
 import reportResolver from "./report/report.resolver.js"
 import requestResolver from "./request/request.resolver.js"
 import reserveResolver from "./reserve/reserve.resolver.js"
@@ -40,6 +41,7 @@ const mergedResolvers = mergeResolvers([
   logResolver,
   organizationResolver,
   passengerRequestResolver,
+  representativeResolver,
   reportResolver,
   requestResolver,
   reserveResolver,

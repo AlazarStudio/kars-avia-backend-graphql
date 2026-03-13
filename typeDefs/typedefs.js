@@ -15,6 +15,7 @@ import hotelTypeDef from "./hotel/hotel.typeDef.js"
 import logTypeDef from "./log/log.typeDef.js"
 import organizationTypeDef from "./organization/organization.typeDef.js"
 import passengerRequestTypeDef from "./passengerRequest/passengerRequest.typeDef.js"
+import representativeTypeDef from "./representative/representative.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
 import requestTypeDef from "./request/request.typeDef.js"
 import reserveTypeDef from "./reserve/reserve.typeDef.js"
@@ -38,6 +39,7 @@ const mergedTypeDefs = mergeTypeDefs([
   logTypeDef,
   organizationTypeDef,
   passengerRequestTypeDef,
+  representativeTypeDef,
   reportTypeDef,
   requestTypeDef,
   reserveTypeDef,

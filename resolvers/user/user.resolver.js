@@ -12,7 +12,8 @@ import {
   allMiddleware,
   hotelAdminMiddleware,
   superAdminMiddleware,
-  dispatcherOrSuperAdminMiddleware
+  dispatcherOrSuperAdminMiddleware,
+  representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
@@ -66,6 +67,7 @@ const buildUserAuthPayload = ({ user, sessionToken }) => {
       airlineId: user.airlineId,
       airlineDepartmentId: user.airlineDepartmentId,
       dispatcherDepartmentId: user.dispatcherDepartmentId,
+      representativeDepartmentId: user.representativeDepartmentId,
       sessionToken
     },
     process.env.JWT_SECRET,
@@ -287,7 +289,8 @@ const userResolver = {
         airlineId,
         dispatcher,
         airlineDepartmentId,
-        dispatcherDepartmentId
+        dispatcherDepartmentId,
+        representativeDepartmentId
       } = input
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
@@ -317,6 +320,26 @@ const userResolver = {
         })
         if (!department || !department.active) {
           throw new Error("Отдел диспетчеров не найден или неактивен")
+        }
+      }
+
+      if (
+        representativeDepartmentId !== undefined &&
+        representativeDepartmentId !== null
+      ) {
+        await representativeMiddleware(context)
+
+        if (finalRole !== ROLE.REPRESENTATIVE) {
+          throw new Error(
+            "Пользователь должен иметь роль REPRESENTATIVE для назначения в отдел представителей"
+          )
+        }
+
+        const department = await prisma.representativeDepartment.findUnique({
+          where: { id: representativeDepartmentId }
+        })
+        if (!department || !department.active) {
+          throw new Error("Отдел представителей не найден или неактивен")
         }
       }
 
@@ -359,12 +382,18 @@ const userResolver = {
 
       // dispatcherDepartment и airlineDepartment взаимоисключающие — приоритет у dispatcherDepartment
       let finalDispatcherDeptId = null
+      let finalRepresentativeDeptId = null
       let finalAirlineDeptId = null
       if (
         dispatcherDepartmentId !== undefined &&
         dispatcherDepartmentId !== null
       ) {
         finalDispatcherDeptId = dispatcherDepartmentId
+      } else if (
+        representativeDepartmentId !== undefined &&
+        representativeDepartmentId !== null
+      ) {
+        finalRepresentativeDeptId = representativeDepartmentId
       } else if (
         airlineDepartmentId !== undefined &&
         airlineDepartmentId !== null
@@ -386,6 +415,7 @@ const userResolver = {
         dispatcher: dispatcher || false,
         airlineDepartmentId: finalAirlineDeptId,
         dispatcherDepartmentId: finalDispatcherDeptId,
+        representativeDepartmentId: finalRepresentativeDeptId,
         images: imagePaths
       }
 
@@ -594,7 +624,8 @@ const userResolver = {
         hotelId,
         airlineId,
         airlineDepartmentId,
-        dispatcherDepartmentId
+        dispatcherDepartmentId,
+        representativeDepartmentId
       } = input
       // Если обновляет не сам пользователь, разрешено только админам
       if (context.user.id !== id && (await adminHotelAirMiddleware(context))) {
@@ -628,6 +659,26 @@ const userResolver = {
         }
       }
 
+      if (representativeDepartmentId !== undefined) {
+        await representativeMiddleware(context)
+
+        const nextRole = role ?? currentUser.role
+        if (nextRole !== ROLE.REPRESENTATIVE) {
+          throw new Error(
+            "Пользователь должен иметь роль REPRESENTATIVE для назначения в отдел представителей"
+          )
+        }
+
+        if (representativeDepartmentId !== null) {
+          const department = await prisma.representativeDepartment.findUnique({
+            where: { id: representativeDepartmentId }
+          })
+          if (!department || !department.active) {
+            throw new Error("Отдел представителей не найден или неактивен")
+          }
+        }
+      }
+
       // Формируем объект обновления, добавляя только те поля, которые заданы
       const updatedData = {}
       if (name !== undefined) updatedData.name = name
@@ -650,13 +701,19 @@ const userResolver = {
       if (positionId !== undefined) updatedData.positionId = positionId
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
-      // dispatcherDepartment и airlineDepartment взаимоисключающие — приоритет у dispatcherDepartment
+      // dispatcherDepartment, representativeDepartment и airlineDepartment взаимоисключающие
       if (dispatcherDepartmentId !== undefined) {
         updatedData.dispatcherDepartmentId = dispatcherDepartmentId
+        updatedData.representativeDepartmentId = null
+        updatedData.airlineDepartmentId = null
+      } else if (representativeDepartmentId !== undefined) {
+        updatedData.representativeDepartmentId = representativeDepartmentId
+        updatedData.dispatcherDepartmentId = null
         updatedData.airlineDepartmentId = null
       } else if (airlineDepartmentId !== undefined) {
         updatedData.airlineDepartmentId = airlineDepartmentId
         updatedData.dispatcherDepartmentId = null
+        updatedData.representativeDepartmentId = null
       }
 
       // Обработка загрузки новых изображений
