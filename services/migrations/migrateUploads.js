@@ -25,7 +25,7 @@ const REPORTS_ROOT = path.join(process.cwd(), "reports")
 const RESERVE_FILES_ROOT = path.join(process.cwd(), "reserve_files")
 const REPORT_ROOT = path.join(process.cwd(), "reports/upload-migration")
 
-const DRY_RUN = true // true → только лог, false → реально переносит
+const DRY_RUN = false // true → только лог, false → реально переносит
 
 /* =========================
    🧠 HELPERS
