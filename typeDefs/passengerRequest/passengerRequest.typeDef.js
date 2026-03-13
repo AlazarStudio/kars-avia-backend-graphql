@@ -108,7 +108,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type PassengerServiceDriverPerson {
     fullName: String!
     phone: String
-    seat: String
   }
 
   type PassengerServiceDriver {
@@ -266,7 +265,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerServiceDriverPersonInput {
     fullName: String!
     phone: String
-    seat: String
   }
 
   input PassengerServiceDriverInput {
