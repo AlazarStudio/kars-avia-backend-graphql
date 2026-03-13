@@ -643,11 +643,16 @@ const passengerRequestResolvers = {
       const hotelWithItemId = ensurePassengerServiceHotelItemId(hotel)
 
       const hotels = [...(prev.hotels || []), hotelWithItemId]
+      const isFirstHotel = (prev.hotels || []).length === 0
+      const nextStatus = isFirstHotel ? "ACCEPTED" : prev.status
+      const nextTimes = isFirstHotel ? updateTimes(prev.times, "ACCEPTED") : prev.times
 
       const data = {
         livingService: {
           ...prev,
-          hotels
+          hotels,
+          status: nextStatus,
+          times: nextTimes
         }
       }
 
@@ -715,12 +720,34 @@ const passengerRequestResolvers = {
             }
       )
 
+      const totalPeopleBefore = (living.hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = (hotelsClone || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const planCount = living.plan?.peopleCount ?? null
+      let nextStatus = living.status
+      let nextTimes = living.times || {}
+      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
+      }
+      if (planCount != null && totalPeopleAfter >= planCount) {
+        nextStatus = "COMPLETED"
+        nextTimes = updateTimes(nextTimes, "COMPLETED")
+      }
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           livingService: {
             ...living,
-            hotels: hotelsClone
+            hotels: hotelsClone,
+            status: nextStatus,
+            times: nextTimes
           }
         }
       })
