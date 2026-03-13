@@ -432,6 +432,11 @@ const passengerRequestTypeDef = /* GraphQL */ `
       reason: String!
     ): PassengerRequest!
 
+    completePassengerRequestBaggageEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
     completePassengerRequestEarly(id: ID!, reason: String!): PassengerRequest!
 
     relocatePassengerRequestHotelPerson(

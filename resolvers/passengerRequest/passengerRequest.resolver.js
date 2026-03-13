@@ -1299,6 +1299,57 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    completePassengerRequestBaggageEarly: async (
+      _,
+      { requestId, reason },
+      context
+    ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const prev = existing.baggageDeliveryService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          baggageDeliveryService: {
+            ...prev,
+            status: "COMPLETED",
+            times: updateTimes(prev.times, "COMPLETED")
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_baggage_early",
+        reason: reason.trim(),
+        description: "Досрочно завершена услуга «Доставка багажа» ФАП",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил услугу «Доставка багажа» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
