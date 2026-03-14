@@ -162,7 +162,8 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
     throw new Error("Invalid or expired magic link")
   }
 
-  const sessionToken = uuidv4()
+  const issuedSessionToken = uuidv4()
+  let payloadSessionToken = issuedSessionToken
   let updatedExternalUser = null
 
   await prisma.$transaction(async (tx) => {
@@ -179,13 +180,29 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
       }
     })
     if (consumeResult.count !== 1) {
+      const currentExternalUser = await tx.externalUser.findUnique({
+        where: { id: magicLinkRecord.externalUser.id }
+      })
+      const hasActiveSession =
+        Boolean(currentExternalUser?.active) &&
+        Boolean(currentExternalUser?.refreshToken) &&
+        Boolean(currentExternalUser?.sessionExpiresAt) &&
+        new Date(currentExternalUser.sessionExpiresAt).getTime() >
+          now.getTime()
+
+      if (hasActiveSession) {
+        updatedExternalUser = currentExternalUser
+        payloadSessionToken = currentExternalUser.refreshToken
+        return
+      }
+
       throw new Error("Invalid or expired magic link")
     }
 
     updatedExternalUser = await tx.externalUser.update({
       where: { id: magicLinkRecord.externalUser.id },
       data: {
-        refreshToken: sessionToken,
+        refreshToken: issuedSessionToken,
         sessionExpiresAt: nextSessionExpiry(null, now)
       }
     })
@@ -193,7 +210,7 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
 
   return buildExternalAuthPayload({
     entity: updatedExternalUser,
-    sessionToken
+    sessionToken: payloadSessionToken
   })
 }
 
