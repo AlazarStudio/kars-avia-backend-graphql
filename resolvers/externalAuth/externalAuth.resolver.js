@@ -499,6 +499,8 @@ const externalAuthResolver = {
     adminIssueExternalUserMagicLink: async (_, { input }, context) => {
       await adminMiddleware(context)
 
+      console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
       const email = normalizeEmail(input.email)
       // if (!email) {
       //   throw new Error("Email is required")
