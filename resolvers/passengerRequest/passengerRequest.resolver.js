@@ -1428,6 +1428,111 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    completePassengerRequestTransferEarly: async (
+      _,
+      { requestId, reason },
+      context
+    ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const prev = existing.transferService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          transferService: {
+            ...prev,
+            status: "COMPLETED",
+            times: updateTimes(prev.times, "COMPLETED"),
+            earlyCompletionReason: reason.trim(),
+            earlyCompletedAt: new Date()
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_transfer_early",
+        reason: reason.trim(),
+        description: "Досрочно завершена услуга «Трансфер» ФАП",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил услугу «Трансфер» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    completePassengerRequestLivingEarly: async (
+      _,
+      { requestId, reason },
+      context
+    ) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!reason?.trim()) {
+        throw new GraphQLError("Reason is required")
+      }
+
+      const prev = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: [],
+        evictions: []
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...prev,
+            status: "COMPLETED",
+            times: updateTimes(prev.times, "COMPLETED"),
+            earlyCompletionReason: reason.trim(),
+            earlyCompletedAt: new Date()
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "complete_passenger_request_living_early",
+        reason: reason.trim(),
+        description: "Досрочно завершена услуга «Проживание» ФАП",
+        fulldescription: `Пользователь ${context.user.name} досрочно завершил услугу «Проживание» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({

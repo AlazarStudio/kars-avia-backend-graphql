@@ -127,6 +127,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlan
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
     hotels: [PassengerServiceHotel!]!
     evictions: [PassengerLivingServiceEviction!]!
   }
@@ -135,6 +137,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlan
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
     drivers: [PassengerServiceDriver!]!
   }
 
@@ -440,6 +444,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
 
     completePassengerRequestBaggageEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
+    completePassengerRequestTransferEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
+    completePassengerRequestLivingEarly(
       requestId: ID!
       reason: String!
     ): PassengerRequest!

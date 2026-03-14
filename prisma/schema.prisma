@@ -868,11 +868,13 @@ enum PassengerServiceStatus {
 }
 
 type PassengerLivingService {
-  plan      PassengerServicePlan? // план по людям/времени заселения
-  status    PassengerServiceStatus           @default(NEW)
-  times     PassengerStatusTimes?
-  hotels    PassengerServiceHotel[] // таб «Проживание»
-  evictions PassengerLivingServiceEviction[] // история выселений
+  plan                  PassengerServicePlan? // план по людям/времени заселения
+  status                PassengerServiceStatus           @default(NEW)
+  times                 PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt      DateTime?
+  hotels                PassengerServiceHotel[] // таб «Проживание»
+  evictions             PassengerLivingServiceEviction[] // история выселений
 }
 
 type PassengerServiceDriverPerson {
@@ -953,10 +955,12 @@ type PassengerStatusTimes {
 }
 
 type PassengerTransferService {
-  plan    PassengerServicePlan?
-  status  PassengerServiceStatus   @default(NEW)
-  times   PassengerStatusTimes?
-  drivers PassengerServiceDriver[]
+  plan                  PassengerServicePlan?
+  status                PassengerServiceStatus   @default(NEW)
+  times                 PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt      DateTime?
+  drivers               PassengerServiceDriver[]
 }
 
 type PassengerWaterFoodService {
