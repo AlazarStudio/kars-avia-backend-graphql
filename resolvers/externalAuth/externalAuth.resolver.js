@@ -499,9 +499,9 @@ const externalAuthResolver = {
         throwForbidden("Only admins can issue magic links")
       }
 
-      const externalUser = await prisma.externalUser.create({
-        // where: { email },
-        data: {
+      const externalUser = await prisma.externalUser.upsert({
+        where: { email },
+        create: {
           email,
           name: input.name || null,
           hotelId: input.hotelId || null,
@@ -509,13 +509,13 @@ const externalAuthResolver = {
           airlineId: input.airlineId || null,
           active: true
         },
-        // update: {
-        //   name: input.name ?? undefined,
-        //   hotelId: input.hotelId ?? undefined,
-        //   organizationId: input.organizationId ?? undefined,
-        //   airlineId: input.airlineId ?? undefined,
-        //   active: true
-        // }
+        update: {
+          name: input.name ?? undefined,
+          hotelId: input.hotelId ?? undefined,
+          organizationId: input.organizationId ?? undefined,
+          airlineId: input.airlineId ?? undefined,
+          active: true
+        }
       })
 
       const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
