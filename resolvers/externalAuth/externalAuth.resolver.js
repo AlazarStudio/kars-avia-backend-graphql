@@ -446,6 +446,140 @@ const buildExternalAuthPayload = ({ subjectType, entity, sessionToken }) => {
   }
 }
 
+const EXTERNAL_ACCOUNT_TYPES = ["CRM", "PVA", "REPRESENTATIVE"]
+
+const resolveAdminId = (
+  context,
+  forbiddenMessage = "Only admins can issue magic links"
+) => {
+  const adminId = context?.subjectType === "USER" ? context.subject.id : null
+  if (!adminId) {
+    throwForbidden(forbiddenMessage)
+  }
+
+  return adminId
+}
+
+const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
+  const magicLinkRecord = await prisma.externalUserMagicLinkToken.findUnique({
+    where: { tokenHash },
+    include: { externalUser: true }
+  })
+
+  if (!magicLinkRecord) {
+    return null
+  }
+
+  const validation = validateMagicLinkRecord({
+    record: magicLinkRecord,
+    rawToken: token,
+    now
+  })
+
+  if (!validation.valid || !magicLinkRecord.externalUser?.active) {
+    throw new Error("Invalid or expired magic link")
+  }
+
+  const sessionToken = uuidv4()
+  let updatedExternalUser = null
+
+  await prisma.$transaction(async (tx) => {
+    const consumeResult = await tx.externalUserMagicLinkToken.updateMany({
+      where: {
+        id: magicLinkRecord.id,
+        usedAt: null,
+        expiresAt: { gt: now }
+      },
+      data: {
+        usedAt: now,
+        rawToken: null,
+        magicLinkUrl: null
+      }
+    })
+    if (consumeResult.count !== 1) {
+      throw new Error("Invalid or expired magic link")
+    }
+
+    updatedExternalUser = await tx.externalUser.update({
+      where: { id: magicLinkRecord.externalUser.id },
+      data: {
+        refreshToken: sessionToken,
+        sessionExpiresAt: nextSessionExpiry(null, now)
+      }
+    })
+  })
+
+  return buildExternalAuthPayload({
+    subjectType: SUBJECT_TYPE.EXTERNAL_USER,
+    entity: updatedExternalUser,
+    sessionToken
+  })
+}
+
+const signInPassengerRequestExternalUserByMagicLink = async ({
+  token,
+  tokenHash,
+  now
+}) => {
+  const magicLinkRecord =
+    await prisma.passengerRequestExternalUserMagicLinkToken.findUnique({
+      where: { tokenHash },
+      include: { passengerRequestExternalUser: true }
+    })
+
+  if (!magicLinkRecord) {
+    return null
+  }
+
+  const validation = validateMagicLinkRecord({
+    record: magicLinkRecord,
+    rawToken: token,
+    now
+  })
+
+  if (!validation.valid || !magicLinkRecord.passengerRequestExternalUser?.active) {
+    throw new Error("Invalid or expired magic link")
+  }
+
+  const sessionToken = uuidv4()
+  let updatedPassengerExternalUser = null
+
+  await prisma.$transaction(async (tx) => {
+    const consumeResult =
+      await tx.passengerRequestExternalUserMagicLinkToken.updateMany({
+        where: {
+          id: magicLinkRecord.id,
+          usedAt: null,
+          expiresAt: { gt: now }
+        },
+        data: {
+          usedAt: now,
+          rawToken: null,
+          magicLinkUrl: null
+        }
+      })
+
+    if (consumeResult.count !== 1) {
+      throw new Error("Invalid or expired magic link")
+    }
+
+    updatedPassengerExternalUser =
+      await tx.passengerRequestExternalUser.update({
+        where: { id: magicLinkRecord.passengerRequestExternalUser.id },
+        data: {
+          refreshToken: sessionToken,
+          sessionExpiresAt: nextSessionExpiry(null, now)
+        }
+      })
+  })
+
+  return buildExternalAuthPayload({
+    subjectType: SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER,
+    entity: updatedPassengerExternalUser,
+    sessionToken
+  })
+}
+
 const externalAuthResolver = {
   Query: {
     externalUsers: async (_, { pagination = {}, filter = {} }, context) => {
@@ -496,216 +630,74 @@ const externalAuthResolver = {
     }
   },
   Mutation: {
-    adminIssueExternalUserMagicLink: async (_, { input }, context) => {
+    createExternalAuthLink: async (_, { input }, context) => {
       await adminMiddleware(context)
 
-      console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-
-      const email = normalizeEmail(input.email)
-      // if (!email) {
-      //   throw new Error("Email is required")
-      // }
-
-      const adminId =
-        context?.subjectType === "USER" ? context.subject.id : null
-      if (!adminId) {
-        throwForbidden("Only admins can issue magic links")
+      const hasHotelId = Boolean(input.hotelId)
+      const hasPassengerRequestId = Boolean(input.passengerRequestId)
+      if (hasHotelId === hasPassengerRequestId) {
+        throw new Error(
+          "Exactly one of hotelId or passengerRequestId must be provided"
+        )
       }
 
-      const externalUser = await prisma.externalUser.upsert({
-        where: { email },
-        create: {
-          email: email || null,
-          name: input.name || null,
-          hotelId: input.hotelId || null,
-          organizationId: input.organizationId || null,
-          airlineId: input.airlineId || null,
-          active: true
-        },
-        update: {
-          name: input.name ?? undefined,
-          hotelId: input.hotelId ?? undefined,
-          organizationId: input.organizationId ?? undefined,
-          airlineId: input.airlineId ?? undefined,
-          active: true
+      if (!EXTERNAL_ACCOUNT_TYPES.includes(input.accountType)) {
+        throw new Error("Invalid accountType")
+      }
+
+      const adminId = resolveAdminId(context, "Only admins can issue magic links")
+
+      if (hasHotelId) {
+        const normalizedEmail =
+          typeof input.email === "string" ? normalizeEmail(input.email) : ""
+        if (!normalizedEmail) {
+          throw new Error("Email is required for hotel external account")
         }
-      })
 
-      console.log("externalUser" + externalUser)
-
-      const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
-        externalUserId: externalUser.id,
-        createdByAdminId: adminId,
-        linkType: "CRM"
-      })
-
-      let emailed = true
-      try {
-        await sendExternalMagicLinkEmail({
-          userEmail: externalUser.email,
-          token: rawToken,
-          kind: "EXTERNAL_USER",
-          linkType: "CRM"
-        })
-      } catch (error) {
-        emailed = false
-      }
-
-      return {
-        success: true,
-        emailed,
-        link: magicLinkUrl
-      }
-    },
-
-    externalUserSignInWithMagicLink: async (_, { token }) => {
-      if (!token) {
-        throw new Error("Invalid or expired magic link")
-      }
-
-      const now = new Date()
-      const tokenHash = hashMagicLinkToken(token)
-      const magicLinkRecord =
-        await prisma.externalUserMagicLinkToken.findUnique({
-          where: { tokenHash },
-          include: { externalUser: true }
-        })
-
-      const validation = validateMagicLinkRecord({
-        record: magicLinkRecord,
-        rawToken: token,
-        now
-      })
-      if (!validation.valid || !magicLinkRecord?.externalUser?.active) {
-        throw new Error("Invalid or expired magic link")
-      }
-
-      const sessionToken = uuidv4()
-      let updatedExternalUser = null
-
-      await prisma.$transaction(async (tx) => {
-        const consumeResult = await tx.externalUserMagicLinkToken.updateMany({
-          where: {
-            id: magicLinkRecord.id,
-            usedAt: null,
-            expiresAt: { gt: now }
+        const externalUser = await prisma.externalUser.upsert({
+          where: { email: normalizedEmail },
+          create: {
+            email: normalizedEmail,
+            name: input.name || null,
+            hotelId: input.hotelId,
+            active: true
           },
-          data: {
-            usedAt: now,
-            rawToken: null,
-            magicLinkUrl: null
+          update: {
+            name: input.name ?? undefined,
+            hotelId: input.hotelId,
+            active: true
           }
         })
-        if (consumeResult.count !== 1) {
-          throw new Error("Invalid or expired magic link")
+
+        const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
+          externalUserId: externalUser.id,
+          createdByAdminId: adminId,
+          linkType: input.accountType
+        })
+
+        let emailed = true
+        try {
+          await sendExternalMagicLinkEmail({
+            userEmail: externalUser.email,
+            token: rawToken,
+            kind: SUBJECT_TYPE.EXTERNAL_USER,
+            linkType: input.accountType
+          })
+        } catch (error) {
+          emailed = false
         }
 
-        updatedExternalUser = await tx.externalUser.update({
-          where: { id: magicLinkRecord.externalUser.id },
-          data: {
-            refreshToken: sessionToken,
-            sessionExpiresAt: nextSessionExpiry(null, now)
-          }
-        })
-      })
-
-      return buildExternalAuthPayload({
-        subjectType: SUBJECT_TYPE.EXTERNAL_USER,
-        entity: updatedExternalUser,
-        sessionToken
-      })
-    },
-
-    adminExtendExternalUserSession: async (_, { externalUserId }, context) => {
-      await adminMiddleware(context)
-
-      const externalUser = await prisma.externalUser.findUnique({
-        where: { id: externalUserId }
-      })
-      if (!externalUser || !externalUser.active || !externalUser.refreshToken) {
-        throw new Error("External user has no active session")
-      }
-
-      const now = new Date()
-      await prisma.externalUser.update({
-        where: { id: externalUserId },
-        data: {
-          sessionExpiresAt: nextSessionExpiry(
-            externalUser.sessionExpiresAt,
-            now
-          )
+        return {
+          success: true,
+          emailed,
+          link: magicLinkUrl
         }
-      })
-
-      return true
-    },
-
-    adminReissueExternalUserMagicLink: async (
-      _,
-      { externalUserId },
-      context
-    ) => {
-      await adminMiddleware(context)
-
-      const externalUser = await prisma.externalUser.findUnique({
-        where: { id: externalUserId }
-      })
-      if (!externalUser || !externalUser.active) {
-        throw new Error("External user not found")
       }
-
-      const adminId =
-        context?.subjectType === "USER" ? context.subject.id : null
-      if (!adminId) {
-        throwForbidden("Only admins can reissue magic links")
-      }
-
-      const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
-        externalUserId,
-        createdByAdminId: adminId,
-        linkType: "CRM"
-      })
-
-      let emailed = true
-      try {
-        await sendExternalMagicLinkEmail({
-          userEmail: externalUser.email,
-          token: rawToken,
-          kind: "EXTERNAL_USER",
-          linkType: "CRM"
-        })
-      } catch (error) {
-        emailed = false
-      }
-
-      return {
-        success: true,
-        emailed,
-        link: magicLinkUrl
-      }
-    },
-
-    adminIssuePassengerRequestExternalUserMagicLink: async (
-      _,
-      { input },
-      context
-    ) => {
-      await adminMiddleware(context)
 
       const email =
         typeof input.email === "string" && input.email.trim()
           ? normalizeEmail(input.email)
           : null
-
-      if (!["CRM", "PVA", "REPRESENTATIVE"].includes(input.accountType)) {
-        throw new Error("Invalid accountType")
-      }
-
-      const adminId =
-        context?.subjectType === "USER" ? context.subject.id : null
-      if (!adminId) {
-        throwForbidden("Only admins can issue magic links")
-      }
 
       await validatePassengerServiceHotelItem({
         passengerRequestId: input.passengerRequestId,
@@ -796,147 +788,86 @@ const externalAuthResolver = {
       }
     },
 
-    passengerRequestExternalUserSignInWithMagicLink: async (_, { token }) => {
+    authorizeExternalAuth: async (_, { token }) => {
       if (!token) {
         throw new Error("Invalid or expired magic link")
       }
 
       const now = new Date()
       const tokenHash = hashMagicLinkToken(token)
-      const magicLinkRecord =
-        await prisma.passengerRequestExternalUserMagicLinkToken.findUnique({
-          where: { tokenHash },
-          include: { passengerRequestExternalUser: true }
-        })
 
-      const validation = validateMagicLinkRecord({
-        record: magicLinkRecord,
-        rawToken: token,
+      const externalUserPayload = await signInExternalUserByMagicLink({
+        token,
+        tokenHash,
         now
       })
-      if (
-        !validation.valid ||
-        !magicLinkRecord?.passengerRequestExternalUser?.active
-      ) {
-        throw new Error("Invalid or expired magic link")
+      if (externalUserPayload) {
+        return externalUserPayload
       }
 
-      const sessionToken = uuidv4()
-      let updatedPassengerExternalUser = null
-
-      await prisma.$transaction(async (tx) => {
-        const consumeResult =
-          await tx.passengerRequestExternalUserMagicLinkToken.updateMany({
-            where: {
-              id: magicLinkRecord.id,
-              usedAt: null,
-              expiresAt: { gt: now }
-            },
-            data: {
-              usedAt: now,
-              rawToken: null,
-              magicLinkUrl: null
-            }
-          })
-        if (consumeResult.count !== 1) {
-          throw new Error("Invalid or expired magic link")
+      const passengerUserPayload = await signInPassengerRequestExternalUserByMagicLink(
+        {
+          token,
+          tokenHash,
+          now
         }
+      )
+      if (passengerUserPayload) {
+        return passengerUserPayload
+      }
 
-        updatedPassengerExternalUser =
-          await tx.passengerRequestExternalUser.update({
-            where: { id: magicLinkRecord.passengerRequestExternalUser.id },
-            data: {
-              refreshToken: sessionToken,
-              sessionExpiresAt: nextSessionExpiry(null, now)
-            }
-          })
-      })
-
-      return buildExternalAuthPayload({
-        subjectType: SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER,
-        entity: updatedPassengerExternalUser,
-        sessionToken
-      })
+      throw new Error("Invalid or expired magic link")
     },
 
-    adminExtendPassengerRequestExternalUserSession: async (
+    adminExtendExternalAuthSession: async (
       _,
-      { id },
+      { subjectType, subjectId },
       context
     ) => {
       await adminMiddleware(context)
-
-      const user = await prisma.passengerRequestExternalUser.findUnique({
-        where: { id }
-      })
-      if (!user || !user.active || !user.refreshToken) {
-        throw new Error("External user has no active session")
-      }
 
       const now = new Date()
-      await prisma.passengerRequestExternalUser.update({
-        where: { id },
-        data: {
-          sessionExpiresAt: nextSessionExpiry(user.sessionExpiresAt, now)
+
+      if (subjectType === SUBJECT_TYPE.EXTERNAL_USER) {
+        const externalUser = await prisma.externalUser.findUnique({
+          where: { id: subjectId }
+        })
+        if (!externalUser || !externalUser.active || !externalUser.refreshToken) {
+          throw new Error("External user has no active session")
         }
-      })
 
-      return true
-    },
-
-    adminReissuePassengerRequestExternalUserMagicLink: async (
-      _,
-      { id },
-      context
-    ) => {
-      await adminMiddleware(context)
-
-      const user = await prisma.passengerRequestExternalUser.findUnique({
-        where: { id }
-      })
-      if (!user || !user.active) {
-        throw new Error("External user not found")
-      }
-
-      const adminId =
-        context?.subjectType === "USER" ? context.subject.id : null
-      if (!adminId) {
-        throwForbidden("Only admins can reissue magic links")
-      }
-
-      const { rawToken, magicLinkUrl } =
-        await issueTokenForPassengerRequestExternalUser({
-          passengerRequestExternalUserId: id,
-          createdByAdminId: adminId,
-          linkType: user.accountType || "CRM"
+        await prisma.externalUser.update({
+          where: { id: subjectId },
+          data: {
+            sessionExpiresAt: nextSessionExpiry(
+              externalUser.sessionExpiresAt,
+              now
+            )
+          }
         })
 
-      await updatePassengerServiceHotelLink({
-        passengerRequestId: user.passengerRequestId,
-        passengerServiceHotelItemId: user.passengerServiceHotelItemId,
-        link: magicLinkUrl
-      })
+        return true
+      }
 
-      let emailed = false
-      if (user.email) {
-        try {
-          await sendExternalMagicLinkEmail({
-            userEmail: user.email,
-            token: rawToken,
-            kind: "PASSENGER_REQUEST_EXTERNAL_USER",
-            linkType: user.accountType || "CRM"
-          })
-          emailed = true
-        } catch (error) {
-          emailed = false
+      if (subjectType === SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER) {
+        const user = await prisma.passengerRequestExternalUser.findUnique({
+          where: { id: subjectId }
+        })
+        if (!user || !user.active || !user.refreshToken) {
+          throw new Error("External user has no active session")
         }
+
+        await prisma.passengerRequestExternalUser.update({
+          where: { id: subjectId },
+          data: {
+            sessionExpiresAt: nextSessionExpiry(user.sessionExpiresAt, now)
+          }
+        })
+
+        return true
       }
 
-      return {
-        success: true,
-        emailed,
-        link: magicLinkUrl
-      }
+      throw new Error("Invalid subjectType")
     }
   }
 }

@@ -73,19 +73,12 @@ const externalAuthTypeDef = /* GraphQL */ `
     search: String
   }
 
-  input AdminIssueExternalUserMagicLinkInput {
-    email: String!
-    name: String
-    hotelId: ID
-    organizationId: ID
-    airlineId: ID
-  }
-
-  input AdminIssuePassengerRequestExternalUserMagicLinkInput {
+  input CreateExternalAuthLinkInput {
     email: String
     accountType: PassengerRequestExternalAccountType!
+    hotelId: ID
     name: String
-    passengerRequestId: ID!
+    passengerRequestId: ID
     passengerServiceHotelItemId: String
   }
 
@@ -100,29 +93,12 @@ const externalAuthTypeDef = /* GraphQL */ `
   }
 
   type Mutation {
-    adminIssueExternalUserMagicLink(
-      input: AdminIssueExternalUserMagicLinkInput!
-    ): AdminMagicLinkIssueResult!
-    externalUserSignInWithMagicLink(
-      token: String!
-      fingerprint: String
-    ): ExternalAuthPayload!
-    adminExtendExternalUserSession(externalUserId: ID!): Boolean!
-    adminReissueExternalUserMagicLink(
-      externalUserId: ID!
-    ): AdminMagicLinkIssueResult!
-
-    adminIssuePassengerRequestExternalUserMagicLink(
-      input: AdminIssuePassengerRequestExternalUserMagicLinkInput!
-    ): AdminMagicLinkIssueResult!
-    passengerRequestExternalUserSignInWithMagicLink(
-      token: String!
-      fingerprint: String
-    ): ExternalAuthPayload!
-    adminExtendPassengerRequestExternalUserSession(id: ID!): Boolean!
-    adminReissuePassengerRequestExternalUserMagicLink(
-      id: ID!
-    ): AdminMagicLinkIssueResult!
+    createExternalAuthLink(input: CreateExternalAuthLinkInput!): AdminMagicLinkIssueResult!
+    authorizeExternalAuth(token: String!, fingerprint: String): ExternalAuthPayload!
+    adminExtendExternalAuthSession(
+      subjectType: ExternalSubjectType!
+      subjectId: ID!
+    ): Boolean!
   }
 `
 
