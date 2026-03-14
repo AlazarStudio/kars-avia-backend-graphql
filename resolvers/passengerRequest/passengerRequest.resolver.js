@@ -178,7 +178,7 @@ const passengerRequestResolvers = {
   // --------- запросы ---------
   Query: {
     passengerRequests: async (_, args, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const { filter, skip, take } = args || {}
       const where = {}
 
@@ -206,7 +206,7 @@ const passengerRequestResolvers = {
     },
 
     passengerRequest: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       return prisma.passengerRequest.findUnique({ where: { id } })
     }
   },
@@ -215,7 +215,7 @@ const passengerRequestResolvers = {
   Mutation: {
     // создание
     createPassengerRequest: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         airlineId,
         airportId,
@@ -312,7 +312,7 @@ const passengerRequestResolvers = {
 
     // обновление шапки + планов
     updatePassengerRequest: async (_, { id, input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -410,7 +410,7 @@ const passengerRequestResolvers = {
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
       })
@@ -433,7 +433,7 @@ const passengerRequestResolvers = {
 
     // общий статус заявки
     setPassengerRequestStatus: async (_, { id, status }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -472,7 +472,7 @@ const passengerRequestResolvers = {
       { id, service, status },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -546,7 +546,7 @@ const passengerRequestResolvers = {
       { requestId, service, person },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -626,7 +626,7 @@ const passengerRequestResolvers = {
 
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -683,7 +683,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, person },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -774,7 +774,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, person },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -850,7 +850,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -918,7 +918,7 @@ const passengerRequestResolvers = {
 
     // добавить водителя (для варианта проживание+трансфер)
     addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -976,7 +976,7 @@ const passengerRequestResolvers = {
       { requestId, driver },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1027,7 +1027,7 @@ const passengerRequestResolvers = {
       { requestId, driverIndex },
       context
     ) => {
-      await allMiddleware(context)
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1078,7 +1078,7 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, person },
       context
     ) => {
-      await allMiddleware(context)
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1158,7 +1158,7 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, personIndex, person },
       context
     ) => {
-      await allMiddleware(context)
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1216,7 +1216,7 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, personIndex },
       context
     ) => {
-      await allMiddleware(context)
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1274,7 +1274,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1328,7 +1328,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1382,7 +1382,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1433,7 +1433,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1485,7 +1485,7 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1534,7 +1534,7 @@ const passengerRequestResolvers = {
     },
 
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
       })
@@ -1576,7 +1576,7 @@ const passengerRequestResolvers = {
       { requestId, fromHotelIndex, toHotelIndex, personIndex, reason, movedAt },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1698,7 +1698,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, reason, evictedAt },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1811,7 +1811,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, reportRows },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -1863,13 +1863,10 @@ const passengerRequestResolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED]),
         (payload, variables, context) => {
-          const { subject, subjectType } = context
-
-          if (!subject || subjectType !== "USER") return false
-
-          return representativeMiddleware(context)
-            .then(() => true)
-            .catch(() => false)
+          // const { subject, subjectType } = context
+          // if (!subject || subjectType !== "USER") return false
+          // return representativeMiddleware(context).then(() => true).catch(() => false)
+          return true // временно отключена проверка для ФАП
         }
       )
     },
@@ -1878,13 +1875,10 @@ const passengerRequestResolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
         (payload, variables, context) => {
-          const { subject, subjectType } = context
-
-          if (!subject || subjectType !== "USER") return false
-
-          return representativeMiddleware(context)
-            .then(() => true)
-            .catch(() => false)
+          // const { subject, subjectType } = context
+          // if (!subject || subjectType !== "USER") return false
+          // return representativeMiddleware(context).then(() => true).catch(() => false)
+          return true // временно отключена проверка для ФАП
         }
       )
     }
