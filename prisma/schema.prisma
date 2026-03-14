@@ -645,6 +645,8 @@ model Section {
   // Статьи внутри этого раздела
   articles Article[]
 
+  type String
+
   // Индекс для быстрого поиска по родителю
   @@index([parentId])
 }

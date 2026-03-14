@@ -70,7 +70,7 @@ const documentationTypeDef = `#graphql
         articles: [Article!]!
         article(id: ID): Article!
         
-        sectionsWithHierarhy: Json!
+        sectionsWithHierarhy(type: Type): Json!
         sections(type: Type): [Section!]!
         section(id: ID): Section!
     }

@@ -4,13 +4,13 @@ import { uploadImage } from "../../services/files/uploadImage.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { deleteSectionCascade } from "./cascadeDeletefunc.js"
-import { getSectionsHierarchyJSONOptimized } from "./getSectionsWithHierarhyFunc.js"
+import { getSectionsHierarchyJSONOptimized,  } from "./getSectionsWithHierarhyFunc.js"
 
 const documentationResolver = {
   Upload: GraphQLUpload,
   Query: {
     articles: async (_, __, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.article.findMany({
         include: {
           section: true
@@ -18,7 +18,7 @@ const documentationResolver = {
       })
     },
     article: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.article.findUnique({
         where: {
           id: id
@@ -28,17 +28,17 @@ const documentationResolver = {
         }
       })
     },
-    sectionsWithHierarhy: async (_, __, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+    sectionsWithHierarhy: async (_, { type }, context) => {
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
-        const sectionsJSON = await getSectionsHierarchyJSONOptimized()
+        const sectionsJSON = await getSectionsHierarchyJSONOptimized(type)
         return sectionsJSON
       } catch (error) {
         return error
       }
     },
     sections: async (_, { type }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         if (type) {
           const sections = await prisma.section.findMany({
@@ -54,7 +54,7 @@ const documentationResolver = {
       }
     },
     section: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.section.findUnique({
         where: {
           id: id
@@ -67,17 +67,17 @@ const documentationResolver = {
   },
   Mutation: {
     uploadDocumentationImage: async (_, { file }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const path = await uploadImage(file, { bucket: "documentation" })
       return path
     },
     uploadDocumentationFile: async (_, { file }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const path = await uploadFiles(file, { bucket: "documentation" })
       return path
     },
     createArticle: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const newArticle = await prisma.article.create({
         data: input,
         include: {
@@ -88,7 +88,7 @@ const documentationResolver = {
       return newArticle
     },
     updateArticle: async (_, { id, input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.article.update({
         where: { id: id },
         data: input,
@@ -98,7 +98,7 @@ const documentationResolver = {
       })
     },
     deleteArticle: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         await prisma.article.delete({
           where: { id: id }
@@ -110,7 +110,7 @@ const documentationResolver = {
       return "Операция прошла успешно"
     },
     createSection: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const newSection = await prisma.section.create({
         data: input,
         include: {
@@ -121,14 +121,14 @@ const documentationResolver = {
       return newSection
     },
     updateSection: async (_, { id, input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.section.update({
         where: { id: id },
         data: input
       })
     },
     deleteSection: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         await deleteSectionCascade(id)
       } catch (error) {
