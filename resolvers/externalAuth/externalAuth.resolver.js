@@ -44,16 +44,19 @@ const validateExternalScopeBinding = ({ scope, hotelId, driverId }) => {
   const hasHotelId = Boolean(hotelId)
   const hasDriverId = Boolean(driverId)
 
-  if (hasHotelId === hasDriverId) {
-    throw new Error("Exactly one of hotelId or driverId must be provided")
+  if (hasHotelId && hasDriverId) {
+    throw new Error("hotelId and driverId cannot be provided together")
   }
 
-  if (scope === "HOTEL" && !hasHotelId) {
-    throw new Error("hotelId is required for HOTEL scope")
+  if (scope === "HOTEL") {
+    if (!hasHotelId) {
+      throw new Error("hotelId is required for HOTEL scope")
+    }
+    return
   }
 
-  if (scope === "DRIVER" && !hasDriverId) {
-    throw new Error("driverId is required for DRIVER scope")
+  if (scope === "DRIVER" && hasHotelId) {
+    throw new Error("hotelId is not allowed for DRIVER scope")
   }
 }
 
@@ -196,7 +199,18 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
         return
       }
 
-      throw new Error("Invalid or expired magic link")
+      updatedExternalUser = await tx.externalUser.update({
+        where: { id: magicLinkRecord.externalUser.id },
+        data: {
+          refreshToken: issuedSessionToken,
+          sessionExpiresAt: nextSessionExpiry(
+            currentExternalUser?.sessionExpiresAt || null,
+            now
+          )
+        }
+      })
+      payloadSessionToken = issuedSessionToken
+      return
     }
 
     updatedExternalUser = await tx.externalUser.update({
@@ -289,12 +303,14 @@ const externalAuthResolver = {
       }
 
       if (input.scope === "DRIVER") {
-        const driver = await prisma.driver.findUnique({
-          where: { id: input.driverId },
-          select: { id: true }
-        })
-        if (!driver) {
-          throw new Error("Driver not found")
+        if (input.driverId) {
+          const driver = await prisma.driver.findUnique({
+            where: { id: input.driverId },
+            select: { id: true }
+          })
+          if (!driver) {
+            throw new Error("Driver not found")
+          }
         }
       }
 
