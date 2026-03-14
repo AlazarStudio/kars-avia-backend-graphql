@@ -1669,6 +1669,7 @@ model TransferPrice {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  name      String?  // название (по аналогии с AirlinePrice)
 
   prices TransferPrices // вложенный тип цен
 

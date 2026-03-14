@@ -256,6 +256,7 @@ const driverResolver = {
           await prisma.transferPrice.create({
             data: {
               driverId: newDriver.id,
+              name: tp.name ?? '',
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -417,7 +418,7 @@ const driverResolver = {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
-              data: { prices: tp.prices }
+              data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
             })
             await prisma.airportOnTransferPrice.deleteMany({
               where: { transferPriceId: tp.id }
@@ -443,6 +444,7 @@ const driverResolver = {
             await prisma.transferPrice.create({
               data: {
                 driverId: id,
+                name: tp.name ?? '',
                 prices: tp.prices,
                 airportOnTransferPrice: {
                   create: (tp.airportIds || []).map((airportId) => ({

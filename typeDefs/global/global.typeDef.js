@@ -217,6 +217,7 @@ const globalTypeDef = /* GraphQL */ `
     id: ID!
     createdAt: Date
     updatedAt: Date
+    name: String
     prices: TransferPrices
     airline: Airline
     organization: Organization
@@ -238,6 +239,7 @@ const globalTypeDef = /* GraphQL */ `
 
   input TransferPriceInput {
     id: ID
+    name: String
     prices: TransferPricesInput!
     airportIds: [ID!]
     cityIds: [ID!]
