@@ -500,7 +500,7 @@ const externalAuthResolver = {
       }
 
       const externalUser = await prisma.externalUser.create({
-        where: { email },
+        // where: { email },
         data: {
           email,
           name: input.name || null,
