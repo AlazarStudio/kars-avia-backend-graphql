@@ -88,7 +88,9 @@ const validatePassengerServiceHotelItem = async ({
   }
 
   const hotels = passengerRequest.livingService?.hotels || []
-  const hasItem = hotels.some((hotel) => hotel?.itemId === passengerServiceHotelItemId)
+  const hasItem = hotels.some(
+    (hotel) => hotel?.itemId === passengerServiceHotelItemId
+  )
 
   if (!hasItem) {
     throw new Error("PassengerServiceHotel item not found")
@@ -226,7 +228,9 @@ const resolvePassengerExternalLoginSource = async ({
 
   let targetHotel = null
   if (passengerServiceHotelItemId) {
-    targetHotel = hotels.find((hotel) => hotel?.itemId === passengerServiceHotelItemId)
+    targetHotel = hotels.find(
+      (hotel) => hotel?.itemId === passengerServiceHotelItemId
+    )
   }
   if (!targetHotel) {
     targetHotel = hotels[0] || null
@@ -436,7 +440,9 @@ const buildExternalAuthPayload = ({ subjectType, entity, sessionToken }) => {
     subjectType,
     externalUser: subjectType === SUBJECT_TYPE.EXTERNAL_USER ? entity : null,
     passengerRequestExternalUser:
-      subjectType === SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER ? entity : null
+      subjectType === SUBJECT_TYPE.PASSENGER_REQUEST_EXTERNAL_USER
+        ? entity
+        : null
   }
 }
 
@@ -476,7 +482,11 @@ const externalAuthResolver = {
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
       return { users, totalCount, totalPages }
     },
-    passengerRequestExternalUsers: async (_, { passengerRequestId }, context) => {
+    passengerRequestExternalUsers: async (
+      _,
+      { passengerRequestId },
+      context
+    ) => {
       await adminMiddleware(context)
 
       return prisma.passengerRequestExternalUser.findMany({
@@ -494,7 +504,8 @@ const externalAuthResolver = {
       //   throw new Error("Email is required")
       // }
 
-      const adminId = context?.subjectType === "USER" ? context.subject.id : null
+      const adminId =
+        context?.subjectType === "USER" ? context.subject.id : null
       if (!adminId) {
         throwForbidden("Only admins can issue magic links")
       }
@@ -502,7 +513,7 @@ const externalAuthResolver = {
       const externalUser = await prisma.externalUser.upsert({
         where: { email },
         create: {
-          email,
+          email: email || null,
           name: input.name || null,
           hotelId: input.hotelId || null,
           organizationId: input.organizationId || null,
@@ -517,6 +528,8 @@ const externalAuthResolver = {
           active: true
         }
       })
+
+      console.log("externalUser" + externalUser)
 
       const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId: externalUser.id,
@@ -550,10 +563,11 @@ const externalAuthResolver = {
 
       const now = new Date()
       const tokenHash = hashMagicLinkToken(token)
-      const magicLinkRecord = await prisma.externalUserMagicLinkToken.findUnique({
-        where: { tokenHash },
-        include: { externalUser: true }
-      })
+      const magicLinkRecord =
+        await prisma.externalUserMagicLinkToken.findUnique({
+          where: { tokenHash },
+          include: { externalUser: true }
+        })
 
       const validation = validateMagicLinkRecord({
         record: magicLinkRecord,
@@ -614,14 +628,21 @@ const externalAuthResolver = {
       await prisma.externalUser.update({
         where: { id: externalUserId },
         data: {
-          sessionExpiresAt: nextSessionExpiry(externalUser.sessionExpiresAt, now)
+          sessionExpiresAt: nextSessionExpiry(
+            externalUser.sessionExpiresAt,
+            now
+          )
         }
       })
 
       return true
     },
 
-    adminReissueExternalUserMagicLink: async (_, { externalUserId }, context) => {
+    adminReissueExternalUserMagicLink: async (
+      _,
+      { externalUserId },
+      context
+    ) => {
       await adminMiddleware(context)
 
       const externalUser = await prisma.externalUser.findUnique({
@@ -631,7 +652,8 @@ const externalAuthResolver = {
         throw new Error("External user not found")
       }
 
-      const adminId = context?.subjectType === "USER" ? context.subject.id : null
+      const adminId =
+        context?.subjectType === "USER" ? context.subject.id : null
       if (!adminId) {
         throwForbidden("Only admins can reissue magic links")
       }
@@ -677,7 +699,8 @@ const externalAuthResolver = {
         throw new Error("Invalid accountType")
       }
 
-      const adminId = context?.subjectType === "USER" ? context.subject.id : null
+      const adminId =
+        context?.subjectType === "USER" ? context.subject.id : null
       if (!adminId) {
         throwForbidden("Only admins can issue magic links")
       }
@@ -703,17 +726,19 @@ const externalAuthResolver = {
       while (!passengerExternalUser && createAttempts < 20) {
         const login = await generateUniquePassengerExternalLogin(baseLogin)
         try {
-          passengerExternalUser = await prisma.passengerRequestExternalUser.create({
-            data: {
-              email,
-              login,
-              accountType: input.accountType,
-              name: input.name || null,
-              passengerRequestId: input.passengerRequestId,
-              passengerServiceHotelItemId: input.passengerServiceHotelItemId || null,
-              active: true
-            }
-          })
+          passengerExternalUser =
+            await prisma.passengerRequestExternalUser.create({
+              data: {
+                email,
+                login,
+                accountType: input.accountType,
+                name: input.name || null,
+                passengerRequestId: input.passengerRequestId,
+                passengerServiceHotelItemId:
+                  input.passengerServiceHotelItemId || null,
+                active: true
+              }
+            })
         } catch (error) {
           const isLoginConflict =
             error?.code === "P2002" &&
@@ -742,7 +767,8 @@ const externalAuthResolver = {
 
       await updatePassengerServiceHotelLink({
         passengerRequestId: passengerExternalUser.passengerRequestId,
-        passengerServiceHotelItemId: passengerExternalUser.passengerServiceHotelItemId,
+        passengerServiceHotelItemId:
+          passengerExternalUser.passengerServiceHotelItemId,
         link: magicLinkUrl
       })
 
@@ -814,15 +840,14 @@ const externalAuthResolver = {
           throw new Error("Invalid or expired magic link")
         }
 
-        updatedPassengerExternalUser = await tx.passengerRequestExternalUser.update(
-          {
+        updatedPassengerExternalUser =
+          await tx.passengerRequestExternalUser.update({
             where: { id: magicLinkRecord.passengerRequestExternalUser.id },
             data: {
               refreshToken: sessionToken,
               sessionExpiresAt: nextSessionExpiry(null, now)
             }
-          }
-        )
+          })
       })
 
       return buildExternalAuthPayload({
@@ -871,7 +896,8 @@ const externalAuthResolver = {
         throw new Error("External user not found")
       }
 
-      const adminId = context?.subjectType === "USER" ? context.subject.id : null
+      const adminId =
+        context?.subjectType === "USER" ? context.subject.id : null
       if (!adminId) {
         throwForbidden("Only admins can reissue magic links")
       }
