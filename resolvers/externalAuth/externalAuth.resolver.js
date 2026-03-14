@@ -139,6 +139,25 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
     rawToken: token,
     now
   })
+  // If the link was already consumed by a near-simultaneous request,
+  // return the currently active session instead of failing hard.
+  if (validation.reason === "ALREADY_USED") {
+    const existingSessionToken = magicLinkRecord?.externalUser?.refreshToken
+    const sessionExpiresAt = magicLinkRecord?.externalUser?.sessionExpiresAt
+    const hasActiveSession =
+      Boolean(existingSessionToken) &&
+      Boolean(sessionExpiresAt) &&
+      new Date(sessionExpiresAt).getTime() > now.getTime() &&
+      magicLinkRecord?.externalUser?.active
+
+    if (hasActiveSession) {
+      return buildExternalAuthPayload({
+        entity: magicLinkRecord.externalUser,
+        sessionToken: existingSessionToken
+      })
+    }
+  }
+
   if (!validation.valid || !magicLinkRecord?.externalUser?.active) {
     throw new Error("Invalid or expired magic link")
   }
