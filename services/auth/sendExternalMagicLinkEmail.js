@@ -22,9 +22,9 @@ const buildBaseUrl = ({ linkType } = {}) => {
     )
   }
 
-  if (linkType === "PVA") {
+  if (linkType === "PWA") {
     return (
-      normalizeBaseUrl(process.env.URL_PVA) ||
+      normalizeBaseUrl(process.env.URL_PWA) ||
       normalizeBaseUrl(process.env.EXTERNAL_MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.FRONTEND_URL) ||

@@ -50,15 +50,13 @@ export async function buildAuthContext(authHeader) {
     userId,
     driverId,
     airlinePersonalId,
-    externalUserId,
-    passengerRequestExternalUserId
+    externalUserId
   } = decoded
 
   let user = null
   let driver = null
   let personal = null
   let externalUser = null
-  let passengerRequestExternalUser = null
   let subject = null
 
   if (subjectType === "USER" && userId) {
@@ -119,28 +117,6 @@ export async function buildAuthContext(authHeader) {
     subject = externalUser
   }
 
-  if (
-    subjectType === "PASSENGER_REQUEST_EXTERNAL_USER" &&
-    passengerRequestExternalUserId
-  ) {
-    passengerRequestExternalUser =
-      await prisma.passengerRequestExternalUser.findUnique({
-        where: { id: passengerRequestExternalUserId },
-        select: {
-          id: true,
-          email: true,
-          login: true,
-          accountType: true,
-          passengerRequestId: true,
-          passengerServiceHotelItemId: true,
-          active: true,
-          refreshToken: true,
-          sessionExpiresAt: true
-        }
-      })
-    subject = passengerRequestExternalUser
-  }
-
   if (!subject) {
     logger.warn("[AUTH] Subject not found")
     throw new Error("Invalid token")
@@ -159,8 +135,7 @@ export async function buildAuthContext(authHeader) {
   }
 
   if (
-    (subjectType === "EXTERNAL_USER" ||
-      subjectType === "PASSENGER_REQUEST_EXTERNAL_USER") &&
+    subjectType === "EXTERNAL_USER" &&
     (!subject.active ||
       !subject.sessionExpiresAt ||
       new Date(subject.sessionExpiresAt).getTime() <= Date.now())
@@ -178,8 +153,7 @@ export async function buildAuthContext(authHeader) {
     user,
     driver,
     personal,
-    externalUser,
-    passengerRequestExternalUser
+    externalUser
   }
 }
 
@@ -193,7 +167,6 @@ function emptyContext() {
     user: null,
     driver: null,
     personal: null,
-    externalUser: null,
-    passengerRequestExternalUser: null
+    externalUser: null
   }
 }

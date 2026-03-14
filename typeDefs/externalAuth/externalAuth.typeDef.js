@@ -3,13 +3,16 @@ const externalAuthTypeDef = /* GraphQL */ `
 
   enum ExternalSubjectType {
     EXTERNAL_USER
-    PASSENGER_REQUEST_EXTERNAL_USER
   }
 
-  enum PassengerRequestExternalAccountType {
+  enum ExternalAccessType {
     CRM
-    PVA
-    REPRESENTATIVE
+    PWA
+  }
+
+  enum ExternalScope {
+    HOTEL
+    DRIVER
   }
 
   type ExternalUser {
@@ -18,23 +21,10 @@ const externalAuthTypeDef = /* GraphQL */ `
     updatedAt: Date!
     email: String!
     name: String
+    scope: ExternalScope!
+    accessType: ExternalAccessType!
     hotelId: ID
-    organizationId: ID
-    airlineId: ID
-    active: Boolean!
-    sessionExpiresAt: Date
-  }
-
-  type PassengerRequestExternalUser {
-    id: ID!
-    createdAt: Date!
-    updatedAt: Date!
-    email: String
-    login: String!
-    accountType: PassengerRequestExternalAccountType!
-    name: String
-    passengerRequestId: ID!
-    passengerServiceHotelItemId: String
+    driverId: ID
     active: Boolean!
     sessionExpiresAt: Date
   }
@@ -44,7 +34,6 @@ const externalAuthTypeDef = /* GraphQL */ `
     refreshToken: String!
     subjectType: ExternalSubjectType!
     externalUser: ExternalUser
-    passengerRequestExternalUser: PassengerRequestExternalUser
   }
 
   type AdminMagicLinkIssueResult {
@@ -61,8 +50,9 @@ const externalAuthTypeDef = /* GraphQL */ `
 
   input ExternalUserFilterInput {
     hotelId: ID
-    organizationId: ID
-    airlineId: ID
+    driverId: ID
+    scope: ExternalScope
+    accessType: ExternalAccessType
     active: Boolean
   }
 
@@ -74,12 +64,12 @@ const externalAuthTypeDef = /* GraphQL */ `
   }
 
   input CreateExternalAuthLinkInput {
-    email: String
-    accountType: PassengerRequestExternalAccountType!
-    hotelId: ID
+    email: String!
     name: String
-    passengerRequestId: ID
-    passengerServiceHotelItemId: String
+    scope: ExternalScope!
+    accessType: ExternalAccessType!
+    hotelId: ID
+    driverId: ID
   }
 
   type Query {
@@ -87,18 +77,14 @@ const externalAuthTypeDef = /* GraphQL */ `
       pagination: ExternalUserPaginationInput
       filter: ExternalUserFilterInput
     ): ExternalUserConnection!
-    passengerRequestExternalUsers(
-      passengerRequestId: ID!
-    ): [PassengerRequestExternalUser!]!
   }
 
   type Mutation {
-    createExternalAuthLink(input: CreateExternalAuthLinkInput!): AdminMagicLinkIssueResult!
-    authorizeExternalAuth(token: String!, fingerprint: String): ExternalAuthPayload!
-    adminExtendExternalAuthSession(
-      subjectType: ExternalSubjectType!
-      subjectId: ID!
-    ): Boolean!
+    createExternalAuthLink(
+      input: CreateExternalAuthLinkInput!
+    ): AdminMagicLinkIssueResult!
+    authorizeExternalAuth(token: String!): ExternalAuthPayload!
+    adminExtendExternalAuthSession(externalUserId: ID!): Boolean!
   }
 `
 
