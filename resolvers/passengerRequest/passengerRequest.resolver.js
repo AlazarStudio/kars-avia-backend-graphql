@@ -1339,22 +1339,23 @@ const passengerRequestResolvers = {
         }
       })
 
-      const totalPeopleBefore = (drivers || []).reduce(
+      const totalPeopleBefore = drivers.reduce(
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
       )
-      const totalPeopleAfter = (driversClone || []).reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
-      const planCount = prev.plan?.peopleCount ?? null
+      const allDriversFull = driversClone.every((d) => {
+        const limit = d.peopleCount ?? null
+        const count = Array.isArray(d.people) ? d.people.length : 0
+        return limit != null && count >= limit
+      })
+
       let nextStatus = prev.status
       let nextTimes = prev.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
+      if (totalPeopleBefore === 0) {
         nextStatus = "IN_PROGRESS"
         nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
       }
-      if (planCount != null && totalPeopleAfter >= planCount) {
+      if (allDriversFull && drivers.length > 0) {
         nextStatus = "COMPLETED"
         nextTimes = updateTimes(nextTimes, "COMPLETED")
       }
