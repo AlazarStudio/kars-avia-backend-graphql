@@ -6,6 +6,7 @@ const chatTypeDef = /* GraphQL */ `
     id: ID!
     text: String!
     sender: User
+    senderExternalUserId: ID
     senderName: String
     chat: Chat!
     createdAt: Date!
