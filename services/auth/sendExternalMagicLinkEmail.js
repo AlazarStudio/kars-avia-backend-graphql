@@ -41,7 +41,7 @@ const buildBaseUrl = ({ linkType } = {}) => {
   )
 }
 
-export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequestId, driverIndex }) => {
+export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequestId, driverIndex, serviceKind }) => {
   const baseUrl = buildBaseUrl({ linkType })
   const safeKind = encodeURIComponent(kind)
   const safeToken = encodeURIComponent(token)
@@ -51,6 +51,9 @@ export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequest
   }
   if (linkType === "PWA" && driverIndex != null) {
     url += `&driverIndex=${encodeURIComponent(String(driverIndex))}`
+  }
+  if (linkType === "PWA" && serviceKind) {
+    url += `&serviceKind=${encodeURIComponent(serviceKind)}`
   }
   return url
 }

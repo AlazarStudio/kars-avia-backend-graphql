@@ -91,8 +91,8 @@ async function generateHotelLinks({ hotel, requestId, adminId }) {
   return { linkCRM, linkPWA }
 }
 
-async function generateDriverLink({ driverName, requestId, driverIndex, adminId }) {
-  const autoEmail = `driver-${requestId}-${driverIndex}@auto.internal`
+async function generateDriverLink({ driverName, requestId, driverIndex, adminId, serviceKind = "transfer" }) {
+  const autoEmail = `driver-${requestId}-${serviceKind}-${driverIndex}@auto.internal`
 
   const externalUser = await prisma.externalUser.upsert({
     where: { email: autoEmail },
@@ -116,7 +116,8 @@ async function generateDriverLink({ driverName, requestId, driverIndex, adminId 
     kind: SUBJECT_TYPE_EXT,
     linkType: "PWA",
     passengerRequestId: requestId,
-    driverIndex
+    driverIndex,
+    serviceKind
   })
   await prisma.externalUserMagicLinkToken.create({
     data: {
@@ -1085,7 +1086,8 @@ const passengerRequestResolvers = {
           driverName: normalizedDriver.fullName,
           requestId,
           driverIndex,
-          adminId
+          adminId,
+          serviceKind: "transfer"
         })
         normalizedDriver.linkPWA = linkPWA
       } catch (e) {
@@ -1157,7 +1159,8 @@ const passengerRequestResolvers = {
           driverName: normalizedDriver.fullName,
           requestId,
           driverIndex,
-          adminId
+          adminId,
+          serviceKind: "baggage"
         })
         normalizedDriver.linkPWA = linkPWA
       } catch (e) {
