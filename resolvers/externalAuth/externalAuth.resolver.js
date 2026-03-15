@@ -63,7 +63,8 @@ const validateExternalScopeBinding = ({ scope, hotelId, driverId }) => {
 const issueTokenForExternalUser = async ({
   externalUserId,
   createdByAdminId,
-  linkType = "CRM"
+  linkType = "CRM",
+  passengerRequestId
 }) => {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_TTL_MS)
@@ -94,7 +95,8 @@ const issueTokenForExternalUser = async ({
   const magicLinkUrl = buildExternalMagicLink({
     token: rawToken,
     kind: SUBJECT_TYPE.EXTERNAL_USER,
-    linkType
+    linkType,
+    passengerRequestId
   })
   const expiresAt = new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS)
 
@@ -338,7 +340,8 @@ const externalAuthResolver = {
       const { rawToken, magicLinkUrl } = await issueTokenForExternalUser({
         externalUserId: externalUser.id,
         createdByAdminId: adminId,
-        linkType: input.accessType
+        linkType: input.accessType,
+        passengerRequestId: input.passengerRequestId ?? null
       })
 
       let emailed = true

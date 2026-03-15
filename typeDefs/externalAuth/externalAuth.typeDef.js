@@ -70,6 +70,7 @@ const externalAuthTypeDef = /* GraphQL */ `
     accessType: ExternalAccessType!
     hotelId: ID
     driverId: ID
+    passengerRequestId: ID
   }
 
   type Query {
