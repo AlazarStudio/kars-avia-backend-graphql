@@ -405,7 +405,24 @@ const chatResolver = {
 
       if (isExternal) {
         messageData.senderExternalUserId = context.subject.id
-        messageData.senderName = context.subject.name || "Внешний пользователь"
+        let extName = context.subject.name || ""
+        const scope = context.subject.scope
+        if (scope === "HOTEL" && context.subject.hotelId) {
+          const hotel = await prisma.hotel.findUnique({
+            where: { id: context.subject.hotelId },
+            select: { name: true }
+          })
+          extName = hotel?.name ? `Гостиница «${hotel.name}»` : (extName || "Гостиница")
+        } else if (scope === "DRIVER" && context.subject.driverId) {
+          const driver = await prisma.user.findUnique({
+            where: { id: context.subject.driverId },
+            select: { name: true }
+          })
+          extName = driver?.name ? `Водитель: ${driver.name}` : (extName || "Водитель")
+        } else if (!extName) {
+          extName = "Внешний пользователь"
+        }
+        messageData.senderName = extName
       } else {
         messageData.sender = { connect: { id: senderId } }
       }
