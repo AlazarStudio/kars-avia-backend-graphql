@@ -18,7 +18,9 @@ const chatResolver = {
     // Возвращает чаты по указанным параметрам: requestId или reserveId.
     // Если передан reserveId, дополнительно проверяется наличие hotelId у пользователя.
     chat: async (_, { chatId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -62,21 +64,34 @@ const chatResolver = {
       })
       return chat
     },
-    chats: async (_, { requestId, reserveId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      // Извлекаем идентификатор отеля из контекста пользователя
-      const hotelId = context.user.hotelId
-      // Инициализируем условие запроса с массивом для OR-условий
-      const whereCondition = {
-        OR: []
+    chats: async (_, { requestId, reserveId, passengerRequestId }, context) => {
+      const isExternal = context.subjectType === "EXTERNAL_USER"
+      if (!isExternal) {
+        await allMiddleware(context)
       }
 
-      // Если указан requestId, добавляем его в условия поиска
+      if (passengerRequestId) {
+        let chats = await prisma.chat.findMany({
+          where: { passengerRequestId },
+          include: { hotel: true }
+        })
+        if (chats.length === 0) {
+          const newChat = await prisma.chat.create({
+            data: { passengerRequest: { connect: { id: passengerRequestId } } },
+            include: { hotel: true }
+          })
+          chats = [newChat]
+        }
+        return chats
+      }
+
+      const hotelId = context.user?.hotelId
+      const whereCondition = { OR: [] }
+
       if (requestId) {
         whereCondition.OR.push({ requestId })
       }
 
-      // Если указан reserveId, то добавляем условие. Если у пользователя есть hotelId, учитываем его при поиске.
       if (reserveId) {
         if (hotelId) {
           whereCondition.OR.push({ reserveId, hotelId })
@@ -85,11 +100,9 @@ const chatResolver = {
         }
       }
 
-      // Выполняем запрос к базе данных: если условия OR заполнены, используем их,
-      // иначе передаем пустой объект для получения всех чатов.
       const chats = await prisma.chat.findMany({
         where: whereCondition.OR.length > 0 ? whereCondition : {},
-        include: { hotel: true } // Включаем данные об отеле, связанном с чатом
+        include: { hotel: true }
       })
 
       return chats
@@ -98,7 +111,9 @@ const chatResolver = {
     // Возвращает список сообщений для заданного чата (chatId),
     // которые ещё не прочитаны указанным пользователем (userId).
     unreadMessages: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       const unreadMessages = await prisma.message.findMany({
         where: {
           chatId,
@@ -133,7 +148,9 @@ const chatResolver = {
     // Сначала извлекаются все сообщения чата, затем – сообщения, которые пользователь уже прочитал,
     // и, наконец, вычисляется разница.
     unreadMessagesCount: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       const unreadMessages = await prisma.message.count({
         where: {
           chatId,
@@ -151,7 +168,9 @@ const chatResolver = {
 
     // Возвращает все сообщения для указанного чата с включением информации об отправителе.
     messages: async (_, { chatId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       return await prisma.message.findMany({
         where: { chatId },
         include: {
@@ -306,7 +325,11 @@ const chatResolver = {
     // },
 
     sendMessage: async (_, { chatId, senderId, text }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const isExternal = context.subjectType === "EXTERNAL_USER"
+      if (!isExternal) {
+        await allMiddleware(context)
+      }
+
       const currentTime = new Date()
       const adjustedTime = new Date(currentTime.getTime() + 3 * 60 * 60 * 1000)
       const formattedTime = adjustedTime.toISOString()
@@ -320,7 +343,7 @@ const chatResolver = {
       if (!chat) throw new Error("Чат не найден")
 
       let currentTicketId = null
-      if (chat.isSupport) {
+      if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
           select: { id: true, support: true }
@@ -374,16 +397,23 @@ const chatResolver = {
         }
       }
 
-      // Создаем сообщение и сразу получаем связанные данные о чате
       const messageData = {
         text,
-        sender: { connect: { id: senderId } },
         chat: { connect: { id: chatId } },
         createdAt: formattedTime
       }
+
+      if (isExternal) {
+        messageData.senderExternalUserId = context.subject.id
+        messageData.senderName = context.subject.name || "Внешний пользователь"
+      } else {
+        messageData.sender = { connect: { id: senderId } }
+      }
+
       if (currentTicketId) {
         messageData.supportTicket = { connect: { id: currentTicketId } }
       }
+
       const message = await prisma.message.create({
         data: messageData,
         include: {
@@ -406,6 +436,7 @@ const chatResolver = {
               id: true,
               requestId: true,
               reserveId: true,
+              passengerRequestId: true,
               airlineId: true,
               hotelId: true
             }
@@ -413,7 +444,6 @@ const chatResolver = {
         }
       })
 
-      // Формируем массив промисов для обновлений и уведомлений
       const tasks = []
 
       if (message.chat.requestId) {
@@ -424,10 +454,10 @@ const chatResolver = {
 
         await prisma.notification.create({
           data: {
-            chatId: message.chat.id, // ❗ Используем `chatId`
-            requestId: message.chat.requestId, // ❗ Используем `requestId`
-            airlineId: message.chat.airlineId || null, // ❗ Используем `airlineId`
-            hotelId: message.chat.hotelId || null, // ❗ Используем `hotelId`
+            chatId: message.chat.id,
+            requestId: message.chat.requestId,
+            airlineId: message.chat.airlineId || null,
+            hotelId: message.chat.hotelId || null,
             description: {
               action: "new_message"
             }
@@ -457,10 +487,10 @@ const chatResolver = {
 
         await prisma.notification.create({
           data: {
-            chatId: message.chat.id, // ❗ Используем `chatId`
-            reserveId: message.chat.reserveId, // ❗ Используем `reserveId`
-            airlineId: message.chat.airlineId || null, // ❗ Используем `airlineId`
-            hotelId: message.chat.hotelId || null, // ❗ Используем `hotelId`
+            chatId: message.chat.id,
+            reserveId: message.chat.reserveId,
+            airlineId: message.chat.airlineId || null,
+            hotelId: message.chat.hotelId || null,
             description: {
               action: "new_message"
             }
@@ -482,26 +512,24 @@ const chatResolver = {
         })
       }
 
-      // Обновляем данные о прочтении сообщений
-      tasks.push(
-        prisma.messageRead.upsert({
-          where: {
-            messageId_userId: { messageId: message.id, userId: senderId }
-          },
-          update: { readAt: new Date() },
-          create: {
-            messageId: message.id,
-            userId: senderId,
-            readAt: new Date()
-          }
-        })
-      )
+      if (senderId && !isExternal) {
+        tasks.push(
+          prisma.messageRead.upsert({
+            where: {
+              messageId_userId: { messageId: message.id, userId: senderId }
+            },
+            update: { readAt: new Date() },
+            create: {
+              messageId: message.id,
+              userId: senderId,
+              readAt: new Date()
+            }
+          })
+        )
+      }
 
-      // Ожидаем завершения всех задач
       await Promise.all(tasks)
 
-      // Публикуем событие отправки сообщения
-      // pubsub.publish(`${MESSAGE_SENT}_${chatId}`, { messageSent: message })
       pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
       return message
@@ -528,7 +556,9 @@ const chatResolver = {
     // },
 
     markMessageAsRead: async (_, { messageId, userId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       const currentTime = new Date()
 
       // Обновляем статус прочтения конкретного сообщения
@@ -622,7 +652,9 @@ const chatResolver = {
     // },
 
     markAllMessagesAsRead: async (_, { chatId, userId }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      if (context.subjectType !== "EXTERNAL_USER") {
+        await allMiddleware(context)
+      }
       const currentTime = new Date()
 
       // Обновляем дату последнего прочтения сообщений для пользователя в данном чате
@@ -833,38 +865,46 @@ const chatResolver = {
       subscribe: withFilter(
         (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
+          const isExternal = context.subjectType === "EXTERNAL_USER"
+          if (!isExternal) {
+            try {
+              await allMiddleware(context)
+            } catch {
+              return false
+            }
           }
           const { subject, subjectType } = context
 
-          if (!subject || subjectType !== "USER") return false
+          if (!subject) return false
 
           const message = payload.messageSent
 
-          // Фильтруем по chatId, если указан
           if (variables.chatId && message.chat && message.chat.id !== variables.chatId) {
             return false
           }
 
-          // SUPERADMIN и диспетчеры видят все
+          if (isExternal) {
+            if (message.chat?.passengerRequestId) return true
+            if (message.chatId && !message.chat) {
+              const chat = await prisma.chat.findUnique({ where: { id: message.chatId }, select: { passengerRequestId: true } })
+              return !!chat?.passengerRequestId
+            }
+            return false
+          }
+
+          if (subjectType !== "USER") return false
+
           if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
             return true
           }
 
-          // Проверяем права через chat
           if (message.chat) {
-            // Проверяем права по airlineId
             if (subject.airlineId && message.chat.airlineId === subject.airlineId) {
               return true
             }
-            // Проверяем права по hotelId
             if (subject.hotelId && message.chat.hotelId === subject.hotelId) {
               return true
             }
-            // Проверяем, является ли пользователь участником чата
             if (message.chat.participants) {
               const isParticipant = message.chat.participants.some(
                 (participant) => participant.id === subject.id
@@ -873,18 +913,13 @@ const chatResolver = {
             }
           }
 
-          // Загружаем чат, если его нет в payload
           if (!message.chat && message.chatId) {
             const chat = await prisma.chat.findUnique({
               where: { id: message.chatId },
               include: {
                 participants: {
                   include: {
-                    user: {
-                      select: {
-                        id: true
-                      }
-                    }
+                    user: { select: { id: true } }
                   }
                 }
               }
@@ -1004,14 +1039,14 @@ const chatResolver = {
     // Для этого определяется время последнего прочтения сообщений и считается число сообщений,
     // созданных после этого момента.
     unreadMessagesCount: async (parent, { chatId }, context) => {
-      const { user } = context
+      const userId = context.user?.id || context.subject?.id
+      if (!userId) return 0
       const response = await prisma.message.count({
         where: {
           chatId: chatId ? chatId : parent.id,
-          // Исключаем те сообщения, у которых уже есть запись о прочтении данным пользователем
           NOT: {
             readBy: {
-              some: { userId: user.id }
+              some: { userId }
             }
           }
         }
@@ -1019,9 +1054,8 @@ const chatResolver = {
       return response
     },
 
-    // Возвращает все сообщения чата с включением данных об отправителе для каждого сообщения.
     messages: async (parent) => {
-      return await prisma.message.findMany({
+      const msgs = await prisma.message.findMany({
         where: { chatId: parent.id },
         include: {
           sender: {
@@ -1058,6 +1092,10 @@ const chatResolver = {
           }
         }
       })
+      return msgs.map((m) => ({
+        ...m,
+        senderName: m.senderName || m.sender?.name || null
+      }))
     },
     assignedTo: async (parent) => {
       if (parent.assignedTo) return parent.assignedTo

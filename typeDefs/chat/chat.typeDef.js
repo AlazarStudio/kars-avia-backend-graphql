@@ -5,7 +5,8 @@ const chatTypeDef = /* GraphQL */ `
   type Message {
     id: ID!
     text: String!
-    sender: User!
+    sender: User
+    senderName: String
     chat: Chat!
     createdAt: Date!
     isRead: Boolean!
@@ -24,6 +25,7 @@ const chatTypeDef = /* GraphQL */ `
     id: ID!
     requestId: ID
     reserveId: ID
+    passengerRequestId: ID
     messages: [Message!]!
     participants: [User!]!
     createdAt: Date!
@@ -42,7 +44,7 @@ const chatTypeDef = /* GraphQL */ `
 
   type Query {
     chat(chatId: ID!): Chat
-    chats(requestId: ID, reserveId: ID): [Chat!]!
+    chats(requestId: ID, reserveId: ID, passengerRequestId: ID): [Chat!]!
     messages(chatId: ID!): [Message!]!
     unreadMessages(chatId: ID!, userId: ID!): [Message!]!
     unreadMessagesCount(chatId: ID!, userId: ID!): Int
@@ -50,7 +52,7 @@ const chatTypeDef = /* GraphQL */ `
   }
 
   type Mutation {
-    sendMessage(chatId: ID!, senderId: ID!, text: String!): Message!
+    sendMessage(chatId: ID!, senderId: ID, text: String!): Message!
     createChat(requestId: ID!, userIds: [ID!]!): Chat!
     markMessageAsRead(messageId: ID!, userId: ID!): MessageRead!
     markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean!
