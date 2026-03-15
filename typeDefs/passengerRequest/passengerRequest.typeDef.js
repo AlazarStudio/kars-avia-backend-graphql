@@ -102,6 +102,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int!
     address: String
     link: String
+    linkCRM: String
+    linkPWA: String
     people: [PassengerServiceHotelPerson!]!
   }
 

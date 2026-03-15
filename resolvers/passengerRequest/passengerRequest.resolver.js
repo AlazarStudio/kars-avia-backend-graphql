@@ -16,6 +16,12 @@ import {
   PASSENGER_REQUEST_UPDATED
 } from "../../services/infra/pubsub.js"
 import logAction from "../../services/infra/logaction.js"
+import {
+  createMagicLinkTokenPair,
+  EXTERNAL_MAGIC_LINK_TTL_MS,
+  normalizeEmail
+} from "../../services/auth/externalMagicLink.js"
+import { buildExternalMagicLink } from "../../services/auth/sendExternalMagicLinkEmail.js"
 
 const getSubjectName = (context) => {
   if (context.user?.name) return context.user.name
@@ -24,6 +30,65 @@ const getSubjectName = (context) => {
   if (context.subject?.name) return context.subject.name
   if (context.subject?.email) return context.subject.email
   return "Неизвестный пользователь"
+}
+
+const SUBJECT_TYPE_EXT = "EXTERNAL_USER"
+
+async function generateHotelLinks({ hotel, requestId, adminId }) {
+  if (!hotel.hotelId) return { linkCRM: null, linkPWA: null }
+
+  const hotelRecord = await prisma.hotel.findUnique({
+    where: { id: hotel.hotelId },
+    select: { id: true, name: true }
+  })
+  if (!hotelRecord) return { linkCRM: null, linkPWA: null }
+
+  const autoEmail = `hotel-${hotel.hotelId}@auto.internal`
+
+  const externalUser = await prisma.externalUser.upsert({
+    where: { email: autoEmail },
+    create: {
+      email: autoEmail,
+      name: hotel.name || hotelRecord.name || null,
+      scope: "HOTEL",
+      accessType: "CRM",
+      hotelId: hotel.hotelId,
+      active: true
+    },
+    update: {
+      name: hotel.name || hotelRecord.name || undefined,
+      scope: "HOTEL",
+      hotelId: hotel.hotelId,
+      active: true
+    }
+  })
+
+  const issueMagicLink = async (linkType) => {
+    const { rawToken, tokenHash } = createMagicLinkTokenPair()
+    const now = new Date()
+    const url = buildExternalMagicLink({
+      token: rawToken,
+      kind: SUBJECT_TYPE_EXT,
+      linkType,
+      passengerRequestId: linkType === "PWA" ? requestId : undefined
+    })
+    await prisma.externalUserMagicLinkToken.create({
+      data: {
+        externalUserId: externalUser.id,
+        tokenHash,
+        rawToken,
+        magicLinkUrl: url,
+        expiresAt: new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS),
+        createdByAdminId: adminId || undefined
+      }
+    })
+    return url
+  }
+
+  const linkCRM = await issueMagicLink("CRM")
+  const linkPWA = await issueMagicLink("PWA")
+
+  return { linkCRM, linkPWA }
 }
 
 const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
@@ -650,6 +715,20 @@ const passengerRequestResolvers = {
       }
 
       const hotelWithItemId = ensurePassengerServiceHotelItemId(hotel)
+
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      try {
+        const links = await generateHotelLinks({
+          hotel: hotelWithItemId,
+          requestId,
+          adminId
+        })
+        hotelWithItemId.linkCRM = links.linkCRM
+        hotelWithItemId.linkPWA = links.linkPWA
+      } catch (e) {
+        hotelWithItemId.linkCRM = null
+        hotelWithItemId.linkPWA = null
+      }
 
       const hotels = [...(prev.hotels || []), hotelWithItemId]
       const isFirstHotel = (prev.hotels || []).length === 0
