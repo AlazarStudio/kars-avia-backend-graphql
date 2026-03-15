@@ -683,7 +683,7 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, person },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
       })
@@ -700,25 +700,39 @@ const passengerRequestResolvers = {
       if (hotelIndex < 0 || hotelIndex >= hotels.length) {
         throw new GraphQLError("Invalid hotelIndex")
       }
+      if (
+        context.subjectType === "EXTERNAL_USER" &&
+        context.subject?.scope === "HOTEL" &&
+        context.subject?.hotelId
+      ) {
+        const targetHotel = hotels[hotelIndex]
+        if (!targetHotel || targetHotel.hotelId !== context.subject.hotelId) {
+          throw new GraphQLError(
+            "Access forbidden: you can only add bookings to your hotel.",
+            { extensions: { code: "FORBIDDEN" } }
+          )
+        }
+      }
 
-      const hotelsClone = hotels.map((h, i) =>
-        i === hotelIndex
+      const hotelsClone = hotels.map((h, i) => {
+        const name = h?.name ?? ""
+        return i === hotelIndex
           ? {
               ...h,
               people: [
-                ...(h.people || []).map((item) =>
-                  ensureHotelPerson(item, i, h.name)
+                ...((h && h.people) || []).map((item) =>
+                  ensureHotelPerson(item, i, name)
                 ),
-                ensureHotelPerson(person, i, h.name)
+                ensureHotelPerson(person, i, name)
               ]
             }
           : {
               ...h,
-              people: (h.people || []).map((item) =>
-                ensureHotelPerson(item, i, h.name)
+              people: ((h && h.people) || []).map((item) =>
+                ensureHotelPerson(item, i, name)
               )
             }
-      )
+      })
 
       const totalPeopleBefore = (living.hotels || []).reduce(
         (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),

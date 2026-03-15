@@ -109,6 +109,10 @@ export async function buildAuthContext(authHeader) {
       select: {
         id: true,
         email: true,
+        name: true,
+        scope: true,
+        hotelId: true,
+        driverId: true,
         active: true,
         refreshToken: true,
         sessionExpiresAt: true
