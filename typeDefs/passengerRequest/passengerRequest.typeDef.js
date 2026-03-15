@@ -411,6 +411,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
 
+    """Водитель принимает заказ на доставку багажа — статус переходит в IN_PROGRESS."""
+    acceptPassengerRequestBaggageOrder(
+      requestId: ID!
+      driverIndex: Int!
+    ): PassengerRequest!
+
     """Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0)."""
     completePassengerRequestBaggageDriverDelivery(
       requestId: ID!

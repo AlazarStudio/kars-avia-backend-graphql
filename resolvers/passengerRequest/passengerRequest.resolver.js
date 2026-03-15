@@ -1166,11 +1166,20 @@ const passengerRequestResolvers = {
 
       const drivers = [...(prev.drivers || []), normalizedDriver]
 
+      const now = new Date()
+      const isFirstDriver = (prev.drivers || []).length === 0
+      const updatedStatus = isFirstDriver && prev.status === "NEW" ? "ACCEPTED" : prev.status
+      const updatedTimes = isFirstDriver && prev.status === "NEW"
+        ? { ...(prev.times || {}), acceptedAt: now }
+        : (prev.times || {})
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           baggageDeliveryService: {
             ...prev,
+            status: updatedStatus,
+            times: updatedTimes,
             drivers
           }
         }
@@ -1180,6 +1189,61 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_baggage_driver",
         description: "Водитель добавлен в доставку багажа ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    acceptPassengerRequestBaggageOrder: async (
+      _,
+      { requestId, driverIndex },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const bds = existing.baggageDeliveryService
+      if (!bds) throw new GraphQLError("BaggageDeliveryService not found")
+
+      const drivers = bds.drivers ?? []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Driver index out of range")
+      }
+
+      const now = new Date()
+      const alreadyInProgress = bds.status === "IN_PROGRESS" || bds.status === "COMPLETED" || bds.status === "CANCELLED"
+      const updatedStatus = alreadyInProgress ? bds.status : "IN_PROGRESS"
+      const updatedTimes = alreadyInProgress
+        ? (bds.times || {})
+        : { ...(bds.times || {}), inProgressAt: now }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          baggageDeliveryService: {
+            ...bds,
+            status: updatedStatus,
+            times: updatedTimes
+          }
+        }
+      })
+
+      const driver = drivers[driverIndex]
+      await logPassengerRequestAction({
+        context,
+        action: "accept_passenger_request_baggage_order",
+        description: "Водитель принял заказ на доставку багажа ФАП",
+        fulldescription: `Водитель ${driver?.fullName ?? driverIndex} принял заказ на доставку багажа (ФАП ${passengerRequest.flightNumber})`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
