@@ -1150,6 +1150,20 @@ const passengerRequestResolvers = {
       }
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
+      const driverIndex = (prev.drivers || []).length
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      try {
+        const linkPWA = await generateDriverLink({
+          driverName: normalizedDriver.fullName,
+          requestId,
+          driverIndex,
+          adminId
+        })
+        normalizedDriver.linkPWA = linkPWA
+      } catch (e) {
+        normalizedDriver.linkPWA = null
+      }
+
       const drivers = [...(prev.drivers || []), normalizedDriver]
 
       const passengerRequest = await prisma.passengerRequest.update({
