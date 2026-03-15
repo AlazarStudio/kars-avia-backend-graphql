@@ -18,7 +18,7 @@ import {
 import logAction from "../../services/infra/logaction.js"
 
 const getSubjectName = (context) => {
-  if (context.user?.name) return getSubjectName(context)
+  if (context.user?.name) return context.user.name
   if (context.externalUser?.name) return context.externalUser.name
   if (context.externalUser?.email) return `Внеш. пользователь (${context.externalUser.email})`
   if (context.subject?.name) return context.subject.name
