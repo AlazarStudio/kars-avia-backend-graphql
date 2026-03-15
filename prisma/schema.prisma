@@ -904,7 +904,9 @@ type PassengerServiceHotel {
   name        String // снэпшот названия
   peopleCount Int // «Количество мест»
   address     String?
-  link        String? // колонка «Ссылка» в таблице
+  link        String? // колонка «Ссылка» в таблице (legacy)
+  linkCRM     String?
+  linkPWA     String?
   people      PassengerServiceHotelPerson[] // брони по отелю
 }
 
