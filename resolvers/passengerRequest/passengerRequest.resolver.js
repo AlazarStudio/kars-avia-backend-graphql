@@ -91,6 +91,47 @@ async function generateHotelLinks({ hotel, requestId, adminId }) {
   return { linkCRM, linkPWA }
 }
 
+async function generateDriverLink({ driverName, requestId, driverIndex, adminId }) {
+  const autoEmail = `driver-${requestId}-${driverIndex}@auto.internal`
+
+  const externalUser = await prisma.externalUser.upsert({
+    where: { email: autoEmail },
+    create: {
+      email: autoEmail,
+      name: driverName || null,
+      scope: "DRIVER",
+      accessType: "CRM",
+      active: true
+    },
+    update: {
+      name: driverName || undefined,
+      active: true
+    }
+  })
+
+  const { rawToken, tokenHash } = createMagicLinkTokenPair()
+  const now = new Date()
+  const url = buildExternalMagicLink({
+    token: rawToken,
+    kind: SUBJECT_TYPE_EXT,
+    linkType: "PWA",
+    passengerRequestId: requestId,
+    driverIndex
+  })
+  await prisma.externalUserMagicLinkToken.create({
+    data: {
+      externalUserId: externalUser.id,
+      tokenHash,
+      rawToken,
+      magicLinkUrl: url,
+      expiresAt: new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS),
+      createdByAdminId: adminId || undefined
+    }
+  })
+
+  return url
+}
+
 const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
   const existing = Array.isArray(person?.accommodationChesses)
     ? person.accommodationChesses
@@ -1037,8 +1078,22 @@ const passengerRequestResolvers = {
       }
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
+      const driverIndex = (prev.drivers || []).length
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      try {
+        const linkPWA = await generateDriverLink({
+          driverName: normalizedDriver.fullName,
+          requestId,
+          driverIndex,
+          adminId
+        })
+        normalizedDriver.linkPWA = linkPWA
+      } catch (e) {
+        normalizedDriver.linkPWA = null
+      }
+
       const drivers = [...(prev.drivers || []), normalizedDriver]
-      const isFirstDriver = (prev.drivers || []).length === 0
+      const isFirstDriver = driverIndex === 0
       const nextStatus = isFirstDriver ? "ACCEPTED" : prev.status
       const nextTimes = isFirstDriver ? updateTimes(prev.times, "ACCEPTED") : prev.times
 

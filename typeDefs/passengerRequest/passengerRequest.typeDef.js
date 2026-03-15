@@ -118,6 +118,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
+    linkPWA: String
     addressFrom: String
     addressTo: String
     description: String

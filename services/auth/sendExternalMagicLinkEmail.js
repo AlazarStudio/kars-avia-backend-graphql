@@ -41,13 +41,16 @@ const buildBaseUrl = ({ linkType } = {}) => {
   )
 }
 
-export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequestId }) => {
+export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequestId, driverIndex }) => {
   const baseUrl = buildBaseUrl({ linkType })
   const safeKind = encodeURIComponent(kind)
   const safeToken = encodeURIComponent(token)
   let url = `${baseUrl}/external-login?kind=${safeKind}&token=${safeToken}`
   if (linkType === "PWA" && passengerRequestId) {
     url += `&passengerRequestId=${encodeURIComponent(passengerRequestId)}`
+  }
+  if (linkType === "PWA" && driverIndex != null) {
+    url += `&driverIndex=${encodeURIComponent(String(driverIndex))}`
   }
   return url
 }

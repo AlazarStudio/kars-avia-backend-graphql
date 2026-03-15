@@ -891,6 +891,7 @@ type PassengerServiceDriver {
   peopleCount         Int?
   pickupAt            DateTime? // время подачи / выезда
   link                String? // ссылка на маршрут, вотсап и т.д.
+  linkPWA             String?
   addressFrom         String?
   addressTo           String?
   description         String? // описание заявки (для трансфера багажа)
