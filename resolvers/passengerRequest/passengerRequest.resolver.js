@@ -1343,19 +1343,19 @@ const passengerRequestResolvers = {
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
       )
-      const allDriversFull = driversClone.every((d) => {
-        const limit = d.peopleCount ?? null
-        const count = Array.isArray(d.people) ? d.people.length : 0
-        return limit != null && count >= limit
-      })
+      const totalPeopleAfter = driversClone.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const planCount = prev.plan?.peopleCount ?? null
 
       let nextStatus = prev.status
       let nextTimes = prev.times || {}
-      if (totalPeopleBefore === 0) {
+      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
         nextStatus = "IN_PROGRESS"
         nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
       }
-      if (allDriversFull && drivers.length > 0) {
+      if (planCount != null && totalPeopleAfter >= planCount) {
         nextStatus = "COMPLETED"
         nextTimes = updateTimes(nextTimes, "COMPLETED")
       }
