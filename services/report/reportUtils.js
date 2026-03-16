@@ -139,6 +139,8 @@ export const calculateLivingCost = (request, type, days) => {
       studio: request.hotelChess[0]?.room?.price || 1,
       apartment: request.hotelChess[0]?.room?.price || 1,
       luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      comfort: request.hotelChess[0]?.room?.roomKind?.price || 1,
+      improvedComfort: request.hotelChess[0]?.room?.roomKind?.price || 1,
       onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
       twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
       threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
@@ -173,6 +175,10 @@ export const getAirlinePriceForCategory = (request, category) => {
             return contract.prices?.priceApartment || 0
           case "luxe":
             return contract.prices?.priceLuxe || 0
+          case "comfort":
+            return contract.prices?.priceComfort || 0
+          case "improvedComfort":
+            return contract.prices?.priceImprovedComfort || 0
           case "onePlace":
             return contract.prices?.priceOneCategory || 0
           case "twoPlace":
@@ -342,6 +348,8 @@ export const aggregateRequestReports = (
       "studio",
       "apartment",
       "luxe",
+      "comfort",
+      "improvedComfort",
       "onePlace",
       "twoPlace",
       "threePlace",
@@ -388,6 +396,8 @@ export const aggregateRequestReports = (
       studio: "Студия",
       apartment: "Апартаменты",
       luxe: "Люкс",
+      comfort: "Комфорт",
+      improvedComfort: "Улучшенный комфорт",
       onePlace: "Одноместный",
       twoPlace: "Двухместный",
       threePlace: "Трёхместный",
@@ -699,4 +709,3 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
 
   return out
 }
-

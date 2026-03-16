@@ -7,6 +7,8 @@ const hotelTypeDef = /* GraphQL */ `
     apartment
     studio
     luxe
+    comfort
+    improvedComfort
     onePlace
     twoPlace
     threePlace
@@ -299,7 +301,10 @@ const hotelTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    hotels(pagination: HotelPaginationInput, filter: HotelFilter): HotelConnection!
+    hotels(
+      pagination: HotelPaginationInput
+      filter: HotelFilter
+    ): HotelConnection!
     hotel(id: ID!): Hotel
   }
 

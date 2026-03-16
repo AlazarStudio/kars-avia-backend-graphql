@@ -130,6 +130,8 @@ const globalTypeDef = /* GraphQL */ `
     priceApartment: Float
     priceStudio: Float
     priceLuxe: Float
+    priceComfort: Float
+    priceImprovedComfort: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
@@ -146,6 +148,8 @@ const globalTypeDef = /* GraphQL */ `
     priceApartment: Float
     priceStudio: Float
     priceLuxe: Float
+    priceComfort: Float
+    priceImprovedComfort: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
@@ -274,7 +278,6 @@ const globalTypeDef = /* GraphQL */ `
   type Mutation {
     transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
     singleUpload(file: Upload!): File!
-    
   }
 `
 
