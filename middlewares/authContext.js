@@ -2,6 +2,63 @@ import jwt from "jsonwebtoken"
 import { prisma } from "../prisma.js"
 import { logger } from "../services/infra/logger.js"
 
+const EMPTY_TOKEN_VALUES = new Set(["", "null", "undefined"])
+
+export const AUTH_ERROR_CODES = {
+  MISSING_TOKEN: "MISSING_TOKEN",
+  MALFORMED_TOKEN: "MALFORMED_TOKEN",
+  TOKEN_EXPIRED: "TOKEN_EXPIRED",
+  SUBJECT_NOT_FOUND: "SUBJECT_NOT_FOUND",
+  MISSING_SESSION_TOKEN: "MISSING_SESSION_TOKEN",
+  SESSION_MISMATCH: "SESSION_MISMATCH",
+  EXTERNAL_SESSION_EXPIRED: "EXTERNAL_SESSION_EXPIRED",
+  INVALID_TOKEN: "INVALID_TOKEN"
+}
+
+export class AuthError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = "AuthError"
+    this.code = code
+    this.status = 401
+    this.isAuthError = true
+  }
+}
+
+export function isAuthError(error) {
+  return Boolean(error?.isAuthError)
+}
+
+function extractToken(authHeader) {
+  if (typeof authHeader !== "string") {
+    return ""
+  }
+
+  const headerValue = authHeader.trim()
+  if (!headerValue) {
+    return ""
+  }
+
+  const bearerMatch = headerValue.match(/^Bearer\s+(.+)$/i)
+  const token = bearerMatch ? bearerMatch[1].trim() : headerValue
+
+  if (!token || EMPTY_TOKEN_VALUES.has(token.toLowerCase())) {
+    return ""
+  }
+
+  return token
+}
+
+function isLikelyJwt(token) {
+  const parts = token.split(".")
+  return parts.length === 3 && parts.every(Boolean)
+}
+
+function raiseAuthError(code, message, details = null, error = null) {
+  logger.authError(`[AUTH] ${code}: ${message}`, error, details)
+  throw new AuthError(code, message)
+}
+
 /**
  * Универсальный auth-контекст
  * Используется и для HTTP, и для WebSocket
@@ -11,13 +68,14 @@ export async function buildAuthContext(authHeader) {
     return emptyContext()
   }
 
-  const rawToken = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : authHeader
-  const token = typeof rawToken === "string" ? rawToken.trim() : ""
+  const token = extractToken(authHeader)
 
   if (!token) {
-    throw new Error("Invalid token")
+    raiseAuthError(AUTH_ERROR_CODES.MISSING_TOKEN, "Missing token")
+  }
+
+  if (!isLikelyJwt(token)) {
+    raiseAuthError(AUTH_ERROR_CODES.MALFORMED_TOKEN, "Malformed token")
   }
 
   let decoded
@@ -25,24 +83,38 @@ export async function buildAuthContext(authHeader) {
     decoded = jwt.verify(token, process.env.JWT_SECRET)
   } catch (e) {
     if (e.name === "TokenExpiredError") {
-      logger.warn("[AUTH] Token expired")
-      throw new Error("Token expired")
+      raiseAuthError(
+        AUTH_ERROR_CODES.TOKEN_EXPIRED,
+        "Token expired",
+        { reason: e.message },
+        null
+      )
     }
-    logger.error("[AUTH] Invalid token", e)
-    throw new Error("Invalid token")
+    if (e.name === "JsonWebTokenError") {
+      raiseAuthError(
+        AUTH_ERROR_CODES.MALFORMED_TOKEN,
+        "Malformed token",
+        { reason: e.message },
+        null
+      )
+    }
+    raiseAuthError(
+      AUTH_ERROR_CODES.INVALID_TOKEN,
+      "Invalid token",
+      { reason: e.message },
+      e
+    )
   }
 
   // Жестко требуем exp в access-токене, чтобы не принимать "бессрочные" legacy JWT.
   if (!decoded?.exp || typeof decoded.exp !== "number") {
-    logger.warn("[AUTH] Token has no exp claim")
-    throw new Error("Invalid token")
+    raiseAuthError(AUTH_ERROR_CODES.MALFORMED_TOKEN, "Token has no exp claim")
   }
 
   // Дополнительная явная проверка срока годности (для предсказуемого поведения во всех окружениях).
   const nowInSeconds = Math.floor(Date.now() / 1000)
   if (decoded.exp <= nowInSeconds) {
-    logger.warn("[AUTH] Token expired")
-    throw new Error("Token expired")
+    raiseAuthError(AUTH_ERROR_CODES.TOKEN_EXPIRED, "Token expired")
   }
 
   const {
@@ -122,20 +194,23 @@ export async function buildAuthContext(authHeader) {
   }
 
   if (!subject) {
-    logger.warn("[AUTH] Subject not found")
-    throw new Error("Invalid token")
+    raiseAuthError(AUTH_ERROR_CODES.SUBJECT_NOT_FOUND, "Subject not found")
   }
 
   // Проверка актуальности сессии:
   // при новом логине refreshToken в БД меняется, старые JWT становятся невалидными.
   const sessionToken = decoded?.sessionToken
   if (!sessionToken || typeof sessionToken !== "string") {
-    logger.warn("[AUTH] Token has no sessionToken")
-    throw new Error("Invalid token")
+    raiseAuthError(
+      AUTH_ERROR_CODES.MISSING_SESSION_TOKEN,
+      "Token has no sessionToken"
+    )
   }
   if (!subject.refreshToken || subject.refreshToken !== sessionToken) {
-    logger.warn("[AUTH] Session is not актуальна")
-    throw new Error("Invalid token")
+    raiseAuthError(
+      AUTH_ERROR_CODES.SESSION_MISMATCH,
+      "Session token does not match active session"
+    )
   }
 
   if (
@@ -144,8 +219,10 @@ export async function buildAuthContext(authHeader) {
       !subject.sessionExpiresAt ||
       new Date(subject.sessionExpiresAt).getTime() <= Date.now())
   ) {
-    logger.warn("[AUTH] External session expired or inactive")
-    throw new Error("Invalid token")
+    raiseAuthError(
+      AUTH_ERROR_CODES.EXTERNAL_SESSION_EXPIRED,
+      "External session expired or inactive"
+    )
   }
 
   return {

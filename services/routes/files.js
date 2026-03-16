@@ -1,7 +1,7 @@
 import express from "express"
 import path from "path"
 import fs from "fs"
-import { buildAuthContext } from "../../middlewares/authContext.js"
+import { buildAuthContext, isAuthError } from "../../middlewares/authContext.js"
 import { checkFileAccess } from "../files/checkFileAccess.js"
 import { logger } from "../infra/logger.js"
 
@@ -119,10 +119,15 @@ router.get("/*", async (req, res) => {
     // Отправляем файл
     res.sendFile(absolutePath)
   } catch (e) {
-    logger.error("[FILE ACCESS] Error serving file", e)
-    if (e.message === "Token expired" || e.message === "Invalid token") {
-      return res.status(401).json({ error: e.message })
+    if (isAuthError(e)) {
+      logger.warn(`[FILE ACCESS] Unauthorized: ${e.code}`)
+      return res.status(401).json({
+        error: "Unauthorized",
+        code: e.code,
+        message: e.message
+      })
     }
+    logger.error("[FILE ACCESS] Error serving file", e)
     return res.status(500).json({ error: "Internal server error" })
   }
 })

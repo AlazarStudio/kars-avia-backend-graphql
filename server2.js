@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken"
 import cors from "cors"
 import http from "http"
 import dotenv from "dotenv"
 import express from "express"
 import { prisma } from "./prisma.js"
 import { ApolloServer } from "@apollo/server"
+import { GraphQLError } from "graphql"
 import { expressMiddleware } from "@apollo/server/express4"
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
 import { WebSocketServer } from "ws"
@@ -18,7 +18,7 @@ import {
   stopArchivingJob
 } from "./services/cron/cronTasks.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
-import { buildAuthContext } from "./middlewares/authContext.js"
+import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
 import { logger } from "./services/infra/logger.js"
 import filesRouter from "./services/routes/files.js"
@@ -70,6 +70,23 @@ const schema = makeExecutableSchema({
   resolvers: mergedResolvers
 })
 
+async function buildGraphqlContext(req) {
+  try {
+    return await buildAuthContext(req.headers.authorization || null)
+  } catch (e) {
+    if (isAuthError(e)) {
+      throw new GraphQLError("Unauthorized", {
+        extensions: {
+          code: "UNAUTHENTICATED",
+          authCode: e.code,
+          http: { status: e.status || 401 }
+        }
+      })
+    }
+    throw e
+  }
+}
+
 /* =========================
    🔌 WEBSOCKET (graphql-ws)
 ========================= */
@@ -83,8 +100,21 @@ const serverCleanup = useServer(
   {
     schema,
     context: async (ctx) => {
-      const authHeader = ctx.connectionParams?.Authorization || null
-      const context = await buildAuthContext(authHeader)
+      const authHeader =
+        ctx.connectionParams?.Authorization ||
+        ctx.connectionParams?.authorization ||
+        null
+
+      let context
+      try {
+        context = await buildAuthContext(authHeader)
+      } catch (e) {
+        if (isAuthError(e)) {
+          logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
+          throw new Error("Unauthorized")
+        }
+        throw e
+      }
 
       logger.info(
         `[WS CONNECT] type=${context.subjectType || "ANON"} id=${
@@ -196,8 +226,7 @@ app.use(
   cors(),
   express.json(),
   expressMiddleware(server, {
-    context: async ({ req }) =>
-      buildAuthContext(req.headers.authorization || null)
+    context: async ({ req }) => buildGraphqlContext(req)
   })
 )
 
