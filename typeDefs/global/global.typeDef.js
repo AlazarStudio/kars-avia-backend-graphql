@@ -258,13 +258,13 @@ const globalTypeDef = /* GraphQL */ `
   input TransferSignInInput {
     identifier: String!
     password: String!
-    # fingerprint: String
+    fingerprint: String
     # token2FA: String
   }
 
   type TransferSignInPayload {
     token: String!
-    # refreshToken: String
+    refreshToken: String
     subjectType: String!
     user: User
     driver: Driver

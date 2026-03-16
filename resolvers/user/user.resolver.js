@@ -900,33 +900,110 @@ const userResolver = {
     // Обновление (refresh) токенов аутентификации.
     // На основании действующего refreshToken генерируется новый accessToken и новый refreshToken.
     refreshToken: async (_, { refreshToken, fingerprint }) => {
-      const user = await prisma.user.findFirst({ where: { refreshToken } })
-      if (!user) {
+      const [user, driver, airlinePersonal] = await Promise.all([
+        prisma.user.findFirst({ where: { refreshToken } }),
+        prisma.driver.findFirst({ where: { refreshToken } }),
+        prisma.airlinePersonal.findFirst({ where: { refreshToken } })
+      ])
+
+      const candidates = [
+        user ? { subjectType: "USER", entity: user } : null,
+        driver ? { subjectType: "DRIVER", entity: driver } : null,
+        airlinePersonal
+          ? { subjectType: "AIRLINE_PERSONAL", entity: airlinePersonal }
+          : null
+      ].filter(Boolean)
+
+      if (!candidates.length) {
         throw new Error("Invalid refresh token")
       }
-      if (fingerprint != user.fingerprint) {
+
+      if (candidates.length > 1) {
+        throw new Error("Ambiguous refresh token")
+      }
+
+      const { subjectType, entity } = candidates[0]
+
+      const normalizedFingerprint =
+        typeof fingerprint === "string" ? fingerprint.trim() : ""
+
+      if (entity.fingerprint && normalizedFingerprint !== entity.fingerprint) {
         throw new Error("Invalid fingerprint")
       }
+
       const newSessionToken = uuidv4()
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken: newSessionToken }
+      let jwtPayload = {
+        subjectType,
+        sessionToken: newSessionToken
+      }
+
+      if (subjectType === "USER") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.user.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          userId: entity.id,
+          role: entity.role,
+          hotelId: entity.hotelId,
+          airlineId: entity.airlineId,
+          airlineDepartmentId: entity.airlineDepartmentId,
+          dispatcherDepartmentId: entity.dispatcherDepartmentId,
+          representativeDepartmentId: entity.representativeDepartmentId
+        }
+      }
+
+      if (subjectType === "DRIVER") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.driver.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          driverId: entity.id,
+          role: entity.role || "DRIVER",
+          organizationId: entity.organizationId,
+          registrationStatus: entity.registrationStatus
+        }
+      }
+
+      if (subjectType === "AIRLINE_PERSONAL") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.airlinePersonal.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          airlinePersonalId: entity.id,
+          role: entity.role,
+          airlineId: entity.airlineId,
+          departmentId: entity.departmentId
+        }
+      }
+
+      const newAccessToken = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
+        expiresIn: "24h"
       })
 
-      const newAccessToken = jwt.sign(
-        {
-          subjectType: "USER",
-          userId: user.id,
-          role: user.role,
-          hotelId: user.hotelId,
-          airlineId: user.airlineId,
-          sessionToken: newSessionToken
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-
       return {
+        id: entity.id,
+        name: entity.name,
+        number: entity.number,
+        email: entity.email,
+        role: entity.role,
         token: newAccessToken,
         refreshToken: newSessionToken
       }
