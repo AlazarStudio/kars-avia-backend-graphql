@@ -7,10 +7,7 @@ import {
   CONTRACT_ORGANIZATION
 } from "../../services/infra/pubsub.js"
 import { withFilter } from "graphql-subscriptions"
-import {
-  allMiddleware,
-  superAdminMiddleware
-} from "../../middlewares/authMiddleware.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import {
   buildAirlineContractWhere,
@@ -43,8 +40,8 @@ const contractResolver = {
       const { skip, take, all } = pagination || {}
       const items = await prisma.airlineContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           company: true,
@@ -77,8 +74,8 @@ const contractResolver = {
       const { skip, take, all } = pagination || {}
       const items = await prisma.hotelContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           company: true,
@@ -103,7 +100,11 @@ const contractResolver = {
     },
 
     // ORGANIZATION
-    organizationContracts: async (_, { pagination, filter, orderBy }, context) => {
+    organizationContracts: async (
+      _,
+      { pagination, filter, orderBy },
+      context
+    ) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const where = buildOrganizationContractWhere(filter)
       const totalCount = await prisma.organizationContract.count({ where })
@@ -112,8 +113,8 @@ const contractResolver = {
 
       const items = await prisma.organizationContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           region: true,
@@ -154,7 +155,7 @@ const contractResolver = {
   Mutation: {
     // AIRLINE
     createAirlineContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -185,7 +186,7 @@ const contractResolver = {
     },
 
     updateAirlineContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -233,7 +234,7 @@ const contractResolver = {
     },
 
     deleteAirlineContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.airlineContract.findUnique({
         where: { id },
         include: { additionalAgreements: true }
@@ -256,7 +257,7 @@ const contractResolver = {
 
     // HOTEL
     createHotelContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -292,7 +293,7 @@ const contractResolver = {
     },
 
     updateHotelContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -355,7 +356,7 @@ const contractResolver = {
     },
 
     deleteHotelContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.hotelContract.findUnique({
         where: { id },
         include: { additionalAgreement: true }
@@ -383,7 +384,7 @@ const contractResolver = {
 
     // ORGANIZATION
     createOrganizationContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
 
       if (files?.length) {
@@ -419,7 +420,7 @@ const contractResolver = {
     },
 
     updateOrganizationContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const updatedData = {}
 
       if (files?.length) {
@@ -461,7 +462,7 @@ const contractResolver = {
     },
 
     deleteOrganizationContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.organizationContract.findUnique({
         where: { id },
         include: { additionalAgreement: true }
@@ -492,7 +493,7 @@ const contractResolver = {
 
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
 
       let filesPath = []
       if (files && files.length > 0) {
@@ -540,7 +541,7 @@ const contractResolver = {
     },
 
     updateAdditionalAgreement: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -596,7 +597,7 @@ const contractResolver = {
     },
 
     deleteAdditionalAgreement: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.additionalAgreement.findUnique({
         where: { id }
       })
