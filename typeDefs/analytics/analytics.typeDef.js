@@ -4,6 +4,61 @@ const analyticsTypeDef = /* GraphQL */ `
   scalar Date
   scalar Json
 
+  enum AnalyticsServiceType {
+    LIVING
+    MEAL
+    TRANSFER
+  }
+
+  enum AnalyticsCrewFilterMode {
+    ALL
+    SQUADRON
+    TECHNICIAN
+    POSITIONS
+  }
+
+  input AnalyticsDateRangeInput {
+    startDate: Date!
+    endDate: Date!
+  }
+
+  input AnalyticsCrewFilterInput {
+    mode: AnalyticsCrewFilterMode! = ALL
+    positionNames: [String!]
+  }
+
+  input AnalyticsAirlineServiceComparisonInput {
+    airlineId: ID!
+    period1: AnalyticsDateRangeInput!
+    period2: AnalyticsDateRangeInput!
+    services: [AnalyticsServiceType!]! = [LIVING, MEAL, TRANSFER]
+    crew: AnalyticsCrewFilterInput
+    regions: [String!]
+  }
+
+  type AnalyticsComparisonMetrics {
+    peopleCount: Int!
+    budgetRub: Float!
+    roomsUsed: Int!
+  }
+
+  type AnalyticsComparisonDiff {
+    peopleDelta: Int!
+    peopleDeltaPct: Float
+    budgetDeltaRub: Float!
+    budgetDeltaPct: Float
+    roomsDelta: Int!
+    roomsDeltaPct: Float
+  }
+
+  type AirlineServiceComparisonRow {
+    region: String!
+    service: AnalyticsServiceType!
+    period1: AnalyticsComparisonMetrics!
+    period2: AnalyticsComparisonMetrics!
+    diff: AnalyticsComparisonDiff!
+  }
+
   enum entityType {
     dispatcher
     airline
@@ -105,6 +160,9 @@ const analyticsTypeDef = /* GraphQL */ `
     analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
     analyticsPersonStaySummary(input: AnalyticsInput): [PersonStaySummary!]!
     analyticsUsersTime(input: UserTimeAnalyticsInput): UserTimeAnalytics!
+    analyticsAirlineServiceComparison(
+      input: AnalyticsAirlineServiceComparisonInput!
+    ): [AirlineServiceComparisonRow!]!
   }
 `
 

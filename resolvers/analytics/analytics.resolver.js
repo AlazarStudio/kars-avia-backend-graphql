@@ -8,6 +8,7 @@ import {
 } from "../../services/analytics/analyticsRequests.js"
 import { getPersonStaySummaries } from "../../services/analytics/personStaySummary.js"
 import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalytics.js"
+import { analyticsAirlineServiceComparison } from "../../services/analytics/airlineServiceComparison.js"
 import { prisma } from "../../prisma.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 
@@ -110,6 +111,10 @@ const analyticsResolver = {
         startDate: input?.startDate,
         endDate: input?.endDate
       })
+    },
+    analyticsAirlineServiceComparison: async (_, { input }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      return await analyticsAirlineServiceComparison(input)
     }
   }
 }
