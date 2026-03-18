@@ -59,6 +59,32 @@ const analyticsTypeDef = /* GraphQL */ `
     diff: AnalyticsComparisonDiff!
   }
 
+  input DispatchersAnalyticsInput {
+    startDate: Date!
+    endDate: Date!
+    dispatcherIds: [ID!]
+  }
+
+  type DispatcherMetrics {
+    processedPlacementRequests: Int!
+    processedTransferRequests: Int!
+    processedHotels: Int!
+    processedContracts: Int!
+    avgReactionMinutes: Float
+    avgProcessingMinutes: Float
+    avgWorkHours: Float
+  }
+
+  type DispatcherMetricsRow {
+    dispatcher: UserShort!
+    metrics: DispatcherMetrics!
+  }
+
+  type DispatchersAnalyticsResult {
+    totals: DispatcherMetrics!
+    byDispatcher: [DispatcherMetricsRow!]!
+  }
+
   enum entityType {
     dispatcher
     airline
@@ -163,6 +189,9 @@ const analyticsTypeDef = /* GraphQL */ `
     analyticsAirlineServiceComparison(
       input: AnalyticsAirlineServiceComparisonInput!
     ): [AirlineServiceComparisonRow!]!
+    analyticsDispatchersPerformance(
+      input: DispatchersAnalyticsInput!
+    ): DispatchersAnalyticsResult!
   }
 `
 

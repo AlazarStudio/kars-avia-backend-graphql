@@ -9,6 +9,7 @@ import {
 import { withFilter } from "graphql-subscriptions"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   buildAirlineContractWhere,
   buildHotelContractWhere,
@@ -182,11 +183,29 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "create_airline_contract",
+        description: "Договор авиакомпании создан",
+        fulldescription:
+          `Создан договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          airlineId: contract.airlineId,
+          companyId: contract.companyId
+        }
+      })
+
       return contract
     },
 
     updateAirlineContract: async (_, { id, input, files }, context) => {
       await allMiddleware(context)
+      const oldContract = await prisma.airlineContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -230,6 +249,17 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "update_airline_contract",
+        description: "Договор авиакомпании обновлён",
+        fulldescription:
+          `Обновлён договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
+      })
+
       return contract
     },
 
@@ -289,11 +319,30 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+
+      await logAction({
+        context,
+        action: "create_hotel_contract",
+        description: "Договор гостиницы создан",
+        fulldescription:
+          `Создан договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          hotelId: contract.hotelId,
+          companyId: contract.companyId,
+          cityId: contract.cityId
+        }
+      })
+
       return contract
     },
 
     updateHotelContract: async (_, { id, input, files }, context) => {
       await allMiddleware(context)
+      const oldContract = await prisma.hotelContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -352,6 +401,17 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+
+      await logAction({
+        context,
+        action: "update_hotel_contract",
+        description: "Договор гостиницы обновлён",
+        fulldescription:
+          `Обновлён договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
+      })
+
       return contract
     },
 
@@ -416,11 +476,29 @@ const contractResolver = {
         contractOrganization: contract
       })
 
+      await logAction({
+        context,
+        action: "create_organization_contract",
+        description: "Договор организации создан",
+        fulldescription:
+          `Создан договор организации ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          organizationId: contract.organizationId,
+          companyId: contract.companyId,
+          cityId: contract.cityId
+        }
+      })
+
       return contract
     },
 
     updateOrganizationContract: async (_, { id, input, files }, context) => {
       await allMiddleware(context)
+      const oldContract = await prisma.organizationContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files?.length) {
@@ -456,6 +534,16 @@ const contractResolver = {
 
       pubsub.publish(CONTRACT_ORGANIZATION, {
         contractOrganization: contract
+      })
+
+      await logAction({
+        context,
+        action: "update_organization_contract",
+        description: "Договор организации обновлён",
+        fulldescription:
+          `Обновлён договор организации ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
       })
 
       return contract
@@ -537,11 +625,30 @@ const contractResolver = {
         })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "create_additional_agreement",
+        description: "Дополнительное соглашение создано",
+        fulldescription:
+          `Создано дополнительное соглашение ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: contract.id,
+          contractNumber: contract.contractNumber,
+          airlineContractId: contract.airlineContractId,
+          hotelContractId: contract.hotelContractId,
+          organizationContractId: contract.organizationContractId
+        }
+      })
+
       return contract
     },
 
     updateAdditionalAgreement: async (_, { id, input, files }, context) => {
       await allMiddleware(context)
+      const oldAgreement = await prisma.additionalAgreement.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -593,6 +700,17 @@ const contractResolver = {
         })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "update_additional_agreement",
+        description: "Дополнительное соглашение обновлено",
+        fulldescription:
+          `Обновлено дополнительное соглашение ${contract.contractNumber || ""}`.trim(),
+        oldData: oldAgreement,
+        newData: contract
+      })
+
       return contract
     },
 

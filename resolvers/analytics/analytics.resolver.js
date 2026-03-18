@@ -9,8 +9,12 @@ import {
 import { getPersonStaySummaries } from "../../services/analytics/personStaySummary.js"
 import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalytics.js"
 import { analyticsAirlineServiceComparison } from "../../services/analytics/airlineServiceComparison.js"
+import { analyticsDispatchersPerformance } from "../../services/analytics/dispatchersPerformance.js"
 import { prisma } from "../../prisma.js"
-import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  allMiddleware,
+  dispatcherOrSuperAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 
 const analyticsResolver = {
   Query: {
@@ -115,6 +119,10 @@ const analyticsResolver = {
     analyticsAirlineServiceComparison: async (_, { input }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await analyticsAirlineServiceComparison(input)
+    },
+    analyticsDispatchersPerformance: async (_, { input }, context) => {
+      await dispatcherOrSuperAdminMiddleware(context) // MIDDLEWARE_REVIEW: dispatcherOrSuperAdminMiddleware
+      return await analyticsDispatchersPerformance(input)
     }
   }
 }

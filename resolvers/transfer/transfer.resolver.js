@@ -10,6 +10,7 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
 import { sendNotificationToUsers } from "../../services/infra/fbsendtoken.js"
+import logAction from "../../services/infra/logaction.js"
 
 const transferResolver = {
   Query: {
@@ -226,6 +227,18 @@ const transferResolver = {
         // include: { driver: true, dispatcher: true, persons: { include: { personal: true } } }
       })
 
+      try {
+        await logAction({
+          context,
+          action: "create_transfer",
+          description: "Трансфер создан",
+          fulldescription: `Создан трансфер ${newTransfer.id}`,
+          newData: { transferId: newTransfer.id, airlineId: newTransfer.airlineId }
+        })
+      } catch (e) {
+        console.error("[TRANSFER] logAction create_transfer failed", e)
+      }
+
       // Создание чата для заявки
       // const newChat = await prisma.chat.create({
       //   data: {
@@ -303,6 +316,19 @@ const transferResolver = {
         where: { id }, // если id числовой — Number(id)
         data
       })
+
+      try {
+        await logAction({
+          context,
+          action: "update_transfer",
+          description: "Трансфер обновлён",
+          fulldescription: `Обновлён трансфер ${updatedTransfer.id}`,
+          oldData: existing,
+          newData: updatedTransfer
+        })
+      } catch (e) {
+        console.error("[TRANSFER] logAction update_transfer failed", e)
+      }
 
       pubsub.publish(TRANSFER_UPDATED, { transferUpdated: updatedTransfer })
 
