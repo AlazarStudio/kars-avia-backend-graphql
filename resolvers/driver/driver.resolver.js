@@ -140,7 +140,7 @@ const driverResolver = {
       },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         name,
         number,
