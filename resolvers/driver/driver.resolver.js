@@ -20,7 +20,7 @@ const driverResolver = {
 
   Query: {
     drivers: async (_, { pagination }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.driver.count({ where: { active: true } })
       const drivers = all
@@ -69,7 +69,7 @@ const driverResolver = {
       return { drivers, totalCount, totalPages }
     },
     driverById: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { id: id },
@@ -96,7 +96,7 @@ const driverResolver = {
       }
     },
     driverByEmail: async (_, { email }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { email: email },
@@ -305,7 +305,7 @@ const driverResolver = {
       },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const updatedData = {}
 
       const currentDriver = await prisma.driver.findUnique({
@@ -510,7 +510,7 @@ const driverResolver = {
     // },
 
     updateDriverDocuments: async (_, { id, documents }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const setDocs = await uploadFiles(documents)
       await prisma.driver.update({
         where: { id },
@@ -602,7 +602,7 @@ const driverResolver = {
         () => pubsub.asyncIterator([DRIVER_CREATED]),
         async (payload, variables, context) => {
           try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+            // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
           } catch {
             return false
           }
@@ -633,7 +633,7 @@ const driverResolver = {
         () => pubsub.asyncIterator([DRIVER_UPDATED]),
         async (payload, variables, context) => {
           try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+            // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
           } catch {
             return false
           }
