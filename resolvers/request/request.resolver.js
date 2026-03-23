@@ -461,12 +461,10 @@ const requestResolver = {
         include: {
           airline: true,
           airport: true,
-          person: true
+          person: { include: { position: true } }
         }
       })
 
-      console.log("New request: ", newRequest)
-      console.log("New request str: ", JSON.stringify(newRequest))
       console.log("Person: ", newRequest.person)
       console.log("Person position: ", newRequest.person.position)
 
