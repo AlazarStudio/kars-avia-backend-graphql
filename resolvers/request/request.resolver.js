@@ -464,6 +464,12 @@ const requestResolver = {
           person: true
         }
       })
+
+      console.log("New request: ", newRequest)
+      console.log("New request str: ", JSON.stringify(newRequest))
+      console.log("Person: ", newRequest.person)
+      console.log("Person position: ", newRequest.person.position)
+
       // Создание чата для заявки, связанного с авиалинией
       const newChat = await prisma.chat.create({
         data: {
@@ -591,7 +597,15 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
-        const { roomId, place, airlineId, mealPlan: inputMealPlan, personId, hotelId: inputHotelId, ...requestInput } = input
+        const {
+          roomId,
+          place,
+          airlineId,
+          mealPlan: inputMealPlan,
+          personId,
+          hotelId: inputHotelId,
+          ...requestInput
+        } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
@@ -618,8 +632,7 @@ const requestResolver = {
 
         const wantsPlacement = roomId != null
         const isHotelChange =
-          inputHotelId != null &&
-          inputHotelId !== request.hotelId
+          inputHotelId != null && inputHotelId !== request.hotelId
 
         if (isHotelChange && request.arrival <= now) {
           throw new Error("Нельзя изменить отель после даты заселения")
@@ -782,16 +795,27 @@ const requestResolver = {
         }
 
         const enabledMeals = {
-          breakfast: inputMealPlan?.breakfastEnabled ?? request.mealPlan?.breakfastEnabled ?? true,
-          lunch: inputMealPlan?.lunchEnabled ?? request.mealPlan?.lunchEnabled ?? true,
-          dinner: inputMealPlan?.dinnerEnabled ?? request.mealPlan?.dinnerEnabled ?? true
+          breakfast:
+            inputMealPlan?.breakfastEnabled ??
+            request.mealPlan?.breakfastEnabled ??
+            true,
+          lunch:
+            inputMealPlan?.lunchEnabled ??
+            request.mealPlan?.lunchEnabled ??
+            true,
+          dinner:
+            inputMealPlan?.dinnerEnabled ??
+            request.mealPlan?.dinnerEnabled ??
+            true
         }
 
         let mealPlanData = request.mealPlan
 
         const datesChanged =
-          new Date(updatedStart).getTime() !== new Date(request.arrival).getTime() ||
-          new Date(updatedEnd).getTime() !== new Date(request.departure).getTime()
+          new Date(updatedStart).getTime() !==
+            new Date(request.arrival).getTime() ||
+          new Date(updatedEnd).getTime() !==
+            new Date(request.departure).getTime()
 
         let placementHotelId = request.hotelId
         let placementRoom = null
@@ -813,10 +837,7 @@ const requestResolver = {
             throw new Error("Room not found")
           }
 
-          if (
-            inputHotelId &&
-            inputHotelId !== placementRoom.hotelId
-          ) {
+          if (inputHotelId && inputHotelId !== placementRoom.hotelId) {
             throw new Error("Номер не относится к указанному отелю")
           }
 
@@ -895,7 +916,8 @@ const requestResolver = {
               enabledMeals
             )
             mealPlanData = {
-              included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
+              included:
+                inputMealPlan?.included ?? request.mealPlan?.included ?? true,
               breakfast: calculatedMealPlan.totalBreakfast,
               breakfastEnabled: enabledMeals.breakfast,
               lunch: calculatedMealPlan.totalLunch,
@@ -952,9 +974,12 @@ const requestResolver = {
           mealPlanData = {
             ...mealPlanData,
             included: inputMealPlan.included,
-            breakfastEnabled: inputMealPlan.breakfastEnabled ?? mealPlanData.breakfastEnabled,
-            lunchEnabled: inputMealPlan.lunchEnabled ?? mealPlanData.lunchEnabled,
-            dinnerEnabled: inputMealPlan.dinnerEnabled ?? mealPlanData.dinnerEnabled
+            breakfastEnabled:
+              inputMealPlan.breakfastEnabled ?? mealPlanData.breakfastEnabled,
+            lunchEnabled:
+              inputMealPlan.lunchEnabled ?? mealPlanData.lunchEnabled,
+            dinnerEnabled:
+              inputMealPlan.dinnerEnabled ?? mealPlanData.dinnerEnabled
           }
           if (!inputMealPlan.included) {
             mealPlanData.breakfast = 0
@@ -983,7 +1008,9 @@ const requestResolver = {
               : {}),
             ...(isHotelChange && !wantsPlacement
               ? {
-                  ...(placementHotelId ? { hotel: { connect: { id: placementHotelId } } } : {}),
+                  ...(placementHotelId
+                    ? { hotel: { connect: { id: placementHotelId } } }
+                    : {}),
                   roomCategory: null,
                   roomNumber: null,
                   placementAt: null,
