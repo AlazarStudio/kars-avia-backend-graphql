@@ -17,11 +17,12 @@ import {
 } from "../../services/infra/pubsub.js"
 import logAction from "../../services/infra/logaction.js"
 import {
-  createMagicLinkTokenPair,
-  EXTERNAL_MAGIC_LINK_TTL_MS,
-  normalizeEmail
-} from "../../services/auth/externalMagicLink.js"
-import { buildExternalMagicLink } from "../../services/auth/sendExternalMagicLinkEmail.js"
+  issueExternalDriverPwaLink,
+  issueExternalLinksForUser,
+  upsertDriverExternalUser,
+  upsertHotelExternalUser,
+  upsertRepresentativeExternalUser
+} from "../../services/auth/externalAutoLinks.js"
 
 const getSubjectName = (context) => {
   if (context.user?.name) return context.user.name
@@ -32,8 +33,6 @@ const getSubjectName = (context) => {
   return "Неизвестный пользователь"
 }
 
-const SUBJECT_TYPE_EXT = "EXTERNAL_USER"
-
 async function generateHotelLinks({ hotel, requestId, adminId }) {
   if (!hotel.hotelId) return { linkCRM: null, linkPWA: null }
 
@@ -43,94 +42,95 @@ async function generateHotelLinks({ hotel, requestId, adminId }) {
   })
   if (!hotelRecord) return { linkCRM: null, linkPWA: null }
 
-  const autoEmail = `hotel-${hotel.hotelId}@auto.internal`
-
-  const externalUser = await prisma.externalUser.upsert({
-    where: { email: autoEmail },
-    create: {
-      email: autoEmail,
-      name: hotel.name || hotelRecord.name || null,
-      scope: "HOTEL",
-      accessType: "CRM",
-      hotelId: hotel.hotelId,
-      active: true
-    },
-    update: {
-      name: hotel.name || hotelRecord.name || undefined,
-      scope: "HOTEL",
-      hotelId: hotel.hotelId,
-      active: true
-    }
+  const externalUser = await upsertHotelExternalUser({
+    hotelId: hotel.hotelId,
+    name: hotel.name || hotelRecord.name || null
   })
 
-  const issueMagicLink = async (linkType) => {
-    const { rawToken, tokenHash } = createMagicLinkTokenPair()
-    const now = new Date()
-    const url = buildExternalMagicLink({
-      token: rawToken,
-      kind: SUBJECT_TYPE_EXT,
-      linkType,
-      passengerRequestId: linkType === "PWA" ? requestId : undefined
-    })
-    await prisma.externalUserMagicLinkToken.create({
-      data: {
-        externalUserId: externalUser.id,
-        tokenHash,
-        rawToken,
-        magicLinkUrl: url,
-        expiresAt: new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS),
-        createdByAdminId: adminId || undefined
-      }
-    })
-    return url
-  }
-
-  const linkCRM = await issueMagicLink("CRM")
-  const linkPWA = await issueMagicLink("PWA")
-
-  return { linkCRM, linkPWA }
+  const generatedLinks = await issueExternalLinksForUser({
+    externalUserId: externalUser.id,
+    createdByAdminId: adminId || null,
+    passengerRequestId: requestId
+  })
+  await prisma.hotel.update({
+    where: { id: hotel.hotelId },
+    data: {
+      externalLinkCRM: generatedLinks.linkCRM,
+      externalLinkPWA: generatedLinks.linkPWA
+    }
+  })
+  return generatedLinks
 }
 
 async function generateDriverLink({ driverName, requestId, driverIndex, adminId, serviceKind = "transfer" }) {
-  const autoEmail = `driver-${requestId}-${serviceKind}-${driverIndex}@auto.internal`
-
-  const externalUser = await prisma.externalUser.upsert({
-    where: { email: autoEmail },
-    create: {
-      email: autoEmail,
-      name: driverName || null,
-      scope: "DRIVER",
-      accessType: "CRM",
-      active: true
-    },
-    update: {
-      name: driverName || undefined,
-      active: true
-    }
+  const externalUser = await upsertDriverExternalUser({
+    requestId,
+    driverName,
+    serviceKind,
+    driverIndex
   })
 
-  const { rawToken, tokenHash } = createMagicLinkTokenPair()
-  const now = new Date()
-  const url = buildExternalMagicLink({
-    token: rawToken,
-    kind: SUBJECT_TYPE_EXT,
-    linkType: "PWA",
+  return issueExternalDriverPwaLink({
+    externalUserId: externalUser.id,
+    createdByAdminId: adminId || null,
     passengerRequestId: requestId,
     driverIndex,
     serviceKind
   })
-  await prisma.externalUserMagicLinkToken.create({
-    data: {
-      externalUserId: externalUser.id,
-      tokenHash,
-      rawToken,
-      magicLinkUrl: url,
-      expiresAt: new Date(now.getTime() + EXTERNAL_MAGIC_LINK_TTL_MS),
-      createdByAdminId: adminId || undefined
+}
+
+async function generateRepresentativeLinksForRequest({
+  requestId,
+  airlineId,
+  airportId,
+  adminId
+}) {
+  const relationFilters = [{ airlines: { some: { airlineId } } }]
+  if (airportId) {
+    relationFilters.push({ airports: { some: { airportId } } })
+  }
+
+  const departments = await prisma.representativeDepartment.findMany({
+    where: {
+      active: true,
+      OR: relationFilters
+    },
+    select: {
+      id: true,
+      name: true
     }
   })
 
-  return url
+  const links = await Promise.all(
+    departments.map(async (department) => {
+      try {
+        const externalUser = await upsertRepresentativeExternalUser({
+          representativeDepartmentId: department.id,
+          name: department.name
+        })
+        const generatedLinks = await issueExternalLinksForUser({
+          externalUserId: externalUser.id,
+          createdByAdminId: adminId || null,
+          passengerRequestId: requestId
+        })
+
+        return {
+          representativeDepartmentId: department.id,
+          representativeDepartmentName: department.name,
+          ...generatedLinks
+        }
+      } catch (error) {
+        return {
+          representativeDepartmentId: department.id,
+          representativeDepartmentName: department.name,
+          linkCRM: null,
+          linkPWA: null
+        }
+      }
+    })
+  )
+
+  return links
 }
 
 const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
@@ -264,7 +264,10 @@ const passengerRequestResolvers = {
       })
       const totalPages = take ? Math.ceil(totalCount / take) : 0
       return { totalCount, totalPages, logs }
-    }
+    },
+
+    representativeLinks: (parent) =>
+      Array.isArray(parent.representativeLinks) ? parent.representativeLinks : []
   },
 
   PassengerRequestHotelReport: {
@@ -408,7 +411,19 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
-      const passengerRequest = await prisma.passengerRequest.create({ data })
+      let passengerRequest = await prisma.passengerRequest.create({ data })
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const representativeLinks = await generateRepresentativeLinksForRequest({
+        requestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        airportId: passengerRequest.airportId,
+        adminId
+      })
+      passengerRequest = await prisma.passengerRequest.update({
+        where: { id: passengerRequest.id },
+        data: { representativeLinks }
+      })
+
       await logPassengerRequestAction({
         context,
         action: "create_passenger_request",

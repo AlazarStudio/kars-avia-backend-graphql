@@ -1,9 +1,10 @@
 import crypto from "crypto"
 
-export const EXTERNAL_MAGIC_LINK_TTL_MS = 60 * 60 * 1000
-export const EXTERNAL_SESSION_TTL_MS = 24 * 60 * 60 * 1000
+export const EXTERNAL_MAGIC_LINK_TTL_MS = 48 * 60 * 60 * 1000
+export const EXTERNAL_SESSION_TTL_MS = 48 * 60 * 60 * 1000
 export const EXTERNAL_MAGIC_LINK_MIN_REQUEST_INTERVAL_MS = 60 * 1000
-export const EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR = 5
+export const EXTERNAL_MAGIC_LINK_REQUEST_WINDOW_MS = 60 * 60 * 1000
+export const EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR = 32
 
 export const normalizeEmail = (email = "") => email.trim().toLowerCase()
 

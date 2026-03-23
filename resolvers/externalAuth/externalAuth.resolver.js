@@ -5,6 +5,7 @@ import { prisma } from "../../prisma.js"
 import { adminMiddleware } from "../../middlewares/authMiddleware.js"
 import {
   EXTERNAL_MAGIC_LINK_TTL_MS,
+  EXTERNAL_MAGIC_LINK_REQUEST_WINDOW_MS,
   evaluateMagicLinkRequestLimits,
   createMagicLinkTokenPair,
   hashMagicLinkToken,
@@ -73,7 +74,7 @@ const issueTokenForExternalUser = async ({
   passengerRequestId
 }) => {
   const now = new Date()
-  const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_TTL_MS)
+  const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_REQUEST_WINDOW_MS)
 
   const [latestToken, issuedInLastHour] = await prisma.$transaction([
     prisma.externalUserMagicLinkToken.findFirst({
@@ -128,7 +129,7 @@ const buildExternalAuthPayload = ({ entity, sessionToken }) => {
       sessionToken
     },
     process.env.JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "48h" }
   )
 
   return {

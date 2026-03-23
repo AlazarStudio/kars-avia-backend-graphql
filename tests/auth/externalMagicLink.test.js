@@ -89,15 +89,15 @@ test("external magic link: issue limits block frequent and hourly overflow", () 
   assert.equal(tooManyPerHour.reason, "TOO_MANY_PER_HOUR")
 })
 
-test("external session extension: adds 24h from max(now, session)", () => {
+test("external session extension: adds 48h from max(now, session)", () => {
   const now = new Date("2026-03-06T10:00:00.000Z")
   const future = new Date("2026-03-06T12:00:00.000Z")
 
   const fromNow = nextSessionExpiry(null, now)
-  assert.equal(fromNow.toISOString(), "2026-03-07T10:00:00.000Z")
+  assert.equal(fromNow.toISOString(), "2026-03-08T10:00:00.000Z")
 
   const fromFuture = nextSessionExpiry(future, now)
-  assert.equal(fromFuture.toISOString(), "2026-03-07T12:00:00.000Z")
+  assert.equal(fromFuture.toISOString(), "2026-03-08T12:00:00.000Z")
 })
 
 test("external magic link builder: includes kind and token", () => {

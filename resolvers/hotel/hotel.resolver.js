@@ -33,6 +33,10 @@ import {
   updateRoomKindCounts
 } from "../../services/hotel/roomUtils.js"
 import { buildHotelWhere } from "../../services/hotel/hotelFilters.js"
+import {
+  issueExternalLinksForUser,
+  upsertHotelExternalUser
+} from "../../services/auth/externalAutoLinks.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -181,12 +185,40 @@ const hotelResolver = {
       }
 
       // Создаем новый отель с включением связанных комнат
-      const createdHotel = await prisma.hotel.create({
+      let createdHotel = await prisma.hotel.create({
         data,
         include: {
           rooms: true
         }
       })
+
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      try {
+        const externalUser = await upsertHotelExternalUser({
+          hotelId: createdHotel.id,
+          name: createdHotel.name
+        })
+        const generatedLinks = await issueExternalLinksForUser({
+          externalUserId: externalUser.id,
+          createdByAdminId: adminId || null
+        })
+        await prisma.hotel.update({
+          where: { id: createdHotel.id },
+          data: {
+            externalLinkCRM: generatedLinks.linkCRM,
+            externalLinkPWA: generatedLinks.linkPWA
+          }
+        })
+        createdHotel = {
+          ...createdHotel,
+          externalLinkCRM: generatedLinks.linkCRM,
+          externalLinkPWA: generatedLinks.linkPWA
+        }
+      } catch (error) {
+        logger.warn(
+          `Не удалось автоматически создать external ссылки отеля ${createdHotel.id}: ${error?.message || "unknown error"}`
+        )
+      }
 
       // Логирование действия создания отеля
       await logAction({

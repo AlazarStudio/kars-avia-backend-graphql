@@ -65,6 +65,8 @@ const hotelTypeDef = /* GraphQL */ `
     usStars: String
     airportDistance: String
     discount: String
+    externalLinkCRM: String
+    externalLinkPWA: String
     # logs: [Log]
     logs(pagination: LogPaginationInput): LogConnection!
     savedReport: [SavedReport]

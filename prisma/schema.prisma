@@ -735,6 +735,8 @@ model Hotel {
   usStars            String?
   airportDistance    String?
   discount           String?
+  externalLinkCRM    String?
+  externalLinkPWA    String?
   savedReport        SavedReport[]
   chat               Chat[]
   prices             Price?
@@ -940,6 +942,13 @@ type PassengerLivingServiceEviction {
   evictedAt  DateTime?
 }
 
+type PassengerRepresentativeLink {
+  representativeDepartmentId   String? @db.ObjectId
+  representativeDepartmentName String?
+  linkCRM                      String?
+  linkPWA                      String?
+}
+
 type PassengerServicePerson {
   fullName String
   issuedAt DateTime? // время выдачи (14:30 в таблице)
@@ -1033,6 +1042,9 @@ model PassengerRequest {
 
   // общий чат по заявке (если понадобится)
   chats Chat[]
+
+  // ссылки для представительств по заявке
+  representativeLinks PassengerRepresentativeLink[]
 
   // сохранённые отчёты по отелям (таблица отчёта — данные строк)
   hotelReports PassengerRequestHotelReport[]

@@ -28,7 +28,7 @@ const buildBaseUrl = ({ linkType } = {}) => {
       normalizeBaseUrl(process.env.EXTERNAL_MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.FRONTEND_URL) ||
-      "http://localhost:3000"
+      "https://far.karsavia.ru"
     )
   }
 
@@ -70,7 +70,7 @@ export const sendExternalMagicLinkEmail = async ({
     to: userEmail,
     subject: "Вход по временной ссылке",
     html: `<p>Чтобы войти в аккаунт, перейдите по ссылке: <a href="${loginLink}">${loginLink}</a></p>
-           <p>Ссылка одноразовая и действует 1 час.</p>`
+           <p>Ссылка одноразовая и действует 48 часов.</p>`
   }
 
   await sendEmail(mailOptions)

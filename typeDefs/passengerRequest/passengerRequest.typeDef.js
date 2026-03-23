@@ -145,6 +145,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
     drivers: [PassengerServiceDriver!]!
   }
 
+  type PassengerRepresentativeLink {
+    representativeDepartmentId: ID
+    representativeDepartmentName: String
+    linkCRM: String
+    linkPWA: String
+  }
+
   type PassengerRequest {
     id: ID!
     createdAt: Date!
@@ -176,6 +183,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     createdById: ID!
     createdBy: User!
+
+    representativeLinks: [PassengerRepresentativeLink!]!
 
     chats: [Chat!]!
 
