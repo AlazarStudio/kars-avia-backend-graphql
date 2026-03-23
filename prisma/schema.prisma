@@ -637,6 +637,8 @@ model Article {
 
   type String
 
+  documentationType DocumentationType?
+
   // Раздел, к которому принадлежит статья
   sectionId String?  @db.ObjectId
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -688,6 +690,8 @@ model Section {
   articles Article[]
 
   type String
+
+  documentationType DocumentationType?
 
   // Индекс для быстрого поиска по родителю
   @@index([parentId])

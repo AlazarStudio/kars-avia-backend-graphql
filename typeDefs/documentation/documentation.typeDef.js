@@ -22,6 +22,7 @@ const documentationTypeDef = `#graphql
         articles: [Article]
 
         type: Type
+        documentationType: DocumentationType
     }
 
     type Article {
@@ -36,6 +37,7 @@ const documentationTypeDef = `#graphql
         section: Section
 
         type: Type
+        documentationType: DocumentationType
     }
 
 
@@ -43,12 +45,14 @@ const documentationTypeDef = `#graphql
         title: String
         parentId: String
         type: Type
-   }
+        documentationType: DocumentationType
+    }
 
     input updateSectionInput {
         title: String
         parentId: String
         type: Type
+        documentationType: DocumentationType
     }
 
 
@@ -57,6 +61,7 @@ const documentationTypeDef = `#graphql
         content: Json
         sectionId: String
         type: Type
+        documentationType: DocumentationType
     }
 
     input updateArticleInput {
@@ -64,14 +69,15 @@ const documentationTypeDef = `#graphql
         content: Json
         sectionId: String
         type: Type
+        documentationType: DocumentationType
     }
 
     type Query {
-        articles: [Article!]!
+        articles(documentationType: DocumentationType): [Article!]!
         article(id: ID): Article!
         
-        sectionsWithHierarhy(type: Type): Json!
-        sections(type: Type): [Section!]!
+        sectionsWithHierarhy(type: Type, documentationType: DocumentationType): Json!
+        sections(type: Type, documentationType: DocumentationType): [Section!]!
         section(id: ID): Section!
     }
 
