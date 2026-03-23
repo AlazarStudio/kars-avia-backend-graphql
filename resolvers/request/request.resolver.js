@@ -465,9 +465,6 @@ const requestResolver = {
         }
       })
 
-      console.log("Person: ", newRequest.person)
-      console.log("Person position: ", newRequest.person.position)
-
       // Создание чата для заявки, связанного с авиалинией
       const newChat = await prisma.chat.create({
         data: {
@@ -490,7 +487,7 @@ const requestResolver = {
         html:
           newRequest.person && newRequest.person.position
             ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт 
+        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> в аэропорт 
         <span style='color:#545873'>${newRequest.airport.name}</span>`
             : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
@@ -516,7 +513,7 @@ const requestResolver = {
         const description = "Заявка создана"
         const fulldescription =
           newRequest.person && newRequest.person.position
-            ? `Пользователь ${user.name} создал заявку №${newRequest.requestNumber} для ${newRequest.person.position} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`
+            ? `Пользователь ${user.name} создал заявку №${newRequest.requestNumber} для ${newRequest.person.position.name} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`
             : `Пользователь ${user.name} создал предварительную бронь №${newRequest.requestNumber} в аэропорт ${newRequest.airport.name}`
 
         await logAction({
@@ -554,7 +551,7 @@ const requestResolver = {
               description:
                 newRequest.person && newRequest.person.position
                   ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
-                        для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> 
+                        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> 
                         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
                   : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
                         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
@@ -1029,7 +1026,7 @@ const requestResolver = {
             user.name
           }</span> изменил ${
             updatedRequest.person
-              ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
+              ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position.name} ${updatedRequest.person.name}</span>`
               : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
           } c <span style='color:#545873'>${formatDate(
             request.arrival
