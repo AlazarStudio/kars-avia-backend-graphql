@@ -20,6 +20,13 @@ import {
   getNotificationMenuForUser
 } from "../../services/notification/notificationMenuCheck.js"
 
+/** Actions stored on Notification.description for transfer domain (no request/reserve/passengerRequest id on row). */
+const TRANSFER_NOTIFICATION_ACTIONS = [
+  "transfer_message",
+  "create_transfer",
+  "update_transfer"
+]
+
 const dispatcherResolver = {
   Query: {
     getAllCompany: async (_, {}, context) => {
@@ -110,10 +117,15 @@ const dispatcherResolver = {
 
       if (type === "request") {
         filter.requestId = { not: null }
-        // console.log("filter: " + JSON.stringify(filter))
       } else if (type === "reserve") {
         filter.reserveId = { not: null }
-        // console.log("filter: " + JSON.stringify(filter))
+        
+      } else if (type === "passengerRequest") {
+        filter.passengerRequestId = { not: null }
+      } else if (type === "transfer") {
+        filter.description = {
+          is: { action: { in: TRANSFER_NOTIFICATION_ACTIONS } }
+        }
       }
 
       // console.log("\n filter" + JSON.stringify(filter), "\n filter" + filter)
@@ -152,7 +164,8 @@ const dispatcherResolver = {
         orderBy: { createdAt: "desc" },
         include: {
           request: true,
-          reserve: true
+          reserve: true,
+          passengerRequest: true
         }
       })
       return { totalPages, totalCount, notifications }

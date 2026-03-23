@@ -160,6 +160,11 @@ const airlineTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
     emailRequestCreate: Boolean
     emailRequestDatesChange: Boolean
@@ -169,6 +174,11 @@ const airlineTypeDef = /* GraphQL */ `
     emailReserveDatesChange: Boolean
     emailReserveUpdate: Boolean
     emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
     emailNewMessage: Boolean
     sitePushRequestCreate: Boolean
     sitePushRequestDatesChange: Boolean
@@ -178,6 +188,11 @@ const airlineTypeDef = /* GraphQL */ `
     sitePushReserveDatesChange: Boolean
     sitePushReserveUpdate: Boolean
     sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
     sitePushNewMessage: Boolean
   }
 
@@ -190,6 +205,11 @@ const airlineTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
     emailRequestCreate: Boolean
     emailRequestDatesChange: Boolean
@@ -199,6 +219,11 @@ const airlineTypeDef = /* GraphQL */ `
     emailReserveDatesChange: Boolean
     emailReserveUpdate: Boolean
     emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
     emailNewMessage: Boolean
     sitePushRequestCreate: Boolean
     sitePushRequestDatesChange: Boolean
@@ -208,6 +233,11 @@ const airlineTypeDef = /* GraphQL */ `
     sitePushReserveDatesChange: Boolean
     sitePushReserveUpdate: Boolean
     sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
     sitePushNewMessage: Boolean
   }
 `

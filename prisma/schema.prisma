@@ -20,6 +20,7 @@ datasource db {
 // Hotel
 // Log
 // Passenger
+// PassengerRequest
 // Report
 // Request
 // Reserve
@@ -153,6 +154,12 @@ type NotificationMenu {
   reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
   reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
   reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  // Пассажирские заявки
+  passengerRequestCreate          Boolean @default(true)
+  passengerRequestDatesChange     Boolean @default(true)
+  passengerRequestUpdate          Boolean @default(true)
+  passengerRequestPlacementChange Boolean @default(true)
+  passengerRequestCancel          Boolean @default(true)
   // Сообщения
   newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
 
@@ -165,6 +172,11 @@ type NotificationMenu {
   emailReserveDatesChange     Boolean @default(true)
   emailReserveUpdate          Boolean @default(true)
   emailReservePlacementChange Boolean @default(true)
+  emailPassengerRequestCreate          Boolean @default(true)
+  emailPassengerRequestDatesChange     Boolean @default(true)
+  emailPassengerRequestUpdate          Boolean @default(true)
+  emailPassengerRequestPlacementChange Boolean @default(true)
+  emailPassengerRequestCancel          Boolean @default(true)
   emailNewMessage             Boolean @default(true)
 
   // Сайт/Push-канал
@@ -176,6 +188,11 @@ type NotificationMenu {
   sitePushReserveDatesChange     Boolean @default(true)
   sitePushReserveUpdate          Boolean @default(true)
   sitePushReservePlacementChange Boolean @default(true)
+  sitePushPassengerRequestCreate          Boolean @default(true)
+  sitePushPassengerRequestDatesChange     Boolean @default(true)
+  sitePushPassengerRequestUpdate          Boolean @default(true)
+  sitePushPassengerRequestPlacementChange Boolean @default(true)
+  sitePushPassengerRequestCancel          Boolean @default(true)
   sitePushNewMessage             Boolean @default(true)
 }
 
@@ -242,9 +259,11 @@ model Notification {
   readBy      NotificationRead[]
   request     Request?                 @relation(fields: [requestId], references: [id])
   requestId   String?                  @db.ObjectId
-  reserve     Reserve?                 @relation(fields: [reserveId], references: [id])
-  reserveId   String?                  @db.ObjectId
-  hotel       Hotel?                   @relation(fields: [hotelId], references: [id])
+  reserve            Reserve?           @relation(fields: [reserveId], references: [id])
+  reserveId          String?            @db.ObjectId
+  passengerRequest   PassengerRequest?  @relation(fields: [passengerRequestId], references: [id])
+  passengerRequestId String?            @db.ObjectId
+  hotel              Hotel?             @relation(fields: [hotelId], references: [id])
   hotelId     String?                  @db.ObjectId
   airline     Airline?                 @relation(fields: [airlineId], references: [id])
   airlineId   String?                  @db.ObjectId
@@ -1073,6 +1092,8 @@ model PassengerRequest {
 
   // история действий по заявке
   logs Log[]
+
+  notifications Notification[]
 }
 
 /// Запись отчёта по отелю в заявке (все поля таблицы отчёта)

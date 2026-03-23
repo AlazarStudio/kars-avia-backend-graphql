@@ -11,7 +11,12 @@ const LEGACY_ACTION_TO_MENU_FIELD = {
   create_reserve: "reserveCreate",
   reserve_dates_change: "reserveDatesChange",
   update_reserve: "reserveUpdate",
-  update_hotel_chess_reserve: "reservePlacementChange"
+  update_hotel_chess_reserve: "reservePlacementChange",
+  create_passenger_request: "passengerRequestCreate",
+  passenger_request_dates_change: "passengerRequestDatesChange",
+  update_passenger_request: "passengerRequestUpdate",
+  update_hotel_chess_passenger_request: "passengerRequestPlacementChange",
+  cancel_passenger_request: "passengerRequestCancel"
 }
 
 const EMAIL_ACTION_TO_MENU_FIELD = {
@@ -25,7 +30,12 @@ const EMAIL_ACTION_TO_MENU_FIELD = {
   create_reserve: "emailReserveCreate",
   reserve_dates_change: "emailReserveDatesChange",
   update_reserve: "emailReserveUpdate",
-  update_hotel_chess_reserve: "emailReservePlacementChange"
+  update_hotel_chess_reserve: "emailReservePlacementChange",
+  create_passenger_request: "emailPassengerRequestCreate",
+  passenger_request_dates_change: "emailPassengerRequestDatesChange",
+  update_passenger_request: "emailPassengerRequestUpdate",
+  update_hotel_chess_passenger_request: "emailPassengerRequestPlacementChange",
+  cancel_passenger_request: "emailPassengerRequestCancel"
 }
 
 const SITE_PUSH_ACTION_TO_MENU_FIELD = {
@@ -39,7 +49,12 @@ const SITE_PUSH_ACTION_TO_MENU_FIELD = {
   create_reserve: "sitePushReserveCreate",
   reserve_dates_change: "sitePushReserveDatesChange",
   update_reserve: "sitePushReserveUpdate",
-  update_hotel_chess_reserve: "sitePushReservePlacementChange"
+  update_hotel_chess_reserve: "sitePushReservePlacementChange",
+  create_passenger_request: "sitePushPassengerRequestCreate",
+  passenger_request_dates_change: "sitePushPassengerRequestDatesChange",
+  update_passenger_request: "sitePushPassengerRequestUpdate",
+  update_hotel_chess_passenger_request: "sitePushPassengerRequestPlacementChange",
+  cancel_passenger_request: "sitePushPassengerRequestCancel"
 }
 
 function getActionFieldMap(channel) {

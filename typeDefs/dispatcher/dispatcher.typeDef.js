@@ -10,6 +10,8 @@ const dispatcherTypeDef = /* GraphQL */ `
     requestId: ID
     reserve: Reserve
     reserveId: ID
+    passengerRequest: PassengerRequest
+    passengerRequestId: ID
     hotel: Hotel
     hotelId: ID
     airline: Airline
@@ -37,6 +39,7 @@ const dispatcherTypeDef = /* GraphQL */ `
   input PaginationInput {
     skip: Int
     take: Int
+    # request | reserve | passengerRequest | transfer | omit = все
     type: String
     status: [String]
   }
@@ -54,6 +57,8 @@ const dispatcherTypeDef = /* GraphQL */ `
     | RequestUpdatedNotification
     | ReserveCreatedNotification
     | ReserveUpdatedNotification
+    | PassengerRequestCreatedNotification
+    | PassengerRequestUpdatedNotification
     | MessageSentNotification
 
   # type AirlineCreated {  }
@@ -65,6 +70,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     text: String
     reserveId: ID
     requestId: ID
+    passengerRequestId: ID
   }
 
   # type HotelCreated {  }
@@ -100,6 +106,16 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveId: ID
     arrival: Date
     departure: Date
+    airline: Airline
+  }
+
+  type PassengerRequestCreatedNotification {
+    passengerRequestId: ID
+    airline: Airline
+  }
+
+  type PassengerRequestUpdatedNotification {
+    passengerRequestId: ID
     airline: Airline
   }
 
@@ -193,6 +209,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
     emailRequestCreate: Boolean
     emailRequestDatesChange: Boolean
@@ -202,6 +223,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     emailReserveDatesChange: Boolean
     emailReserveUpdate: Boolean
     emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
     emailNewMessage: Boolean
     sitePushRequestCreate: Boolean
     sitePushRequestDatesChange: Boolean
@@ -211,6 +237,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     sitePushReserveDatesChange: Boolean
     sitePushReserveUpdate: Boolean
     sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
     sitePushNewMessage: Boolean
   }
 
@@ -223,6 +254,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
     emailRequestCreate: Boolean
     emailRequestDatesChange: Boolean
@@ -232,6 +268,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     emailReserveDatesChange: Boolean
     emailReserveUpdate: Boolean
     emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
     emailNewMessage: Boolean
     sitePushRequestCreate: Boolean
     sitePushRequestDatesChange: Boolean
@@ -241,6 +282,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     sitePushReserveDatesChange: Boolean
     sitePushReserveUpdate: Boolean
     sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
     sitePushNewMessage: Boolean
   }
 

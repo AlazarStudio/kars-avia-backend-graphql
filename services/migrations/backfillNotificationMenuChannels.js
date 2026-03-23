@@ -47,6 +47,31 @@ const ACTION_FIELDS = [
     sitePush: "sitePushReservePlacementChange"
   },
   {
+    legacy: "passengerRequestCreate",
+    email: "emailPassengerRequestCreate",
+    sitePush: "sitePushPassengerRequestCreate"
+  },
+  {
+    legacy: "passengerRequestDatesChange",
+    email: "emailPassengerRequestDatesChange",
+    sitePush: "sitePushPassengerRequestDatesChange"
+  },
+  {
+    legacy: "passengerRequestUpdate",
+    email: "emailPassengerRequestUpdate",
+    sitePush: "sitePushPassengerRequestUpdate"
+  },
+  {
+    legacy: "passengerRequestPlacementChange",
+    email: "emailPassengerRequestPlacementChange",
+    sitePush: "sitePushPassengerRequestPlacementChange"
+  },
+  {
+    legacy: "passengerRequestCancel",
+    email: "emailPassengerRequestCancel",
+    sitePush: "sitePushPassengerRequestCancel"
+  },
+  {
     legacy: "newMessage",
     email: "emailNewMessage",
     sitePush: "sitePushNewMessage"
