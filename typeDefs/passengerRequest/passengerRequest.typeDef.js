@@ -311,7 +311,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerRequestCreateInput {
     airlineId: ID!
-    airportId: ID
+    airportId: ID!
     flightNumber: String!
     flightDate: Date
     routeFrom: String

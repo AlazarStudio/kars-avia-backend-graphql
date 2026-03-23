@@ -86,53 +86,38 @@ async function generateRepresentativeLinksForRequest({
   airportId,
   adminId
 }) {
-  const relationFilters = [{ airlines: { some: { airlineId } } }]
-  if (airportId) {
-    relationFilters.push({ airports: { some: { airportId } } })
-  }
-
-  const departments = await prisma.representativeDepartment.findMany({
-    where: {
-      active: true,
-      OR: relationFilters
-    },
-    select: {
-      name: true
-    }
+  const representativeKey = buildRepresentativeExternalKey({
+    airlineId,
+    airportId
   })
 
-  const links = await Promise.all(
-    departments.map(async (department) => {
-      try {
-        const representativeKey = buildRepresentativeExternalKey({
-          airlineId,
-          airportId
-        })
-        const externalUser = await upsertRepresentativeExternalUser({
-          representativeKey,
-          name: department.name
-        })
-        const generatedLinks = await issueExternalLinksForUser({
-          externalUserId: externalUser.id,
-          createdByAdminId: adminId || null,
-          passengerRequestId: requestId
-        })
-
-        return {
-          representativeDepartmentName: department.name,
-          ...generatedLinks
-        }
-      } catch (error) {
-        return {
-          representativeDepartmentName: department.name,
-          linkCRM: null,
-          linkPWA: null
-        }
-      }
+  try {
+    const externalUser = await upsertRepresentativeExternalUser({
+      representativeKey,
+      name: null
     })
-  )
+    const generatedLinks = await issueExternalLinksForUser({
+      externalUserId: externalUser.id,
+      createdByAdminId: adminId || null,
+      passengerRequestId: requestId
+    })
 
-  return links
+    // Keep array shape for backward compatibility, but only one link source.
+    return [
+      {
+        representativeDepartmentName: null,
+        ...generatedLinks
+      }
+    ]
+  } catch (error) {
+    return [
+      {
+        representativeDepartmentName: null,
+        linkCRM: null,
+        linkPWA: null
+      }
+    ]
+  }
 }
 
 const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
@@ -354,6 +339,9 @@ const passengerRequestResolvers = {
       if (!createdById) {
         throw new GraphQLError("createdById is required")
       }
+      if (!airlineId || !airportId) {
+        throw new GraphQLError("airlineId and airportId are required")
+      }
 
       const data = {
         ...rest,
@@ -361,7 +349,7 @@ const passengerRequestResolvers = {
         createdBy: { connect: { id: createdById } }
       }
 
-      if (airportId) data.airport = { connect: { id: airportId } }
+      data.airport = { connect: { id: airportId } }
       if (status) data.status = status
 
       if (waterService) {
