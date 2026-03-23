@@ -29,6 +29,7 @@ import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
@@ -492,7 +493,17 @@ const requestResolver = {
       }
 
       // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
-      if (await AllowedEmailNotification(user, "create_request")) {
+      const createRequestEmailAllowed =
+        (await AllowedEmailNotification(user, "create_request")) &&
+        shouldSendNotification({
+          channel: "email",
+          action: "create_request",
+          entityType: "request",
+          entityId: newRequest.id,
+          recipientId: process.env.EMAIL_KARS
+        }).allowed
+
+      if (createRequestEmailAllowed) {
         await sendEmail(mailOptions)
       }
 
@@ -522,29 +533,41 @@ const requestResolver = {
         console.error("Ошибка при логировании создания заявки:", error)
       }
       // Публикация уведомления и события о создании заявки
-      await prisma.notification.create({
-        data: {
-          request: { connect: { id: newRequest.id } },
-          airline: { connect: { id: airlineId } },
-          description: {
-            action: "create_request",
-            description:
-              newRequest.person && newRequest.person.position
-                ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
-                      для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> 
-                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
-                : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
-                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+      const createRequestSiteAllowed = shouldSendNotification({
+        channel: "site",
+        action: "create_request",
+        entityType: "request",
+        entityId: newRequest.id
+      }).allowed
+
+      if (createRequestSiteAllowed) {
+        await prisma.notification.create({
+          data: {
+            request: { connect: { id: newRequest.id } },
+            airline: { connect: { id: airlineId } },
+            description: {
+              action: "create_request",
+              description:
+                newRequest.person && newRequest.person.position
+                  ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
+                        для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> 
+                        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+                  : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
+                        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+            }
           }
-        }
-      })
-      pubsub.publish(NOTIFICATION, {
-        notification: {
-          __typename: "RequestCreatedNotification",
-          action: "create_request",
-          ...newRequest
-        }
-      })
+        })
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "RequestCreatedNotification",
+            action: "create_request",
+            requestId: newRequest.id,
+            arrival: newRequest.arrival,
+            departure: newRequest.departure,
+            airline: newRequest.airline
+          }
+        })
+      }
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
@@ -691,20 +714,29 @@ const requestResolver = {
             }
           })
 
-          await prisma.notification.create({
-            data: {
-              request: { connect: { id: extendRequest.requestId } },
-              airlineId: extendRequest.airlineId,
-              description: {
-                action: "extend_request",
-                description: `Запрос на изменение дат заявки ${
-                  request.requestNumber
-                } с ${formatDate(request.arrival)} - ${formatDate(
-                  request.departure
-                )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+          const extendRequestSiteAllowed = shouldSendNotification({
+            channel: "site",
+            action: "extend_request",
+            entityType: "request",
+            entityId: extendRequest.requestId
+          }).allowed
+
+          if (extendRequestSiteAllowed) {
+            await prisma.notification.create({
+              data: {
+                request: { connect: { id: extendRequest.requestId } },
+                airlineId: extendRequest.airlineId,
+                description: {
+                  action: "extend_request",
+                  description: `Запрос на изменение дат заявки ${
+                    request.requestNumber
+                  } с ${formatDate(request.arrival)} - ${formatDate(
+                    request.departure
+                  )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+                }
               }
-            }
-          })
+            })
+          }
 
           const mailOptions = {
             to: `${process.env.EMAIL_KARS}`,
@@ -718,17 +750,32 @@ const requestResolver = {
             )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
           }
 
-          if (await AllowedEmailNotification(user, "extend_request")) {
+          const extendRequestEmailAllowed =
+            (await AllowedEmailNotification(user, "extend_request")) &&
+            shouldSendNotification({
+              channel: "email",
+              action: "extend_request",
+              entityType: "request",
+              entityId: extendRequest.requestId,
+              recipientId: process.env.EMAIL_KARS
+            }).allowed
+
+          if (extendRequestEmailAllowed) {
             await sendEmail(mailOptions)
           }
 
-          pubsub.publish(NOTIFICATION, {
-            notification: {
-              __typename: "ExtendRequestNotification",
-              action: "extend_request",
-              ...extendRequest
-            }
-          })
+          if (extendRequestSiteAllowed) {
+            pubsub.publish(NOTIFICATION, {
+              notification: {
+                __typename: "ExtendRequestNotification",
+                action: "extend_request",
+                requestId: extendRequest.requestId,
+                newStart: extendRequest.newStart,
+                newEnd: extendRequest.newEnd,
+                airline: request.airline
+              }
+            })
+          }
           pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
           return request
@@ -1114,16 +1161,25 @@ const requestResolver = {
             }
           }
         })
-        await prisma.notification.create({
-          data: {
-            request: { connect: { id: request.id } },
-            airlineId: request.airlineId,
-            description: {
-              action: "cancel_request",
-              description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
+        const cancelRequestSiteAllowed = shouldSendNotification({
+          channel: "site",
+          action: "cancel_request",
+          entityType: "request",
+          entityId: request.id
+        }).allowed
+
+        if (cancelRequestSiteAllowed) {
+          await prisma.notification.create({
+            data: {
+              request: { connect: { id: request.id } },
+              airlineId: request.airlineId,
+              description: {
+                action: "cancel_request",
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
+              }
             }
-          }
-        })
+          })
+        }
 
         const mailOptions = {
           // from: `${process.env.EMAIL_USER}`,
@@ -1132,17 +1188,32 @@ const requestResolver = {
           html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
         }
 
-        if (await AllowedEmailNotification(user, "cancel_request")) {
+        const cancelRequestEmailKarsAllowed =
+          (await AllowedEmailNotification(user, "cancel_request")) &&
+          shouldSendNotification({
+            channel: "email",
+            action: "cancel_request",
+            entityType: "request",
+            entityId: request.id,
+            recipientId: process.env.EMAIL_KARS
+          }).allowed
+
+        if (cancelRequestEmailKarsAllowed) {
           await sendEmail(mailOptions)
         }
 
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "ExtendRequestNotification",
-            action: "cancel_request",
-            ...request
-          }
-        })
+        if (cancelRequestSiteAllowed) {
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "RequestUpdatedNotification",
+              action: "cancel_request",
+              requestId: request.id,
+              arrival: request.arrival,
+              departure: request.departure,
+              airline: request.airline
+            }
+          })
+        }
         pubsub.publish(MESSAGE_SENT, { messageSent: message })
       }
 
@@ -1163,7 +1234,17 @@ const requestResolver = {
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 
-      if (await AllowedEmailNotification(user, "cancel_request")) {
+      const cancelRequestEmailReceiverAllowed =
+        (await AllowedEmailNotification(user, "cancel_request")) &&
+        shouldSendNotification({
+          channel: "email",
+          action: "cancel_request",
+          entityType: "request",
+          entityId: canceledRequest.id,
+          recipientId: process.env.EMAIL_RECEIVER
+        }).allowed
+
+      if (cancelRequestEmailReceiverAllowed) {
         await sendEmail(mailOptions)
       }
 

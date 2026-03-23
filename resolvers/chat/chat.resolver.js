@@ -9,6 +9,7 @@ import {
 import { withFilter } from "graphql-subscriptions"
 import { subscribe } from "graphql"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -469,27 +470,36 @@ const chatResolver = {
           include: { chat: true }
         })
 
-        await prisma.notification.create({
-          data: {
-            chatId: message.chat.id,
-            requestId: message.chat.requestId,
-            airlineId: message.chat.airlineId || null,
-            hotelId: message.chat.hotelId || null,
-            description: {
-              action: "new_message"
-            }
-          }
+        const siteNotificationGuard = shouldSendNotification({
+          channel: "site",
+          action: "new_message",
+          entityType: "chat",
+          entityId: message.chat.id
         })
 
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "MessageSentNotification",
-            action: "new_message",
-            requestId: message.chat.requestId,
-            chat: message.chat,
-            text: message.text
-          }
-        })
+        if (siteNotificationGuard.allowed) {
+          await prisma.notification.create({
+            data: {
+              chatId: message.chat.id,
+              requestId: message.chat.requestId,
+              airlineId: message.chat.airlineId || null,
+              hotelId: message.chat.hotelId || null,
+              description: {
+                action: "new_message"
+              }
+            }
+          })
+
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "MessageSentNotification",
+              action: "new_message",
+              requestId: message.chat.requestId,
+              chat: message.chat,
+              text: message.text
+            }
+          })
+        }
 
         pubsub.publish(REQUEST_UPDATED, {
           requestUpdated: updatedRequest
@@ -502,27 +512,36 @@ const chatResolver = {
           include: { chat: true }
         })
 
-        await prisma.notification.create({
-          data: {
-            chatId: message.chat.id,
-            reserveId: message.chat.reserveId,
-            airlineId: message.chat.airlineId || null,
-            hotelId: message.chat.hotelId || null,
-            description: {
-              action: "new_message"
-            }
-          }
+        const siteNotificationGuard = shouldSendNotification({
+          channel: "site",
+          action: "new_message",
+          entityType: "chat",
+          entityId: message.chat.id
         })
 
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "MessageSentNotification",
-            action: "new_message",
-            reserveId: message.chat.reserveId,
-            chat: message.chat,
-            text: message.text
-          }
-        })
+        if (siteNotificationGuard.allowed) {
+          await prisma.notification.create({
+            data: {
+              chatId: message.chat.id,
+              reserveId: message.chat.reserveId,
+              airlineId: message.chat.airlineId || null,
+              hotelId: message.chat.hotelId || null,
+              description: {
+                action: "new_message"
+              }
+            }
+          })
+
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "MessageSentNotification",
+              action: "new_message",
+              reserveId: message.chat.reserveId,
+              chat: message.chat,
+              text: message.text
+            }
+          })
+        }
 
         pubsub.publish(RESERVE_UPDATED, {
           reserveUpdated: updatedReserve

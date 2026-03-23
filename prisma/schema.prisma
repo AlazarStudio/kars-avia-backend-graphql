@@ -155,6 +155,28 @@ type NotificationMenu {
   reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
   // Сообщения
   newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
+
+  // Email-канал
+  emailRequestCreate          Boolean @default(true)
+  emailRequestDatesChange     Boolean @default(true)
+  emailRequestPlacementChange Boolean @default(true)
+  emailRequestCancel          Boolean @default(true)
+  emailReserveCreate          Boolean @default(true)
+  emailReserveDatesChange     Boolean @default(true)
+  emailReserveUpdate          Boolean @default(true)
+  emailReservePlacementChange Boolean @default(true)
+  emailNewMessage             Boolean @default(true)
+
+  // Сайт/Push-канал
+  sitePushRequestCreate          Boolean @default(true)
+  sitePushRequestDatesChange     Boolean @default(true)
+  sitePushRequestPlacementChange Boolean @default(true)
+  sitePushRequestCancel          Boolean @default(true)
+  sitePushReserveCreate          Boolean @default(true)
+  sitePushReserveDatesChange     Boolean @default(true)
+  sitePushReserveUpdate          Boolean @default(true)
+  sitePushReservePlacementChange Boolean @default(true)
+  sitePushNewMessage             Boolean @default(true)
 }
 
 type Price {

@@ -51,6 +51,7 @@ const dispatcherTypeDef = /* GraphQL */ `
   union NotificationPayload =
       ExtendRequestNotification
     | RequestCreatedNotification
+    | RequestUpdatedNotification
     | ReserveCreatedNotification
     | ReserveUpdatedNotification
     | MessageSentNotification
@@ -79,7 +80,12 @@ const dispatcherTypeDef = /* GraphQL */ `
     airline: Airline
   }
 
-  # type RequestUpdated {  }
+  type RequestUpdatedNotification {
+    requestId: ID
+    arrival: Date
+    departure: Date
+    airline: Airline
+  }
 
   type ReserveCreatedNotification {
     reserveId: ID
@@ -188,6 +194,24 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushNewMessage: Boolean
   }
 
   type NotificationMenu {
@@ -200,6 +224,24 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushNewMessage: Boolean
   }
 
   type Query {

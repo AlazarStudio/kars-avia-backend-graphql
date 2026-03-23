@@ -11,6 +11,7 @@ import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
 import { sendNotificationToUsers } from "../../services/infra/fbsendtoken.js"
 import logAction from "../../services/infra/logaction.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 
 const transferResolver = {
   Query: {
@@ -614,6 +615,26 @@ const transferResolver = {
         
         // Отправляем уведомления только если есть получатели
         if (userIdsToNotify.length > 0) {
+          const recipientChecks = await Promise.all(
+            userIdsToNotify.map(async (userId) => {
+              const rateAllowed = shouldSendNotification({
+                channel: "push",
+                action: "transfer_message",
+                entityType: "transfer_chat",
+                entityId: chatId,
+                recipientId: userId
+              }).allowed
+
+              return rateAllowed ? userId : null
+            })
+          )
+
+          const filteredUserIdsToNotify = recipientChecks.filter(Boolean)
+
+          if (filteredUserIdsToNotify.length === 0) {
+            return message
+          }
+
           const senderName = 
             authorType === "USER" && message.senderUser
               ? message.senderUser.name
@@ -628,7 +649,7 @@ const transferResolver = {
             : "Трансфер"
           
           await sendNotificationToUsers(
-            userIdsToNotify,
+            filteredUserIdsToNotify,
             "Новое сообщение в чате трансфера",
             `${senderName}: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`,
             {

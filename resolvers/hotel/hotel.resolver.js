@@ -24,6 +24,7 @@ import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -449,35 +450,55 @@ const hotelResolver = {
                   html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
                 }
 
-                if (
-                  await AllowedEmailNotification(
+                const hotelChessRequestEmailAllowed =
+                  (await AllowedEmailNotification(
                     user,
                     "update_hotel_chess_request"
-                  )
-                ) {
+                  )) &&
+                  shouldSendNotification({
+                    channel: "email",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    recipientId: process.env.EMAIL_KARS
+                  }).allowed
+
+                if (hotelChessRequestEmailAllowed) {
                   await sendEmail(mailOptions)
                 }
 
-                await prisma.notification.create({
-                  data: {
-                    request: { connect: { id: updatedRequest.id } },
-                    hotel: { connect: { id } },
-                    airline: updatedRequest.airlineId
-                      ? { connect: { id: updatedRequest.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                const hotelChessRequestSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_request",
+                  entityType: "request",
+                  entityId: updatedRequest.id
+                }).allowed
+
+                if (hotelChessRequestSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "RequestUpdatedNotification",
-                    action: "update_hotel_chess_request",
-                    ...updatedRequest
-                  }
-                })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
                 pubsub.publish(REQUEST_UPDATED, {
                   requestUpdated: updatedRequest
                 })
@@ -503,26 +524,38 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   reserveId: hotelChess.reserveId
                 })
-                await prisma.notification.create({
-                  data: {
-                    reserve: { connect: { id: reserve.id } },
-                    hotel: { connect: { id: hotelChess.hotelId } },
-                    airline: reserve.airlineId
-                      ? { connect: { id: reserve.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_reserve",
-                      description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> `
+                const hotelChessReserveSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_reserve",
+                  entityType: "reserve",
+                  entityId: reserve.id
+                }).allowed
+
+                if (hotelChessReserveSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      reserve: { connect: { id: reserve.id } },
+                      hotel: { connect: { id: hotelChess.hotelId } },
+                      airline: reserve.airlineId
+                        ? { connect: { id: reserve.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_reserve",
+                        description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> `
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "ReserveUpdatedNotification",
-                    action: "update_hotel_chess_reserve",
-                    ...reserve
-                  }
-                })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "ReserveUpdatedNotification",
+                      action: "update_hotel_chess_reserve",
+                      reserveId: reserve.id,
+                      arrival: reserve.arrival,
+                      departure: reserve.departure,
+                      airline: reserve.airline || null
+                    }
+                  })
+                }
                 pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
               }
             } else {
@@ -756,12 +789,20 @@ const hotelResolver = {
                   }</span>`
                 }
 
-                if (
-                  await AllowedEmailNotification(
+                const createHotelChessRequestEmailAllowed =
+                  (await AllowedEmailNotification(
                     user,
                     "update_hotel_chess_request"
-                  )
-                ) {
+                  )) &&
+                  shouldSendNotification({
+                    channel: "email",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    recipientId: process.env.EMAIL_HOTEL
+                  }).allowed
+
+                if (createHotelChessRequestEmailAllowed) {
                   await sendEmail(mailOptions)
                 }
 
@@ -777,26 +818,38 @@ const hotelResolver = {
                   reserveId: hotelChess.reserveId
                 })
 
-                await prisma.notification.create({
-                  data: {
-                    request: { connect: { id: updatedRequest.id } },
-                    hotel: { connect: { id } },
-                    airline: updatedRequest.airlineId
-                      ? { connect: { id: updatedRequest.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
+                const createHotelChessRequestSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_request",
+                  entityType: "request",
+                  entityId: updatedRequest.id
+                }).allowed
+
+                if (createHotelChessRequestSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "RequestUpdatedNotification",
-                    action: "update_hotel_chess_request",
-                    ...updatedRequest
-                  }
-                })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
 
                 // Публикуем событие обновления заявки
                 pubsub.publish(REQUEST_UPDATED, {

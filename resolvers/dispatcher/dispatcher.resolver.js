@@ -118,29 +118,25 @@ const dispatcherResolver = {
 
       // console.log("\n filter" + JSON.stringify(filter), "\n filter" + filter)
 
-      // const statusFilter =
-      //   status && status.length > 0 && !status.includes("all")
-      //     ? { status: { in: status } }
-      //     : {}
+      const needsMenuCheck =
+        user.role !== "SUPERADMIN" &&
+        (user.dispatcher === true || (user.airlineId && user.airlineDepartmentId))
 
-      // const needsMenuCheck =
-      //   user.dispatcher === true || (user.airlineId && user.airlineDepartmentId)
-
-      // let menuActionFilter = {}
-      // if (needsMenuCheck) {
-      //   const menu = await getNotificationMenuForUser(user)
-      //   const disabledActions = getDisabledActionsFromMenu(menu)
-      //   if (disabledActions.length > 0) {
-      //     menuActionFilter = {
-      //       NOT: { description: { is: { action: { in: disabledActions } } } }
-      //     }
-      //   }
-      // }
+      let menuActionFilter = {}
+      if (needsMenuCheck) {
+        const menu = await getNotificationMenuForUser(user)
+        const disabledActions = getDisabledActionsFromMenu(menu)
+        if (disabledActions.length > 0) {
+          menuActionFilter = {
+            NOT: { description: { is: { action: { in: disabledActions } } } }
+          }
+        }
+      }
 
       const totalCount = await prisma.notification.count({
         where: {
-          ...filter,  
-          // ...menuActionFilter
+          ...filter,
+          ...menuActionFilter
         }
       })
 
@@ -149,7 +145,7 @@ const dispatcherResolver = {
       const notifications = await prisma.notification.findMany({
         where: {
           ...filter,
-          // ...menuActionFilter
+          ...menuActionFilter
         },
         skip: skip * take,
         take: take,
@@ -565,6 +561,9 @@ const dispatcherResolver = {
           const notification = payload.notification
           const action = notification?.action
 
+          // SUPERADMIN видит все уведомления без фильтрации
+          if (subject.role === "SUPERADMIN") return true
+
           // Проверка NotificationMenu: диспетчеры и пользователи авиакомпании с отделом
           const needsMenuCheck =
             (subject.dispatcher && subject.id) ||
@@ -577,9 +576,6 @@ const dispatcherResolver = {
             const allowed = await AllowedSiteNotification(subject, action)
             if (!allowed) return false
           }
-
-          // SUPERADMIN видит все уведомления
-          if (subject.role === "SUPERADMIN") return true
 
           // Диспетчеры (после проверки меню) видят все
           if (subject.dispatcher === true) return true

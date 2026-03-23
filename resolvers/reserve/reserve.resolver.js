@@ -28,6 +28,7 @@ import {
 } from "../../services/reserve/generateReservePas.js"
 import path from "path"
 import fs from "fs"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -358,23 +359,35 @@ const reserveResolver = {
         airlineId: newReserve.airlineId
       })
       // Публикация уведомления и события создания резерва.
-      await prisma.notification.create({
-        data: {
-          reserve: { connect: { id: newReserve.id } },
-          airline: { connect: { id: airlineId } },
-          description: {
-            action: "create_reserve",
-            description: `Создана заявка <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span> `
+      const createReserveSiteAllowed = shouldSendNotification({
+        channel: "site",
+        action: "create_reserve",
+        entityType: "reserve",
+        entityId: newReserve.id
+      }).allowed
+
+      if (createReserveSiteAllowed) {
+        await prisma.notification.create({
+          data: {
+            reserve: { connect: { id: newReserve.id } },
+            airline: { connect: { id: airlineId } },
+            description: {
+              action: "create_reserve",
+              description: `Создана заявка <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span> `
+            }
           }
-        }
-      })
-      pubsub.publish(NOTIFICATION, {
-        notification: {
-          __typename: "ReserveCreatedNotification",
-          action: "create_reserve",
-          ...newReserve
-        }
-      })
+        })
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ReserveCreatedNotification",
+            action: "create_reserve",
+            reserveId: newReserve.id,
+            arrival: newReserve.arrival,
+            departure: newReserve.departure,
+            airline: newReserve.airline
+          }
+        })
+      }
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
       return newReserve
     },
@@ -481,27 +494,39 @@ const reserveResolver = {
               }
             }
           })
-          await prisma.notification.create({
-            data: {
-              reserve: { connect: { id: extendReserve.id } },
-              airline: { connect: { id: reserve.airlineId } },
-              description: {
-                action: "reserve_dates_change",
-                description: `Запрос на изменение дат заявки ${
-                  reserve.reserveNumber
-                } с ${formatDate(reserve.arrival)} - ${formatDate(
-                  reserve.departure
-                )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+          const reserveDatesChangeSiteAllowed = shouldSendNotification({
+            channel: "site",
+            action: "reserve_dates_change",
+            entityType: "reserve",
+            entityId: extendReserve.id
+          }).allowed
+
+          if (reserveDatesChangeSiteAllowed) {
+            await prisma.notification.create({
+              data: {
+                reserve: { connect: { id: extendReserve.id } },
+                airline: { connect: { id: reserve.airlineId } },
+                description: {
+                  action: "reserve_dates_change",
+                  description: `Запрос на изменение дат заявки ${
+                    reserve.reserveNumber
+                  } с ${formatDate(reserve.arrival)} - ${formatDate(
+                    reserve.departure
+                  )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+                }
               }
-            }
-          })
-          pubsub.publish(NOTIFICATION, {
-            notification: {
-              __typename: "ReserveUpdatedNotification",
-              action: "reserve_dates_change",
-              ...extendReserve
-            }
-          })
+            })
+            pubsub.publish(NOTIFICATION, {
+              notification: {
+                __typename: "ReserveUpdatedNotification",
+                action: "reserve_dates_change",
+                reserveId: extendReserve.id,
+                arrival: updatedStart,
+                departure: updatedEnd,
+                airline: reserve.airline
+              }
+            })
+          }
           pubsub.publish(MESSAGE_SENT, { messageSent: message })
         }
 
@@ -576,29 +601,41 @@ const reserveResolver = {
             }
           }
         }
-        await prisma.notification.create({
-          data: {
-            reserve: { connect: { id: updatedReserve.id } },
-            airline: { connect: { id: reserve.airlineId } },
-            description: {
-              action: "update_reserve",
-              description: `Заявка ${
-                reserve.reserveNumber
-              } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
-                reserve.departure
-              )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(
-                updatedReserve.departure
-              )}`
+        const updateReserveSiteAllowed = shouldSendNotification({
+          channel: "site",
+          action: "update_reserve",
+          entityType: "reserve",
+          entityId: updatedReserve.id
+        }).allowed
+
+        if (updateReserveSiteAllowed) {
+          await prisma.notification.create({
+            data: {
+              reserve: { connect: { id: updatedReserve.id } },
+              airline: { connect: { id: reserve.airlineId } },
+              description: {
+                action: "update_reserve",
+                description: `Заявка ${
+                  reserve.reserveNumber
+                } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
+                  reserve.departure
+                )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(
+                  updatedReserve.departure
+                )}`
+              }
             }
-          }
-        })
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "ReserveUpdatedNotification",
-            action: "update_reserve",
-            ...updatedReserve
-          }
-        })
+          })
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "ReserveUpdatedNotification",
+              action: "update_reserve",
+              reserveId: updatedReserve.id,
+              arrival: updatedReserve.arrival,
+              departure: updatedReserve.departure,
+              airline: reserve.airline
+            }
+          })
+        }
 
         pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
 
