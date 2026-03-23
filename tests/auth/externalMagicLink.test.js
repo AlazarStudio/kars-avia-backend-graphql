@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import {
   createMagicLinkTokenPair,
   evaluateMagicLinkRequestLimits,
+  EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR,
   hashMagicLinkToken,
   nextSessionExpiry,
   validateMagicLinkRecord
@@ -83,7 +84,7 @@ test("external magic link: issue limits block frequent and hourly overflow", () 
   const tooManyPerHour = evaluateMagicLinkRequestLimits({
     now,
     latestToken: null,
-    issuedInLastHour: 5
+    issuedInLastHour: EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR
   })
   assert.equal(tooManyPerHour.allowed, false)
   assert.equal(tooManyPerHour.reason, "TOO_MANY_PER_HOUR")

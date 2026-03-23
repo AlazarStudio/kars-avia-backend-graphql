@@ -102,13 +102,20 @@ export const upsertHotelExternalUser = async ({ hotelId, name }) => {
   })
 }
 
+export const buildRepresentativeExternalKey = ({
+  airlineId,
+  airportId
+}) => {
+  const safeAirlineId = String(airlineId || "unknown-airline").trim()
+  const safeAirportId = String(airportId || "no-airport").trim()
+  return `${safeAirlineId}-${safeAirportId}`
+}
+
 export const upsertRepresentativeExternalUser = async ({
-  representativeDepartmentId,
+  representativeKey,
   name
 }) => {
-  const autoEmail = normalizeEmail(
-    `representative-${representativeDepartmentId}@auto.internal`
-  )
+  const autoEmail = normalizeEmail(`representative-${representativeKey}@auto.internal`)
 
   return prisma.externalUser.upsert({
     where: { email: autoEmail },

@@ -17,6 +17,7 @@ import {
 } from "../../services/infra/pubsub.js"
 import logAction from "../../services/infra/logaction.js"
 import {
+  buildRepresentativeExternalKey,
   issueExternalDriverPwaLink,
   issueExternalLinksForUser,
   upsertDriverExternalUser,
@@ -96,7 +97,6 @@ async function generateRepresentativeLinksForRequest({
       OR: relationFilters
     },
     select: {
-      id: true,
       name: true
     }
   })
@@ -104,8 +104,12 @@ async function generateRepresentativeLinksForRequest({
   const links = await Promise.all(
     departments.map(async (department) => {
       try {
+        const representativeKey = buildRepresentativeExternalKey({
+          airlineId,
+          airportId
+        })
         const externalUser = await upsertRepresentativeExternalUser({
-          representativeDepartmentId: department.id,
+          representativeKey,
           name: department.name
         })
         const generatedLinks = await issueExternalLinksForUser({
@@ -115,13 +119,11 @@ async function generateRepresentativeLinksForRequest({
         })
 
         return {
-          representativeDepartmentId: department.id,
           representativeDepartmentName: department.name,
           ...generatedLinks
         }
       } catch (error) {
         return {
-          representativeDepartmentId: department.id,
           representativeDepartmentName: department.name,
           linkCRM: null,
           linkPWA: null
