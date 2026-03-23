@@ -21,7 +21,7 @@ const SUBJECT_TYPE = {
   EXTERNAL_USER: "EXTERNAL_USER"
 }
 
-const EXTERNAL_SCOPES = ["HOTEL", "DRIVER"]
+const EXTERNAL_SCOPES = ["HOTEL", "DRIVER", "REPRESENTATIVE"]
 const EXTERNAL_ACCESS_TYPES = ["CRM", "PWA"]
 
 const throwForbidden = (message = "Access forbidden") => {
@@ -57,6 +57,12 @@ const validateExternalScopeBinding = ({ scope, hotelId, driverId }) => {
 
   if (scope === "DRIVER" && hasHotelId) {
     throw new Error("hotelId is not allowed for DRIVER scope")
+  }
+
+  if (scope === "REPRESENTATIVE" && (hasHotelId || hasDriverId)) {
+    throw new Error(
+      "hotelId & driverId is not allowed for REPRESENTATIVE scope"
+    )
   }
 }
 
@@ -192,8 +198,7 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
         Boolean(currentExternalUser?.active) &&
         Boolean(currentExternalUser?.refreshToken) &&
         Boolean(currentExternalUser?.sessionExpiresAt) &&
-        new Date(currentExternalUser.sessionExpiresAt).getTime() >
-          now.getTime()
+        new Date(currentExternalUser.sessionExpiresAt).getTime() > now.getTime()
 
       if (hasActiveSession) {
         updatedExternalUser = currentExternalUser
@@ -304,18 +309,6 @@ const externalAuthResolver = {
         }
       }
 
-      if (input.scope === "DRIVER") {
-        if (input.driverId) {
-          const driver = await prisma.driver.findUnique({
-            where: { id: input.driverId },
-            select: { id: true }
-          })
-          if (!driver) {
-            throw new Error("Driver not found")
-          }
-        }
-      }
-
       const externalUser = await prisma.externalUser.upsert({
         where: { email },
         create: {
@@ -324,7 +317,7 @@ const externalAuthResolver = {
           scope: input.scope,
           accessType: input.accessType,
           hotelId: input.scope === "HOTEL" ? input.hotelId : null,
-          driverId: input.scope === "DRIVER" ? input.driverId : null,
+          driverId: input.scope === "DRIVER" ? input?.driverId : null,
           active: true
         },
         update: {
@@ -332,7 +325,7 @@ const externalAuthResolver = {
           scope: input.scope,
           accessType: input.accessType,
           hotelId: input.scope === "HOTEL" ? input.hotelId : null,
-          driverId: input.scope === "DRIVER" ? input.driverId : null,
+          driverId: input.scope === "DRIVER" ? input?.driverId : null,
           active: true
         }
       })

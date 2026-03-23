@@ -13,6 +13,7 @@ const externalAuthTypeDef = /* GraphQL */ `
   enum ExternalScope {
     HOTEL
     DRIVER
+    REPRESENTATIVE
   }
 
   type ExternalUser {
