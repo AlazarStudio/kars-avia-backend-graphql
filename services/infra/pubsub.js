@@ -15,6 +15,9 @@ export function messageReadTopic(chatId) {
   return `MESSAGE_READ_${chatId}`
 }
 
+/** `"redis"` — общий pub/sub между процессами; `"memory"` — только внутри одного процесса Node. */
+export const PUBSUB_BACKEND = process.env.REDIS_URL?.trim() ? "redis" : "memory"
+
 function createPubSubEngine() {
   const url = process.env.REDIS_URL?.trim()
   if (url) {
@@ -27,6 +30,19 @@ function createPubSubEngine() {
 }
 
 const pubSubEngine = createPubSubEngine()
+
+if (PUBSUB_BACKEND === "memory") {
+  if (process.env.NODE_APP_INSTANCE !== undefined) {
+    logger.warn(
+      "[PUBSUB] PM2 cluster (NODE_APP_INSTANCE) без REDIS_URL: события подписок GraphQL доходят только до клиентов на том же воркере. Задайте REDIS_URL."
+    )
+  }
+  if (process.env.KUBERNETES_SERVICE_HOST) {
+    logger.warn(
+      "[PUBSUB] Kubernetes без REDIS_URL: при replicas > 1 подписки будут нестабильны. Задайте REDIS_URL для общего pub/sub."
+    )
+  }
+}
 
 export const pubsub = {
   publish(trigger, payload) {

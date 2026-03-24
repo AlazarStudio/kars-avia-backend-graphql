@@ -23,6 +23,7 @@ import {
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import rateLimit from "express-rate-limit"
 import { logger } from "./services/infra/logger.js"
+import { PUBSUB_BACKEND } from "./services/infra/pubsub.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import filesRouter from "./services/routes/files.js"
 
@@ -41,7 +42,8 @@ app.get("/health", async (req, res) => {
       status: "ok",
       uptime: process.uptime(),
       timestamp: Date.now(),
-      env: process.env.NODE_ENV || "development"
+      env: process.env.NODE_ENV || "development",
+      pubsub: PUBSUB_BACKEND
     })
   } catch (e) {
     logger.error("[HEALTH] DB unavailable", e)
