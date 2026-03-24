@@ -9,6 +9,7 @@ import {
   allMiddleware,
   representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
+import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
   PASSENGER_REQUEST_CREATED,
@@ -567,7 +568,6 @@ const passengerRequestResolvers = {
           ...prev,
           ...(waterService.plan !== undefined && { plan: waterService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (mealService) {
@@ -576,7 +576,6 @@ const passengerRequestResolvers = {
           ...prev,
           ...(mealService.plan !== undefined && { plan: mealService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (livingService) {
@@ -585,7 +584,6 @@ const passengerRequestResolvers = {
           ...prev,
           ...(livingService.plan !== undefined && { plan: livingService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (transferService) {
@@ -596,7 +594,6 @@ const passengerRequestResolvers = {
             plan: transferService.plan
           })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (baggageDeliveryService) {
@@ -607,7 +604,6 @@ const passengerRequestResolvers = {
             plan: baggageDeliveryService.plan
           })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
@@ -622,10 +618,6 @@ const passengerRequestResolvers = {
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
-      })
-
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
       })
 
       if (Object.keys(data).length > 0) {
@@ -643,6 +635,10 @@ const passengerRequestResolvers = {
           __typename: "PassengerRequestUpdatedNotification"
         })
       }
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
 
       return passengerRequest
     },
@@ -2316,26 +2312,33 @@ const passengerRequestResolvers = {
         passengerRequestId: requestId
       })
 
-      const passengerRequest = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (passengerRequest) {
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
-      }
-
       return report
     }
   },
 
   Subscription: {
     passengerRequestCreated: {
-      subscribe: () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED]),
+        (payload, variables, context) => {
+          // const { subject, subjectType } = context
+          // if (!subject || subjectType !== "USER") return false
+          // return representativeMiddleware(context).then(() => true).catch(() => false)
+          return true // временно отключена проверка для ФАП
+        }
+      )
     },
 
     passengerRequestUpdated: {
-      subscribe: () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED])
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
+        (payload, variables, context) => {
+          // const { subject, subjectType } = context
+          // if (!subject || subjectType !== "USER") return false
+          // return representativeMiddleware(context).then(() => true).catch(() => false)
+          return true // временно отключена проверка для ФАП
+        }
+      )
     }
   }
 }

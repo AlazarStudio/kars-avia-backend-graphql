@@ -23,8 +23,6 @@ import {
 } from "./services/cron/cronTasks.js"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
-import { PUBSUB_BACKEND } from "./services/infra/pubsub.js"
-import { isJwtFreeWsSubscription } from "./services/infra/wsPublicSubscription.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import filesRouter from "./services/routes/files.js"
 
@@ -43,8 +41,7 @@ app.get("/health", async (req, res) => {
       status: "ok",
       uptime: process.uptime(),
       timestamp: Date.now(),
-      env: process.env.NODE_ENV || "development",
-      pubsub: PUBSUB_BACKEND
+      env: process.env.NODE_ENV || "development"
     })
   } catch (e) {
     logger.error("[HEALTH] DB unavailable", e)
@@ -137,18 +134,14 @@ const serverCleanup = useServer(
         null
 
       let context
-      if (isJwtFreeWsSubscription(execArgs)) {
-        context = await buildAuthContext(null)
-      } else {
-        try {
-          context = await buildAuthContext(authHeader)
-        } catch (e) {
-          if (isAuthError(e)) {
-            logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
-            throw new Error("Unauthorized")
-          }
-          throw e
+      try {
+        context = await buildAuthContext(authHeader)
+      } catch (e) {
+        if (isAuthError(e)) {
+          logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
+          throw new Error("Unauthorized")
         }
+        throw e
       }
 
       const sid = ctx.wsSessionId || "-"
