@@ -34,7 +34,7 @@ const transferTypeDef = /* GraphQL */ `
     id: ID!
     createdAt: Date!
     updatedAt: Date!
-
+    requestNumber: String!
     fromAddress: String! # адрес откуда
     toAddress: String! # адрес куда
     additionalPoints: [String!] # доп. точки
@@ -232,7 +232,7 @@ const transferTypeDef = /* GraphQL */ `
     type: TransferChatType!
     dispatcherId: ID
     driverId: ID
-    personalIds: [ID!]!  # массив ID пассажиров
+    personalIds: [ID!]! # массив ID пассажиров
   }
 
   input SendTransferMessageInput {
@@ -266,8 +266,16 @@ const transferTypeDef = /* GraphQL */ `
     updateTransfer(id: ID!, input: TransferUpdateInput!): Transfer!
     createTransferChat(input: CreateTransferChatInput!): TransferChat!
     sendTransferMessage(input: SendTransferMessageInput!): TransferMessage!
-    markTransferMessageAsRead(input: MarkTransferMessageReadInput!): TransferMessageRead!
-    markAllTransferMessagesAsRead(chatId: ID!, readerType: ActorType!, userId: ID, driverId: ID, personalId: ID): Boolean!
+    markTransferMessageAsRead(
+      input: MarkTransferMessageReadInput!
+    ): TransferMessageRead!
+    markAllTransferMessagesAsRead(
+      chatId: ID!
+      readerType: ActorType!
+      userId: ID
+      driverId: ID
+      personalId: ID
+    ): Boolean!
   }
 
   type Subscription {

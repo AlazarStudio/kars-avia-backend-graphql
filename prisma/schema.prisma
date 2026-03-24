@@ -1338,7 +1338,7 @@ model Transfer {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-  requestNumber    String?
+  requestNumber    String   @unique
   fromAddress      String // адрес откуда
   toAddress        String // адрес куда
   additionalPoints String[] // доп. точки
