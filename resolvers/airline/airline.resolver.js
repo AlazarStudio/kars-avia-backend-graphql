@@ -873,6 +873,11 @@ const airlineResolver = {
         where: { airlineId: parent.id, active: true }
       })
     },
+    users: async (parent) => {
+      return await prisma.user.findMany({
+        where: { airlineId: parent.id, active: true }
+      })
+    },
     staff: async (parent) => {
       return await prisma.airlinePersonal.findMany({
         where: { airlineId: parent.id, active: true }

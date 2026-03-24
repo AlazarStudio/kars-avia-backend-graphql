@@ -10,6 +10,7 @@ const airlineTypeDef = /* GraphQL */ `
     images: [String!]!
     information: Information
     department: [AirlineDepartment!]!
+    users: [User!]!
     staff: [AirlinePersonal!]!
     # mealPrice: MealPrice
     logs(pagination: LogPaginationInput): LogConnection!
