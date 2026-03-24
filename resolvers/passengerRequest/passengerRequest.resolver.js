@@ -1,5 +1,5 @@
 import { prisma } from "../../prisma.js"
-import { GraphQLError, subscribe } from "graphql"
+import { GraphQLError } from "graphql"
 import {
   resolveUserId,
   updateTimes
@@ -9,7 +9,6 @@ import {
   allMiddleware,
   representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
-import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
   PASSENGER_REQUEST_CREATED,
@@ -2327,27 +2326,11 @@ const passengerRequestResolvers = {
 
   Subscription: {
     passengerRequestCreated: {
-      subscribe: withFilter(
-        () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED]),
-        (payload, variables, context) => {
-          // const { subject, subjectType } = context
-          // if (!subject || subjectType !== "USER") return false
-          // return representativeMiddleware(context).then(() => true).catch(() => false)
-          return true // временно отключена проверка для ФАП
-        }
-      )
+      subscribe: () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED])
     },
 
     passengerRequestUpdated: {
-      subscribe: withFilter(
-        () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
-        (payload, variables, context) => {
-          // const { subject, subjectType } = context
-          // if (!subject || subjectType !== "USER") return false
-          // return representativeMiddleware(context).then(() => true).catch(() => false)
-          return true // временно отключена проверка для ФАП
-        }
-      )
+      subscribe: () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED])
     }
   }
 }

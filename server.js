@@ -24,6 +24,7 @@ import {
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import { PUBSUB_BACKEND } from "./services/infra/pubsub.js"
+import { isJwtFreeWsSubscription } from "./services/infra/wsPublicSubscription.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import filesRouter from "./services/routes/files.js"
 
@@ -136,14 +137,18 @@ const serverCleanup = useServer(
         null
 
       let context
-      try {
-        context = await buildAuthContext(authHeader)
-      } catch (e) {
-        if (isAuthError(e)) {
-          logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
-          throw new Error("Unauthorized")
+      if (isJwtFreeWsSubscription(execArgs)) {
+        context = await buildAuthContext(null)
+      } else {
+        try {
+          context = await buildAuthContext(authHeader)
+        } catch (e) {
+          if (isAuthError(e)) {
+            logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
+            throw new Error("Unauthorized")
+          }
+          throw e
         }
-        throw e
       }
 
       const sid = ctx.wsSessionId || "-"
