@@ -315,6 +315,9 @@ export async function checkFileAccess(context, filePath) {
     case "hotel":
       return await checkHotelFileAccess(user, entityId)
 
+    case "driver":
+      return await checkHotelFileAccess(user, entityId)
+
     case "reserve_files":
       // Файлы резервов из папки reserve_files
       return await checkReserveAccess(user, entityId)
