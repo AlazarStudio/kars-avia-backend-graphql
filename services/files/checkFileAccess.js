@@ -246,7 +246,7 @@ export async function checkFileAccess(context, filePath) {
   const { subject, subjectType } = context
 
   // Только авторизованные пользователи могут получать файлы
-  if (!subject || subjectType !== "USER") {
+  if (!subject) {
     return false
   }
 
