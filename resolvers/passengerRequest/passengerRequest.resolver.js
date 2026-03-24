@@ -592,7 +592,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request_status",
-        description: cancelReason
+        description: cancelReason != null
           ? "Заявка по ФАП отменена"
           : "Статус ФАП обновлен",
         fulldescription: `Пользователь ${getSubjectName(context)} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
