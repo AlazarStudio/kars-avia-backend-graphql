@@ -105,14 +105,7 @@ const dispatcherResolver = {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const p = pagination || {}
-      const {
-        skip: skipRaw,
-        take: takeRaw,
-        type,
-        status,
-        actions,
-        read: readFilter
-      } = p
+      const { skip: skipRaw, take: takeRaw, type, status } = p
       const skip = skipRaw ?? 0
       const take = takeRaw ?? 10
 
@@ -134,35 +127,7 @@ const dispatcherResolver = {
       } else if (type === "passengerRequest") {
         filter.passengerRequestId = { not: null }
       } else if (type === "transfer") {
-        let transferActionList = TRANSFER_NOTIFICATION_ACTIONS
-        if (actions?.length) {
-          const allowed = new Set(actions)
-          transferActionList = TRANSFER_NOTIFICATION_ACTIONS.filter((a) =>
-            allowed.has(a)
-          )
-        }
-        if (transferActionList.length === 0) {
-          return { totalPages: 0, totalCount: 0, notifications: [] }
-        }
-        filter.description = {
-          is: { action: { in: transferActionList } }
-        }
-      }
-
-      const needsMenuCheck =
-        user.role !== "SUPERADMIN" &&
-        (user.dispatcher === true ||
-          (user.airlineId && user.airlineDepartmentId))
-
-      let menuActionFilter = {}
-      if (needsMenuCheck) {
-        const menu = await getNotificationMenuForUser(user)
-        const disabledActions = getDisabledActionsFromMenu(menu)
-        if (disabledActions.length > 0) {
-          menuActionFilter = {
-            NOT: { description: { is: { action: { in: disabledActions } } } }
-          }
-        }
+        filter.transferId = { not: null }
       }
 
       const extraAnd = []
@@ -176,18 +141,6 @@ const dispatcherResolver = {
             passengerRequest: { is: { status: { in: status } } }
           })
         }
-      }
-
-      if (actions?.length && type !== "transfer") {
-        extraAnd.push({
-          description: { is: { action: { in: actions } } }
-        })
-      }
-
-      if (readFilter === true && user?.id) {
-        extraAnd.push({ readBy: { some: { userId: user.id } } })
-      } else if (readFilter === false && user?.id) {
-        extraAnd.push({ readBy: { none: { userId: user.id } } })
       }
 
       const whereParts = [filter, menuActionFilter, ...extraAnd].filter(
