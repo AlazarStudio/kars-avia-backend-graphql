@@ -222,6 +222,20 @@ const transferResolver = {
         }
       }
 
+      // Определение границ месяца для поиска последней заявки
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      )
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      )
       // Поиск последней созданной заявки в текущем месяце
       const lastRequest = await prisma.transfer.findFirst({
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
