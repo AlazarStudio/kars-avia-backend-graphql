@@ -139,6 +139,7 @@ const userTypeDef = /* GraphQL */ `
   }
 
   input SignInInput {
+    """Логин пользователя или email (одно поле)."""
     login: String!
     password: String!
     fingerprint: String!

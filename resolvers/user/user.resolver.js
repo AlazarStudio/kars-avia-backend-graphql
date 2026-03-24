@@ -559,14 +559,17 @@ const userResolver = {
     // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
       const { login, password, fingerprint, token2FA } = input
-      const loginNormalized = normalizeUserLogin(login)
-      if (!loginNormalized) {
+      const identifier = normalizeUserLogin(login)
+      if (!identifier) {
         throw new Error("Invalid credentials")
       }
-      // Ищем пользователя по логину (без учёта регистра)
+      // Логин или email в одном поле (без учёта регистра)
       const user = await prisma.user.findFirst({
         where: {
-          login: { equals: loginNormalized, mode: "insensitive" }
+          OR: [
+            { login: { equals: identifier, mode: "insensitive" } },
+            { email: { equals: identifier, mode: "insensitive" } }
+          ]
         }
       })
       if (!user) {
