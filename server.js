@@ -6,7 +6,8 @@ import dotenv from "dotenv"
 import express from "express"
 import { prisma } from "./prisma.js"
 import { ApolloServer } from "@apollo/server"
-import { GraphQLError } from "graphql"
+import { GraphQLError, getOperationAST } from "graphql"
+import { randomUUID } from "crypto"
 import { expressMiddleware } from "@apollo/server/express4"
 import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
@@ -93,6 +94,19 @@ async function buildGraphqlContext(req) {
 /* =========================
    🔌 WS (graphql-ws)
 ========================= */
+// Ping/pong через ws; без ответа в срок — terminate (часто видно как 1006). Редкий ping — риск idle на LB.
+const WS_KEEPALIVE_DEFAULT_MS = 12_000
+const wsKeepAliveParsed = parseInt(process.env.WS_KEEPALIVE_MS ?? "", 10)
+const wsKeepAlive =
+  Number.isFinite(wsKeepAliveParsed) && wsKeepAliveParsed > 0
+    ? wsKeepAliveParsed
+    : WS_KEEPALIVE_DEFAULT_MS
+
+function wsShortUserAgent(ua) {
+  if (!ua || typeof ua !== "string") return "-"
+  return ua.length > 120 ? `${ua.slice(0, 120)}…` : ua
+}
+
 const wsServer = new WebSocketServer({
   server: httpsServer,
   path: "/graphql"
@@ -101,8 +115,21 @@ const wsServer = new WebSocketServer({
 const serverCleanup = useServer(
   {
     schema,
-    // Контекст (и проверки в фильтрах подписок) привязаны к handshake; при истечении JWT клиенту нужно переподключить WS с новым токеном.
-    context: async (ctx) => {
+    // JWT и контекст пересобираются на каждую операцию по WS; новый токен — новый ConnectionInit.
+    onConnect(ctx) {
+      ctx.wsSessionId = randomUUID()
+      ctx.wsConnectedAt = Date.now()
+      const req = ctx.extra?.request
+      const xff = req?.headers?.["x-forwarded-for"] || "-"
+      const xri = req?.headers?.["x-real-ip"] || "-"
+      const remote = req?.socket?.remoteAddress || "-"
+      const ua = wsShortUserAgent(req?.headers?.["user-agent"])
+      logger.info(
+        `[WS SESSION] id=${ctx.wsSessionId} xff=${xff} xri=${xri} remote=${remote} ua=${ua}`
+      )
+    },
+
+    context: async (ctx, message, execArgs) => {
       const authHeader =
         ctx.connectionParams?.Authorization ||
         ctx.connectionParams?.authorization ||
@@ -119,26 +146,53 @@ const serverCleanup = useServer(
         throw e
       }
 
+      const sid = ctx.wsSessionId || "-"
+      const opName = message?.payload?.operationName || "-"
+      let opKind = "-"
+      try {
+        const opAst = getOperationAST(
+          execArgs.document,
+          execArgs.operationName ?? undefined
+        )
+        if (opAst) opKind = opAst.operation
+      } catch {
+        /* ignore */
+      }
+
       logger.info(
-        `[WS CONNECT] type=${context.subjectType || "ANON"} id=${
-          context.subject?.id || "-"
-        }`
+        `[WS OPERATION] id=${sid} op=${opName} kind=${opKind} subjectType=${
+          context.subjectType || "ANON"
+        } subjectId=${context.subject?.id || "-"}`
       )
 
       return context
     },
 
     onDisconnect(ctx, code, reason) {
+      const sid = ctx.wsSessionId || "-"
+      const durationMs =
+        typeof ctx.wsConnectedAt === "number"
+          ? Date.now() - ctx.wsConnectedAt
+          : "-"
       logger.info(
-        `[WS DISCONNECT] code=${code} reason=${reason?.toString() || ""}`
+        `[WS DISCONNECT] id=${sid} durationMs=${durationMs} code=${code} reason=${reason?.toString() || ""}`
       )
+    },
+
+    onClose(ctx, code, reason) {
+      if (!ctx.acknowledged) {
+        logger.info(
+          `[WS CLOSE] handshake_incomplete code=${code} reason=${reason?.toString() || ""}`
+        )
+      }
     },
 
     onError(ctx, msg, errors) {
       logger.error("[WS ERROR]", errors)
     }
   },
-  wsServer
+  wsServer,
+  wsKeepAlive
 )
 
 /* =========================
