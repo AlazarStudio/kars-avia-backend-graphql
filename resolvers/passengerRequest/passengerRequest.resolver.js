@@ -568,11 +568,7 @@ const passengerRequestResolvers = {
     },
 
     // общий статус заявки
-    setPassengerRequestStatus: async (
-      _,
-      { id, status, cancelReason },
-      context
-    ) => {
+    setPassengerRequestStatus: async (_, { id, status }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
@@ -585,19 +581,52 @@ const passengerRequestResolvers = {
         where: { id },
         data: {
           status,
+          statusTimes
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_status",
+        description: "Статус ФАП обновлен",
+        fulldescription: `Пользователь ${getSubjectName(context)} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+    // общий статус заявки
+    cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const status = "CANCELLED"
+      const statusTimes = updateTimes(existing.statusTimes, status)
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id },
+        data: {
+          status,
           statusTimes,
           cancelReason
         }
       })
-      console.log("cancelReason " + cancelReason)
+
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request_status",
-        description:
-          cancelReason != null
-            ? "Заявка по ФАП отменена"
-            : "Статус ФАП обновлен",
-        fulldescription: `Пользователь ${getSubjectName(context)} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
+        description: "Заявка по ФАП отменена",
+        fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
+        reason: cancelReason,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

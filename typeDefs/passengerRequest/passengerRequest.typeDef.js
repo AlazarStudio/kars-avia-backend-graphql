@@ -381,8 +381,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     setPassengerRequestStatus(
       id: ID!
       status: PassengerRequestStatus!
-      cancelReason: String
     ): PassengerRequest!
+
+    cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
 
     setPassengerRequestServiceStatus(
       id: ID!

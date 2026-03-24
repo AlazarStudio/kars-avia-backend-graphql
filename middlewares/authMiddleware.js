@@ -73,10 +73,7 @@ export const roleMiddleware = async (context, allowedRoles) => {
   }
 
   // Внешний пользователь-гостиница приравнивается к REPRESENTATIVE для операций с бронями
-  const role =
-    subjectType === "EXTERNAL_USER" && subject.scope === "HOTEL"
-      ? "REPRESENTATIVE"
-      : subject.role || context.decoded?.role
+  const role = subject.role || context.decoded?.role
 
   if (!role || !allowedRoles.includes(role)) {
     throw new GraphQLError("Access forbidden: Insufficient rights.", {
