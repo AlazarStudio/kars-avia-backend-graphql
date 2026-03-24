@@ -10,6 +10,8 @@ import {
   MESSAGE_SENT,
   HOTEL_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
+import { publishRequestUpdated } from "../../services/infra/subscriptionPayloads.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import nodemailer from "nodemailer"
@@ -299,7 +301,7 @@ const requestResolver = {
             console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        await publishRequestUpdated(updatedRequest.id)
         return updatedRequest
       }
       // if (request.hotelChess) {
@@ -1056,7 +1058,7 @@ const requestResolver = {
           console.error("Ошибка при логировании изменения заявки:", error)
         }
 
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        await publishRequestUpdated(updatedRequest.id)
         return updatedRequest
       } catch (error) {
         logger.error("Ошибка при обновлении заявки. ", error)
@@ -1091,7 +1093,7 @@ const requestResolver = {
       } catch (error) {
         console.error("Ошибка при логировании изменения питания заявки:", error)
       }
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedMealPlan })
+      await publishRequestUpdated(request.id)
       return updatedMealPlan
     },
 
@@ -1122,7 +1124,7 @@ const requestResolver = {
           hotelId: request.hotelId,
           requestId: request.id
         })
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: archiveRequest })
+        await publishRequestUpdated(requestId)
         return archiveRequest
       } else {
         throw new Error("Request is not expired or already archived")
@@ -1281,7 +1283,7 @@ const requestResolver = {
         hotelId: request.hotelId,
         requestId: request.id
       })
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: canceledRequest })
+      await publishRequestUpdated(request.id)
       return canceledRequest
     }
   },
@@ -1293,9 +1295,13 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_CREATED),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "request.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1324,9 +1330,13 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "request.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

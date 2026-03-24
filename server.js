@@ -107,6 +107,7 @@ const wsServer = new WebSocketServer({
 const serverCleanup = useServer(
   {
     schema,
+    // Контекст (и проверки в фильтрах подписок) привязаны к handshake; при истечении JWT клиенту нужно переподключить WS с новым токеном.
     context: async (ctx) => {
       const authHeader =
         ctx.connectionParams?.Authorization ||

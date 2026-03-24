@@ -601,11 +601,6 @@ const driverResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
           const { subject, subjectType } = context
 
           if (!subject) return false
@@ -632,11 +627,6 @@ const driverResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
           const { subject, subjectType } = context
 
           if (!subject) return false

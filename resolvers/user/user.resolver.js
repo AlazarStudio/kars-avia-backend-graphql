@@ -24,6 +24,7 @@ import {
   USER_CREATED,
   USER_ONLINE
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
@@ -1184,9 +1185,13 @@ const userResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "user.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1202,9 +1207,13 @@ const userResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_ONLINE]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "user.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

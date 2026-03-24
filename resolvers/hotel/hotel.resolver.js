@@ -15,11 +15,14 @@ import nodemailer from "nodemailer"
 import {
   pubsub,
   NOTIFICATION,
-  REQUEST_UPDATED,
   HOTEL_CREATED,
-  HOTEL_UPDATED,
-  RESERVE_UPDATED
+  HOTEL_UPDATED
 } from "../../services/infra/pubsub.js"
+import {
+  publishRequestUpdated,
+  publishReserveUpdated
+} from "../../services/infra/subscriptionPayloads.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
@@ -499,9 +502,7 @@ const hotelResolver = {
                     }
                   })
                 }
-                pubsub.publish(REQUEST_UPDATED, {
-                  requestUpdated: updatedRequest
-                })
+                await publishRequestUpdated(updatedRequest.id)
               } else if (hotelChess.reserveId) {
                 // Если hotelChess связан с бронью (reserve)
                 const room = await prisma.room.findUnique({
@@ -556,7 +557,7 @@ const hotelResolver = {
                     }
                   })
                 }
-                pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+                await publishReserveUpdated(reserve.id)
               }
             } else {
               // Создание новой записи hotelChess
@@ -635,7 +636,7 @@ const hotelResolver = {
                       mealPlan: mealPlanData
                     }
                   })
-                  pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+                  await publishReserveUpdated(hotelChess.reserveId)
                 } catch (error) {
                   logger.error("Ошибка при бронировании", error)
                   const timestamp = new Date().toISOString()
@@ -852,9 +853,7 @@ const hotelResolver = {
                 }
 
                 // Публикуем событие обновления заявки
-                pubsub.publish(REQUEST_UPDATED, {
-                  requestUpdated: updatedRequest
-                })
+                await publishRequestUpdated(updatedRequest.id)
               }
             }
           }
@@ -1353,9 +1352,13 @@ const hotelResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "hotel.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1382,9 +1385,13 @@ const hotelResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "hotel.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

@@ -1,7 +1,50 @@
 // pubsub.js
+// Без REDIS_URL: события только внутри одного процесса Node.
+// Несколько инстансов / PM2 cluster: задайте REDIS_URL — используется Redis Pub/Sub.
 import { PubSub } from "graphql-subscriptions"
+import { RedisPubSub } from "graphql-redis-subscriptions"
+import { logger } from "./logger.js"
 
-export const pubsub = new PubSub()
+/** Per-user channel for Subscription.newUnreadMessage */
+export function newUnreadMessageTopic(userId) {
+  return `NEW_UNREAD_MESSAGE_${userId}`
+}
+
+/** Per-chat channel for Subscription.messageRead */
+export function messageReadTopic(chatId) {
+  return `MESSAGE_READ_${chatId}`
+}
+
+function createPubSubEngine() {
+  const url = process.env.REDIS_URL?.trim()
+  if (url) {
+    logger.info("[PUBSUB] Using Redis (REDIS_URL is set)")
+    return new RedisPubSub({
+      connection: url
+    })
+  }
+  return new PubSub()
+}
+
+const pubSubEngine = createPubSubEngine()
+
+export const pubsub = {
+  publish(trigger, payload) {
+    try {
+      const result = pubSubEngine.publish(trigger, payload)
+      if (result != null && typeof result.then === "function") {
+        result.catch((err) =>
+          logger.error(`[PUBSUB] publish failed trigger=${trigger}`, err)
+        )
+      }
+    } catch (err) {
+      logger.error(`[PUBSUB] publish failed trigger=${trigger}`, err)
+    }
+  },
+  asyncIterator(triggers, options) {
+    return pubSubEngine.asyncIterator(triggers, options)
+  }
+}
 
 export const AIRLINE_CREATED = "AIRLINE_CREATED"
 export const AIRLINE_UPDATED = "AIRLINE_UPDATED"

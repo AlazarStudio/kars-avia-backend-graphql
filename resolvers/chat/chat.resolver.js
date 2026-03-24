@@ -3,11 +3,15 @@ import {
   pubsub,
   MESSAGE_SENT,
   NOTIFICATION,
-  RESERVE_UPDATED,
-  REQUEST_UPDATED
+  newUnreadMessageTopic,
+  messageReadTopic
 } from "../../services/infra/pubsub.js"
+import {
+  publishRequestUpdated,
+  publishReserveUpdated
+} from "../../services/infra/subscriptionPayloads.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
-import { subscribe } from "graphql"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 
@@ -465,11 +469,6 @@ const chatResolver = {
       const tasks = []
 
       if (message.chat.requestId) {
-        const updatedRequest = await prisma.request.findUnique({
-          where: { id: message.chat.requestId },
-          include: { chat: true }
-        })
-
         const siteNotificationGuard = shouldSendNotification({
           channel: "site",
           action: "new_message",
@@ -501,17 +500,10 @@ const chatResolver = {
           })
         }
 
-        pubsub.publish(REQUEST_UPDATED, {
-          requestUpdated: updatedRequest
-        })
+        await publishRequestUpdated(message.chat.requestId)
       }
 
       if (message.chat.reserveId) {
-        const updatedReserve = await prisma.reserve.findUnique({
-          where: { id: message.chat.reserveId },
-          include: { chat: true }
-        })
-
         const siteNotificationGuard = shouldSendNotification({
           channel: "site",
           action: "new_message",
@@ -543,9 +535,7 @@ const chatResolver = {
           })
         }
 
-        pubsub.publish(RESERVE_UPDATED, {
-          reserveUpdated: updatedReserve
-        })
+        await publishReserveUpdated(message.chat.reserveId)
       }
 
       if (senderId && !isExternal) {
@@ -565,6 +555,17 @@ const chatResolver = {
       }
 
       await Promise.all(tasks)
+
+      const participantRows = await prisma.chatUser.findMany({
+        where: { chatId },
+        select: { userId: true }
+      })
+      for (const { userId: participantId } of participantRows) {
+        if (!isExternal && senderId && participantId === senderId) continue
+        pubsub.publish(newUnreadMessageTopic(participantId), {
+          newUnreadMessage: message
+        })
+      }
 
       pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
@@ -604,6 +605,55 @@ const chatResolver = {
         create: { messageId, userId, readAt: currentTime }
       })
 
+      const messageReadForSub = await prisma.messageRead.findUnique({
+        where: { messageId_userId: { messageId, userId } },
+        include: {
+          message: {
+            select: {
+              id: true,
+              text: true,
+              createdAt: true,
+              chatId: true,
+              senderId: true,
+              senderExternalUserId: true,
+              senderName: true,
+              chat: {
+                select: {
+                  id: true,
+                  requestId: true,
+                  reserveId: true,
+                  airlineId: true,
+                  hotelId: true
+                }
+              }
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
+          }
+        }
+      })
+
+      if (messageReadForSub?.message?.chatId) {
+        pubsub.publish(messageReadTopic(messageReadForSub.message.chatId), {
+          messageRead: {
+            ...messageReadForSub,
+            chatId: messageReadForSub.message.chatId
+          }
+        })
+      }
+
       // Получаем чат, связанный с этим сообщением
       const message = await prisma.message.findUnique({
         where: { id: messageId },
@@ -616,23 +666,11 @@ const chatResolver = {
         const { requestId, reserveId } = message.chat
 
         if (requestId) {
-          const updatedRequest = await prisma.request.findUnique({
-            where: { id: requestId },
-            include: { chat: true }
-          })
-          if (updatedRequest) {
-            pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
-          }
+          await publishRequestUpdated(requestId)
         }
 
         if (reserveId) {
-          const updatedReserve = await prisma.reserve.findUnique({
-            where: { id: reserveId },
-            include: { chat: true }
-          })
-          if (updatedReserve) {
-            pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
-          }
+          await publishReserveUpdated(reserveId)
         }
       }
 
@@ -732,24 +770,61 @@ const chatResolver = {
 
       if (chat) {
         if (chat.requestId) {
-          const updatedRequest = await prisma.request.findUnique({
-            where: { id: chat.requestId },
-            include: { chat: true }
-          })
-          if (updatedRequest) {
-            pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
-          }
+          await publishRequestUpdated(chat.requestId)
         }
 
         if (chat.reserveId) {
-          const updatedReserve = await prisma.reserve.findUnique({
-            where: { id: chat.reserveId },
-            include: { chat: true }
-          })
-          if (updatedReserve) {
-            pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          await publishReserveUpdated(chat.reserveId)
+        }
+      }
+
+      const latestBulkRead = await prisma.messageRead.findFirst({
+        where: { userId, message: { chatId } },
+        orderBy: { readAt: "desc" },
+        include: {
+          message: {
+            select: {
+              id: true,
+              text: true,
+              createdAt: true,
+              chatId: true,
+              senderId: true,
+              senderExternalUserId: true,
+              senderName: true,
+              chat: {
+                select: {
+                  id: true,
+                  requestId: true,
+                  reserveId: true,
+                  airlineId: true,
+                  hotelId: true
+                }
+              }
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              number: true,
+              images: true,
+              role: true,
+              position: true,
+              airlineId: true,
+              airlineDepartmentId: true,
+              hotelId: true,
+              dispatcher: true
+            }
           }
         }
+      })
+      if (latestBulkRead?.message?.chatId) {
+        pubsub.publish(messageReadTopic(chatId), {
+          messageRead: {
+            ...latestBulkRead,
+            chatId
+          }
+        })
       }
 
       return true
@@ -781,96 +856,7 @@ const chatResolver = {
   },
 
   Subscription: {
-    // Подписка на событие отправки нового сообщения в чате.
-    // Событие идентифицируется с использованием chatId.
-    // messageSent: {
-    //   subscribe: (_, { chatId }) =>
-    //     pubsub.asyncIterator(`${MESSAGE_SENT}_${chatId}`)
-    // },
-    requestUpdated: {
-      subscribe: withFilter(
-        () => pubsub.asyncIterator(REQUEST_UPDATED),
-        async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
-          const { subject, subjectType } = context
-
-          if (!subject || subjectType !== "USER") return false
-
-          const request = payload.requestUpdated
-
-          // SUPERADMIN и диспетчеры видят все
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
-            return true
-          }
-
-          // Проверяем права по airlineId
-          if (subject.airlineId && request.airlineId === subject.airlineId) {
-            return true
-          }
-
-          // Проверяем права по hotelId (если чат есть и содержит hotelId)
-          if (subject.hotelId && request.hotelId === subject.hotelId) {
-            return true
-          }
-
-          // Дополнительная проверка через chat, если есть
-          if (request.chat) {
-            if (subject.airlineId && request.chat.airlineId === subject.airlineId) {
-              return true
-            }
-            if (subject.hotelId && request.chat.hotelId === subject.hotelId) {
-              return true
-            }
-          }
-
-          return false
-        }
-      )
-    },
-    reserveUpdated: {
-      subscribe: withFilter(
-        () => pubsub.asyncIterator(RESERVE_UPDATED),
-        async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
-          const { subject, subjectType } = context
-
-          if (!subject || subjectType !== "USER") return false
-
-          const reserve = payload.reserveUpdated
-
-          // SUPERADMIN и диспетчеры видят все
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
-            return true
-          }
-
-          // Проверяем права по airlineId
-          if (subject.airlineId && reserve.airlineId === subject.airlineId) {
-            return true
-          }
-
-          // Дополнительная проверка через chat, если есть
-          if (reserve.chat) {
-            if (subject.airlineId && reserve.chat.airlineId === subject.airlineId) {
-              return true
-            }
-            if (subject.hotelId && reserve.chat.hotelId === subject.hotelId) {
-              return true
-            }
-          }
-
-          return false
-        }
-      )
-    },
-
+    // requestUpdated / reserveUpdated — резолверы в request.resolver.js и reserve.resolver.js
     // messageSent: {
     //   subscribe: withFilter(
     //     (_, { chatId }) => pubsub.asyncIterator(MESSAGE_SENT),
@@ -903,9 +889,13 @@ const chatResolver = {
         async (payload, variables, context) => {
           const isExternal = context.subjectType === "EXTERNAL_USER"
           if (!isExternal) {
-            try {
-              await allMiddleware(context)
-            } catch {
+            if (
+              !(await subscriptionAuthMiddleware(
+                allMiddleware,
+                context,
+                "chat.messageSent"
+              ))
+            ) {
               return false
             }
           }
@@ -984,11 +974,15 @@ const chatResolver = {
     // Имя события включает как chatId, так и userId.
     newUnreadMessage: {
       subscribe: withFilter(
-        (_, { userId }) => pubsub.asyncIterator(`NEW_UNREAD_MESSAGE_${userId}`),
+        (_, { userId }) => pubsub.asyncIterator(newUnreadMessageTopic(userId)),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "chat.newUnreadMessage"
+            ))
+          ) {
             return false
           }
 
@@ -1007,11 +1001,15 @@ const chatResolver = {
     // Подписка на событие, когда сообщение помечено как прочитанное.
     messageRead: {
       subscribe: withFilter(
-        (_, { chatId }) => pubsub.asyncIterator(`MESSAGE_READ_${chatId}`),
+        (_, { chatId }) => pubsub.asyncIterator(messageReadTopic(chatId)),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "chat.messageRead"
+            ))
+          ) {
             return false
           }
 

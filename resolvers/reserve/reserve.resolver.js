@@ -12,6 +12,8 @@ import {
   RESERVE_PERSONS,
   RESERVE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { publishReserveUpdated } from "../../services/infra/subscriptionPayloads.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
@@ -174,7 +176,7 @@ const reserveResolver = {
             console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        await publishReserveUpdated(updatedReserve.id)
         return updatedReserve
       }
       return reserve
@@ -546,7 +548,7 @@ const reserveResolver = {
         })
 
         if (!arrival && !departure) {
-          pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          await publishReserveUpdated(updatedReserve.id)
           return reserve
         }
 
@@ -637,7 +639,7 @@ const reserveResolver = {
           })
         }
 
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        await publishReserveUpdated(updatedReserve.id)
 
         return updatedReserve
       } catch (error) {
@@ -709,7 +711,7 @@ const reserveResolver = {
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        await publishReserveUpdated(reservationId)
         pubsub.publish(RESERVE_HOTEL, { reserveHotel })
         return reserveHotel
       } catch (error) {
@@ -856,7 +858,7 @@ const reserveResolver = {
         }
       })
 
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+      await publishReserveUpdated(reserveId)
 
       return {
         name: listName,
@@ -890,7 +892,7 @@ const reserveResolver = {
           newData: { status: "archived" },
           reserveId: reserve.id
         })
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: archiveReserve })
+        await publishReserveUpdated(reserveId)
         return archiveReserve
       } else {
         throw new Error("Reserve is not expired or already archived")
@@ -904,9 +906,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -934,9 +940,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -972,9 +982,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_HOTEL]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1009,9 +1023,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_PERSONS]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

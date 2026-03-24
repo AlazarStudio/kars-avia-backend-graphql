@@ -12,6 +12,7 @@ import {
   AIRLINE_CREATED,
   AIRLINE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 
@@ -813,9 +814,13 @@ const airlineResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "airline.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -841,9 +846,13 @@ const airlineResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "airline.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

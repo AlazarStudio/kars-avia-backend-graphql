@@ -6,6 +6,7 @@ import {
   TRANSFER_MESSAGE_SENT,
   TRANSFER_MESSAGE_READ
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
@@ -928,9 +929,13 @@ const transferResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([TRANSFER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -977,9 +982,13 @@ const transferResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([TRANSFER_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1026,9 +1035,13 @@ const transferResolver = {
       subscribe: withFilter(
         (_, { transferId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_SENT),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const message = payload.transferMessageSent
@@ -1105,9 +1118,13 @@ const transferResolver = {
       subscribe: withFilter(
         (_, { chatId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_READ),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

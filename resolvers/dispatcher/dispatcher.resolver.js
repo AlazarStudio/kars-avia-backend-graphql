@@ -7,6 +7,7 @@ import {
   DISPATCHER_DEPARTMENT_CREATED,
   DISPATCHER_DEPARTMENT_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
@@ -610,9 +611,13 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([NOTIFICATION]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "dispatcher.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -663,9 +668,13 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([COMPANY_CHANGED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "dispatcher.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -681,9 +690,13 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PRICECATEGORY_CHANGED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "dispatcher.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -715,9 +728,13 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "dispatcher.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -733,9 +750,13 @@ const dispatcherResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DISPATCHER_DEPARTMENT_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "dispatcher.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

@@ -6,6 +6,7 @@ import {
   CONTRACT_HOTEL,
   CONTRACT_ORGANIZATION
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
@@ -735,9 +736,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_AIRLINE]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -763,9 +768,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_HOTEL]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -791,9 +800,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_ORGANIZATION]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
