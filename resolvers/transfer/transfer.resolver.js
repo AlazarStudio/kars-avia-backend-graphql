@@ -16,7 +16,7 @@ import { shouldSendNotification } from "../../services/notification/notification
 const transferResolver = {
   Query: {
     transfers: async (_, { pagination }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
       const {
         skip,
@@ -70,7 +70,7 @@ const transferResolver = {
       return { transfers, totalCount, totalPages }
     },
     transfer: async (_, { id }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const transfer = await prisma.transfer.findUnique({
         // Находим transfer по id
         where: { id: id },
@@ -92,7 +92,7 @@ const transferResolver = {
       return transfer
     },
     transferChat: async (_, { chatId }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.transferChat.findUnique({
         where: { id: chatId },
         include: {
@@ -109,7 +109,7 @@ const transferResolver = {
       })
     },
     transferChats: async (_, { transferId }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.transferChat.findMany({
         where: { transferId },
         include: {
@@ -122,7 +122,7 @@ const transferResolver = {
       })
     },
     transferMessages: async (_, { chatId }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.transferMessage.findMany({
         where: { chatId },
         include: {
@@ -135,7 +135,7 @@ const transferResolver = {
       })
     },
     transferChatByType: async (_, { transferId, type }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.transferChat.findUnique({
         where: {
           transferId_type: {

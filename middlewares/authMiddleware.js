@@ -187,6 +187,7 @@ export const airlineMiddleware = async (context) => {
     "DISPATCHERADMIN",
     "AIRLINEADMIN",
     "AIRLINEMODERATOR",
+    "AIRLINE_PERSONAL",
     "AIRLINEUSER"
   ])
 }
@@ -203,6 +204,7 @@ export const allMiddleware = async (context) => {
     "DISPATCHERUSER",
     "HOTELUSER",
     "AIRLINEUSER",
+    "AIRLINE_PERSONAL",
     "REPRESENTATIVE",
     "USER",
     "DRIVER"
