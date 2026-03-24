@@ -376,7 +376,7 @@ const dispatcherResolver = {
     },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name, separator } = input
+      const { name, separator, category } = input
       const position = await prisma.position.create({
         data: {
           name,

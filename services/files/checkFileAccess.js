@@ -246,7 +246,7 @@ export async function checkFileAccess(context, filePath) {
   const { subject, subjectType } = context
 
   // Только авторизованные пользователи могут получать файлы
-  if (!subject || subjectType !== "USER") {
+  if (!subject) {
     return false
   }
 
@@ -313,6 +313,9 @@ export async function checkFileAccess(context, filePath) {
       return await checkUserFileAccess(user, entityId)
 
     case "hotel":
+      return await checkHotelFileAccess(user, entityId)
+
+    case "driver":
       return await checkHotelFileAccess(user, entityId)
 
     case "reserve_files":
