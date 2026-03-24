@@ -2333,6 +2333,7 @@ const passengerRequestResolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
         (payload, variables, context) => {
+          console.log(" PASSENGER_REQUEST_UPDATED " + PASSENGER_REQUEST_UPDATED)
           // const { subject, subjectType } = context
           // if (!subject || subjectType !== "USER") return false
           // return representativeMiddleware(context).then(() => true).catch(() => false)
