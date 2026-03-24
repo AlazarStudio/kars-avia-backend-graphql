@@ -222,6 +222,10 @@ const transferResolver = {
         }
       }
 
+      // Определение текущего месяца и года для формирования номера заявки
+      const currentDate = new Date()
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
+      const year = String(currentDate.getFullYear()).slice(-2)
       // Определение границ месяца для поиска последней заявки
       const startOfMonth = new Date(
         currentDate.getFullYear(),
