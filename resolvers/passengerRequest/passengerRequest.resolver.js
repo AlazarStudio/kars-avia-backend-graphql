@@ -808,6 +808,114 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    updatePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex, person },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      if (service === "WATER") {
+        const prev = existing.waterService || { people: [] }
+        const people = [...(prev.people || [])]
+        if (personIndex < 0 || personIndex >= people.length) {
+          throw new GraphQLError("Invalid personIndex")
+        }
+        people[personIndex] = person
+        data.waterService = { ...prev, people }
+      } else if (service === "MEAL") {
+        const prev = existing.mealService || { people: [] }
+        const people = [...(prev.people || [])]
+        if (personIndex < 0 || personIndex >= people.length) {
+          throw new GraphQLError("Invalid personIndex")
+        }
+        people[personIndex] = person
+        data.mealService = { ...prev, people }
+      } else {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_person",
+        description: `Пассажир обновлен в сервисе: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил пассажира в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    removePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      if (service === "WATER") {
+        const prev = existing.waterService || { people: [] }
+        const people = [...(prev.people || [])]
+        if (personIndex < 0 || personIndex >= people.length) {
+          throw new GraphQLError("Invalid personIndex")
+        }
+        people.splice(personIndex, 1)
+        data.waterService = { ...prev, people }
+      } else if (service === "MEAL") {
+        const prev = existing.mealService || { people: [] }
+        const people = [...(prev.people || [])]
+        if (personIndex < 0 || personIndex >= people.length) {
+          throw new GraphQLError("Invalid personIndex")
+        }
+        people.splice(personIndex, 1)
+        data.mealService = { ...prev, people }
+      } else {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_person",
+        description: `Пассажир удален из сервиса: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из сервиса ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware

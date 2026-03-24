@@ -397,6 +397,19 @@ const passengerRequestTypeDef = /* GraphQL */ `
       person: PassengerServicePersonInput!
     ): PassengerRequest!
 
+    updatePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
+      person: PassengerServicePersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
+    ): PassengerRequest!
+
     addPassengerRequestHotel(
       requestId: ID!
       hotel: PassengerServiceHotelInput!
