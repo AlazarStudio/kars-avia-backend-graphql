@@ -567,9 +567,7 @@ const passengerRequestResolvers = {
           ...prev,
           ...(waterService.plan !== undefined && { plan: waterService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
+        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (mealService) {
@@ -578,9 +576,7 @@ const passengerRequestResolvers = {
           ...prev,
           ...(mealService.plan !== undefined && { plan: mealService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
+        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (livingService) {
@@ -589,9 +585,7 @@ const passengerRequestResolvers = {
           ...prev,
           ...(livingService.plan !== undefined && { plan: livingService.plan })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
+        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (transferService) {
@@ -602,9 +596,7 @@ const passengerRequestResolvers = {
             plan: transferService.plan
           })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
+        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
 
       if (baggageDeliveryService) {
@@ -615,9 +607,7 @@ const passengerRequestResolvers = {
             plan: baggageDeliveryService.plan
           })
         }
-        pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-          passengerRequestUpdated: passengerRequest
-        })
+        pubsub.publish(PASSENGER_REQUEST_UPDATED, {})
       }
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
