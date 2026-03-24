@@ -1,332 +1,101 @@
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
-import path from "path"
 
-function normalizeBucketName(bucket) {
-  switch (bucket) {
-    case "airlines":
-      return "airline"
-    case "airline_person":
-    case "airlinePersonal":
-      return "airline-personal"
-    case "users":
-    case "user":
-      return "users"
-    case "request":
-      return "requests"
-    case "reserve":
-      return "reserves"
-    case "hotels":
-      return "hotel"
-    default:
-      return bucket
+function normalizeRelativePath(filePath) {
+  let p = filePath.replace(/^\/+/, "").replace(/\\/g, "/")
+  if (p.startsWith("files/")) {
+    p = p.replace(/^files\//, "")
   }
+  return p
+}
+
+function isSuperadminOrDispatcherUser(user) {
+  return Boolean(
+    user && (user.role === "SUPERADMIN" || user.dispatcher === true)
+  )
 }
 
 /**
- * Определяет тип файла и связанную сущность по пути
- * @param {string} filePath - путь к файлу (например, "/uploads/requests/123/2024/01/15/file.png")
- * @returns {Promise<{type: string, entityId: string | null, bucket: string} | null>}
+ * Отчёты: SUPERADMIN, dispatcher (User), владелец по SavedReport (airline/hotel),
+ * либо AIRLINE_PERSONAL своей авиакомпании для отчёта с тем же airlineId.
  */
-async function resolveFileOwner(filePath) {
-  // Нормализуем путь: убираем префикс /files/ если есть
-  let normalizedPath = filePath.replace(/^\/+/, "").replace(/\\/g, "/")
-
-  // Убираем префикс /files/ если он есть
-  if (normalizedPath.startsWith("files/")) {
-    normalizedPath = normalizedPath.replace(/^files\//, "")
+async function checkReportFileAccess(context, normalizedPath) {
+  const { subject, subjectType, user } = context
+  const parts = normalizedPath.split("/").filter(Boolean)
+  if (parts[0] !== "reports" || parts.length < 2) {
+    return false
   }
 
-  // Проверяем различные типы файлов
-  const parts = normalizedPath.split("/")
+  const filename = parts[parts.length - 1]
 
-  // Формат: uploads/bucket/entityId/YYYY/MM/DD/file.ext
-  // или: uploads/bucket/YYYY/MM/DD/file.ext
-  if (parts[0] === "uploads" && parts.length >= 5) {
-    const bucket = normalizeBucketName(parts[1])
-    // Проверяем, является ли третий элемент entityId (проверяем по длине и формату ObjectId)
-    const possibleEntityId = parts[2]
-    const isEntityId = /^[0-9a-fA-F]{24}$/.test(possibleEntityId)
-
-    if (isEntityId) {
-      return { type: bucket, entityId: possibleEntityId, bucket }
-    } else {
-      return { type: bucket, entityId: null, bucket }
-    }
-  }
-
-  // Формат: reserve_files/filename.ext
-  if (parts[0] === "reserve_files") {
-    // Извлекаем reserveId из имени файла (формат: reserve_<id>_timestamp.ext)
-    const filename = parts[parts.length - 1]
-    const match = filename.match(/^reserve_([0-9a-fA-F]{24})_/)
-    if (match) {
-      return { type: "reserve", entityId: match[1], bucket: "reserve_files" }
-    }
-    return { type: "reserve_files", entityId: null, bucket: "reserve_files" }
-  }
-
-  // Формат: reports/filename.ext
-  if (parts[0] === "reports") {
-    return { type: "reports", entityId: null, bucket: "reports" }
-  }
-
-  return null
-}
-
-/**
- * Проверяет доступ пользователя к файлу заявки (Request)
- */
-async function checkRequestAccess(user, requestId) {
-  // SUPERADMIN и диспетчеры видят все
-  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-    return true
-  }
-
-  // Проверяем доступ через airlineId
-  const request = await prisma.request.findUnique({
-    where: { id: requestId },
-    select: {
-      airlineId: true,
-      hotelId: true,
-      senderId: true,
-      receiverId: true,
-      postedId: true
-    }
+  const savedReport = await prisma.savedReport.findFirst({
+    where: {
+      OR: [{ name: filename }, { url: { endsWith: filename } }]
+    },
+    select: { airlineId: true, hotelId: true }
   })
 
-  if (!request) return false
-
-  // Пользователь авиакомпании видит файлы своих заявок
-  if (user.airlineId && request.airlineId === user.airlineId) {
-    return true
+  if (subjectType === "USER" && user) {
+    if (isSuperadminOrDispatcherUser(user)) {
+      return true
+    }
+    if (!savedReport) {
+      return false
+    }
+    if (
+      user.airlineId &&
+      savedReport.airlineId &&
+      user.airlineId === savedReport.airlineId
+    ) {
+      return true
+    }
+    if (
+      user.hotelId &&
+      savedReport.hotelId &&
+      user.hotelId === savedReport.hotelId
+    ) {
+      return true
+    }
+    return false
   }
 
-  // Отель видит файлы заявок, связанных с ним
-  if (user.hotelId && request.hotelId === user.hotelId) {
-    return true
-  }
-
-  // Пользователь видит файлы заявок, где он отправитель, получатель или разместил
-  if (
-    request.senderId === user.id ||
-    request.receiverId === user.id ||
-    request.postedId === user.id
-  ) {
-    return true
+  if (subjectType === "AIRLINE_PERSONAL" && subject?.id) {
+    const personal = await prisma.airlinePersonal.findUnique({
+      where: { id: subject.id },
+      select: { airlineId: true }
+    })
+    if (!personal?.airlineId || !savedReport?.airlineId) {
+      return false
+    }
+    return personal.airlineId === savedReport.airlineId
   }
 
   return false
 }
 
 /**
- * Проверяет доступ пользователя к файлу резерва (Reserve)
- */
-async function checkReserveAccess(user, reserveId) {
-  // SUPERADMIN и диспетчеры видят все
-  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-    return true
-  }
-
-  // Проверяем доступ через airlineId
-  const reserve = await prisma.reserve.findUnique({
-    where: { id: reserveId },
-    select: {
-      airlineId: true,
-      senderId: true,
-      hotel: {
-        select: { hotelId: true }
-      }
-    }
-  })
-
-  if (!reserve) return false
-
-  // Пользователь авиакомпании видит файлы своих резервов
-  if (user.airlineId && reserve.airlineId === user.airlineId) {
-    return true
-  }
-
-  // Отель видит файлы резервов, связанных с ним
-  if (user.hotelId && reserve.hotel) {
-    const hasAccess = reserve.hotel.some(
-      (hotel) => hotel.hotelId === user.hotelId
-    )
-    if (hasAccess) return true
-  }
-
-  // Пользователь видит файлы резервов, где он отправитель
-  if (reserve.senderId === user.id) {
-    return true
-  }
-
-  return false
-}
-
-/**
- * Проверяет доступ пользователя к файлу пользователя (User)
- */
-async function checkUserFileAccess(user, targetUserId) {
-  // SUPERADMIN и диспетчеры видят все
-  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-    return true
-  }
-
-  // Пользователь видит свои файлы
-  if (user.id === targetUserId) {
-    return true
-  }
-
-  // Пользователи одной авиакомпании могут видеть файлы друг друга
-  const targetUser = await prisma.user.findUnique({
-    where: { id: targetUserId },
-    select: { airlineId: true }
-  })
-
-  if (targetUser && user.airlineId && targetUser.airlineId === user.airlineId) {
-    return true
-  }
-
-  return false
-}
-
-/**
- * Проверяет доступ пользователя к файлу авиакомпании (bucket airline/airlines)
- */
-async function checkAirlineFileAccess(user, airlineId) {
-  // SUPERADMIN и диспетчеры видят все
-  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-    return true
-  }
-
-  // Пользователь авиакомпании видит файлы только своей авиакомпании
-  if (user.airlineId && user.airlineId === airlineId) {
-    return true
-  }
-
-  // Дополнительная проверка: целевая авиакомпания должна существовать
-  const airline = await prisma.airline.findUnique({
-    where: { id: airlineId },
-    select: { id: true }
-  })
-
-  return Boolean(airline && user.airlineId === airline.id)
-}
-
-/**
- * Проверяет доступ пользователя к файлу отеля (bucket hotel)
- */
-async function checkHotelFileAccess(user, hotelId) {
-  // SUPERADMIN и диспетчеры видят все
-  if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-    return true
-  }
-
-  // Пользователь отеля видит файлы только своего отеля
-  if (user.hotelId && user.hotelId === hotelId) {
-    return true
-  }
-
-  // Дополнительная проверка: целевой отель должен существовать
-  const hotel = await prisma.hotel.findUnique({
-    where: { id: hotelId },
-    select: { id: true }
-  })
-
-  return Boolean(hotel && user.hotelId === hotel.id)
-}
-
-/**
- * Проверяет доступ пользователя к файлу
- * @param {object} context - контекст авторизации (из buildAuthContext)
- * @param {string} filePath - путь к файлу
- * @returns {Promise<boolean>}
+ * Проверяет доступ к файлу (HTTP /files/*).
+ * uploads и reserve_files — любой авторизованный субъект.
+ * reports — см. checkReportFileAccess.
  */
 export async function checkFileAccess(context, filePath) {
-  const { subject, subjectType } = context
+  const { subject } = context
 
-  // Только авторизованные пользователи могут получать файлы
   if (!subject) {
     return false
   }
 
-  const user = subject
+  const normalized = normalizeRelativePath(filePath)
+  const first = normalized.split("/")[0]
 
-  // Определяем владельца файла
-  const fileOwner = await resolveFileOwner(filePath)
-
-  if (!fileOwner) {
-    logger.warn(`[FILE ACCESS] Cannot resolve file owner for path: ${filePath}`)
-    return false
+  if (first === "reports") {
+    return checkReportFileAccess(context, normalized)
   }
 
-  const { type, entityId, bucket } = fileOwner
-
-  // Для файлов без привязки к сущности (misc, reports без entityId)
-  if (!entityId) {
-    // SUPERADMIN и диспетчеры имеют доступ ко всем файлам
-    if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-      return true
-    }
-
-    // Для reports - проверяем, может ли пользователь генерировать отчеты
-    if (bucket === "reports") {
-      // Пока разрешаем всем авторизованным пользователям
-      // Можно добавить более строгую проверку по ролям
-      return true
-    }
-
-    // Для остальных файлов без entityId - только SUPERADMIN и диспетчеры
-    return user.role === "SUPERADMIN" || user.dispatcher === true
+  if (first === "uploads" || first === "reserve_files") {
+    return true
   }
 
-  // Проверяем доступ в зависимости от типа файла
-  switch (type) {
-    case "requests":
-      return await checkRequestAccess(user, entityId)
-
-    case "reserves":
-    case "reserve":
-      return await checkReserveAccess(user, entityId)
-
-    case "users":
-      return await checkUserFileAccess(user, entityId)
-
-    case "airline-personal":
-      // Для файлов персонала авиакомпании - проверяем через airlineId
-      if (user.role === "SUPERADMIN" || user.dispatcher === true) {
-        return true
-      }
-      const personal = await prisma.airlinePersonal.findUnique({
-        where: { id: entityId },
-        select: { airlineId: true }
-      })
-      if (personal && user.airlineId && personal.airlineId === user.airlineId) {
-        return true
-      }
-      return false
-
-    case "airline":
-      return await checkAirlineFileAccess(user, entityId)
-
-    case "misc":
-      return await checkUserFileAccess(user, entityId)
-
-    case "hotel":
-      return await checkHotelFileAccess(user, entityId)
-
-    case "driver":
-      return await checkHotelFileAccess(user, entityId)
-
-    case "reserve_files":
-      // Файлы резервов из папки reserve_files
-      return await checkReserveAccess(user, entityId)
-
-    default:
-      // Для неизвестных типов - только SUPERADMIN и диспетчеры
-      logger.warn(
-        `[FILE ACCESS] Unknown file type: ${type} for path: ${filePath}`
-      )
-      return user.role === "SUPERADMIN" || user.dispatcher === true
-  }
+  logger.warn(`[FILE ACCESS] Unknown path prefix: ${filePath}`)
+  return false
 }
