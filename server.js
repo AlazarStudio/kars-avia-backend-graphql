@@ -21,7 +21,6 @@ import {
   stopArchivingJob
 } from "./services/cron/cronTasks.js"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
-import rateLimit from "express-rate-limit"
 import { logger } from "./services/infra/logger.js"
 import { PUBSUB_BACKEND } from "./services/infra/pubsub.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
@@ -53,13 +52,6 @@ app.get("/health", async (req, res) => {
       reason: "DB_UNAVAILABLE"
     })
   }
-})
-
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 минута
-  max: 100, // 100 запросов
-  standardHeaders: true,
-  legacyHeaders: false
 })
 
 // SSL
@@ -182,8 +174,6 @@ await server.start()
 /* =========================
    🌍 EXPRESS
 ========================= */
-// app.use(limiter)
-
 app.use(graphqlUploadExpress())
 
 // Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
