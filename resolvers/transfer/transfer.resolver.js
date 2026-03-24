@@ -222,6 +222,23 @@ const transferResolver = {
         }
       }
 
+      // Поиск последней созданной заявки в текущем месяце
+      const lastRequest = await prisma.transfer.findFirst({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        orderBy: { createdAt: "desc" }
+      })
+      // Формирование последовательного номера заявки
+      let sequenceNumber
+      if (lastRequest) {
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+      } else {
+        sequenceNumber = "0001"
+      }
+
+      // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
+      data.requestNumber = `${sequenceNumber}-${month}${year}t`
+
       const newTransfer = await prisma.transfer.create({
         data
         // если нужно сразу вернуть связанные сущности:
@@ -234,7 +251,10 @@ const transferResolver = {
           action: "create_transfer",
           description: "Трансфер создан",
           fulldescription: `Создан трансфер ${newTransfer.id}`,
-          newData: { transferId: newTransfer.id, airlineId: newTransfer.airlineId }
+          newData: {
+            transferId: newTransfer.id,
+            airlineId: newTransfer.airlineId
+          }
         })
       } catch (e) {
         console.error("[TRANSFER] logAction create_transfer failed", e)
@@ -603,16 +623,16 @@ const transferResolver = {
       try {
         const userIdsToNotify = []
         const senderId = authorType === "USER" ? senderUserId : null
-        
+
         // Добавляем dispatcher (если есть и не является отправителем)
         if (chat.dispatcherId && chat.dispatcherId !== senderId) {
           userIdsToNotify.push(chat.dispatcherId)
         }
-        
+
         // Для водителей и пассажиров нужно найти их userId
         // Если у них нет userId в базе, пропускаем
         // TODO: Добавить поддержку уведомлений для Driver и AirlinePersonal
-        
+
         // Отправляем уведомления только если есть получатели
         if (userIdsToNotify.length > 0) {
           const recipientChecks = await Promise.all(
@@ -635,19 +655,19 @@ const transferResolver = {
             return message
           }
 
-          const senderName = 
+          const senderName =
             authorType === "USER" && message.senderUser
               ? message.senderUser.name
               : authorType === "DRIVER" && message.senderDriver
-              ? message.senderDriver.name
-              : authorType === "PERSONAL" && message.senderPersonal
-              ? message.senderPersonal.name
-              : "Пользователь"
-          
+                ? message.senderDriver.name
+                : authorType === "PERSONAL" && message.senderPersonal
+                  ? message.senderPersonal.name
+                  : "Пользователь"
+
           const transferRoute = chat.transfer
             ? `${chat.transfer.pickupLocation || ""} → ${chat.transfer.dropoffLocation || ""}`
             : "Трансфер"
-          
+
           await sendNotificationToUsers(
             filteredUserIdsToNotify,
             "Новое сообщение в чате трансфера",
@@ -662,7 +682,10 @@ const transferResolver = {
             }
           ).catch((error) => {
             // Логируем ошибку, но не прерываем выполнение
-            console.error("[TRANSFER] Error sending Firebase notification:", error)
+            console.error(
+              "[TRANSFER] Error sending Firebase notification:",
+              error
+            )
           })
         }
       } catch (error) {

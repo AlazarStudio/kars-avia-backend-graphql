@@ -99,19 +99,19 @@ type DailyMeal {
 }
 
 type Information {
-  country     String?
-  city        String?
-  address     String?
-  index       String?
-  email       String?
-  number      String?
-  inn         String?
-  ogrn        String?
-  rs          String?
-  bank        String?
-  bik         String?
-  link        String?
-  description String?
+  country     String? @default("")
+  city        String? @default("")
+  address     String? @default("")
+  index       String? @default("")
+  email       String? @default("")
+  number      String? @default("")
+  inn         String? @default("")
+  ogrn        String? @default("")
+  rs          String? @default("")
+  bank        String? @default("")
+  bik         String? @default("")
+  link        String? @default("")
+  description String? @default("")
   // airport String?
 }
 
@@ -145,15 +145,15 @@ type NotificationDescription {
 
 type NotificationMenu {
   // Заявки
-  requestCreate          Boolean @default(true) // создание заявки
-  requestDatesChange     Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
-  requestPlacementChange Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
-  requestCancel          Boolean @default(true) // отмена заявки
+  requestCreate                   Boolean @default(true) // создание заявки
+  requestDatesChange              Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
+  requestPlacementChange          Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
+  requestCancel                   Boolean @default(true) // отмена заявки
   // Брони
-  reserveCreate          Boolean @default(true) // создание брони
-  reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
-  reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
-  reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  reserveCreate                   Boolean @default(true) // создание брони
+  reserveDatesChange              Boolean @default(true) // запрос на изменение дат брони
+  reserveUpdate                   Boolean @default(true) // обновление брони (даты, данные)
+  reservePlacementChange          Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
   // Пассажирские заявки
   passengerRequestCreate          Boolean @default(true)
   passengerRequestDatesChange     Boolean @default(true)
@@ -161,39 +161,39 @@ type NotificationMenu {
   passengerRequestPlacementChange Boolean @default(true)
   passengerRequestCancel          Boolean @default(true)
   // Сообщения
-  newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
+  newMessage                      Boolean @default(true) // новое сообщение в чате заявки/брони
 
   // Email-канал
-  emailRequestCreate          Boolean @default(true)
-  emailRequestDatesChange     Boolean @default(true)
-  emailRequestPlacementChange Boolean @default(true)
-  emailRequestCancel          Boolean @default(true)
-  emailReserveCreate          Boolean @default(true)
-  emailReserveDatesChange     Boolean @default(true)
-  emailReserveUpdate          Boolean @default(true)
-  emailReservePlacementChange Boolean @default(true)
+  emailRequestCreate                   Boolean @default(true)
+  emailRequestDatesChange              Boolean @default(true)
+  emailRequestPlacementChange          Boolean @default(true)
+  emailRequestCancel                   Boolean @default(true)
+  emailReserveCreate                   Boolean @default(true)
+  emailReserveDatesChange              Boolean @default(true)
+  emailReserveUpdate                   Boolean @default(true)
+  emailReservePlacementChange          Boolean @default(true)
   emailPassengerRequestCreate          Boolean @default(true)
   emailPassengerRequestDatesChange     Boolean @default(true)
   emailPassengerRequestUpdate          Boolean @default(true)
   emailPassengerRequestPlacementChange Boolean @default(true)
   emailPassengerRequestCancel          Boolean @default(true)
-  emailNewMessage             Boolean @default(true)
+  emailNewMessage                      Boolean @default(true)
 
   // Сайт/Push-канал
-  sitePushRequestCreate          Boolean @default(true)
-  sitePushRequestDatesChange     Boolean @default(true)
-  sitePushRequestPlacementChange Boolean @default(true)
-  sitePushRequestCancel          Boolean @default(true)
-  sitePushReserveCreate          Boolean @default(true)
-  sitePushReserveDatesChange     Boolean @default(true)
-  sitePushReserveUpdate          Boolean @default(true)
-  sitePushReservePlacementChange Boolean @default(true)
+  sitePushRequestCreate                   Boolean @default(true)
+  sitePushRequestDatesChange              Boolean @default(true)
+  sitePushRequestPlacementChange          Boolean @default(true)
+  sitePushRequestCancel                   Boolean @default(true)
+  sitePushReserveCreate                   Boolean @default(true)
+  sitePushReserveDatesChange              Boolean @default(true)
+  sitePushReserveUpdate                   Boolean @default(true)
+  sitePushReservePlacementChange          Boolean @default(true)
   sitePushPassengerRequestCreate          Boolean @default(true)
   sitePushPassengerRequestDatesChange     Boolean @default(true)
   sitePushPassengerRequestUpdate          Boolean @default(true)
   sitePushPassengerRequestPlacementChange Boolean @default(true)
   sitePushPassengerRequestCancel          Boolean @default(true)
-  sitePushNewMessage             Boolean @default(true)
+  sitePushNewMessage                      Boolean @default(true)
 }
 
 type Price {
@@ -253,25 +253,25 @@ model City {
 }
 
 model Notification {
-  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime                 @default(now()) @map("created_at")
-  updatedAt   DateTime                 @updatedAt @map("updated_at")
-  readBy      NotificationRead[]
-  request     Request?                 @relation(fields: [requestId], references: [id])
-  requestId   String?                  @db.ObjectId
-  reserve            Reserve?           @relation(fields: [reserveId], references: [id])
-  reserveId          String?            @db.ObjectId
-  passengerRequest   PassengerRequest?  @relation(fields: [passengerRequestId], references: [id])
-  passengerRequestId String?            @db.ObjectId
-  hotel              Hotel?             @relation(fields: [hotelId], references: [id])
-  hotelId     String?                  @db.ObjectId
-  airline     Airline?                 @relation(fields: [airlineId], references: [id])
-  airlineId   String?                  @db.ObjectId
-  chat        Chat?                    @relation(fields: [chatId], references: [id])
-  chatId      String?                  @db.ObjectId
-  message     Message?                 @relation(fields: [messageId], references: [id])
-  messageId   String?                  @db.ObjectId
-  description NotificationDescription?
+  id                 String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  readBy             NotificationRead[]
+  request            Request?                 @relation(fields: [requestId], references: [id])
+  requestId          String?                  @db.ObjectId
+  reserve            Reserve?                 @relation(fields: [reserveId], references: [id])
+  reserveId          String?                  @db.ObjectId
+  passengerRequest   PassengerRequest?        @relation(fields: [passengerRequestId], references: [id])
+  passengerRequestId String?                  @db.ObjectId
+  hotel              Hotel?                   @relation(fields: [hotelId], references: [id])
+  hotelId            String?                  @db.ObjectId
+  airline            Airline?                 @relation(fields: [airlineId], references: [id])
+  airlineId          String?                  @db.ObjectId
+  chat               Chat?                    @relation(fields: [chatId], references: [id])
+  chatId             String?                  @db.ObjectId
+  message            Message?                 @relation(fields: [messageId], references: [id])
+  messageId          String?                  @db.ObjectId
+  description        NotificationDescription?
 }
 
 model NotificationRead {
@@ -1080,6 +1080,7 @@ model PassengerRequest {
   statusTimes           PassengerStatusTimes?
   earlyCompletionReason String?
   earlyCompletedAt      DateTime?
+  cancelReason          String?
 
   // кто создал (представитель)
   createdBy   User   @relation(fields: [createdById], references: [id])
@@ -1334,10 +1335,10 @@ model Organization {
 
 // --- Transfer (заявка)
 model Transfer {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  requestNumber    String?
   fromAddress      String // адрес откуда
   toAddress        String // адрес куда
   additionalPoints String[] // доп. точки

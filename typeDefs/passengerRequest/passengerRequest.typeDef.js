@@ -180,6 +180,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     statusTimes: PassengerStatusTimes
     earlyCompletionReason: String
     earlyCompletedAt: Date
+    cancelReason: String
 
     createdById: ID!
     createdBy: User!
@@ -188,15 +189,21 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     chats: [Chat!]!
 
-    """Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)"""
+    """
+    Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)
+    """
     hotelReport(hotelIndex: Int!): PassengerRequestHotelReport
     hotelReports: [PassengerRequestHotelReport!]!
 
-    """История действий по заявке ФАП"""
+    """
+    История действий по заявке ФАП
+    """
     logs(pagination: LogPaginationInput): LogConnection!
   }
 
-  """Одна строка таблицы отчёта по отелю"""
+  """
+  Одна строка таблицы отчёта по отелю
+  """
   type PassengerRequestHotelReportRow {
     fullName: String!
     roomNumber: String
@@ -210,7 +217,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     accommodationCost: Float
   }
 
-  """Сохранённая запись отчёта по отелю"""
+  """
+  Сохранённая запись отчёта по отелю
+  """
   type PassengerRequestHotelReport {
     id: ID!
     createdAt: Date!
@@ -372,6 +381,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     setPassengerRequestStatus(
       id: ID!
       status: PassengerRequestStatus!
+      cancelReason: String
     ): PassengerRequest!
 
     setPassengerRequestServiceStatus(
@@ -420,13 +430,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
 
-    """Водитель принимает заказ на доставку багажа — статус переходит в IN_PROGRESS."""
+    """
+    Водитель принимает заказ на доставку багажа — статус переходит в IN_PROGRESS.
+    """
     acceptPassengerRequestBaggageOrder(
       requestId: ID!
       driverIndex: Int!
     ): PassengerRequest!
 
-    """Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0)."""
+    """
+    Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0).
+    """
     completePassengerRequestBaggageDriverDelivery(
       requestId: ID!
       driverIndex: Int!
@@ -495,7 +509,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
       evictedAt: Date
     ): PassengerRequest!
 
-    """Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель)."""
+    """
+    Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель).
+    """
     savePassengerRequestHotelReport(
       requestId: ID!
       hotelIndex: Int!

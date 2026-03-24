@@ -376,7 +376,9 @@ const requestResolver = {
         }
       }
       if (existingRequest != null) {
-        throw new Error(`Request already exists with id: ${existingRequest.id}`)
+        throw new Error(
+          `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
+        )
       }
       // Определение текущего месяца и года для формирования номера заявки
       const currentDate = new Date()
@@ -541,34 +543,33 @@ const requestResolver = {
         entityId: newRequest.id
       }).allowed
 
-      if (createRequestSiteAllowed) {
-        await prisma.notification.create({
-          data: {
-            request: { connect: { id: newRequest.id } },
-            airline: { connect: { id: airlineId } },
-            description: {
-              action: "create_request",
-              description:
-                newRequest.person && newRequest.person.position
-                  ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
+      await prisma.notification.create({
+        data: {
+          request: { connect: { id: newRequest.id } },
+          airline: { connect: { id: airlineId } },
+          description: {
+            action: "create_request",
+            description:
+              newRequest.person && newRequest.person.position
+                ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
                         для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> 
                         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
-                  : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
+                : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
                         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
-            }
           }
-        })
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "RequestCreatedNotification",
-            action: "create_request",
-            requestId: newRequest.id,
-            arrival: newRequest.arrival,
-            departure: newRequest.departure,
-            airline: newRequest.airline
-          }
-        })
-      }
+        }
+      })
+      pubsub.publish(NOTIFICATION, {
+        notification: {
+          __typename: "RequestCreatedNotification",
+          action: "create_request",
+          requestId: newRequest.id,
+          arrival: newRequest.arrival,
+          departure: newRequest.departure,
+          airline: newRequest.airline
+        }
+      })
+
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },

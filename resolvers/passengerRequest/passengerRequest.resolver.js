@@ -28,7 +28,8 @@ import {
 const getSubjectName = (context) => {
   if (context.user?.name) return context.user.name
   if (context.externalUser?.name) return context.externalUser.name
-  if (context.externalUser?.email) return `Внеш. пользователь (${context.externalUser.email})`
+  if (context.externalUser?.email)
+    return `Внеш. пользователь (${context.externalUser.email})`
   if (context.subject?.name) return context.subject.name
   if (context.subject?.email) return context.subject.email
   return "Неизвестный пользователь"
@@ -63,7 +64,13 @@ async function generateHotelLinks({ hotel, requestId, adminId }) {
   return generatedLinks
 }
 
-async function generateDriverLink({ driverName, requestId, driverIndex, adminId, serviceKind = "transfer" }) {
+async function generateDriverLink({
+  driverName,
+  requestId,
+  driverIndex,
+  adminId,
+  serviceKind = "transfer"
+}) {
   const externalUser = await upsertDriverExternalUser({
     requestId,
     driverName,
@@ -142,7 +149,11 @@ const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   departure: person.departure ?? null,
   roomCategory: person.roomCategory ?? null,
   roomKind: person.roomKind ?? null,
-  accommodationChesses: ensureAccommodationChesses(person, hotelIndex, hotelName)
+  accommodationChesses: ensureAccommodationChesses(
+    person,
+    hotelIndex,
+    hotelName
+  )
 })
 
 const makeRoomCategoryLabel = (roomCategory, roomKind) => {
@@ -171,7 +182,9 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
   description: normalizeOptionalString(driver?.description),
-  people: Array.isArray(driver?.people) ? driver.people.map(ensureDriverPerson) : []
+  people: Array.isArray(driver?.people)
+    ? driver.people.map(ensureDriverPerson)
+    : []
 })
 
 const logPassengerRequestAction = async ({
@@ -254,7 +267,9 @@ const passengerRequestResolvers = {
     },
 
     representativeLinks: (parent) =>
-      Array.isArray(parent.representativeLinks) ? parent.representativeLinks : []
+      Array.isArray(parent.representativeLinks)
+        ? parent.representativeLinks
+        : []
   },
 
   PassengerRequestHotelReport: {
@@ -272,8 +287,7 @@ const passengerRequestResolvers = {
   },
 
   PassengerServiceDriver: {
-    people: (parent) =>
-      Array.isArray(parent.people) ? parent.people : []
+    people: (parent) => (Array.isArray(parent.people) ? parent.people : [])
   },
 
   PassengerLivingService: {
@@ -402,7 +416,8 @@ const passengerRequestResolvers = {
         }
       }
       let passengerRequest = await prisma.passengerRequest.create({ data })
-      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
       const representativeLinks = await generateRepresentativeLinksForRequest({
         requestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
@@ -553,7 +568,11 @@ const passengerRequestResolvers = {
     },
 
     // общий статус заявки
-    setPassengerRequestStatus: async (_, { id, status }, context) => {
+    setPassengerRequestStatus: async (
+      _,
+      { id, status, cancelReason },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id }
@@ -566,7 +585,8 @@ const passengerRequestResolvers = {
         where: { id },
         data: {
           status,
-          statusTimes
+          statusTimes,
+          cancelReason
         }
       })
       await logPassengerRequestAction({
@@ -696,7 +716,12 @@ const passengerRequestResolvers = {
           nextStatus = "COMPLETED"
           nextTimes = updateTimes(nextTimes, "COMPLETED")
         }
-        data.waterService = { ...prev, people, status: nextStatus, times: nextTimes }
+        data.waterService = {
+          ...prev,
+          people,
+          status: nextStatus,
+          times: nextTimes
+        }
       } else if (service === "MEAL") {
         const prev = existing.mealService || {
           plan: null,
@@ -718,7 +743,12 @@ const passengerRequestResolvers = {
           nextStatus = "COMPLETED"
           nextTimes = updateTimes(nextTimes, "COMPLETED")
         }
-        data.mealService = { ...prev, people, status: nextStatus, times: nextTimes }
+        data.mealService = {
+          ...prev,
+          people,
+          status: nextStatus,
+          times: nextTimes
+        }
       } else {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
@@ -763,7 +793,8 @@ const passengerRequestResolvers = {
 
       const hotelWithItemId = ensurePassengerServiceHotelItemId(hotel)
 
-      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
       try {
         const links = await generateHotelLinks({
           hotel: hotelWithItemId,
@@ -780,7 +811,9 @@ const passengerRequestResolvers = {
       const hotels = [...(prev.hotels || []), hotelWithItemId]
       const isFirstHotel = (prev.hotels || []).length === 0
       const nextStatus = isFirstHotel ? "ACCEPTED" : prev.status
-      const nextTimes = isFirstHotel ? updateTimes(prev.times, "ACCEPTED") : prev.times
+      const nextTimes = isFirstHotel
+        ? updateTimes(prev.times, "ACCEPTED")
+        : prev.times
 
       const data = {
         livingService: {
@@ -1085,7 +1118,8 @@ const passengerRequestResolvers = {
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
       const driverIndex = (prev.drivers || []).length
-      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
       try {
         const linkPWA = await generateDriverLink({
           driverName: normalizedDriver.fullName,
@@ -1102,7 +1136,9 @@ const passengerRequestResolvers = {
       const drivers = [...(prev.drivers || []), normalizedDriver]
       const isFirstDriver = driverIndex === 0
       const nextStatus = isFirstDriver ? "ACCEPTED" : prev.status
-      const nextTimes = isFirstDriver ? updateTimes(prev.times, "ACCEPTED") : prev.times
+      const nextTimes = isFirstDriver
+        ? updateTimes(prev.times, "ACCEPTED")
+        : prev.times
 
       const data = {
         transferService: {
@@ -1158,7 +1194,8 @@ const passengerRequestResolvers = {
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
       const driverIndex = (prev.drivers || []).length
-      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
       try {
         const linkPWA = await generateDriverLink({
           driverName: normalizedDriver.fullName,
@@ -1176,10 +1213,12 @@ const passengerRequestResolvers = {
 
       const now = new Date()
       const isFirstDriver = (prev.drivers || []).length === 0
-      const updatedStatus = isFirstDriver && prev.status === "NEW" ? "ACCEPTED" : prev.status
-      const updatedTimes = isFirstDriver && prev.status === "NEW"
-        ? { ...(prev.times || {}), acceptedAt: now }
-        : (prev.times || {})
+      const updatedStatus =
+        isFirstDriver && prev.status === "NEW" ? "ACCEPTED" : prev.status
+      const updatedTimes =
+        isFirstDriver && prev.status === "NEW"
+          ? { ...(prev.times || {}), acceptedAt: now }
+          : prev.times || {}
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -1229,10 +1268,13 @@ const passengerRequestResolvers = {
       }
 
       const now = new Date()
-      const alreadyInProgress = bds.status === "IN_PROGRESS" || bds.status === "COMPLETED" || bds.status === "CANCELLED"
+      const alreadyInProgress =
+        bds.status === "IN_PROGRESS" ||
+        bds.status === "COMPLETED" ||
+        bds.status === "CANCELLED"
       const updatedStatus = alreadyInProgress ? bds.status : "IN_PROGRESS"
       const updatedTimes = alreadyInProgress
-        ? (bds.times || {})
+        ? bds.times || {}
         : { ...(bds.times || {}), inProgressAt: now }
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -1844,7 +1886,9 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Invalid toHotelIndex")
       }
       if (fromHotelIndex === toHotelIndex) {
-        throw new GraphQLError("fromHotelIndex and toHotelIndex must be different")
+        throw new GraphQLError(
+          "fromHotelIndex and toHotelIndex must be different"
+        )
       }
 
       const sourcePeople = hotels[fromHotelIndex].people || []
@@ -1969,7 +2013,11 @@ const passengerRequestResolvers = {
 
       const evictionDate = evictedAt ? new Date(evictedAt) : new Date()
       const hotel = hotels[hotelIndex]
-      const person = ensureHotelPerson(people[personIndex], hotelIndex, hotel?.name)
+      const person = ensureHotelPerson(
+        people[personIndex],
+        hotelIndex,
+        hotel?.name
+      )
 
       const chesses = [...(person.accommodationChesses || [])]
       const openIndex = [...chesses].reverse().findIndex((item) => !item?.endAt)
@@ -2114,7 +2162,7 @@ const passengerRequestResolvers = {
         }
       )
     },
-    
+
     passengerRequestUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),

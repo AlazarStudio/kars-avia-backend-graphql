@@ -88,7 +88,6 @@ import { prisma } from "../../prisma.js"
 //   return combined.length === 1 ? combined[0] : combined
 // }
 
-
 // Альтернативная версия с использованием более эффективного подхода
 export async function getSectionsHierarchyJSONOptimized(
   type = null,
@@ -102,7 +101,7 @@ export async function getSectionsHierarchyJSONOptimized(
     ...(type && { type }),
     ...(documentationType && { documentationType })
   }
-  
+
   // Получаем все разделы одним запросом с учетом фильтра по типу
   const allSections = await prisma.section.findMany({
     where: sectionWhere,

@@ -52,7 +52,7 @@ const dispatcherTypeDef = /* GraphQL */ `
 
   # union NotificationPayload = AirlineCreated | AirlineUpdated | MessageSent | HotelCreated | HotelUpdated | ReportCreated | RequestCreated | RequestUpdated | ReserveCreated | ReserveHotel | ReserveUpdated | ReservePersons | UserCreated | ExtendRequestNotification
   union NotificationPayload =
-      ExtendRequestNotification
+    | ExtendRequestNotification
     | RequestCreatedNotification
     | RequestUpdatedNotification
     | ReserveCreatedNotification
@@ -305,7 +305,9 @@ const dispatcherTypeDef = /* GraphQL */ `
     getDispatcherPositions: [Position]
     getTransferDispatcherPositions: [Position]
     getAllNotifications(pagination: PaginationInput): NotificationConnection!
-    dispatcherDepartments(pagination: DispatcherDepartmentPaginationInput): DispatcherDepartmentConnection!
+    dispatcherDepartments(
+      pagination: DispatcherDepartmentPaginationInput
+    ): DispatcherDepartmentConnection!
     dispatcherDepartment(id: ID!): DispatcherDepartment
   }
 
@@ -318,8 +320,13 @@ const dispatcherTypeDef = /* GraphQL */ `
     createPosition(input: PositionInput): Position
     updatePosition(input: PositionInput): Position
     allDataUpdate: Boolean
-    createDispatcherDepartment(input: DispatcherDepartmentInput!): DispatcherDepartment!
-    updateDispatcherDepartment(id: ID!, input: DispatcherDepartmentInput!): DispatcherDepartment!
+    createDispatcherDepartment(
+      input: DispatcherDepartmentInput!
+    ): DispatcherDepartment!
+    updateDispatcherDepartment(
+      id: ID!
+      input: DispatcherDepartmentInput!
+    ): DispatcherDepartment!
     deleteDispatcherDepartment(id: ID!): DispatcherDepartment!
   }
 
