@@ -13,8 +13,10 @@ import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
   PASSENGER_REQUEST_CREATED,
-  PASSENGER_REQUEST_UPDATED
+  PASSENGER_REQUEST_UPDATED,
+  NOTIFICATION
 } from "../../services/infra/pubsub.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import logAction from "../../services/infra/logaction.js"
 import {
   buildRepresentativeExternalKey,
@@ -213,6 +215,62 @@ const logPassengerRequestAction = async ({
   } catch (error) {
     console.error("Ошибка логирования действия ФАП:", error)
   }
+}
+
+function flightDateTimeMs(value) {
+  if (value == null) return null
+  const t = new Date(value).getTime()
+  return Number.isNaN(t) ? null : t
+}
+
+function passengerRequestFlightDateChanged(existingDate, nextDate) {
+  if (nextDate === undefined) return false
+  return flightDateTimeMs(existingDate) !== flightDateTimeMs(nextDate)
+}
+
+async function notifyPassengerRequestSite({
+  action,
+  passengerRequestId,
+  airlineId,
+  hotelId,
+  descriptionHtml,
+  __typename
+}) {
+  if (!airlineId || !passengerRequestId) return
+
+  const allowed = shouldSendNotification({
+    channel: "site",
+    action,
+    entityType: "passenger_request",
+    entityId: passengerRequestId
+  }).allowed
+
+  if (!allowed) return
+
+  const airline = await prisma.airline.findUnique({ where: { id: airlineId } })
+
+  await prisma.notification.create({
+    data: {
+      passengerRequest: { connect: { id: passengerRequestId } },
+      airline: { connect: { id: airlineId } },
+      ...(hotelId && { hotel: { connect: { id: hotelId } } }),
+      description: {
+        action,
+        description: descriptionHtml
+      }
+    }
+  })
+
+  pubsub.publish(NOTIFICATION, {
+    notification: {
+      __typename,
+      action,
+      airlineId,
+      passengerRequestId,
+      ...(hotelId && { hotelId }),
+      airline: airline || null
+    }
+  })
 }
 
 const passengerRequestResolvers = {
@@ -443,6 +501,30 @@ const passengerRequestResolvers = {
         passengerRequestCreated: passengerRequest
       })
 
+      const airport = passengerRequest.airportId
+        ? await prisma.airport.findUnique({
+            where: { id: passengerRequest.airportId },
+            select: { name: true }
+          })
+        : null
+      const routeParts = [
+        passengerRequest.routeFrom,
+        passengerRequest.routeTo
+      ].filter(Boolean)
+      const routePart = routeParts.length
+        ? `, маршрут <span style='color:#545873'>${routeParts.join(" → ")}</span>`
+        : ""
+      const airportPart = airport?.name
+        ? `, аэропорт <span style='color:#545873'>${airport.name}</span>`
+        : ""
+      await notifyPassengerRequestSite({
+        action: "create_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        descriptionHtml: `Создан ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>${routePart}${airportPart}`,
+        __typename: "PassengerRequestCreatedNotification"
+      })
+
       return passengerRequest
     },
 
@@ -542,6 +624,22 @@ const passengerRequestResolvers = {
         passengerRequestUpdated: passengerRequest
       })
 
+      if (Object.keys(data).length > 0) {
+        const isDateChange = passengerRequestFlightDateChanged(
+          existing.flightDate,
+          rest.flightDate
+        )
+        await notifyPassengerRequestSite({
+          action: isDateChange
+            ? "passenger_request_dates_change"
+            : "update_passenger_request",
+          passengerRequestId: passengerRequest.id,
+          airlineId: passengerRequest.airlineId,
+          descriptionHtml: `Обновлён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
+          __typename: "PassengerRequestUpdatedNotification"
+        })
+      }
+
       return passengerRequest
     },
 
@@ -635,6 +733,14 @@ const passengerRequestResolvers = {
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
         passengerRequestUpdated: passengerRequest
+      })
+
+      await notifyPassengerRequestSite({
+        action: "cancel_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        descriptionHtml: `Отменён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
       })
 
       return passengerRequest
@@ -874,6 +980,15 @@ const passengerRequestResolvers = {
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
         passengerRequestUpdated: passengerRequest
+      })
+
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: hotelWithItemId.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> добавлен отель <span style='color:#545873'>${hotelWithItemId.name}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
       })
 
       return passengerRequest
@@ -2011,6 +2126,15 @@ const passengerRequestResolvers = {
         passengerRequestUpdated: passengerRequest
       })
 
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: targetHotel?.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> переселение пассажира: отель #${fromHotelIndex} → #${toHotelIndex}`,
+        __typename: "PassengerRequestUpdatedNotification"
+      })
+
       return passengerRequest
     },
 
@@ -2126,6 +2250,15 @@ const passengerRequestResolvers = {
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
         passengerRequestUpdated: passengerRequest
+      })
+
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: hotel?.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> выселение пассажира из отеля <span style='color:#545873'>${hotel?.name ?? "#" + hotelIndex}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
       })
 
       return passengerRequest

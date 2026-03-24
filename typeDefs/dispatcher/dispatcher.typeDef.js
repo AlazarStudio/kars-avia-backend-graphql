@@ -36,12 +36,16 @@ const dispatcherTypeDef = /* GraphQL */ `
     readAt: Date
   }
 
-  input PaginationInput {
+  input NotificationPaginationInput {
     skip: Int
     take: Int
     # request | reserve | passengerRequest | transfer | omit = все
     type: String
+    # Фильтр по статусу связанной сущности; используйте вместе с type (request / reserve / passengerRequest)
     status: [String]
+    actions: [String!]
+    # true — только прочитанные текущим пользователем; false — только непрочитанные; omit — без фильтра
+    read: Boolean
   }
 
   type NotificationConnection {
@@ -304,7 +308,9 @@ const dispatcherTypeDef = /* GraphQL */ `
     getHotelPositions: [Position]
     getDispatcherPositions: [Position]
     getTransferDispatcherPositions: [Position]
-    getAllNotifications(pagination: PaginationInput): NotificationConnection!
+    getAllNotifications(
+      pagination: NotificationPaginationInput
+    ): NotificationConnection!
     dispatcherDepartments(
       pagination: DispatcherDepartmentPaginationInput
     ): DispatcherDepartmentConnection!
