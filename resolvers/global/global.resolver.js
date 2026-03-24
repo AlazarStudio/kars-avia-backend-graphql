@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import { finished } from "stream/promises"
@@ -16,6 +17,7 @@ const SUBJECT = {
 
 async function resolveAuthSubject(identifier) {
   const id = String(identifier).trim()
+  const loginLookup = normalizeUserLogin(id)
 
   // ищем всех параллельно
   const [
@@ -25,7 +27,13 @@ async function resolveAuthSubject(identifier) {
     // airlinePersonalByEmail,   // если появится email
     airlinePersonalByEmail
   ] = await Promise.all([
-    prisma.user.findUnique({ where: { login: id } }),
+    loginLookup
+      ? prisma.user.findFirst({
+          where: {
+            login: { equals: loginLookup, mode: "insensitive" }
+          }
+        })
+      : Promise.resolve(null),
     prisma.user.findUnique({ where: { email: id } }),
     prisma.driver.findUnique({ where: { email: id } }),
     prisma.airlinePersonal.findFirst({ where: { email: id } }) // исправить на что-то уникальное

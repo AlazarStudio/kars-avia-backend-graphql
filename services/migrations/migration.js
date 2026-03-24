@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import dotenv from "dotenv"
+import { normalizeUserLogin } from "../auth/normalizeUserLogin.js"
 
 dotenv.config()
 
@@ -34,7 +35,7 @@ async function migrateUsers() {
       name: oldUser.name,
       email: oldUser.email,
       number: oldUser.number,
-      login: oldUser.login,
+      login: normalizeUserLogin(oldUser.login),
       password: oldUser.password,
       images: oldUser.images || [],
       role: oldUser.role,

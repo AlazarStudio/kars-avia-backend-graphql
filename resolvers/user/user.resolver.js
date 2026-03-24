@@ -29,6 +29,7 @@ import { sendEmail } from "../../services/sendMail.js"
 import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
 import { logger } from "../../services/infra/logger.js"
 import { buildClosedSessionStats } from "../../services/user/userActivity.js"
+import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -292,6 +293,7 @@ const userResolver = {
         dispatcherDepartmentId,
         representativeDepartmentId
       } = input
+      const loginNormalized = normalizeUserLogin(login)
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
         userType
@@ -349,12 +351,16 @@ const userResolver = {
       // Проверяем, существует ли пользователь с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [{ email }, { login }]
+          OR: [
+            { email },
+            { login: { equals: loginNormalized, mode: "insensitive" } }
+          ]
         }
       })
 
       if (existingUser) {
-        if (existingUser.email === email && existingUser.login === login) {
+        const existingLoginNorm = normalizeUserLogin(existingUser.login)
+        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -364,7 +370,7 @@ const userResolver = {
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
-        } else if (existingUser.login === login) {
+        } else if (existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
@@ -405,7 +411,7 @@ const userResolver = {
       const createdData = {
         name,
         email,
-        login,
+        login: loginNormalized,
         password: hashedPassword,
         hotelId: hotelId || undefined,
         airlineId: airlineId || undefined,
@@ -470,6 +476,7 @@ const userResolver = {
       // Генерация секрета для двухфакторной аутентификации (2FA)
       const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role, userType } = input
+      const loginNormalized = normalizeUserLogin(login)
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
         userType
@@ -479,12 +486,16 @@ const userResolver = {
       // Проверка на существование пользователя с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [{ email }, { login }]
+          OR: [
+            { email },
+            { login: { equals: loginNormalized, mode: "insensitive" } }
+          ]
         }
       })
 
       if (existingUser) {
-        if (existingUser.email === email && existingUser.login === login) {
+        const existingLoginNorm = normalizeUserLogin(existingUser.login)
+        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -494,7 +505,7 @@ const userResolver = {
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
-        } else if (existingUser.login === login) {
+        } else if (existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
@@ -507,7 +518,7 @@ const userResolver = {
         data: {
           name,
           email,
-          login,
+          login: loginNormalized,
           password: hashedPassword,
           role: finalRole,
           userType: finalUserType,
@@ -548,8 +559,16 @@ const userResolver = {
     // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
       const { login, password, fingerprint, token2FA } = input
-      // Ищем пользователя по логину
-      const user = await prisma.user.findUnique({ where: { login } })
+      const loginNormalized = normalizeUserLogin(login)
+      if (!loginNormalized) {
+        throw new Error("Invalid credentials")
+      }
+      // Ищем пользователя по логину (без учёта регистра)
+      const user = await prisma.user.findFirst({
+        where: {
+          login: { equals: loginNormalized, mode: "insensitive" }
+        }
+      })
       if (!user) {
         throw new Error("Invalid credentials")
       }
@@ -684,7 +703,19 @@ const userResolver = {
       if (name !== undefined) updatedData.name = name
       if (email !== undefined) updatedData.email = email
       if (number !== undefined) updatedData.number = number
-      if (login !== undefined) updatedData.login = login
+      if (login !== undefined) {
+        const loginNormalized = normalizeUserLogin(login)
+        const taken = await prisma.user.findFirst({
+          where: {
+            id: { not: id },
+            login: { equals: loginNormalized, mode: "insensitive" }
+          }
+        })
+        if (taken) {
+          throw new Error("Пользователь с таким логином уже существует")
+        }
+        updatedData.login = loginNormalized
+      }
       if (role !== undefined) {
         // Разрешаем изменение роли только администраторам
         if (role !== currentUser.role) {
