@@ -752,9 +752,7 @@ const requestResolver = {
           const mailOptions = {
             to: `${process.env.EMAIL_KARS}`,
             subject: "Request updated",
-            html: `Пользователь <span style='color:#545873'>${
-              user.name
-            }</span> отправил запрос на изменение дат заявки <span style='color:#545873'>№${
+            html: `Запрос на изменение дат заявки <span style='color:#545873'>№${
               request.requestNumber
             }</span> с ${formatDate(request.arrival)} - ${formatDate(
               request.departure
@@ -1025,13 +1023,7 @@ const requestResolver = {
         const mailOptions = {
           to: `${process.env.EMAIL_RECEIVER}`,
           subject: "Request updated",
-          html: `Пользователь <span style='color:#545873'>${
-            user.name
-          }</span> изменил ${
-            updatedRequest.person
-              ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position.name} ${updatedRequest.person.name}</span>`
-              : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
-          } c <span style='color:#545873'>${formatDate(
+          html: `Даты заявки  <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> обновлены c <span style='color:#545873'>${formatDate(
             request.arrival
           )} - ${formatDate(
             request.departure
@@ -1049,7 +1041,7 @@ const requestResolver = {
             context,
             action: "update_request",
             description: "Данные заявки обновлены",
-            fulldescription: `Пользователь ${user.name} обновил заявку № ${updatedRequest.requestNumber} с ${formatDate(request.arrival)} - ${formatDate(request.departure)} до ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+            fulldescription: `Даты заявки обновлены с ${formatDate(request.arrival)} - ${formatDate(request.departure)} до ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
             oldData: request,
             newData: updatedRequest,
             requestId: updatedRequest.id
