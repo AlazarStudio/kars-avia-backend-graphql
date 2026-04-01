@@ -3,6 +3,37 @@ const globalTypeDef = /* GraphQL */ `
   scalar Upload
   scalar Date
 
+  type RegisterDeviceTokenResponse {
+    success: Boolean!
+    message: String
+  }
+
+  input PushDataInput {
+    key: String!
+    value: String
+  }
+
+  enum PushSubjectType {
+    USER
+    DRIVER
+    AIRLINE_PERSONAL
+  }
+
+  input TestPushNotificationInput {
+    subjectType: PushSubjectType
+    subjectId: ID
+    title: String!
+    body: String!
+    data: [PushDataInput!]
+  }
+
+  type TestPushNotificationResponse {
+    success: Boolean!
+    message: String
+    successCount: Int!
+    failureCount: Int!
+  }
+
   # Тип аэропорта
   type Airport {
     id: ID!
@@ -278,6 +309,13 @@ const globalTypeDef = /* GraphQL */ `
   type Mutation {
     transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
     singleUpload(file: Upload!): File!
+    registerDeviceToken(
+      token: String!
+      platform: String!
+    ): RegisterDeviceTokenResponse!
+    testPushNotification(
+      input: TestPushNotificationInput!
+    ): TestPushNotificationResponse!
   }
 `
 

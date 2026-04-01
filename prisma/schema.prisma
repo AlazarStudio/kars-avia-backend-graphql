@@ -52,6 +52,12 @@ enum UserType {
   REPRESENTATIVE
 }
 
+enum DeviceTokenSubjectType {
+  USER
+  DRIVER
+  AIRLINE_PERSONAL
+}
+
 enum TwoFAMethod {
   HOTP
   TOTP
@@ -387,6 +393,7 @@ model AirlinePersonal {
   transferChatPersonals TransferChatPersonal[]
   transferMessages      TransferMessage[]
   transferMessageReads  TransferMessageRead[]
+  deviceTokens          device_tokens[]
 }
 
 model AirlinePrice {
@@ -1319,6 +1326,7 @@ model Driver {
   TransferMessageRead    TransferMessageRead[]
   transferPrices         TransferPrice[]
   externalUsers          ExternalUser[]
+  deviceTokens           device_tokens[]
 }
 
 // --- Organization
@@ -1490,13 +1498,18 @@ model TransferReview {
 // User ---------------- ↓↓↓↓ 
 
 model device_tokens {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  platform  String
-  token     String
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  subjectType      DeviceTokenSubjectType
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String?                @db.ObjectId
+  driver           Driver?                @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverId         String?                @db.ObjectId
+  airlinePersonal  AirlinePersonal?       @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
+  airlinePersonalId String?               @db.ObjectId
+  platform         String
+  token            String
 }
 
 model ExternalUser {

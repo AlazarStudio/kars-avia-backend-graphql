@@ -1,82 +1,27 @@
-import admin from "firebase-admin"
-import { readFileSync } from "fs"
-import { fileURLToPath } from "url"
-import { dirname, join } from "path"
+import admin, { isFirebaseReady } from "../../src/lib/firebaseAdmin.js"
 import { logger } from "./logger.js"
 import { prisma } from "../../prisma.js"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+const SUBJECT = {
+  USER: "USER",
+  DRIVER: "DRIVER",
+  AIRLINE_PERSONAL: "AIRLINE_PERSONAL"
+}
 
-// Инициализация Firebase Admin
-let firebaseApp = null
-
-try {
-  // Проверяем переменные окружения
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    // Если указан путь к файлу с credentials
-    const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
-    const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf8"))
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    })
-  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    // Если JSON задан как строка в переменной окружения
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    })
-  } else {
-    // Пытаемся загрузить из файла (предполагаем, что это может быть service account JSON)
-    // ВАЖНО: google-services.json НЕ является service account файлом
-    // Нужен файл с type: "service_account", private_key и т.д.
-    // Если у вас есть service account JSON, положите его в services/infra/serviceAccountKey.json
-    try {
-      // Попробуем найти service account файл в разных местах
-      const possiblePaths = [
-        join(__dirname, "../service_account.json"), // services/service_account.json
-        join(__dirname, "../serviceAccountKey.json"), // services/serviceAccountKey.json
-        join(__dirname, "../../serviceAccountKey.json"), // корень проекта/serviceAccountKey.json
-        join(process.cwd(), "serviceAccountKey.json"),
-        join(process.cwd(), "services", "service_account.json")
-      ]
-
-      let serviceAccount = null
-      for (const path of possiblePaths) {
-        try {
-          const content = readFileSync(path, "utf8")
-          serviceAccount = JSON.parse(content)
-          if (serviceAccount && serviceAccount.type === "service_account") {
-            firebaseApp = admin.initializeApp({
-              credential: admin.credential.cert(serviceAccount)
-            })
-            logger.info(
-              `[FIREBASE] Initialized with service account from ${path}`
-            )
-            break
-          }
-        } catch (e) {
-          // Файл не найден или невалидный, пробуем следующий
-          continue
-        }
-      }
-
-      if (!firebaseApp) {
-        logger.warn(
-          "[FIREBASE] Service account not found. Firebase notifications will be disabled. Use GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON env variable, or place serviceAccountKey.json in the project root."
-        )
-      }
-    } catch (error) {
-      logger.warn(
-        "[FIREBASE] Error looking for service account file:",
-        error.message
-      )
-    }
+const getSubjectTokenWhere = (subjectType, subjectId) => {
+  if (subjectType === SUBJECT.USER) {
+    return { subjectType, userId: subjectId }
   }
-} catch (error) {
-  logger.error("[FIREBASE] Failed to initialize Firebase Admin", error)
-  // Не бросаем ошибку, чтобы приложение могло работать без Firebase
-  logger.warn("[FIREBASE] Firebase notifications will be disabled")
+
+  if (subjectType === SUBJECT.DRIVER) {
+    return { subjectType, driverId: subjectId }
+  }
+
+  if (subjectType === SUBJECT.AIRLINE_PERSONAL) {
+    return { subjectType, airlinePersonalId: subjectId }
+  }
+
+  throw new Error(`Unsupported subject type: ${subjectType}`)
 }
 
 /**
@@ -88,7 +33,7 @@ try {
  * @returns {Promise<string>} - ID сообщения
  */
 export const sendToToken = async (token, title, body, data = {}) => {
-  if (!firebaseApp) {
+  if (!isFirebaseReady()) {
     logger.warn("[FIREBASE] Firebase not initialized, skipping notification")
     return null
   }
@@ -162,7 +107,7 @@ export const sendToToken = async (token, title, body, data = {}) => {
  * @returns {Promise<object>} - Результаты отправки
  */
 export const sendToTokens = async (tokens, title, body, data = {}) => {
-  if (!firebaseApp) {
+  if (!isFirebaseReady()) {
     logger.warn("[FIREBASE] Firebase not initialized, skipping notifications")
     return { successCount: 0, failureCount: 0, responses: [] }
   }
@@ -290,6 +235,38 @@ export const sendNotificationToUser = async (
     )
     throw error
   }
+}
+
+export const sendNotificationToSubject = async (
+  subjectType,
+  subjectId,
+  title,
+  body,
+  data = {}
+) => {
+  if (!subjectType || !subjectId) {
+    throw new Error("subjectType and subjectId are required")
+  }
+
+  const where = getSubjectTokenWhere(subjectType, subjectId)
+  const deviceTokens = await prisma.device_tokens.findMany({
+    where,
+    select: { token: true }
+  })
+
+  if (deviceTokens.length === 0) {
+    logger.info(
+      `[FIREBASE] No device tokens found for ${subjectType} ${subjectId}`
+    )
+    return { successCount: 0, failureCount: 0, responses: [] }
+  }
+
+  const tokens = deviceTokens.map((dt) => dt.token)
+  logger.info(
+    `[FIREBASE] Sending notification to ${subjectType} ${subjectId} (${tokens.length} devices)`
+  )
+
+  return sendToTokens(tokens, title, body, data)
 }
 
 /**

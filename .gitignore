@@ -11,6 +11,7 @@ cert/
 data.csv
 load-test.yml
 TRANSFER_CHAT_API.md
+fbk.json
 
 # gitignore
 /generated/prisma
