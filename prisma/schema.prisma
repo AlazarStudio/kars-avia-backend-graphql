@@ -1352,8 +1352,10 @@ model Transfer {
   additionalPoints String[] // доп. точки
   passengersCount  Int // кол-во пассажиров
 
-  dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
+  dispatcher   User?   @relation("TransferDispatcher", fields: [dispatcherId], references: [id])
   dispatcherId String? @db.ObjectId
+  createdBy    User?   @relation("TransferCreator", fields: [createdById], references: [id])
+  createdById  String? @db.ObjectId
 
   // назначенный водитель (может быть пусто до назначения)
   driver   Driver? @relation(fields: [driverId], references: [id])
@@ -1676,7 +1678,8 @@ model User {
   positionId                    String?                      @db.ObjectId
   postedRequests                Request[]                    @relation(name: "posted")
   passengerRequests             PassengerRequest[]
-  transfers                     Transfer[]
+  transfersAsDispatcher         Transfer[]                    @relation("TransferDispatcher")
+  transfersCreatedBy            Transfer[]                    @relation("TransferCreator")
   transferChats                 TransferChat[]
   transferMessages              TransferMessage[]
   transferMessageReads          TransferMessageRead[]

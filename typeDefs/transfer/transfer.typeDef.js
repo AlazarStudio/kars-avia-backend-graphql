@@ -40,6 +40,7 @@ const transferTypeDef = /* GraphQL */ `
     additionalPoints: [String!] # доп. точки
     passengersCount: Int # кол-во пассажиров
     dispatcher: User
+    createdBy: User
     # dispatcherId: String
 
     # назначенный водитель (может быть пусто до назначения)
