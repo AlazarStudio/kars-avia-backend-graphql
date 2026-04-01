@@ -133,6 +133,18 @@ export const notifyTransferUpdated = async ({
 
   const recipients = []
 
+  // Общее правило: при любом updateTransfer уведомляем тех же получателей,
+  // что и в статусных сценариях (persons + createdBy, если createdBy не диспетчер).
+  const personRecipients = await getPersonRecipients(afterTransfer.id)
+  recipients.push(...personRecipients)
+
+  const createdByRecipient = await getCreatedByRecipientIfNotDispatcher(
+    afterTransfer.createdById
+  )
+  if (createdByRecipient) {
+    recipients.push(createdByRecipient)
+  }
+
   const assignedToDriver =
     afterTransfer.status === "ASSIGNED" &&
     Boolean(afterTransfer.driverId) &&
@@ -146,17 +158,8 @@ export const notifyTransferUpdated = async ({
   }
 
   const statusChanged = beforeTransfer.status !== afterTransfer.status
-  if (statusChanged && STATUS_BROADCAST_SET.has(afterTransfer.status)) {
-    const personRecipients = await getPersonRecipients(afterTransfer.id)
-    recipients.push(...personRecipients)
-
-    const createdByRecipient = await getCreatedByRecipientIfNotDispatcher(
-      afterTransfer.createdById
-    )
-    if (createdByRecipient) {
-      recipients.push(createdByRecipient)
-    }
-  }
+  const isTargetStatusChange =
+    statusChanged && STATUS_BROADCAST_SET.has(afterTransfer.status)
 
   const finalRecipients = dedupeRecipients(withoutActor(recipients, actor))
   if (!finalRecipients.length) return
@@ -166,7 +169,7 @@ export const notifyTransferUpdated = async ({
     "Обновление заявки трансфера",
     `Статус: ${afterTransfer.status || "UPDATED"}`,
     {
-      type: "transfer_status_update",
+      type: isTargetStatusChange ? "transfer_status_update" : "transfer_updated",
       transferId: afterTransfer.id,
       status: afterTransfer.status || "UPDATED",
       previousStatus: beforeTransfer.status || ""
