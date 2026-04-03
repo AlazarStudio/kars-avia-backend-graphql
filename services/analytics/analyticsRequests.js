@@ -153,3 +153,118 @@ export const countRequestsByStatus = async (whereConditions) => {
   return statusCount
 }
 
+
+
+
+//Возвращает время в секундах или в минутах и секундах от статуса createdAt - до конечной (done, opened, archive в зависимости от задачи) 
+function getRequestProcessingTime(startDate, endDate, inSeconds=true) {
+    const startMinutes = startDate.getMinutes() 
+    const startSecons = startDate.getSeconds()
+    
+    const endMinutes = endDate.getMinutes()
+    const endSeconds = endDate.getSeconds()
+    
+    const startTimeInSeconds = startMinutes * 60 + startSecons
+    const endTimeInSeconds = endMinutes * 60 + endSeconds
+
+    const allTimeInSeconds = endTimeInSeconds - startTimeInSeconds
+
+    if (inSeconds) {
+        return allTimeInSeconds
+    }
+    else {
+        const minutes = Math.trunc(allTimeInSeconds / 60)
+        const seconds = allTimeInSeconds - minutes * 60 
+
+        return  { minutes: minutes, 
+                  seconds: seconds, 
+                  description: `Время обработки заявки от CreatedAt -> Done: ${minutes} минут ${seconds} секунд`
+                }
+    }
+}
+
+
+export const AverageRequestReviewTime = async (startDate, endDate) => {
+  const requests = await prisma.request.findMany({
+    where: {
+      createdAt: {
+                  gte: new Date(startDate), 
+                  lte: new Date(endDate)
+                 }
+    },
+    select: {
+      createdAt: true
+    },
+    include: {
+      logs: {
+        where: {
+          action: {in: ["open_request"]}
+        },
+        select: {
+          createdAt: true
+        }
+      }
+    }
+  })
+
+  const requestProcessingTimeLst = []
+
+  for (const req of requests) {
+    const reqProcessingTime = getRequestProcessingTime(req.createdAt, req.logs.createdAt)
+    requestProcessingTimeLst.push(reqProcessingTime)
+  }
+
+  let sumRequestProcessingTime = 0
+
+  for (const time of requestProcessingTimeLst) {
+    sumRequestProcessingTime += time
+  }
+
+  const result = sumRequestProcessingTime / requestProcessingTimeLst.length        //Среднее время реагирования на заявку от create_request - open_request
+
+  return result
+
+}
+
+
+export const AverageApplicationProcessingTime = async (startDate, endDate) => {
+  const requests = await prisma.request.findMany({
+    where: {
+      AND: [
+        { createdAt: { gte: new Date(startDate), lte: new Date(endDate) } }, 
+        { status: { in: ["opened"] } }
+      ]
+    },
+    select: {
+      updatedAt: true
+    },
+    include: {
+      logs: {
+        where: {
+          action: {in: ["create_hotel_chess"]}
+        },
+        select: {
+          createdAt: true
+        }
+      }
+    }
+  })
+
+  const requestProcessingTimeLst = []
+
+  for (const req of requests) {
+    const reqProcessingTime = getRequestProcessingTime(req.updatedAt, req.logs.createdAt)
+    requestProcessingTimeLst.push(reqProcessingTime)
+  }
+
+  let sumRequestProcessingTime = 0
+
+  for (const time of requestProcessingTimeLst) {
+    sumRequestProcessingTime += time
+  }
+
+  const result = sumRequestProcessingTime / requestProcessingTimeLst.length        //Среднее время реагирования на заявку от create_request - open_request
+
+  return result
+
+}
