@@ -6,6 +6,7 @@ const logDir = path.resolve("logs")
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir)
 }
+const authErrorLogFile = path.join(logDir, "auth.error.log")
 
 // Формат даты и времени
 function getTimeStamp() {
@@ -34,9 +35,22 @@ function logToFile(type, message, error = null) {
   })
 }
 
+function logAuthError(message, error = null, details = null) {
+  const detailsLine = details ? `\nDETAILS: ${JSON.stringify(details)}` : ""
+  const stackLine = error?.stack ? `\n${error.stack}` : ""
+  const logEntry = `[${getTimeStamp()}] AUTH_ERROR: ${message}${detailsLine}${stackLine}\n`
+
+  fs.appendFile(authErrorLogFile, logEntry, (err) => {
+    if (err) {
+      console.error("Ошибка при записи auth лога:", err)
+    }
+  })
+}
+
 // Экспортируем удобные методы
 export const logger = {
   info: (msg) => logToFile("info", msg),
   warn: (msg) => logToFile("warn", msg),
-  error: (msg, err = null) => logToFile("error", msg, err)
+  error: (msg, err = null) => logToFile("error", msg, err),
+  authError: (msg, err = null, details = null) => logAuthError(msg, err, details)
 }

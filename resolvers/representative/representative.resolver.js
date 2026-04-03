@@ -10,6 +10,7 @@ import {
   REPRESENTATIVE_DEPARTMENT_CREATED,
   REPRESENTATIVE_DEPARTMENT_UPDATED
 } from "../../services/infra/pubsub.js"
+import { logger } from "../../services/infra/logger.js"
 
 const REPRESENTATIVE_ROLE = "REPRESENTATIVE"
 
@@ -369,7 +370,10 @@ const representativeResolver = {
           try {
             await allMiddleware(context)
             await representativeMiddleware(context)
-          } catch {
+          } catch (e) {
+            logger.warn(
+              `[SUBSCRIPTION_AUTH] representative.representativeDepartmentCreated message=${e?.message} code=${e?.code}`
+            )
             return false
           }
 
@@ -384,7 +388,10 @@ const representativeResolver = {
           try {
             await allMiddleware(context)
             await representativeMiddleware(context)
-          } catch {
+          } catch (e) {
+            logger.warn(
+              `[SUBSCRIPTION_AUTH] representative.representativeDepartmentUpdated message=${e?.message} code=${e?.code}`
+            )
             return false
           }
 

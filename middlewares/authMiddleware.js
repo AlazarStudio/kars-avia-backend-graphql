@@ -72,9 +72,10 @@ export const roleMiddleware = async (context, allowedRoles) => {
     })
   }
 
+  // Внешний пользователь-гостиница приравнивается к REPRESENTATIVE для операций с бронями
   const role = subject.role || context.decoded?.role
 
-  if (!allowedRoles.includes(role)) {
+  if (!role || !allowedRoles.includes(role)) {
     throw new GraphQLError("Access forbidden: Insufficient rights.", {
       extensions: { code: "FORBIDDEN" }
     })
@@ -186,6 +187,7 @@ export const airlineMiddleware = async (context) => {
     "DISPATCHERADMIN",
     "AIRLINEADMIN",
     "AIRLINEMODERATOR",
+    "AIRLINE_PERSONAL",
     "AIRLINEUSER"
   ])
 }
@@ -202,6 +204,7 @@ export const allMiddleware = async (context) => {
     "DISPATCHERUSER",
     "HOTELUSER",
     "AIRLINEUSER",
+    "AIRLINE_PERSONAL",
     "REPRESENTATIVE",
     "USER",
     "DRIVER"

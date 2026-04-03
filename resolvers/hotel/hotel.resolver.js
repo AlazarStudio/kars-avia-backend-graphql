@@ -15,15 +15,19 @@ import nodemailer from "nodemailer"
 import {
   pubsub,
   NOTIFICATION,
-  REQUEST_UPDATED,
   HOTEL_CREATED,
-  HOTEL_UPDATED,
-  RESERVE_UPDATED
+  HOTEL_UPDATED
 } from "../../services/infra/pubsub.js"
+import {
+  publishRequestUpdated,
+  publishReserveUpdated
+} from "../../services/infra/subscriptionPayloads.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -33,6 +37,10 @@ import {
   updateRoomKindCounts
 } from "../../services/hotel/roomUtils.js"
 import { buildHotelWhere } from "../../services/hotel/hotelFilters.js"
+import {
+  issueExternalLinksForUser,
+  upsertHotelExternalUser
+} from "../../services/auth/externalAutoLinks.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -181,12 +189,40 @@ const hotelResolver = {
       }
 
       // Создаем новый отель с включением связанных комнат
-      const createdHotel = await prisma.hotel.create({
+      let createdHotel = await prisma.hotel.create({
         data,
         include: {
           rooms: true
         }
       })
+
+      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      try {
+        const externalUser = await upsertHotelExternalUser({
+          hotelId: createdHotel.id,
+          name: createdHotel.name
+        })
+        const generatedLinks = await issueExternalLinksForUser({
+          externalUserId: externalUser.id,
+          createdByAdminId: adminId || null
+        })
+        await prisma.hotel.update({
+          where: { id: createdHotel.id },
+          data: {
+            externalLinkCRM: generatedLinks.linkCRM,
+            externalLinkPWA: generatedLinks.linkPWA
+          }
+        })
+        createdHotel = {
+          ...createdHotel,
+          externalLinkCRM: generatedLinks.linkCRM,
+          externalLinkPWA: generatedLinks.linkPWA
+        }
+      } catch (error) {
+        logger.warn(
+          `Не удалось автоматически создать external ссылки отеля ${createdHotel.id}: ${error?.message || "unknown error"}`
+        )
+      }
 
       // Логирование действия создания отеля
       await logAction({
@@ -417,38 +453,56 @@ const hotelResolver = {
                   html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
                 }
 
-                if (
-                  await AllowedEmailNotification(
+                const hotelChessRequestEmailAllowed =
+                  (await AllowedEmailNotification(
                     user,
                     "update_hotel_chess_request"
-                  )
-                ) {
+                  )) &&
+                  shouldSendNotification({
+                    channel: "email",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    recipientId: process.env.EMAIL_KARS
+                  }).allowed
+
+                if (hotelChessRequestEmailAllowed) {
                   await sendEmail(mailOptions)
                 }
 
-                await prisma.notification.create({
-                  data: {
-                    request: { connect: { id: updatedRequest.id } },
-                    hotel: { connect: { id } },
-                    airline: updatedRequest.airlineId
-                      ? { connect: { id: updatedRequest.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                const hotelChessRequestSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_request",
+                  entityType: "request",
+                  entityId: updatedRequest.id
+                }).allowed
+
+                if (hotelChessRequestSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "RequestUpdatedNotification",
-                    action: "update_hotel_chess_request",
-                    ...updatedRequest
-                  }
-                })
-                pubsub.publish(REQUEST_UPDATED, {
-                  requestUpdated: updatedRequest
-                })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
+                await publishRequestUpdated(updatedRequest.id)
               } else if (hotelChess.reserveId) {
                 // Если hotelChess связан с бронью (reserve)
                 const room = await prisma.room.findUnique({
@@ -471,27 +525,39 @@ const hotelResolver = {
                   hotelId: hotelChess.hotelId,
                   reserveId: hotelChess.reserveId
                 })
-                await prisma.notification.create({
-                  data: {
-                    reserve: { connect: { id: reserve.id } },
-                    hotel: { connect: { id: hotelChess.hotelId } },
-                    airline: reserve.airlineId
-                      ? { connect: { id: reserve.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_reserve",
-                      description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> `
+                const hotelChessReserveSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_reserve",
+                  entityType: "reserve",
+                  entityId: reserve.id
+                }).allowed
+
+                if (hotelChessReserveSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      reserve: { connect: { id: reserve.id } },
+                      hotel: { connect: { id: hotelChess.hotelId } },
+                      airline: reserve.airlineId
+                        ? { connect: { id: reserve.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_reserve",
+                        description: `Бронь № <span style='color:#545873'>${reserve.reserveNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span> `
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "ReserveUpdatedNotification",
-                    action: "update_hotel_chess_reserve",
-                    ...reserve
-                  }
-                })
-                pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "ReserveUpdatedNotification",
+                      action: "update_hotel_chess_reserve",
+                      reserveId: reserve.id,
+                      arrival: reserve.arrival,
+                      departure: reserve.departure,
+                      airline: reserve.airline || null
+                    }
+                  })
+                }
+                await publishReserveUpdated(reserve.id)
               }
             } else {
               // Создание новой записи hotelChess
@@ -570,7 +636,7 @@ const hotelResolver = {
                       mealPlan: mealPlanData
                     }
                   })
-                  pubsub.publish(RESERVE_UPDATED, { reserveUpdated: reserve })
+                  await publishReserveUpdated(hotelChess.reserveId)
                 } catch (error) {
                   logger.error("Ошибка при бронировании", error)
                   const timestamp = new Date().toISOString()
@@ -724,12 +790,20 @@ const hotelResolver = {
                   }</span>`
                 }
 
-                if (
-                  await AllowedEmailNotification(
+                const createHotelChessRequestEmailAllowed =
+                  (await AllowedEmailNotification(
                     user,
                     "update_hotel_chess_request"
-                  )
-                ) {
+                  )) &&
+                  shouldSendNotification({
+                    channel: "email",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    recipientId: process.env.EMAIL_HOTEL
+                  }).allowed
+
+                if (createHotelChessRequestEmailAllowed) {
                   await sendEmail(mailOptions)
                 }
 
@@ -745,31 +819,41 @@ const hotelResolver = {
                   reserveId: hotelChess.reserveId
                 })
 
-                await prisma.notification.create({
-                  data: {
-                    request: { connect: { id: updatedRequest.id } },
-                    hotel: { connect: { id } },
-                    airline: updatedRequest.airlineId
-                      ? { connect: { id: updatedRequest.airlineId } }
-                      : undefined,
-                    description: {
-                      action: "update_hotel_chess_request",
-                      description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
+                const createHotelChessRequestSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_request",
+                  entityType: "request",
+                  entityId: updatedRequest.id
+                }).allowed
+
+                if (createHotelChessRequestSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
                     }
-                  }
-                })
-                pubsub.publish(NOTIFICATION, {
-                  notification: {
-                    __typename: "RequestUpdatedNotification",
-                    action: "update_hotel_chess_request",
-                    ...updatedRequest
-                  }
-                })
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
 
                 // Публикуем событие обновления заявки
-                pubsub.publish(REQUEST_UPDATED, {
-                  requestUpdated: updatedRequest
-                })
+                await publishRequestUpdated(updatedRequest.id)
               }
             }
           }
@@ -1268,9 +1352,13 @@ const hotelResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "hotel.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1297,9 +1385,13 @@ const hotelResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([HOTEL_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "hotel.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

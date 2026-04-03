@@ -821,3 +821,62 @@ v3.3.0 (2026-02-03)
   - **roomUtils.js**, **roomAvailability.js**: работа с комнатами
   - **documentationTree.js**, **documentationUtils.js**: документация
   - **migrateUploads.js**, **backfill.js**: миграции
+
+v3.4.0 (2026-03-16)
+
+- **Общие изменения**:
+
+  - Крупное обновление схем и связей Prisma под новые сущности и связи
+  - Переработаны авторизация, контекст пользователя и external auth
+  - Существенно обновлён модуль Passenger Request (логика, статусы, подписки, чаты)
+  - Доработаны драйверы, представители, организации и связанные справочники
+  - Расширены фильтры/пагинация/поиск в заявках, отчётах, трансферах и документации
+  - Обновлены файловые сервисы: доступ, загрузка, нормализация путей и миграции
+
+- **schema.prisma**:
+
+  - Обновлены модели, связи и перечисления для новых бизнес-сценариев
+  - Добавлены и доработаны поля для external auth, Passenger Request, трансферов и цен
+  - Доработаны поля онлайна/активности пользователей и связанные зависимости
+
+- **middlewares/authMiddleware.js**, **middlewares/authContext.js**:
+
+  - Переработана логика авторизации и формирования контекста доступа
+  - Усилены проверки токенов и обработка сценариев внешней аутентификации
+
+- **external auth**:
+
+  - **typeDefs/externalAuth/externalAuth.typeDef.js** и **resolvers/externalAuth/externalAuth.resolver.js**: добавлены схемы и резольверы для внешней авторизации
+  - **services/auth/externalMagicLink.js**, **services/auth/sendExternalMagicLinkEmail.js**: реализована отправка magic-link и сопутствующая почтовая логика
+  - **tests/auth/externalMagicLink.test.js**: добавлены тесты external auth
+
+- **Passenger Request**:
+
+  - **typeDefs/passengerRequest/passengerRequest.typeDef.js**: расширены схемы и подписки
+  - **resolvers/passengerRequest/passengerRequest.resolver.js**: переработаны мутации/запросы и бизнес-логика
+  - Удалена старая версия файла **resolvers/passengerRequest/passengerRequest.resolvers.js**
+  - **services/passengerRequest/hotelItem.js**, **tests/passengerRequest/hotelItem.test.js**: добавлены сервисные доработки и тесты
+
+- **driver / representative / organization**:
+
+  - **typeDefs/driver/driver.typeDef.js**, **resolvers/driver/driver.resolver.js**: расширение логики водителей и связей
+  - **typeDefs/representative/representative.typeDef.js**, **resolvers/representative/representative.resolver.js**: добавлены схемы и резольвер представителя
+  - **typeDefs/organization/organization.typeDef.js**, **resolvers/organization/organization.resolver.js**: добавлена и доработана логика организаций
+
+- **documentation и support**:
+
+  - **typeDefs/documentation/documentation.typeDef.js**, **resolvers/documentation/documentation.resolver.js**: расширены документация и фильтрация
+  - **resolvers/documentation/getSectionsWithHierarhyFunc.js**, **resolvers/documentation/cascadeDeletefunc.js**: доработана иерархия разделов и каскадные операции
+  - **typeDefs/support/support.typeDef.js**, **resolvers/support/support.resolver.js**: обновлены схемы и логика поддержки
+
+- **files / migrations**:
+
+  - **services/files/checkFileAccess.js**, **services/files/normalizeFilePaths.js**: реализованы и доработаны контроль доступа и нормализация путей
+  - **services/routes/files.js**, **resolvers/filePaths/filePaths.resolver.js**: обновлены маршруты/резольверы доступа к файлам
+  - **services/migrations/migrateUploads.js**, **services/migrations/backfill.js**, **services/migrations/supportTicketsMigration.js**: расширены миграции данных и загрузок
+
+- **resolvers и сервисы (доработки модулей)**:
+
+  - Обновлены **request/reserve/hotel/transfer/report/chat/dispatcher/user/analytics/global/contract/log** резольверы
+  - Добавлены и улучшены сервисы: **services/analytics/userTimeAnalytics.js**, **services/user/userActivity.js**, **services/hotel/hotelFilters.js**, **services/infra/logaction.js**
+  - Обновлены **server.js** и **server2.js** (контекст, авторизация, инфраструктурные доработки)

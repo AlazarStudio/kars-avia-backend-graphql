@@ -7,6 +7,7 @@ import {
   DISPATCHER_DEPARTMENT_CREATED,
   DISPATCHER_DEPARTMENT_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
@@ -19,6 +20,13 @@ import {
   getDisabledActionsFromMenu,
   getNotificationMenuForUser
 } from "../../services/notification/notificationMenuCheck.js"
+
+/** Actions stored on Notification.description for transfer domain (no request/reserve/passengerRequest id on row). */
+const TRANSFER_NOTIFICATION_ACTIONS = [
+  "transfer_message",
+  "create_transfer",
+  "update_transfer"
+]
 
 const dispatcherResolver = {
   Query: {
@@ -96,8 +104,19 @@ const dispatcherResolver = {
     getAllNotifications: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      const { skip, take, type, status } = pagination
-      let filter
+      const p = pagination || {}
+      const {
+        skip: skipRaw,
+        take: takeRaw,
+        type,
+        status,
+        actions,
+        read: readFilter
+      } = p
+      const skip = skipRaw ?? 0
+      const take = takeRaw ?? 10
+
+      let filter = {}
       if (user.dispatcher === true) {
         filter = {}
       }
@@ -110,53 +129,92 @@ const dispatcherResolver = {
 
       if (type === "request") {
         filter.requestId = { not: null }
-        // console.log("filter: " + JSON.stringify(filter))
       } else if (type === "reserve") {
         filter.reserveId = { not: null }
-        // console.log("filter: " + JSON.stringify(filter))
+      } else if (type === "passengerRequest") {
+        filter.passengerRequestId = { not: null }
+      } else if (type === "transfer") {
+        let transferActionList = TRANSFER_NOTIFICATION_ACTIONS
+        if (actions?.length) {
+          const allowed = new Set(actions)
+          transferActionList = TRANSFER_NOTIFICATION_ACTIONS.filter((a) =>
+            allowed.has(a)
+          )
+        }
+        if (transferActionList.length === 0) {
+          return { totalPages: 0, totalCount: 0, notifications: [] }
+        }
+        filter.description = {
+          is: { action: { in: transferActionList } }
+        }
       }
 
-      // console.log("\n filter" + JSON.stringify(filter), "\n filter" + filter)
+      const needsMenuCheck =
+        user.role !== "SUPERADMIN" &&
+        (user.dispatcher === true ||
+          (user.airlineId && user.airlineDepartmentId))
 
-      // const statusFilter =
-      //   status && status.length > 0 && !status.includes("all")
-      //     ? { status: { in: status } }
-      //     : {}
-
-      // const needsMenuCheck =
-      //   user.dispatcher === true || (user.airlineId && user.airlineDepartmentId)
-
-      // let menuActionFilter = {}
-      // if (needsMenuCheck) {
-      //   const menu = await getNotificationMenuForUser(user)
-      //   const disabledActions = getDisabledActionsFromMenu(menu)
-      //   if (disabledActions.length > 0) {
-      //     menuActionFilter = {
-      //       NOT: { description: { is: { action: { in: disabledActions } } } }
-      //     }
-      //   }
-      // }
-
-      const totalCount = await prisma.notification.count({
-        where: {
-          ...filter,  
-          // ...menuActionFilter
+      let menuActionFilter = {}
+      if (needsMenuCheck) {
+        const menu = await getNotificationMenuForUser(user)
+        const disabledActions = getDisabledActionsFromMenu(menu)
+        if (disabledActions.length > 0) {
+          menuActionFilter = {
+            NOT: { description: { is: { action: { in: disabledActions } } } }
+          }
         }
-      })
+      }
+
+      const extraAnd = []
+      if (status?.length) {
+        if (type === "request") {
+          extraAnd.push({ request: { is: { status: { in: status } } } })
+        } else if (type === "reserve") {
+          extraAnd.push({ reserve: { is: { status: { in: status } } } })
+        } else if (type === "passengerRequest") {
+          extraAnd.push({
+            passengerRequest: { is: { status: { in: status } } }
+          })
+        }
+      }
+
+      if (actions?.length && type !== "transfer") {
+        extraAnd.push({
+          description: { is: { action: { in: actions } } }
+        })
+      }
+
+      if (readFilter === true && user?.id) {
+        extraAnd.push({ readBy: { some: { userId: user.id } } })
+      } else if (readFilter === false && user?.id) {
+        extraAnd.push({ readBy: { none: { userId: user.id } } })
+      }
+
+      const whereParts = [filter, menuActionFilter, ...extraAnd].filter(
+        (part) => part && Object.keys(part).length > 0
+      )
+      const where =
+        whereParts.length === 1 ? whereParts[0] : { AND: whereParts }
+
+      const totalCount = await prisma.notification.count({ where })
 
       const totalPages = Math.ceil(totalCount / take)
 
       const notifications = await prisma.notification.findMany({
-        where: {
-          ...filter,
-          // ...menuActionFilter
-        },
+        where,
         skip: skip * take,
         take: take,
         orderBy: { createdAt: "desc" },
         include: {
           request: true,
-          reserve: true
+          reserve: true,
+          passengerRequest: {
+            include: {
+              airline: true,
+              airport: true,
+              createdBy: true
+            }
+          }
         }
       })
       return { totalPages, totalCount, notifications }
@@ -367,7 +425,7 @@ const dispatcherResolver = {
     },
     createPosition: async (_, { input }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name, separator } = input
+      const { name, separator, category } = input
       const position = await prisma.position.create({
         data: {
           name,
@@ -565,6 +623,9 @@ const dispatcherResolver = {
           const notification = payload.notification
           const action = notification?.action
 
+          // SUPERADMIN видит все уведомления без фильтрации
+          if (subject.role === "SUPERADMIN") return true
+
           // Проверка NotificationMenu: диспетчеры и пользователи авиакомпании с отделом
           const needsMenuCheck =
             (subject.dispatcher && subject.id) ||
@@ -577,9 +638,6 @@ const dispatcherResolver = {
             const allowed = await AllowedSiteNotification(subject, action)
             if (!allowed) return false
           }
-
-          // SUPERADMIN видит все уведомления
-          if (subject.role === "SUPERADMIN") return true
 
           // Диспетчеры (после проверки меню) видят все
           if (subject.dispatcher === true) return true

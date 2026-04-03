@@ -12,6 +12,7 @@ import {
   hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { deleteFiles } from "../../services/files/uploadFiles.js"
 import { computeRoomShareMatrix } from "../../services/rooms/computeRoomShareMatrix.js"
@@ -443,9 +444,13 @@ const reportResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([REPORT_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "report.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

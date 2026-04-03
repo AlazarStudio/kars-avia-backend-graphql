@@ -1,6 +1,6 @@
 {
   "name": "kars-avia-backend-grahpql",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "main": "server.js",
   "scripts": {
     "backup": "node services/cron/backup.js",
@@ -42,7 +42,7 @@
     "express-session": "^1.19.0",
     "fast-glob": "^3.3.3",
     "file-saver": "^2.0.5",
-    "firebase-admin": "^13.6.0",
+    "firebase-admin": "^13.7.0",
     "graphql": "^16.12.0",
     "graphql-passport": "^0.6.8",
     "graphql-redis-subscriptions": "^2.7.0",

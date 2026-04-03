@@ -102,6 +102,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int!
     address: String
     link: String
+    linkCRM: String
+    linkPWA: String
     people: [PassengerServiceHotelPerson!]!
   }
 
@@ -116,6 +118,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     pickupAt: Date
     link: String
+    linkPWA: String
     addressFrom: String
     addressTo: String
     description: String
@@ -127,6 +130,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlan
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
     hotels: [PassengerServiceHotel!]!
     evictions: [PassengerLivingServiceEviction!]!
   }
@@ -135,7 +140,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlan
     status: PassengerServiceStatus!
     times: PassengerStatusTimes
+    earlyCompletionReason: String
+    earlyCompletedAt: Date
     drivers: [PassengerServiceDriver!]!
+  }
+
+  type PassengerRepresentativeLink {
+    representativeDepartmentId: ID
+    representativeDepartmentName: String
+    linkCRM: String
+    linkPWA: String
   }
 
   type PassengerRequest {
@@ -166,21 +180,30 @@ const passengerRequestTypeDef = /* GraphQL */ `
     statusTimes: PassengerStatusTimes
     earlyCompletionReason: String
     earlyCompletedAt: Date
+    cancelReason: String
 
     createdById: ID!
     createdBy: User!
 
+    representativeLinks: [PassengerRepresentativeLink!]!
+
     chats: [Chat!]!
 
-    """Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)"""
+    """
+    Сохранённый отчёт по отелю (по индексу отеля в livingService.hotels)
+    """
     hotelReport(hotelIndex: Int!): PassengerRequestHotelReport
     hotelReports: [PassengerRequestHotelReport!]!
 
-    """История действий по заявке ФАП"""
+    """
+    История действий по заявке ФАП
+    """
     logs(pagination: LogPaginationInput): LogConnection!
   }
 
-  """Одна строка таблицы отчёта по отелю"""
+  """
+  Одна строка таблицы отчёта по отелю
+  """
   type PassengerRequestHotelReportRow {
     fullName: String!
     roomNumber: String
@@ -194,7 +217,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     accommodationCost: Float
   }
 
-  """Сохранённая запись отчёта по отелю"""
+  """
+  Сохранённая запись отчёта по отелю
+  """
   type PassengerRequestHotelReport {
     id: ID!
     createdAt: Date!
@@ -295,7 +320,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerRequestCreateInput {
     airlineId: ID!
-    airportId: ID
+    airportId: ID!
     flightNumber: String!
     flightDate: Date
     routeFrom: String
@@ -358,6 +383,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
       status: PassengerRequestStatus!
     ): PassengerRequest!
 
+    cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
+
     setPassengerRequestServiceStatus(
       id: ID!
       service: PassengerServiceKind!
@@ -404,7 +431,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
 
-    """Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0)."""
+    """
+    Водитель принимает заказ на доставку багажа — статус переходит в IN_PROGRESS.
+    """
+    acceptPassengerRequestBaggageOrder(
+      requestId: ID!
+      driverIndex: Int!
+    ): PassengerRequest!
+
+    """
+    Отметить доставку багажа выполненной для водителя по индексу (driverIndex с 0).
+    """
     completePassengerRequestBaggageDriverDelivery(
       requestId: ID!
       driverIndex: Int!
@@ -444,6 +481,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       reason: String!
     ): PassengerRequest!
 
+    completePassengerRequestTransferEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
+    completePassengerRequestLivingEarly(
+      requestId: ID!
+      reason: String!
+    ): PassengerRequest!
+
     completePassengerRequestEarly(id: ID!, reason: String!): PassengerRequest!
 
     relocatePassengerRequestHotelPerson(
@@ -463,7 +510,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
       evictedAt: Date
     ): PassengerRequest!
 
-    """Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель)."""
+    """
+    Сохранить отчёт по отелю (данные таблицы). Один отчёт на (заявка, отель).
+    """
     savePassengerRequestHotelReport(
       requestId: ID!
       hotelIndex: Int!

@@ -1,7 +1,7 @@
 // cronTasks.js
 import { prisma } from "../../prisma.js"
-import { pubsub, REQUEST_UPDATED } from "../infra/pubsub.js"
 import { logger } from "../infra/logger.js"
+import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
 
 let intervalId = null
 
@@ -24,9 +24,7 @@ const checkAndArchiveRequests = async () => {
           data: { status: "archiving" }
         })
 
-        pubsub.publish(REQUEST_UPDATED, {
-          requestUpdated: request
-        })
+        await publishRequestUpdated(request.id)
       }
     }
   } catch (e) {

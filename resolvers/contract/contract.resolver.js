@@ -6,12 +6,11 @@ import {
   CONTRACT_HOTEL,
   CONTRACT_ORGANIZATION
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
-import {
-  allMiddleware,
-  superAdminMiddleware
-} from "../../middlewares/authMiddleware.js"
+import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
+import logAction from "../../services/infra/logaction.js"
 import {
   buildAirlineContractWhere,
   buildHotelContractWhere,
@@ -43,8 +42,8 @@ const contractResolver = {
       const { skip, take, all } = pagination || {}
       const items = await prisma.airlineContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           company: true,
@@ -77,8 +76,8 @@ const contractResolver = {
       const { skip, take, all } = pagination || {}
       const items = await prisma.hotelContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           company: true,
@@ -103,7 +102,11 @@ const contractResolver = {
     },
 
     // ORGANIZATION
-    organizationContracts: async (_, { pagination, filter, orderBy }, context) => {
+    organizationContracts: async (
+      _,
+      { pagination, filter, orderBy },
+      context
+    ) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const where = buildOrganizationContractWhere(filter)
       const totalCount = await prisma.organizationContract.count({ where })
@@ -112,8 +115,8 @@ const contractResolver = {
 
       const items = await prisma.organizationContract.findMany({
         where,
-        skip: all ? undefined : skip ?? 0,
-        take: all ? undefined : take ?? 20,
+        skip: all ? undefined : (skip ?? 0),
+        take: all ? undefined : (take ?? 20),
         orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
         include: {
           region: true,
@@ -154,7 +157,7 @@ const contractResolver = {
   Mutation: {
     // AIRLINE
     createAirlineContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -181,11 +184,29 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "create_airline_contract",
+        description: "Договор авиакомпании создан",
+        fulldescription:
+          `Создан договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          airlineId: contract.airlineId,
+          companyId: contract.companyId
+        }
+      })
+
       return contract
     },
 
     updateAirlineContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
+      const oldContract = await prisma.airlineContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -229,11 +250,22 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "update_airline_contract",
+        description: "Договор авиакомпании обновлён",
+        fulldescription:
+          `Обновлён договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
+      })
+
       return contract
     },
 
     deleteAirlineContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.airlineContract.findUnique({
         where: { id },
         include: { additionalAgreements: true }
@@ -256,7 +288,7 @@ const contractResolver = {
 
     // HOTEL
     createHotelContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
       if (files && files.length > 0) {
         for (const file of files) {
@@ -288,11 +320,30 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+
+      await logAction({
+        context,
+        action: "create_hotel_contract",
+        description: "Договор гостиницы создан",
+        fulldescription:
+          `Создан договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          hotelId: contract.hotelId,
+          companyId: contract.companyId,
+          cityId: contract.cityId
+        }
+      })
+
       return contract
     },
 
     updateHotelContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
+      const oldContract = await prisma.hotelContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -351,11 +402,22 @@ const contractResolver = {
         }
       })
       pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+
+      await logAction({
+        context,
+        action: "update_hotel_contract",
+        description: "Договор гостиницы обновлён",
+        fulldescription:
+          `Обновлён договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
+      })
+
       return contract
     },
 
     deleteHotelContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.hotelContract.findUnique({
         where: { id },
         include: { additionalAgreement: true }
@@ -383,7 +445,7 @@ const contractResolver = {
 
     // ORGANIZATION
     createOrganizationContract: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       let filesPath = []
 
       if (files?.length) {
@@ -415,11 +477,29 @@ const contractResolver = {
         contractOrganization: contract
       })
 
+      await logAction({
+        context,
+        action: "create_organization_contract",
+        description: "Договор организации создан",
+        fulldescription:
+          `Создан договор организации ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          organizationId: contract.organizationId,
+          companyId: contract.companyId,
+          cityId: contract.cityId
+        }
+      })
+
       return contract
     },
 
     updateOrganizationContract: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
+      const oldContract = await prisma.organizationContract.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files?.length) {
@@ -457,11 +537,21 @@ const contractResolver = {
         contractOrganization: contract
       })
 
+      await logAction({
+        context,
+        action: "update_organization_contract",
+        description: "Договор организации обновлён",
+        fulldescription:
+          `Обновлён договор организации ${contract.contractNumber || ""}`.trim(),
+        oldData: oldContract,
+        newData: contract
+      })
+
       return contract
     },
 
     deleteOrganizationContract: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.organizationContract.findUnique({
         where: { id },
         include: { additionalAgreement: true }
@@ -492,7 +582,7 @@ const contractResolver = {
 
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
 
       let filesPath = []
       if (files && files.length > 0) {
@@ -536,11 +626,30 @@ const contractResolver = {
         })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "create_additional_agreement",
+        description: "Дополнительное соглашение создано",
+        fulldescription:
+          `Создано дополнительное соглашение ${contract.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: contract.id,
+          contractNumber: contract.contractNumber,
+          airlineContractId: contract.airlineContractId,
+          hotelContractId: contract.hotelContractId,
+          organizationContractId: contract.organizationContractId
+        }
+      })
+
       return contract
     },
 
     updateAdditionalAgreement: async (_, { id, input, files }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
+      const oldAgreement = await prisma.additionalAgreement.findUnique({
+        where: { id }
+      })
       const updatedData = {}
 
       if (files && files.length > 0) {
@@ -592,11 +701,22 @@ const contractResolver = {
         })
       }
       // pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+
+      await logAction({
+        context,
+        action: "update_additional_agreement",
+        description: "Дополнительное соглашение обновлено",
+        fulldescription:
+          `Обновлено дополнительное соглашение ${contract.contractNumber || ""}`.trim(),
+        oldData: oldAgreement,
+        newData: contract
+      })
+
       return contract
     },
 
     deleteAdditionalAgreement: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await allMiddleware(context)
       const contract = await prisma.additionalAgreement.findUnique({
         where: { id }
       })
@@ -616,9 +736,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_AIRLINE]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -644,9 +768,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_HOTEL]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -672,9 +800,13 @@ const contractResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([CONTRACT_ORGANIZATION]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "contract.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

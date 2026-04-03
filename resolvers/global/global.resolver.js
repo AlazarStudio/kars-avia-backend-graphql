@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import { finished } from "stream/promises"
@@ -7,6 +8,7 @@ import { createWriteStream } from "fs"
 import path from "path" // Импортируем модуль path
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { v4 as uuidv4 } from "uuid"
+import { sendNotificationToSubject } from "../../services/infra/fbsendtoken.js"
 
 const SUBJECT = {
   USER: "USER",
@@ -14,8 +16,40 @@ const SUBJECT = {
   AIRLINE_PERSONAL: "AIRLINE_PERSONAL"
 }
 
+function buildDeviceTokenOwnerData(subjectType, subjectId) {
+  if (subjectType === SUBJECT.USER) {
+    return {
+      subjectType,
+      userId: subjectId,
+      driverId: null,
+      airlinePersonalId: null
+    }
+  }
+
+  if (subjectType === SUBJECT.DRIVER) {
+    return {
+      subjectType,
+      userId: null,
+      driverId: subjectId,
+      airlinePersonalId: null
+    }
+  }
+
+  if (subjectType === SUBJECT.AIRLINE_PERSONAL) {
+    return {
+      subjectType,
+      userId: null,
+      driverId: null,
+      airlinePersonalId: subjectId
+    }
+  }
+
+  throw new Error(`Unsupported subject type: ${subjectType}`)
+}
+
 async function resolveAuthSubject(identifier) {
   const id = String(identifier).trim()
+  const loginLookup = normalizeUserLogin(id)
 
   // ищем всех параллельно
   const [
@@ -25,7 +59,13 @@ async function resolveAuthSubject(identifier) {
     // airlinePersonalByEmail,   // если появится email
     airlinePersonalByEmail
   ] = await Promise.all([
-    prisma.user.findUnique({ where: { login: id } }),
+    loginLookup
+      ? prisma.user.findFirst({
+          where: {
+            login: { equals: loginLookup, mode: "insensitive" }
+          }
+        })
+      : Promise.resolve(null),
     prisma.user.findUnique({ where: { email: id } }),
     prisma.driver.findUnique({ where: { email: id } }),
     prisma.airlinePersonal.findFirst({ where: { email: id } }) // исправить на что-то уникальное
@@ -207,6 +247,96 @@ const globalResolver = {
         airlinePersonal: type === SUBJECT.AIRLINE_PERSONAL ? entity : null
       }
     },
+    registerDeviceToken: async (_, { token, platform }, context) => {
+      await allMiddleware(context)
+
+      if (!context.subject?.id) {
+        throw new Error("Only authorized subjects can register device tokens")
+      }
+
+      const subjectId = context.subject.id
+      const subjectType = context.subjectType
+      const normalizedToken = token.trim()
+      const normalizedPlatform = platform.trim().toUpperCase()
+      const ownerData = buildDeviceTokenOwnerData(subjectType, subjectId)
+
+      const existingTokens = await prisma.device_tokens.findMany({
+        where: { token: normalizedToken },
+        orderBy: { createdAt: "asc" }
+      })
+
+      if (existingTokens.length > 0) {
+        const [primaryToken, ...duplicates] = existingTokens
+
+        await prisma.device_tokens.update({
+          where: { id: primaryToken.id },
+          data: {
+            ...ownerData,
+            platform: normalizedPlatform,
+            token: normalizedToken
+          }
+        })
+
+        if (duplicates.length > 0) {
+          await prisma.device_tokens.deleteMany({
+            where: { id: { in: duplicates.map((item) => item.id) } }
+          })
+        }
+
+        return {
+          success: true,
+          message: "Device token updated"
+        }
+      }
+
+      await prisma.device_tokens.create({
+        data: {
+          ...ownerData,
+          platform: normalizedPlatform,
+          token: normalizedToken
+        }
+      })
+
+      return {
+        success: true,
+        message: "Device token created"
+      }
+    },
+    testPushNotification: async (_, { input }, context) => {
+      await allMiddleware(context)
+
+      const targetSubjectType = input.subjectType || context.subjectType
+      const targetSubjectId = input.subjectId || context.subject?.id
+
+      if (!targetSubjectType || !targetSubjectId) {
+        throw new Error("subjectType and subjectId are required")
+      }
+
+      const pushData = (input.data || []).reduce((acc, item) => {
+        if (item?.key) {
+          acc[item.key] = item.value ?? ""
+        }
+        return acc
+      }, {})
+
+      const result = await sendNotificationToSubject(
+        targetSubjectType,
+        targetSubjectId,
+        input.title,
+        input.body,
+        pushData
+      )
+
+      return {
+        success: result.successCount > 0,
+        message:
+          result.successCount > 0
+            ? "Push sent"
+            : "No successful push sends. Check tokens or Firebase setup.",
+        successCount: result.successCount,
+        failureCount: result.failureCount
+      }
+    }
     // refreshDriverToken: async (_, { refreshToken, fingerprint }) => {
     //   const driver = await prisma.driver.findFirst({
     //     where: { refreshToken }

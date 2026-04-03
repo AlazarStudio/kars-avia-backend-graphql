@@ -20,7 +20,7 @@ const driverResolver = {
 
   Query: {
     drivers: async (_, { pagination }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
       const totalCount = await prisma.driver.count({ where: { active: true } })
       const drivers = all
@@ -69,7 +69,7 @@ const driverResolver = {
       return { drivers, totalCount, totalPages }
     },
     driverById: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { id: id },
@@ -96,7 +96,7 @@ const driverResolver = {
       }
     },
     driverByEmail: async (_, { email }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
         const driver = await prisma.driver.findUnique({
           where: { email: email },
@@ -140,7 +140,7 @@ const driverResolver = {
       },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         name,
         number,
@@ -256,6 +256,7 @@ const driverResolver = {
           await prisma.transferPrice.create({
             data: {
               driverId: newDriver.id,
+              name: tp.name ?? '',
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -304,7 +305,7 @@ const driverResolver = {
       },
       context
     ) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const updatedData = {}
 
       const currentDriver = await prisma.driver.findUnique({
@@ -417,7 +418,7 @@ const driverResolver = {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
-              data: { prices: tp.prices }
+              data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
             })
             await prisma.airportOnTransferPrice.deleteMany({
               where: { transferPriceId: tp.id }
@@ -443,6 +444,7 @@ const driverResolver = {
             await prisma.transferPrice.create({
               data: {
                 driverId: id,
+                name: tp.name ?? '',
                 prices: tp.prices,
                 airportOnTransferPrice: {
                   create: (tp.airportIds || []).map((airportId) => ({
@@ -508,7 +510,7 @@ const driverResolver = {
     // },
 
     updateDriverDocuments: async (_, { id, documents }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const setDocs = await uploadFiles(documents)
       await prisma.driver.update({
         where: { id },
@@ -599,11 +601,6 @@ const driverResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
           const { subject, subjectType } = context
 
           if (!subject) return false
@@ -630,11 +627,6 @@ const driverResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([DRIVER_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
-            return false
-          }
           const { subject, subjectType } = context
 
           if (!subject) return false

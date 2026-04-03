@@ -3,6 +3,37 @@ const globalTypeDef = /* GraphQL */ `
   scalar Upload
   scalar Date
 
+  type RegisterDeviceTokenResponse {
+    success: Boolean!
+    message: String
+  }
+
+  input PushDataInput {
+    key: String!
+    value: String
+  }
+
+  enum PushSubjectType {
+    USER
+    DRIVER
+    AIRLINE_PERSONAL
+  }
+
+  input TestPushNotificationInput {
+    subjectType: PushSubjectType
+    subjectId: ID
+    title: String!
+    body: String!
+    data: [PushDataInput!]
+  }
+
+  type TestPushNotificationResponse {
+    success: Boolean!
+    message: String
+    successCount: Int!
+    failureCount: Int!
+  }
+
   # Тип аэропорта
   type Airport {
     id: ID!
@@ -130,6 +161,8 @@ const globalTypeDef = /* GraphQL */ `
     priceApartment: Float
     priceStudio: Float
     priceLuxe: Float
+    priceComfort: Float
+    priceImprovedComfort: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
@@ -146,6 +179,8 @@ const globalTypeDef = /* GraphQL */ `
     priceApartment: Float
     priceStudio: Float
     priceLuxe: Float
+    priceComfort: Float
+    priceImprovedComfort: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
@@ -217,6 +252,7 @@ const globalTypeDef = /* GraphQL */ `
     id: ID!
     createdAt: Date
     updatedAt: Date
+    name: String
     prices: TransferPrices
     airline: Airline
     organization: Organization
@@ -238,6 +274,7 @@ const globalTypeDef = /* GraphQL */ `
 
   input TransferPriceInput {
     id: ID
+    name: String
     prices: TransferPricesInput!
     airportIds: [ID!]
     cityIds: [ID!]
@@ -252,13 +289,13 @@ const globalTypeDef = /* GraphQL */ `
   input TransferSignInInput {
     identifier: String!
     password: String!
-    # fingerprint: String
+    fingerprint: String
     # token2FA: String
   }
 
   type TransferSignInPayload {
     token: String!
-    # refreshToken: String
+    refreshToken: String
     subjectType: String!
     user: User
     driver: Driver
@@ -272,7 +309,13 @@ const globalTypeDef = /* GraphQL */ `
   type Mutation {
     transferSignIn(input: TransferSignInInput!): TransferSignInPayload!
     singleUpload(file: Upload!): File!
-    
+    registerDeviceToken(
+      token: String!
+      platform: String!
+    ): RegisterDeviceTokenResponse!
+    testPushNotification(
+      input: TestPushNotificationInput!
+    ): TestPushNotificationResponse!
   }
 `
 

@@ -1,30 +1,87 @@
 import { prisma } from "../../prisma.js"
 
-const ACTION_TO_MENU_FIELD = {
+const LEGACY_ACTION_TO_MENU_FIELD = {
   create_request: "requestCreate",
   extend_request: "requestDatesChange",
   update_request: "requestDatesChange",
   update_hotel_chess_request: "requestPlacementChange",
   cancel_request: "requestCancel",
   new_message: "newMessage",
+  transfer_message: "newMessage",
   create_reserve: "reserveCreate",
   reserve_dates_change: "reserveDatesChange",
   update_reserve: "reserveUpdate",
-  update_hotel_chess_reserve: "reservePlacementChange"
+  update_hotel_chess_reserve: "reservePlacementChange",
+  create_passenger_request: "passengerRequestCreate",
+  passenger_request_dates_change: "passengerRequestDatesChange",
+  update_passenger_request: "passengerRequestUpdate",
+  update_hotel_chess_passenger_request: "passengerRequestPlacementChange",
+  cancel_passenger_request: "passengerRequestCancel"
 }
 
-function isActionEnabledInMenu(menu, action) {
-  const field = ACTION_TO_MENU_FIELD[action]
+const EMAIL_ACTION_TO_MENU_FIELD = {
+  create_request: "emailRequestCreate",
+  extend_request: "emailRequestDatesChange",
+  update_request: "emailRequestDatesChange",
+  update_hotel_chess_request: "emailRequestPlacementChange",
+  cancel_request: "emailRequestCancel",
+  new_message: "emailNewMessage",
+  transfer_message: "emailNewMessage",
+  create_reserve: "emailReserveCreate",
+  reserve_dates_change: "emailReserveDatesChange",
+  update_reserve: "emailReserveUpdate",
+  update_hotel_chess_reserve: "emailReservePlacementChange",
+  create_passenger_request: "emailPassengerRequestCreate",
+  passenger_request_dates_change: "emailPassengerRequestDatesChange",
+  update_passenger_request: "emailPassengerRequestUpdate",
+  update_hotel_chess_passenger_request: "emailPassengerRequestPlacementChange",
+  cancel_passenger_request: "emailPassengerRequestCancel"
+}
+
+const SITE_PUSH_ACTION_TO_MENU_FIELD = {
+  create_request: "sitePushRequestCreate",
+  extend_request: "sitePushRequestDatesChange",
+  update_request: "sitePushRequestDatesChange",
+  update_hotel_chess_request: "sitePushRequestPlacementChange",
+  cancel_request: "sitePushRequestCancel",
+  new_message: "sitePushNewMessage",
+  transfer_message: "sitePushNewMessage",
+  create_reserve: "sitePushReserveCreate",
+  reserve_dates_change: "sitePushReserveDatesChange",
+  update_reserve: "sitePushReserveUpdate",
+  update_hotel_chess_reserve: "sitePushReservePlacementChange",
+  create_passenger_request: "sitePushPassengerRequestCreate",
+  passenger_request_dates_change: "sitePushPassengerRequestDatesChange",
+  update_passenger_request: "sitePushPassengerRequestUpdate",
+  update_hotel_chess_passenger_request: "sitePushPassengerRequestPlacementChange",
+  cancel_passenger_request: "sitePushPassengerRequestCancel"
+}
+
+function getActionFieldMap(channel) {
+  if (channel === "email") return EMAIL_ACTION_TO_MENU_FIELD
+  return SITE_PUSH_ACTION_TO_MENU_FIELD
+}
+
+function isActionEnabledInMenu(menu, action, channel) {
+  const legacyField = LEGACY_ACTION_TO_MENU_FIELD[action]
+  const legacyValue = menu?.[legacyField]
+  if (legacyValue === false) return false
+
+  const channelFieldMap = getActionFieldMap(channel)
+  const field = channelFieldMap[action]
   if (!field) return true
-  const value = menu?.[field]
-  return value !== false
+
+  const channelValue = menu?.[field]
+  if (typeof channelValue === "boolean") return channelValue
+
+  return true
 }
 
 export function getDisabledActionsFromMenu(menu) {
   if (!menu) return []
-  return Object.entries(ACTION_TO_MENU_FIELD)
-    .filter(([, field]) => menu?.[field] === false)
-    .map(([action]) => action)
+  return Object.keys(SITE_PUSH_ACTION_TO_MENU_FIELD)
+    .filter((action) => isActionEnabledInMenu(menu, action, "sitePush") === false)
+    .map((action) => action)
 }
 
 export async function getNotificationMenuForUser(subject) {
@@ -58,7 +115,7 @@ export async function getNotificationMenuForUser(subject) {
 export async function AllowedSiteNotification(subject, action) {
   const menu = await getNotificationMenuForUser(subject)
   if (!menu) return true
-  const enabled = isActionEnabledInMenu(menu, action)
+  const enabled = isActionEnabledInMenu(menu, action, "sitePush")
   return enabled === true
 }
 
@@ -73,6 +130,6 @@ export async function AllowedSiteNotification(subject, action) {
 export async function AllowedEmailNotification(subject, action) {
   const menu = await getNotificationMenuForUser(subject)
   if (!menu) return true
-  const enabled = isActionEnabledInMenu(menu, action)
+  const enabled = isActionEnabledInMenu(menu, action, "email")
   return enabled === true
 }

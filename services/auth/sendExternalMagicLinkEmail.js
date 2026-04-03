@@ -22,13 +22,13 @@ const buildBaseUrl = ({ linkType } = {}) => {
     )
   }
 
-  if (linkType === "PVA") {
+  if (linkType === "PWA") {
     return (
-      normalizeBaseUrl(process.env.URL_PVA) ||
+      normalizeBaseUrl(process.env.URL_PWA) ||
       normalizeBaseUrl(process.env.EXTERNAL_MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.MAGIC_LINK_BASE_URL) ||
       normalizeBaseUrl(process.env.FRONTEND_URL) ||
-      "http://localhost:3000"
+      "https://far.karsavia.ru"
     )
   }
 
@@ -41,11 +41,21 @@ const buildBaseUrl = ({ linkType } = {}) => {
   )
 }
 
-export const buildExternalMagicLink = ({ token, kind, linkType }) => {
+export const buildExternalMagicLink = ({ token, kind, linkType, passengerRequestId, driverIndex, serviceKind }) => {
   const baseUrl = buildBaseUrl({ linkType })
   const safeKind = encodeURIComponent(kind)
   const safeToken = encodeURIComponent(token)
-  return `${baseUrl}/external-login?kind=${safeKind}&token=${safeToken}`
+  let url = `${baseUrl}/external-login?kind=${safeKind}&token=${safeToken}`
+  if (linkType === "PWA" && passengerRequestId) {
+    url += `&passengerRequestId=${encodeURIComponent(passengerRequestId)}`
+  }
+  if (linkType === "PWA" && driverIndex != null) {
+    url += `&driverIndex=${encodeURIComponent(String(driverIndex))}`
+  }
+  if (linkType === "PWA" && serviceKind) {
+    url += `&serviceKind=${encodeURIComponent(serviceKind)}`
+  }
+  return url
 }
 
 export const sendExternalMagicLinkEmail = async ({
@@ -60,7 +70,7 @@ export const sendExternalMagicLinkEmail = async ({
     to: userEmail,
     subject: "Вход по временной ссылке",
     html: `<p>Чтобы войти в аккаунт, перейдите по ссылке: <a href="${loginLink}">${loginLink}</a></p>
-           <p>Ссылка одноразовая и действует 1 час.</p>`
+           <p>Ссылка одноразовая и действует 48 часов.</p>`
   }
 
   await sendEmail(mailOptions)

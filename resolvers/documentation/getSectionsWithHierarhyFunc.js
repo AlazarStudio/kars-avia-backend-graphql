@@ -88,13 +88,20 @@ import { prisma } from "../../prisma.js"
 //   return combined.length === 1 ? combined[0] : combined
 // }
 
-
 // Альтернативная версия с использованием более эффективного подхода
-export async function getSectionsHierarchyJSONOptimized(type = null) {
-  // Формируем условия для фильтрации
-  const sectionWhere = type ? { type } : {}
-  const articleWhere = type ? { type } : {}
-  
+export async function getSectionsHierarchyJSONOptimized(
+  type = null,
+  documentationType = null
+) {
+  const sectionWhere = {
+    ...(type && { type }),
+    ...(documentationType && { documentationType })
+  }
+  const articleWhere = {
+    ...(type && { type }),
+    ...(documentationType && { documentationType })
+  }
+
   // Получаем все разделы одним запросом с учетом фильтра по типу
   const allSections = await prisma.section.findMany({
     where: sectionWhere,
@@ -105,7 +112,8 @@ export async function getSectionsHierarchyJSONOptimized(type = null) {
           id: true,
           title: true,
           content: true,
-          type: true
+          type: true,
+          documentationType: true
         },
         orderBy: {
           createdAt: "asc"
@@ -146,7 +154,8 @@ export async function getSectionsHierarchyJSONOptimized(type = null) {
       id: section.id,
       title: section.title,
       type: "section",
-      sType: section.type
+      sType: section.type,
+      documentationType: section.documentationType
     }
 
     // Добавляем детей, если они есть
@@ -160,7 +169,8 @@ export async function getSectionsHierarchyJSONOptimized(type = null) {
         id: article.id,
         title: article.title,
         content: article.content,
-        type: article.type // Добавляем тип статьи для информации
+        type: article.type,
+        documentationType: article.documentationType
       }))
     }
 
@@ -172,15 +182,17 @@ export async function getSectionsHierarchyJSONOptimized(type = null) {
 
   // Добавляем статьи без раздела (sectionId: null) с учетом фильтрации
   const rootArticles = await prisma.article.findMany({
-    where: { 
+    where: {
       sectionId: null,
-      ...(type && { type }) // Добавляем фильтр по типу, если он указан
+      ...(type && { type }),
+      ...(documentationType && { documentationType })
     },
-    select: { 
-      id: true, 
-      title: true, 
+    select: {
+      id: true,
+      title: true,
       content: true,
-      type: true 
+      type: true,
+      documentationType: true
     },
     orderBy: { createdAt: "asc" }
   })
@@ -190,7 +202,8 @@ export async function getSectionsHierarchyJSONOptimized(type = null) {
     title: article.title,
     content: article.content,
     type: "article",
-    articleType: article.type // Сохраняем оригинальный тип статьи
+    articleType: article.type,
+    documentationType: article.documentationType
   }))
 
   const combined = [...jsonResult, ...rootArticlesJSON]

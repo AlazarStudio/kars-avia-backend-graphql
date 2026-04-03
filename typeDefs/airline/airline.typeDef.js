@@ -10,6 +10,7 @@ const airlineTypeDef = /* GraphQL */ `
     images: [String!]!
     information: Information
     department: [AirlineDepartment!]!
+    users: [User!]!
     staff: [AirlinePersonal!]!
     # mealPrice: MealPrice
     logs(pagination: LogPaginationInput): LogConnection!
@@ -160,7 +161,40 @@ const airlineTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
+    sitePushNewMessage: Boolean
   }
 
   type NotificationMenu {
@@ -172,7 +206,40 @@ const airlineTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
+    sitePushNewMessage: Boolean
   }
 `
 

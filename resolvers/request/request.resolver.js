@@ -10,6 +10,8 @@ import {
   MESSAGE_SENT,
   HOTEL_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
+import { publishRequestUpdated } from "../../services/infra/subscriptionPayloads.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import nodemailer from "nodemailer"
@@ -29,6 +31,7 @@ import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
@@ -298,7 +301,7 @@ const requestResolver = {
             console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        await publishRequestUpdated(updatedRequest.id)
         return updatedRequest
       }
       // if (request.hotelChess) {
@@ -375,7 +378,9 @@ const requestResolver = {
         }
       }
       if (existingRequest != null) {
-        throw new Error(`Request already exists with id: ${existingRequest.id}`)
+        throw new Error(
+          `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
+        )
       }
       // Определение текущего месяца и года для формирования номера заявки
       const currentDate = new Date()
@@ -460,9 +465,10 @@ const requestResolver = {
         include: {
           airline: true,
           airport: true,
-          person: true
+          person: { include: { position: true } }
         }
       })
+
       // Создание чата для заявки, связанного с авиалинией
       const newChat = await prisma.chat.create({
         data: {
@@ -485,14 +491,24 @@ const requestResolver = {
         html:
           newRequest.person && newRequest.person.position
             ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> в аэропорт 
+        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> в аэропорт 
         <span style='color:#545873'>${newRequest.airport.name}</span>`
             : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
         в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
       }
 
       // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
-      if (await AllowedEmailNotification(user, "create_request")) {
+      const createRequestEmailAllowed =
+        (await AllowedEmailNotification(user, "create_request")) &&
+        shouldSendNotification({
+          channel: "email",
+          action: "create_request",
+          entityType: "request",
+          entityId: newRequest.id,
+          recipientId: process.env.EMAIL_KARS
+        }).allowed
+
+      if (createRequestEmailAllowed) {
         await sendEmail(mailOptions)
       }
 
@@ -501,7 +517,7 @@ const requestResolver = {
         const description = "Заявка создана"
         const fulldescription =
           newRequest.person && newRequest.person.position
-            ? `Пользователь ${user.name} создал заявку №${newRequest.requestNumber} для ${newRequest.person.position} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`
+            ? `Пользователь ${user.name} создал заявку №${newRequest.requestNumber} для ${newRequest.person.position.name} ${newRequest.person.name} в аэропорт ${newRequest.airport.name}`
             : `Пользователь ${user.name} создал предварительную бронь №${newRequest.requestNumber} в аэропорт ${newRequest.airport.name}`
 
         await logAction({
@@ -522,6 +538,13 @@ const requestResolver = {
         console.error("Ошибка при логировании создания заявки:", error)
       }
       // Публикация уведомления и события о создании заявки
+      const createRequestSiteAllowed = shouldSendNotification({
+        channel: "site",
+        action: "create_request",
+        entityType: "request",
+        entityId: newRequest.id
+      }).allowed
+
       await prisma.notification.create({
         data: {
           request: { connect: { id: newRequest.id } },
@@ -531,10 +554,10 @@ const requestResolver = {
             description:
               newRequest.person && newRequest.person.position
                 ? `Создана заявка <span style='color:#545873'>${newRequest.requestNumber}</span> 
-                      для <span style='color:#545873'>${newRequest.person.position} ${newRequest.person.name}</span> 
-                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+                        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> 
+                        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
                 : `Создана предварительная бронь <span style='color:#545873'>${newRequest.requestNumber}</span> 
-                      в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
+                        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
           }
         }
       })
@@ -542,9 +565,13 @@ const requestResolver = {
         notification: {
           __typename: "RequestCreatedNotification",
           action: "create_request",
-          ...newRequest
+          requestId: newRequest.id,
+          arrival: newRequest.arrival,
+          departure: newRequest.departure,
+          airline: newRequest.airline
         }
       })
+
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
     },
@@ -568,7 +595,15 @@ const requestResolver = {
         const newStart = input.arrival
         const newEnd = input.departure
         const status = input.status
-        const { roomId, place, airlineId, mealPlan: inputMealPlan, personId, hotelId: inputHotelId, ...requestInput } = input
+        const {
+          roomId,
+          place,
+          airlineId,
+          mealPlan: inputMealPlan,
+          personId,
+          hotelId: inputHotelId,
+          ...requestInput
+        } = input
         const requestId = id
 
         const request = await prisma.request.findUnique({
@@ -595,8 +630,7 @@ const requestResolver = {
 
         const wantsPlacement = roomId != null
         const isHotelChange =
-          inputHotelId != null &&
-          inputHotelId !== request.hotelId
+          inputHotelId != null && inputHotelId !== request.hotelId
 
         if (isHotelChange && request.arrival <= now) {
           throw new Error("Нельзя изменить отель после даты заселения")
@@ -691,60 +725,93 @@ const requestResolver = {
             }
           })
 
-          await prisma.notification.create({
-            data: {
-              request: { connect: { id: extendRequest.requestId } },
-              airlineId: extendRequest.airlineId,
-              description: {
-                action: "extend_request",
-                description: `Запрос на изменение дат заявки ${
-                  request.requestNumber
-                } с ${formatDate(request.arrival)} - ${formatDate(
-                  request.departure
-                )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+          const extendRequestSiteAllowed = shouldSendNotification({
+            channel: "site",
+            action: "extend_request",
+            entityType: "request",
+            entityId: extendRequest.requestId
+          }).allowed
+
+          if (extendRequestSiteAllowed) {
+            await prisma.notification.create({
+              data: {
+                request: { connect: { id: extendRequest.requestId } },
+                airlineId: extendRequest.airlineId,
+                description: {
+                  action: "extend_request",
+                  description: `Запрос на изменение дат заявки ${
+                    request.requestNumber
+                  } с ${formatDate(request.arrival)} - ${formatDate(
+                    request.departure
+                  )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+                }
               }
-            }
-          })
+            })
+          }
 
           const mailOptions = {
             to: `${process.env.EMAIL_KARS}`,
             subject: "Request updated",
-            html: `Пользователь <span style='color:#545873'>${
-              user.name
-            }</span> отправил запрос на изменение дат заявки <span style='color:#545873'>№${
+            html: `Запрос на изменение дат заявки <span style='color:#545873'>№${
               request.requestNumber
             }</span> с ${formatDate(request.arrival)} - ${formatDate(
               request.departure
             )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
           }
 
-          if (await AllowedEmailNotification(user, "extend_request")) {
+          const extendRequestEmailAllowed =
+            (await AllowedEmailNotification(user, "extend_request")) &&
+            shouldSendNotification({
+              channel: "email",
+              action: "extend_request",
+              entityType: "request",
+              entityId: extendRequest.requestId,
+              recipientId: process.env.EMAIL_KARS
+            }).allowed
+
+          if (extendRequestEmailAllowed) {
             await sendEmail(mailOptions)
           }
 
-          pubsub.publish(NOTIFICATION, {
-            notification: {
-              __typename: "ExtendRequestNotification",
-              action: "extend_request",
-              ...extendRequest
-            }
-          })
+          if (extendRequestSiteAllowed) {
+            pubsub.publish(NOTIFICATION, {
+              notification: {
+                __typename: "ExtendRequestNotification",
+                action: "extend_request",
+                requestId: extendRequest.requestId,
+                newStart: extendRequest.newStart,
+                newEnd: extendRequest.newEnd,
+                airline: request.airline
+              }
+            })
+          }
           pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
           return request
         }
 
         const enabledMeals = {
-          breakfast: inputMealPlan?.breakfastEnabled ?? request.mealPlan?.breakfastEnabled ?? true,
-          lunch: inputMealPlan?.lunchEnabled ?? request.mealPlan?.lunchEnabled ?? true,
-          dinner: inputMealPlan?.dinnerEnabled ?? request.mealPlan?.dinnerEnabled ?? true
+          breakfast:
+            inputMealPlan?.breakfastEnabled ??
+            request.mealPlan?.breakfastEnabled ??
+            true,
+          lunch:
+            inputMealPlan?.lunchEnabled ??
+            request.mealPlan?.lunchEnabled ??
+            true,
+          dinner:
+            inputMealPlan?.dinnerEnabled ??
+            request.mealPlan?.dinnerEnabled ??
+            true
         }
 
         let mealPlanData = request.mealPlan
 
         const datesChanged =
-          new Date(updatedStart).getTime() !== new Date(request.arrival).getTime() ||
-          new Date(updatedEnd).getTime() !== new Date(request.departure).getTime()
+          new Date(updatedStart).getTime() !==
+            new Date(request.arrival).getTime() ||
+          new Date(updatedEnd).getTime() !==
+            new Date(request.departure).getTime()
 
         let placementHotelId = request.hotelId
         let placementRoom = null
@@ -766,10 +833,7 @@ const requestResolver = {
             throw new Error("Room not found")
           }
 
-          if (
-            inputHotelId &&
-            inputHotelId !== placementRoom.hotelId
-          ) {
+          if (inputHotelId && inputHotelId !== placementRoom.hotelId) {
             throw new Error("Номер не относится к указанному отелю")
           }
 
@@ -848,7 +912,8 @@ const requestResolver = {
               enabledMeals
             )
             mealPlanData = {
-              included: inputMealPlan?.included ?? request.mealPlan?.included ?? true,
+              included:
+                inputMealPlan?.included ?? request.mealPlan?.included ?? true,
               breakfast: calculatedMealPlan.totalBreakfast,
               breakfastEnabled: enabledMeals.breakfast,
               lunch: calculatedMealPlan.totalLunch,
@@ -905,9 +970,12 @@ const requestResolver = {
           mealPlanData = {
             ...mealPlanData,
             included: inputMealPlan.included,
-            breakfastEnabled: inputMealPlan.breakfastEnabled ?? mealPlanData.breakfastEnabled,
-            lunchEnabled: inputMealPlan.lunchEnabled ?? mealPlanData.lunchEnabled,
-            dinnerEnabled: inputMealPlan.dinnerEnabled ?? mealPlanData.dinnerEnabled
+            breakfastEnabled:
+              inputMealPlan.breakfastEnabled ?? mealPlanData.breakfastEnabled,
+            lunchEnabled:
+              inputMealPlan.lunchEnabled ?? mealPlanData.lunchEnabled,
+            dinnerEnabled:
+              inputMealPlan.dinnerEnabled ?? mealPlanData.dinnerEnabled
           }
           if (!inputMealPlan.included) {
             mealPlanData.breakfast = 0
@@ -936,7 +1004,9 @@ const requestResolver = {
               : {}),
             ...(isHotelChange && !wantsPlacement
               ? {
-                  ...(placementHotelId ? { hotel: { connect: { id: placementHotelId } } } : {}),
+                  ...(placementHotelId
+                    ? { hotel: { connect: { id: placementHotelId } } }
+                    : {}),
                   roomCategory: null,
                   roomNumber: null,
                   placementAt: null,
@@ -953,13 +1023,7 @@ const requestResolver = {
         const mailOptions = {
           to: `${process.env.EMAIL_RECEIVER}`,
           subject: "Request updated",
-          html: `Пользователь <span style='color:#545873'>${
-            user.name
-          }</span> изменил ${
-            updatedRequest.person
-              ? `заявку <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> для <span style='color:#545873'> ${updatedRequest.person.position} ${updatedRequest.person.name}</span>`
-              : `предварительную бронь <span style='color:#545873'> № ${updatedRequest.requestNumber}</span>`
-          } c <span style='color:#545873'>${formatDate(
+          html: `Даты заявки  <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> обновлены c <span style='color:#545873'>${formatDate(
             request.arrival
           )} - ${formatDate(
             request.departure
@@ -977,7 +1041,7 @@ const requestResolver = {
             context,
             action: "update_request",
             description: "Данные заявки обновлены",
-            fulldescription: `Пользователь ${user.name} обновил заявку № ${updatedRequest.requestNumber} с ${formatDate(request.arrival)} - ${formatDate(request.departure)} до ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
+            fulldescription: `Даты заявки обновлены с ${formatDate(request.arrival)} - ${formatDate(request.departure)} до ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`,
             oldData: request,
             newData: updatedRequest,
             requestId: updatedRequest.id
@@ -986,7 +1050,7 @@ const requestResolver = {
           console.error("Ошибка при логировании изменения заявки:", error)
         }
 
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedRequest })
+        await publishRequestUpdated(updatedRequest.id)
         return updatedRequest
       } catch (error) {
         logger.error("Ошибка при обновлении заявки. ", error)
@@ -1021,7 +1085,7 @@ const requestResolver = {
       } catch (error) {
         console.error("Ошибка при логировании изменения питания заявки:", error)
       }
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: updatedMealPlan })
+      await publishRequestUpdated(request.id)
       return updatedMealPlan
     },
 
@@ -1052,7 +1116,7 @@ const requestResolver = {
           hotelId: request.hotelId,
           requestId: request.id
         })
-        pubsub.publish(REQUEST_UPDATED, { requestUpdated: archiveRequest })
+        await publishRequestUpdated(requestId)
         return archiveRequest
       } else {
         throw new Error("Request is not expired or already archived")
@@ -1114,16 +1178,25 @@ const requestResolver = {
             }
           }
         })
-        await prisma.notification.create({
-          data: {
-            request: { connect: { id: request.id } },
-            airlineId: request.airlineId,
-            description: {
-              action: "cancel_request",
-              description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
+        const cancelRequestSiteAllowed = shouldSendNotification({
+          channel: "site",
+          action: "cancel_request",
+          entityType: "request",
+          entityId: request.id
+        }).allowed
+
+        if (cancelRequestSiteAllowed) {
+          await prisma.notification.create({
+            data: {
+              request: { connect: { id: request.id } },
+              airlineId: request.airlineId,
+              description: {
+                action: "cancel_request",
+                description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
+              }
             }
-          }
-        })
+          })
+        }
 
         const mailOptions = {
           // from: `${process.env.EMAIL_USER}`,
@@ -1132,17 +1205,32 @@ const requestResolver = {
           html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
         }
 
-        if (await AllowedEmailNotification(user, "cancel_request")) {
+        const cancelRequestEmailKarsAllowed =
+          (await AllowedEmailNotification(user, "cancel_request")) &&
+          shouldSendNotification({
+            channel: "email",
+            action: "cancel_request",
+            entityType: "request",
+            entityId: request.id,
+            recipientId: process.env.EMAIL_KARS
+          }).allowed
+
+        if (cancelRequestEmailKarsAllowed) {
           await sendEmail(mailOptions)
         }
 
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "ExtendRequestNotification",
-            action: "cancel_request",
-            ...request
-          }
-        })
+        if (cancelRequestSiteAllowed) {
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "RequestUpdatedNotification",
+              action: "cancel_request",
+              requestId: request.id,
+              arrival: request.arrival,
+              departure: request.departure,
+              airline: request.airline
+            }
+          })
+        }
         pubsub.publish(MESSAGE_SENT, { messageSent: message })
       }
 
@@ -1163,7 +1251,17 @@ const requestResolver = {
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
 
-      if (await AllowedEmailNotification(user, "cancel_request")) {
+      const cancelRequestEmailReceiverAllowed =
+        (await AllowedEmailNotification(user, "cancel_request")) &&
+        shouldSendNotification({
+          channel: "email",
+          action: "cancel_request",
+          entityType: "request",
+          entityId: canceledRequest.id,
+          recipientId: process.env.EMAIL_RECEIVER
+        }).allowed
+
+      if (cancelRequestEmailReceiverAllowed) {
         await sendEmail(mailOptions)
       }
 
@@ -1177,7 +1275,7 @@ const requestResolver = {
         hotelId: request.hotelId,
         requestId: request.id
       })
-      pubsub.publish(REQUEST_UPDATED, { requestUpdated: canceledRequest })
+      await publishRequestUpdated(request.id)
       return canceledRequest
     }
   },
@@ -1189,9 +1287,13 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_CREATED),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "request.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1220,9 +1322,13 @@ const requestResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator(REQUEST_UPDATED),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "request.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

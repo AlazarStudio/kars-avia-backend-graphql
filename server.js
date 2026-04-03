@@ -1,5 +1,4 @@
 import fs from "fs"
-import jwt from "jsonwebtoken"
 import cors from "cors"
 import http from "http"
 import https from "https"
@@ -7,6 +6,8 @@ import dotenv from "dotenv"
 import express from "express"
 import { prisma } from "./prisma.js"
 import { ApolloServer } from "@apollo/server"
+import { GraphQLError, getOperationAST } from "graphql"
+import { randomUUID } from "crypto"
 import { expressMiddleware } from "@apollo/server/express4"
 import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
@@ -20,8 +21,7 @@ import {
   startArchivingJob,
   stopArchivingJob
 } from "./services/cron/cronTasks.js"
-import { buildAuthContext } from "./middlewares/authContext.js"
-import rateLimit from "express-rate-limit"
+import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import filesRouter from "./services/routes/files.js"
@@ -53,13 +53,6 @@ app.get("/health", async (req, res) => {
   }
 })
 
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 минута
-  max: 100, // 100 запросов
-  standardHeaders: true,
-  legacyHeaders: false
-})
-
 // SSL
 const sslOptions = {
   key: fs.readFileSync(process.env.SERVER_KEY),
@@ -79,9 +72,39 @@ const schema = makeExecutableSchema({
   resolvers: mergedResolvers
 })
 
+async function buildGraphqlContext(req) {
+  try {
+    return await buildAuthContext(req.headers.authorization || null)
+  } catch (e) {
+    if (isAuthError(e)) {
+      throw new GraphQLError("Unauthorized", {
+        extensions: {
+          code: "UNAUTHENTICATED",
+          authCode: e.code,
+          http: { status: e.status || 401 }
+        }
+      })
+    }
+    throw e
+  }
+}
+
 /* =========================
    🔌 WS (graphql-ws)
 ========================= */
+// Ping/pong через ws; без ответа в срок — terminate (часто видно как 1006). Редкий ping — риск idle на LB.
+const WS_KEEPALIVE_DEFAULT_MS = 12_000
+const wsKeepAliveParsed = parseInt(process.env.WS_KEEPALIVE_MS ?? "", 10)
+const wsKeepAlive =
+  Number.isFinite(wsKeepAliveParsed) && wsKeepAliveParsed > 0
+    ? wsKeepAliveParsed
+    : WS_KEEPALIVE_DEFAULT_MS
+
+function wsShortUserAgent(ua) {
+  if (!ua || typeof ua !== "string") return "-"
+  return ua.length > 120 ? `${ua.slice(0, 120)}…` : ua
+}
+
 const wsServer = new WebSocketServer({
   server: httpsServer,
   path: "/graphql"
@@ -90,30 +113,84 @@ const wsServer = new WebSocketServer({
 const serverCleanup = useServer(
   {
     schema,
-    context: async (ctx) => {
-      const authHeader = ctx.connectionParams?.Authorization || null
-      const context = await buildAuthContext(authHeader)
+    // JWT и контекст пересобираются на каждую операцию по WS; новый токен — новый ConnectionInit.
+    onConnect(ctx) {
+      ctx.wsSessionId = randomUUID()
+      ctx.wsConnectedAt = Date.now()
+      const req = ctx.extra?.request
+      const xff = req?.headers?.["x-forwarded-for"] || "-"
+      const xri = req?.headers?.["x-real-ip"] || "-"
+      const remote = req?.socket?.remoteAddress || "-"
+      const ua = wsShortUserAgent(req?.headers?.["user-agent"])
+      logger.info(
+        `[WS SESSION] id=${ctx.wsSessionId} xff=${xff} xri=${xri} remote=${remote} ua=${ua}`
+      )
+    },
+
+    context: async (ctx, message, execArgs) => {
+      const authHeader =
+        ctx.connectionParams?.Authorization ||
+        ctx.connectionParams?.authorization ||
+        null
+
+      let context
+      try {
+        context = await buildAuthContext(authHeader)
+      } catch (e) {
+        if (isAuthError(e)) {
+          logger.warn(`[WS AUTH] Unauthorized connection: ${e.code}`)
+          throw new Error("Unauthorized")
+        }
+        throw e
+      }
+
+      const sid = ctx.wsSessionId || "-"
+      const opName = message?.payload?.operationName || "-"
+      let opKind = "-"
+      try {
+        const opAst = getOperationAST(
+          execArgs.document,
+          execArgs.operationName ?? undefined
+        )
+        if (opAst) opKind = opAst.operation
+      } catch {
+        /* ignore */
+      }
 
       logger.info(
-        `[WS CONNECT] type=${context.subjectType || "ANON"} id=${
-          context.subject?.id || "-"
-        }`
+        `[WS OPERATION] id=${sid} op=${opName} kind=${opKind} subjectType=${
+          context.subjectType || "ANON"
+        } subjectId=${context.subject?.id || "-"}`
       )
 
       return context
     },
 
     onDisconnect(ctx, code, reason) {
+      const sid = ctx.wsSessionId || "-"
+      const durationMs =
+        typeof ctx.wsConnectedAt === "number"
+          ? Date.now() - ctx.wsConnectedAt
+          : "-"
       logger.info(
-        `[WS DISCONNECT] code=${code} reason=${reason?.toString() || ""}`
+        `[WS DISCONNECT] id=${sid} durationMs=${durationMs} code=${code} reason=${reason?.toString() || ""}`
       )
+    },
+
+    onClose(ctx, code, reason) {
+      if (!ctx.acknowledged) {
+        logger.info(
+          `[WS CLOSE] handshake_incomplete code=${code} reason=${reason?.toString() || ""}`
+        )
+      }
     },
 
     onError(ctx, msg, errors) {
       logger.error("[WS ERROR]", errors)
     }
   },
-  wsServer
+  wsServer,
+  wsKeepAlive
 )
 
 /* =========================
@@ -149,8 +226,6 @@ await server.start()
 /* =========================
    🌍 EXPRESS
 ========================= */
-// app.use(limiter)
-
 app.use(graphqlUploadExpress())
 
 // Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
@@ -200,8 +275,7 @@ app.use(
   cors(),
   express.json(),
   expressMiddleware(server, {
-    context: async ({ req }) =>
-      buildAuthContext(req.headers.authorization || null)
+    context: async ({ req }) => buildGraphqlContext(req)
   })
 )
 

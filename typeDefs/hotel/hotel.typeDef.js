@@ -7,6 +7,8 @@ const hotelTypeDef = /* GraphQL */ `
     apartment
     studio
     luxe
+    comfort
+    improvedComfort
     onePlace
     twoPlace
     threePlace
@@ -63,6 +65,8 @@ const hotelTypeDef = /* GraphQL */ `
     usStars: String
     airportDistance: String
     discount: String
+    externalLinkCRM: String
+    externalLinkPWA: String
     # logs: [Log]
     logs(pagination: LogPaginationInput): LogConnection!
     savedReport: [SavedReport]
@@ -299,7 +303,10 @@ const hotelTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    hotels(pagination: HotelPaginationInput, filter: HotelFilter): HotelConnection!
+    hotels(
+      pagination: HotelPaginationInput
+      filter: HotelFilter
+    ): HotelConnection!
     hotel(id: ID!): Hotel
   }
 

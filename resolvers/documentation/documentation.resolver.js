@@ -4,14 +4,16 @@ import { uploadImage } from "../../services/files/uploadImage.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { deleteSectionCascade } from "./cascadeDeletefunc.js"
-import { getSectionsHierarchyJSONOptimized,  } from "./getSectionsWithHierarhyFunc.js"
+import { getSectionsHierarchyJSONOptimized } from "./getSectionsWithHierarhyFunc.js"
 
 const documentationResolver = {
   Upload: GraphQLUpload,
   Query: {
-    articles: async (_, __, context) => {
+    articles: async (_, { documentationType }, context) => {
       // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const where = documentationType ? { documentationType } : {}
       return await prisma.article.findMany({
+        where,
         include: {
           section: true
         }
@@ -28,26 +30,28 @@ const documentationResolver = {
         }
       })
     },
-    sectionsWithHierarhy: async (_, { type }, context) => {
+    sectionsWithHierarhy: async (_, { type, documentationType }, context) => {
       // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
-        const sectionsJSON = await getSectionsHierarchyJSONOptimized(type)
+        const sectionsJSON = await getSectionsHierarchyJSONOptimized(
+          type,
+          documentationType
+        )
         return sectionsJSON
       } catch (error) {
         return error
       }
     },
-    sections: async (_, { type }, context) => {
+    sections: async (_, { type, documentationType }, context) => {
       // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       try {
-        if (type) {
-          const sections = await prisma.section.findMany({
-            where: { type: type }
-          })
-          
-          return sections
+        const where = {
+          ...(type && { type }),
+          ...(documentationType && { documentationType })
         }
-        const sections = await prisma.section.findMany({})
+        const sections = await prisma.section.findMany({
+          where
+        })
         return sections
       } catch {
         return new Error("Ошибка запроса")

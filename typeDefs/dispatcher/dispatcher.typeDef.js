@@ -10,6 +10,8 @@ const dispatcherTypeDef = /* GraphQL */ `
     requestId: ID
     reserve: Reserve
     reserveId: ID
+    passengerRequest: PassengerRequest
+    passengerRequestId: ID
     hotel: Hotel
     hotelId: ID
     airline: Airline
@@ -34,11 +36,16 @@ const dispatcherTypeDef = /* GraphQL */ `
     readAt: Date
   }
 
-  input PaginationInput {
+  input NotificationPaginationInput {
     skip: Int
     take: Int
+    # request | reserve | passengerRequest | transfer | omit = все
     type: String
+    # Фильтр по статусу связанной сущности; используйте вместе с type (request / reserve / passengerRequest)
     status: [String]
+    actions: [String]
+    # true — только прочитанные текущим пользователем; false — только непрочитанные; omit — без фильтра
+    read: Boolean
   }
 
   type NotificationConnection {
@@ -49,10 +56,13 @@ const dispatcherTypeDef = /* GraphQL */ `
 
   # union NotificationPayload = AirlineCreated | AirlineUpdated | MessageSent | HotelCreated | HotelUpdated | ReportCreated | RequestCreated | RequestUpdated | ReserveCreated | ReserveHotel | ReserveUpdated | ReservePersons | UserCreated | ExtendRequestNotification
   union NotificationPayload =
-      ExtendRequestNotification
+    | ExtendRequestNotification
     | RequestCreatedNotification
+    | RequestUpdatedNotification
     | ReserveCreatedNotification
     | ReserveUpdatedNotification
+    | PassengerRequestCreatedNotification
+    | PassengerRequestUpdatedNotification
     | MessageSentNotification
 
   # type AirlineCreated {  }
@@ -64,6 +74,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     text: String
     reserveId: ID
     requestId: ID
+    passengerRequestId: ID
   }
 
   # type HotelCreated {  }
@@ -79,7 +90,12 @@ const dispatcherTypeDef = /* GraphQL */ `
     airline: Airline
   }
 
-  # type RequestUpdated {  }
+  type RequestUpdatedNotification {
+    requestId: ID
+    arrival: Date
+    departure: Date
+    airline: Airline
+  }
 
   type ReserveCreatedNotification {
     reserveId: ID
@@ -94,6 +110,16 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveId: ID
     arrival: Date
     departure: Date
+    airline: Airline
+  }
+
+  type PassengerRequestCreatedNotification {
+    passengerRequestId: ID
+    airline: Airline
+  }
+
+  type PassengerRequestUpdatedNotification {
+    passengerRequestId: ID
     airline: Airline
   }
 
@@ -187,7 +213,40 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
+    sitePushNewMessage: Boolean
   }
 
   type NotificationMenu {
@@ -199,7 +258,40 @@ const dispatcherTypeDef = /* GraphQL */ `
     reserveDatesChange: Boolean
     reserveUpdate: Boolean
     reservePlacementChange: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestDatesChange: Boolean
+    passengerRequestUpdate: Boolean
+    passengerRequestPlacementChange: Boolean
+    passengerRequestCancel: Boolean
     newMessage: Boolean
+    emailRequestCreate: Boolean
+    emailRequestDatesChange: Boolean
+    emailRequestPlacementChange: Boolean
+    emailRequestCancel: Boolean
+    emailReserveCreate: Boolean
+    emailReserveDatesChange: Boolean
+    emailReserveUpdate: Boolean
+    emailReservePlacementChange: Boolean
+    emailPassengerRequestCreate: Boolean
+    emailPassengerRequestDatesChange: Boolean
+    emailPassengerRequestUpdate: Boolean
+    emailPassengerRequestPlacementChange: Boolean
+    emailPassengerRequestCancel: Boolean
+    emailNewMessage: Boolean
+    sitePushRequestCreate: Boolean
+    sitePushRequestDatesChange: Boolean
+    sitePushRequestPlacementChange: Boolean
+    sitePushRequestCancel: Boolean
+    sitePushReserveCreate: Boolean
+    sitePushReserveDatesChange: Boolean
+    sitePushReserveUpdate: Boolean
+    sitePushReservePlacementChange: Boolean
+    sitePushPassengerRequestCreate: Boolean
+    sitePushPassengerRequestDatesChange: Boolean
+    sitePushPassengerRequestUpdate: Boolean
+    sitePushPassengerRequestPlacementChange: Boolean
+    sitePushPassengerRequestCancel: Boolean
+    sitePushNewMessage: Boolean
   }
 
   type Query {
@@ -216,8 +308,12 @@ const dispatcherTypeDef = /* GraphQL */ `
     getHotelPositions: [Position]
     getDispatcherPositions: [Position]
     getTransferDispatcherPositions: [Position]
-    getAllNotifications(pagination: PaginationInput): NotificationConnection!
-    dispatcherDepartments(pagination: DispatcherDepartmentPaginationInput): DispatcherDepartmentConnection!
+    getAllNotifications(
+      pagination: NotificationPaginationInput
+    ): NotificationConnection!
+    dispatcherDepartments(
+      pagination: DispatcherDepartmentPaginationInput
+    ): DispatcherDepartmentConnection!
     dispatcherDepartment(id: ID!): DispatcherDepartment
   }
 
@@ -230,8 +326,13 @@ const dispatcherTypeDef = /* GraphQL */ `
     createPosition(input: PositionInput): Position
     updatePosition(input: PositionInput): Position
     allDataUpdate: Boolean
-    createDispatcherDepartment(input: DispatcherDepartmentInput!): DispatcherDepartment!
-    updateDispatcherDepartment(id: ID!, input: DispatcherDepartmentInput!): DispatcherDepartment!
+    createDispatcherDepartment(
+      input: DispatcherDepartmentInput!
+    ): DispatcherDepartment!
+    updateDispatcherDepartment(
+      id: ID!
+      input: DispatcherDepartmentInput!
+    ): DispatcherDepartment!
     deleteDispatcherDepartment(id: ID!): DispatcherDepartment!
   }
 

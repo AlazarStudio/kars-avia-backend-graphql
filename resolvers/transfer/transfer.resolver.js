@@ -6,10 +6,16 @@ import {
   TRANSFER_MESSAGE_SENT,
   TRANSFER_MESSAGE_READ
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
-import { sendNotificationToUsers } from "../../services/infra/fbsendtoken.js"
+import logAction from "../../services/infra/logaction.js"
+import {
+  notifyTransferChatMessage,
+  notifyTransferCreated,
+  notifyTransferUpdated
+} from "../../services/notification/transferPushService.js"
 
 const transferResolver = {
   Query: {
@@ -211,6 +217,10 @@ const transferResolver = {
 
       data.airline = { connect: { id: finalAirlineId } }
 
+      if (context.subjectType === "USER" && context.subject?.id) {
+        data.createdBy = { connect: { id: context.subject.id } }
+      }
+
       // ПАССАЖИРЫ: personsId -> persons.create(...)
       if (Array.isArray(personsId) && personsId.length) {
         data.persons = {
@@ -220,11 +230,61 @@ const transferResolver = {
         }
       }
 
+      // Определение текущего месяца и года для формирования номера заявки
+      const currentDate = new Date()
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
+      const year = String(currentDate.getFullYear()).slice(-2)
+      // Определение границ месяца для поиска последней заявки
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      )
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      )
+      // Поиск последней созданной заявки в текущем месяце
+      const lastRequest = await prisma.transfer.findFirst({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        orderBy: { createdAt: "desc" }
+      })
+      // Формирование последовательного номера заявки
+      let sequenceNumber
+      if (lastRequest) {
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+      } else {
+        sequenceNumber = "0001"
+      }
+
+      // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
+      data.requestNumber = `${sequenceNumber}-${month}${year}t`
+
       const newTransfer = await prisma.transfer.create({
         data
         // если нужно сразу вернуть связанные сущности:
         // include: { driver: true, dispatcher: true, persons: { include: { personal: true } } }
       })
+
+      try {
+        await logAction({
+          context,
+          action: "create_transfer",
+          description: "Трансфер создан",
+          fulldescription: `Создан трансфер ${newTransfer.id}`,
+          newData: {
+            transferId: newTransfer.id,
+            airlineId: newTransfer.airlineId
+          }
+        })
+      } catch (e) {
+        console.error("[TRANSFER] logAction create_transfer failed", e)
+      }
 
       // Создание чата для заявки
       // const newChat = await prisma.chat.create({
@@ -245,6 +305,11 @@ const transferResolver = {
 
       // Автоматическое создание чатов
       await ensureTransferChats(newTransfer)
+
+      await notifyTransferCreated({
+        transfer: newTransfer,
+        context
+      })
 
       pubsub.publish(TRANSFER_CREATED, { transferCreated: newTransfer })
 
@@ -304,10 +369,30 @@ const transferResolver = {
         data
       })
 
+      try {
+        await logAction({
+          context,
+          action: "update_transfer",
+          description: "Трансфер обновлён",
+          fulldescription: `Обновлён трансфер ${updatedTransfer.id}`,
+          oldData: existing,
+          newData: updatedTransfer
+        })
+      } catch (e) {
+        console.error("[TRANSFER] logAction update_transfer failed", e)
+      }
+
       pubsub.publish(TRANSFER_UPDATED, { transferUpdated: updatedTransfer })
 
       // Автоматическое создание чатов при обновлении трансфера
       await ensureTransferChats(updatedTransfer)
+
+      await notifyTransferUpdated({
+        beforeTransfer: existing,
+        afterTransfer: updatedTransfer,
+        input,
+        context
+      })
 
       return updatedTransfer
     },
@@ -574,50 +659,14 @@ const transferResolver = {
 
       // Отправляем Firebase уведомления всем участникам чата (кроме отправителя)
       try {
-        const userIdsToNotify = []
-        const senderId = authorType === "USER" ? senderUserId : null
-        
-        // Добавляем dispatcher (если есть и не является отправителем)
-        if (chat.dispatcherId && chat.dispatcherId !== senderId) {
-          userIdsToNotify.push(chat.dispatcherId)
-        }
-        
-        // Для водителей и пассажиров нужно найти их userId
-        // Если у них нет userId в базе, пропускаем
-        // TODO: Добавить поддержку уведомлений для Driver и AirlinePersonal
-        
-        // Отправляем уведомления только если есть получатели
-        if (userIdsToNotify.length > 0) {
-          const senderName = 
-            authorType === "USER" && message.senderUser
-              ? message.senderUser.name
-              : authorType === "DRIVER" && message.senderDriver
-              ? message.senderDriver.name
-              : authorType === "PERSONAL" && message.senderPersonal
-              ? message.senderPersonal.name
-              : "Пользователь"
-          
-          const transferRoute = chat.transfer
-            ? `${chat.transfer.pickupLocation || ""} → ${chat.transfer.dropoffLocation || ""}`
-            : "Трансфер"
-          
-          await sendNotificationToUsers(
-            userIdsToNotify,
-            "Новое сообщение в чате трансфера",
-            `${senderName}: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`,
-            {
-              type: "transfer_message",
-              chatId: chatId,
-              transferId: chat.transferId,
-              messageId: message.id,
-              senderType: authorType,
-              route: transferRoute
-            }
-          ).catch((error) => {
-            // Логируем ошибку, но не прерываем выполнение
-            console.error("[TRANSFER] Error sending Firebase notification:", error)
-          })
-        }
+        await notifyTransferChatMessage({
+          chat,
+          messageText: text,
+          authorType,
+          senderUserId,
+          senderDriverId,
+          senderPersonalId
+        })
       } catch (error) {
         // Логируем ошибку, но не прерываем выполнение
         console.error("[TRANSFER] Error in Firebase notification logic:", error)
@@ -840,9 +889,13 @@ const transferResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([TRANSFER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -889,9 +942,13 @@ const transferResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([TRANSFER_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -938,9 +995,13 @@ const transferResolver = {
       subscribe: withFilter(
         (_, { transferId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_SENT),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const message = payload.transferMessageSent
@@ -1017,9 +1078,13 @@ const transferResolver = {
       subscribe: withFilter(
         (_, { chatId }) => pubsub.asyncIterator(TRANSFER_MESSAGE_READ),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "transfer.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1100,6 +1165,14 @@ const transferResolver = {
           where: { id: parent.driverId }
         })
         return driver
+      }
+      return null
+    },
+    createdBy: async (parent, _) => {
+      if (parent.createdById) {
+        return await prisma.user.findUnique({
+          where: { id: parent.createdById }
+        })
       }
       return null
     },

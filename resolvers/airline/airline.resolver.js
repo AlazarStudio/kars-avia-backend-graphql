@@ -12,6 +12,7 @@ import {
   AIRLINE_CREATED,
   AIRLINE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 
@@ -136,6 +137,7 @@ const airlineResolver = {
           },
           transferPrices: {
             create: transferPricesData.map((tp) => ({
+              name: tp.name ?? '',
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -311,7 +313,7 @@ const airlineResolver = {
             if (tp.id) {
               await prisma.transferPrice.update({
                 where: { id: tp.id },
-                data: { prices: tp.prices }
+                data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
               })
               await prisma.airportOnTransferPrice.deleteMany({
                 where: { transferPriceId: tp.id }
@@ -343,6 +345,7 @@ const airlineResolver = {
               const created = await prisma.transferPrice.create({
                 data: {
                   airlineId: id,
+                  name: tp.name ?? '',
                   prices: tp.prices,
                   airportOnTransferPrice: {
                     create: (tp.airportIds || []).map((airportId) => ({
@@ -811,9 +814,13 @@ const airlineResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "airline.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -839,9 +846,13 @@ const airlineResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([AIRLINE_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "airline.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -868,6 +879,11 @@ const airlineResolver = {
   Airline: {
     department: async (parent) => {
       return await prisma.airlineDepartment.findMany({
+        where: { airlineId: parent.id, active: true }
+      })
+    },
+    users: async (parent) => {
+      return await prisma.user.findMany({
         where: { airlineId: parent.id, active: true }
       })
     },

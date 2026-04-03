@@ -24,11 +24,13 @@ import {
   USER_CREATED,
   USER_ONLINE
 } from "../../services/infra/pubsub.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
 import { logger } from "../../services/infra/logger.js"
 import { buildClosedSessionStats } from "../../services/user/userActivity.js"
+import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 
 // Создаем транспортёр для отправки email с использованием SMTP
 const transporter = nodemailer.createTransport({
@@ -292,6 +294,7 @@ const userResolver = {
         dispatcherDepartmentId,
         representativeDepartmentId
       } = input
+      const loginNormalized = normalizeUserLogin(login)
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
         userType
@@ -349,12 +352,16 @@ const userResolver = {
       // Проверяем, существует ли пользователь с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [{ email }, { login }]
+          OR: [
+            { email },
+            { login: { equals: loginNormalized, mode: "insensitive" } }
+          ]
         }
       })
 
       if (existingUser) {
-        if (existingUser.email === email && existingUser.login === login) {
+        const existingLoginNorm = normalizeUserLogin(existingUser.login)
+        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -364,7 +371,7 @@ const userResolver = {
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
-        } else if (existingUser.login === login) {
+        } else if (existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
@@ -405,7 +412,7 @@ const userResolver = {
       const createdData = {
         name,
         email,
-        login,
+        login: loginNormalized,
         password: hashedPassword,
         hotelId: hotelId || undefined,
         airlineId: airlineId || undefined,
@@ -470,6 +477,7 @@ const userResolver = {
       // Генерация секрета для двухфакторной аутентификации (2FA)
       const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role, userType } = input
+      const loginNormalized = normalizeUserLogin(login)
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
         userType
@@ -479,12 +487,16 @@ const userResolver = {
       // Проверка на существование пользователя с таким email или login
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [{ email }, { login }]
+          OR: [
+            { email },
+            { login: { equals: loginNormalized, mode: "insensitive" } }
+          ]
         }
       })
 
       if (existingUser) {
-        if (existingUser.email === email && existingUser.login === login) {
+        const existingLoginNorm = normalizeUserLogin(existingUser.login)
+        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -494,7 +506,7 @@ const userResolver = {
             "Пользователь с таким email уже существует",
             "EMAIL_EXISTS"
           )
-        } else if (existingUser.login === login) {
+        } else if (existingLoginNorm === loginNormalized) {
           throw new Error(
             "Пользователь с таким логином уже существует",
             "LOGIN_EXISTS"
@@ -507,7 +519,7 @@ const userResolver = {
         data: {
           name,
           email,
-          login,
+          login: loginNormalized,
           password: hashedPassword,
           role: finalRole,
           userType: finalUserType,
@@ -548,8 +560,19 @@ const userResolver = {
     // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
       const { login, password, fingerprint, token2FA } = input
-      // Ищем пользователя по логину
-      const user = await prisma.user.findUnique({ where: { login } })
+      const identifier = normalizeUserLogin(login)
+      if (!identifier) {
+        throw new Error("Invalid credentials")
+      }
+      // Логин или email в одном поле (без учёта регистра)
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { login: { equals: identifier, mode: "insensitive" } },
+            { email: { equals: identifier, mode: "insensitive" } }
+          ]
+        }
+      })
       if (!user) {
         throw new Error("Invalid credentials")
       }
@@ -684,7 +707,19 @@ const userResolver = {
       if (name !== undefined) updatedData.name = name
       if (email !== undefined) updatedData.email = email
       if (number !== undefined) updatedData.number = number
-      if (login !== undefined) updatedData.login = login
+      if (login !== undefined) {
+        const loginNormalized = normalizeUserLogin(login)
+        const taken = await prisma.user.findFirst({
+          where: {
+            id: { not: id },
+            login: { equals: loginNormalized, mode: "insensitive" }
+          }
+        })
+        if (taken) {
+          throw new Error("Пользователь с таким логином уже существует")
+        }
+        updatedData.login = loginNormalized
+      }
       if (role !== undefined) {
         // Разрешаем изменение роли только администраторам
         if (role !== currentUser.role) {
@@ -900,33 +935,110 @@ const userResolver = {
     // Обновление (refresh) токенов аутентификации.
     // На основании действующего refreshToken генерируется новый accessToken и новый refreshToken.
     refreshToken: async (_, { refreshToken, fingerprint }) => {
-      const user = await prisma.user.findFirst({ where: { refreshToken } })
-      if (!user) {
+      const [user, driver, airlinePersonal] = await Promise.all([
+        prisma.user.findFirst({ where: { refreshToken } }),
+        prisma.driver.findFirst({ where: { refreshToken } }),
+        prisma.airlinePersonal.findFirst({ where: { refreshToken } })
+      ])
+
+      const candidates = [
+        user ? { subjectType: "USER", entity: user } : null,
+        driver ? { subjectType: "DRIVER", entity: driver } : null,
+        airlinePersonal
+          ? { subjectType: "AIRLINE_PERSONAL", entity: airlinePersonal }
+          : null
+      ].filter(Boolean)
+
+      if (!candidates.length) {
         throw new Error("Invalid refresh token")
       }
-      if (fingerprint != user.fingerprint) {
+
+      if (candidates.length > 1) {
+        throw new Error("Ambiguous refresh token")
+      }
+
+      const { subjectType, entity } = candidates[0]
+
+      const normalizedFingerprint =
+        typeof fingerprint === "string" ? fingerprint.trim() : ""
+
+      if (entity.fingerprint && normalizedFingerprint !== entity.fingerprint) {
         throw new Error("Invalid fingerprint")
       }
+
       const newSessionToken = uuidv4()
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken: newSessionToken }
+      let jwtPayload = {
+        subjectType,
+        sessionToken: newSessionToken
+      }
+
+      if (subjectType === "USER") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.user.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          userId: entity.id,
+          role: entity.role,
+          hotelId: entity.hotelId,
+          airlineId: entity.airlineId,
+          airlineDepartmentId: entity.airlineDepartmentId,
+          dispatcherDepartmentId: entity.dispatcherDepartmentId,
+          representativeDepartmentId: entity.representativeDepartmentId
+        }
+      }
+
+      if (subjectType === "DRIVER") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.driver.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          driverId: entity.id,
+          role: entity.role || "DRIVER",
+          organizationId: entity.organizationId,
+          registrationStatus: entity.registrationStatus
+        }
+      }
+
+      if (subjectType === "AIRLINE_PERSONAL") {
+        const updateData = { refreshToken: newSessionToken }
+        if (!entity.fingerprint && normalizedFingerprint) {
+          updateData.fingerprint = normalizedFingerprint
+        }
+        await prisma.airlinePersonal.update({
+          where: { id: entity.id },
+          data: updateData
+        })
+        jwtPayload = {
+          ...jwtPayload,
+          airlinePersonalId: entity.id,
+          role: entity.role,
+          airlineId: entity.airlineId,
+          departmentId: entity.departmentId
+        }
+      }
+
+      const newAccessToken = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
+        expiresIn: "24h"
       })
 
-      const newAccessToken = jwt.sign(
-        {
-          subjectType: "USER",
-          userId: user.id,
-          role: user.role,
-          hotelId: user.hotelId,
-          airlineId: user.airlineId,
-          sessionToken: newSessionToken
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-
       return {
+        id: entity.id,
+        name: entity.name,
+        number: entity.number,
+        email: entity.email,
+        role: entity.role,
         token: newAccessToken,
         refreshToken: newSessionToken
       }
@@ -1073,9 +1185,13 @@ const userResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "user.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -1091,9 +1207,13 @@ const userResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([USER_ONLINE]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "user.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

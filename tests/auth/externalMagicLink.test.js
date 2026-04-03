@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import {
   createMagicLinkTokenPair,
   evaluateMagicLinkRequestLimits,
+  EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR,
   hashMagicLinkToken,
   nextSessionExpiry,
   validateMagicLinkRecord
@@ -83,21 +84,21 @@ test("external magic link: issue limits block frequent and hourly overflow", () 
   const tooManyPerHour = evaluateMagicLinkRequestLimits({
     now,
     latestToken: null,
-    issuedInLastHour: 5
+    issuedInLastHour: EXTERNAL_MAGIC_LINK_MAX_REQUESTS_PER_HOUR
   })
   assert.equal(tooManyPerHour.allowed, false)
   assert.equal(tooManyPerHour.reason, "TOO_MANY_PER_HOUR")
 })
 
-test("external session extension: adds 24h from max(now, session)", () => {
+test("external session extension: adds 48h from max(now, session)", () => {
   const now = new Date("2026-03-06T10:00:00.000Z")
   const future = new Date("2026-03-06T12:00:00.000Z")
 
   const fromNow = nextSessionExpiry(null, now)
-  assert.equal(fromNow.toISOString(), "2026-03-07T10:00:00.000Z")
+  assert.equal(fromNow.toISOString(), "2026-03-08T10:00:00.000Z")
 
   const fromFuture = nextSessionExpiry(future, now)
-  assert.equal(fromFuture.toISOString(), "2026-03-07T12:00:00.000Z")
+  assert.equal(fromFuture.toISOString(), "2026-03-08T12:00:00.000Z")
 })
 
 test("external magic link builder: includes kind and token", () => {

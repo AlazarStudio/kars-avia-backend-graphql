@@ -20,6 +20,7 @@ datasource db {
 // Hotel
 // Log
 // Passenger
+// PassengerRequest
 // Report
 // Request
 // Reserve
@@ -49,6 +50,12 @@ enum Role {
 enum UserType {
   DEFAULT
   REPRESENTATIVE
+}
+
+enum DeviceTokenSubjectType {
+  USER
+  DRIVER
+  AIRLINE_PERSONAL
 }
 
 enum TwoFAMethod {
@@ -98,19 +105,19 @@ type DailyMeal {
 }
 
 type Information {
-  country     String?
-  city        String?
-  address     String?
-  index       String?
-  email       String?
-  number      String?
-  inn         String?
-  ogrn        String?
-  rs          String?
-  bank        String?
-  bik         String?
-  link        String?
-  description String?
+  country     String? @default("")
+  city        String? @default("")
+  address     String? @default("")
+  index       String? @default("")
+  email       String? @default("")
+  number      String? @default("")
+  inn         String? @default("")
+  ogrn        String? @default("")
+  rs          String? @default("")
+  bank        String? @default("")
+  bik         String? @default("")
+  link        String? @default("")
+  description String? @default("")
   // airport String?
 }
 
@@ -144,35 +151,73 @@ type NotificationDescription {
 
 type NotificationMenu {
   // Заявки
-  requestCreate          Boolean @default(true) // создание заявки
-  requestDatesChange     Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
-  requestPlacementChange Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
-  requestCancel          Boolean @default(true) // отмена заявки
+  requestCreate                   Boolean @default(true) // создание заявки
+  requestDatesChange              Boolean @default(true) // изменение дат заявки (запрос на продление / обновление дат)
+  requestPlacementChange          Boolean @default(true) // смена размещения заявки (изменение комнаты в hotelChess)
+  requestCancel                   Boolean @default(true) // отмена заявки
   // Брони
-  reserveCreate          Boolean @default(true) // создание брони
-  reserveDatesChange     Boolean @default(true) // запрос на изменение дат брони
-  reserveUpdate          Boolean @default(true) // обновление брони (даты, данные)
-  reservePlacementChange Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  reserveCreate                   Boolean @default(true) // создание брони
+  reserveDatesChange              Boolean @default(true) // запрос на изменение дат брони
+  reserveUpdate                   Boolean @default(true) // обновление брони (даты, данные)
+  reservePlacementChange          Boolean @default(true) // смена размещения брони (изменение комнаты в hotelChess)
+  // Пассажирские заявки
+  passengerRequestCreate          Boolean @default(true)
+  passengerRequestDatesChange     Boolean @default(true)
+  passengerRequestUpdate          Boolean @default(true)
+  passengerRequestPlacementChange Boolean @default(true)
+  passengerRequestCancel          Boolean @default(true)
   // Сообщения
-  newMessage             Boolean @default(true) // новое сообщение в чате заявки/брони
+  newMessage                      Boolean @default(true) // новое сообщение в чате заявки/брони
+
+  // Email-канал
+  emailRequestCreate                   Boolean @default(true)
+  emailRequestDatesChange              Boolean @default(true)
+  emailRequestPlacementChange          Boolean @default(true)
+  emailRequestCancel                   Boolean @default(true)
+  emailReserveCreate                   Boolean @default(true)
+  emailReserveDatesChange              Boolean @default(true)
+  emailReserveUpdate                   Boolean @default(true)
+  emailReservePlacementChange          Boolean @default(true)
+  emailPassengerRequestCreate          Boolean @default(true)
+  emailPassengerRequestDatesChange     Boolean @default(true)
+  emailPassengerRequestUpdate          Boolean @default(true)
+  emailPassengerRequestPlacementChange Boolean @default(true)
+  emailPassengerRequestCancel          Boolean @default(true)
+  emailNewMessage                      Boolean @default(true)
+
+  // Сайт/Push-канал
+  sitePushRequestCreate                   Boolean @default(true)
+  sitePushRequestDatesChange              Boolean @default(true)
+  sitePushRequestPlacementChange          Boolean @default(true)
+  sitePushRequestCancel                   Boolean @default(true)
+  sitePushReserveCreate                   Boolean @default(true)
+  sitePushReserveDatesChange              Boolean @default(true)
+  sitePushReserveUpdate                   Boolean @default(true)
+  sitePushReservePlacementChange          Boolean @default(true)
+  sitePushPassengerRequestCreate          Boolean @default(true)
+  sitePushPassengerRequestDatesChange     Boolean @default(true)
+  sitePushPassengerRequestUpdate          Boolean @default(true)
+  sitePushPassengerRequestPlacementChange Boolean @default(true)
+  sitePushPassengerRequestCancel          Boolean @default(true)
+  sitePushNewMessage                      Boolean @default(true)
 }
 
 type Price {
-  priceApartment     Float? @default(0)
-  priceStudio        Float? @default(0)
-  priceLuxe          Float? @default(0)
-  // priceComfort  Float? @default(0)
-  // priceImprovedComfort  Float? @default(0)
-  priceOneCategory   Float? @default(0)
-  priceTwoCategory   Float? @default(0)
-  priceThreeCategory Float? @default(0)
-  priceFourCategory  Float? @default(0)
-  priceFiveCategory  Float? @default(0)
-  priceSixCategory   Float? @default(0)
-  priceSevenCategory Float? @default(0)
-  priceEightCategory Float? @default(0)
-  priceNineCategory  Float? @default(0)
-  priceTenCategory   Float? @default(0)
+  priceApartment       Float? @default(0)
+  priceStudio          Float? @default(0)
+  priceLuxe            Float? @default(0)
+  priceComfort         Float? @default(0)
+  priceImprovedComfort Float? @default(0)
+  priceOneCategory     Float? @default(0)
+  priceTwoCategory     Float? @default(0)
+  priceThreeCategory   Float? @default(0)
+  priceFourCategory    Float? @default(0)
+  priceFiveCategory    Float? @default(0)
+  priceSixCategory     Float? @default(0)
+  priceSevenCategory   Float? @default(0)
+  priceEightCategory   Float? @default(0)
+  priceNineCategory    Float? @default(0)
+  priceTenCategory     Float? @default(0)
   // priceelevenCategory    Float? @default(0)
   // pricetwelveCategory    Float? @default(0)
   // pricethirteenCategory  Float? @default(0)
@@ -214,23 +259,25 @@ model City {
 }
 
 model Notification {
-  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime                 @default(now()) @map("created_at")
-  updatedAt   DateTime                 @updatedAt @map("updated_at")
-  readBy      NotificationRead[]
-  request     Request?                 @relation(fields: [requestId], references: [id])
-  requestId   String?                  @db.ObjectId
-  reserve     Reserve?                 @relation(fields: [reserveId], references: [id])
-  reserveId   String?                  @db.ObjectId
-  hotel       Hotel?                   @relation(fields: [hotelId], references: [id])
-  hotelId     String?                  @db.ObjectId
-  airline     Airline?                 @relation(fields: [airlineId], references: [id])
-  airlineId   String?                  @db.ObjectId
-  chat        Chat?                    @relation(fields: [chatId], references: [id])
-  chatId      String?                  @db.ObjectId
-  message     Message?                 @relation(fields: [messageId], references: [id])
-  messageId   String?                  @db.ObjectId
-  description NotificationDescription?
+  id                 String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  readBy             NotificationRead[]
+  request            Request?                 @relation(fields: [requestId], references: [id])
+  requestId          String?                  @db.ObjectId
+  reserve            Reserve?                 @relation(fields: [reserveId], references: [id])
+  reserveId          String?                  @db.ObjectId
+  passengerRequest   PassengerRequest?        @relation(fields: [passengerRequestId], references: [id])
+  passengerRequestId String?                  @db.ObjectId
+  hotel              Hotel?                   @relation(fields: [hotelId], references: [id])
+  hotelId            String?                  @db.ObjectId
+  airline            Airline?                 @relation(fields: [airlineId], references: [id])
+  airlineId          String?                  @db.ObjectId
+  chat               Chat?                    @relation(fields: [chatId], references: [id])
+  chatId             String?                  @db.ObjectId
+  message            Message?                 @relation(fields: [messageId], references: [id])
+  messageId          String?                  @db.ObjectId
+  description        NotificationDescription?
 }
 
 model NotificationRead {
@@ -293,7 +340,6 @@ model Airline {
   airlineContract               airlineContract[]
   passengerRequests             PassengerRequest[]
   transfers                     Transfer[]
-  externalUsers                 ExternalUser[]
   transferPrices                TransferPrice[]
 }
 
@@ -347,6 +393,7 @@ model AirlinePersonal {
   transferChatPersonals TransferChatPersonal[]
   transferMessages      TransferMessage[]
   transferMessageReads  TransferMessageRead[]
+  deviceTokens          device_tokens[]
 }
 
 model AirlinePrice {
@@ -425,22 +472,24 @@ model ChatUser {
 }
 
 model Message {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  text            String
-  sender          User           @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId        String         @db.ObjectId
-  receiver        User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: NoAction)
-  receiverId      String?        @db.ObjectId
-  chat            Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  chatId          String?        @db.ObjectId
-  supportTicket   SupportTicket? @relation(fields: [supportTicketId], references: [id], onDelete: SetNull)
-  supportTicketId String?        @db.ObjectId
-  isRead          Boolean        @default(false)
-  readBy          MessageRead[]
-  separator       String?
-  Notification    Notification[]
+  id                   String         @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+  text                 String
+  sender               User?          @relation(name: "messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId             String?        @db.ObjectId
+  senderExternalUserId String?        @db.ObjectId
+  senderName           String?
+  receiver             User?          @relation(name: "messageReceiver", fields: [receiverId], references: [id], onDelete: NoAction)
+  receiverId           String?        @db.ObjectId
+  chat                 Chat?          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId               String?        @db.ObjectId
+  supportTicket        SupportTicket? @relation(fields: [supportTicketId], references: [id], onDelete: SetNull)
+  supportTicketId      String?        @db.ObjectId
+  isRead               Boolean        @default(false)
+  readBy               MessageRead[]
+  separator            String?
+  Notification         Notification[]
 }
 
 model MessageRead {
@@ -595,6 +644,8 @@ model Article {
 
   type String
 
+  documentationType DocumentationType?
+
   // Раздел, к которому принадлежит статья
   sectionId String?  @db.ObjectId
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -647,6 +698,8 @@ model Section {
 
   type String
 
+  documentationType DocumentationType?
+
   // Индекс для быстрого поиска по родителю
   @@index([parentId])
 }
@@ -659,6 +712,8 @@ enum Category {
   apartment
   studio
   luxe
+  comfort
+  improvedComfort
   onePlace
   twoPlace
   threePlace
@@ -732,6 +787,8 @@ model Hotel {
   usStars            String?
   airportDistance    String?
   discount           String?
+  externalLinkCRM    String?
+  externalLinkPWA    String?
   savedReport        SavedReport[]
   chat               Chat[]
   prices             Price?
@@ -870,11 +927,13 @@ enum PassengerServiceStatus {
 }
 
 type PassengerLivingService {
-  plan      PassengerServicePlan? // план по людям/времени заселения
-  status    PassengerServiceStatus           @default(NEW)
-  times     PassengerStatusTimes?
-  hotels    PassengerServiceHotel[] // таб «Проживание»
-  evictions PassengerLivingServiceEviction[] // история выселений
+  plan                  PassengerServicePlan? // план по людям/времени заселения
+  status                PassengerServiceStatus           @default(NEW)
+  times                 PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt      DateTime?
+  hotels                PassengerServiceHotel[] // таб «Проживание»
+  evictions             PassengerLivingServiceEviction[] // история выселений
 }
 
 type PassengerServiceDriverPerson {
@@ -888,6 +947,7 @@ type PassengerServiceDriver {
   peopleCount         Int?
   pickupAt            DateTime? // время подачи / выезда
   link                String? // ссылка на маршрут, вотсап и т.д.
+  linkPWA             String?
   addressFrom         String?
   addressTo           String?
   description         String? // описание заявки (для трансфера багажа)
@@ -901,7 +961,9 @@ type PassengerServiceHotel {
   name        String // снэпшот названия
   peopleCount Int // «Количество мест»
   address     String?
-  link        String? // колонка «Ссылка» в таблице
+  link        String? // колонка «Ссылка» в таблице (legacy)
+  linkCRM     String?
+  linkPWA     String?
   people      PassengerServiceHotelPerson[] // брони по отелю
 }
 
@@ -932,6 +994,13 @@ type PassengerLivingServiceEviction {
   evictedAt  DateTime?
 }
 
+type PassengerRepresentativeLink {
+  representativeDepartmentId   String? @db.ObjectId
+  representativeDepartmentName String?
+  linkCRM                      String?
+  linkPWA                      String?
+}
+
 type PassengerServicePerson {
   fullName String
   issuedAt DateTime? // время выдачи (14:30 в таблице)
@@ -955,10 +1024,12 @@ type PassengerStatusTimes {
 }
 
 type PassengerTransferService {
-  plan    PassengerServicePlan?
-  status  PassengerServiceStatus   @default(NEW)
-  times   PassengerStatusTimes?
-  drivers PassengerServiceDriver[]
+  plan                  PassengerServicePlan?
+  status                PassengerServiceStatus   @default(NEW)
+  times                 PassengerStatusTimes?
+  earlyCompletionReason String?
+  earlyCompletedAt      DateTime?
+  drivers               PassengerServiceDriver[]
 }
 
 type PassengerWaterFoodService {
@@ -1016,6 +1087,7 @@ model PassengerRequest {
   statusTimes           PassengerStatusTimes?
   earlyCompletionReason String?
   earlyCompletedAt      DateTime?
+  cancelReason          String?
 
   // кто создал (представитель)
   createdBy   User   @relation(fields: [createdById], references: [id])
@@ -1024,12 +1096,16 @@ model PassengerRequest {
   // общий чат по заявке (если понадобится)
   chats Chat[]
 
+  // ссылки для представительств по заявке
+  representativeLinks PassengerRepresentativeLink[]
+
   // сохранённые отчёты по отелям (таблица отчёта — данные строк)
-  hotelReports  PassengerRequestHotelReport[]
-  externalUsers PassengerRequestExternalUser[]
+  hotelReports PassengerRequestHotelReport[]
 
   // история действий по заявке
   logs Log[]
+
+  notifications Notification[]
 }
 
 /// Запись отчёта по отелю в заявке (все поля таблицы отчёта)
@@ -1188,9 +1264,14 @@ enum TransferStatus {
   CANCELLED
 }
 
-enum PassengerRequestExternalAccountType {
+enum ExternalAccessType {
   CRM
-  PVA
+  PWA
+}
+
+enum ExternalScope {
+  HOTEL
+  DRIVER
   REPRESENTATIVE
 }
 
@@ -1244,6 +1325,8 @@ model Driver {
   TransferChat           TransferChat[]
   TransferMessageRead    TransferMessageRead[]
   transferPrices         TransferPrice[]
+  externalUsers          ExternalUser[]
+  deviceTokens           device_tokens[]
 }
 
 // --- Organization
@@ -1255,23 +1338,24 @@ model Organization {
   drivers               Driver[]
   active                Boolean                @default(true)
   organizationContracts organizationContract[]
-  externalUsers         ExternalUser[]
   transferPrices        TransferPrice[]
 }
 
 // --- Transfer (заявка)
 model Transfer {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  requestNumber    String   @unique
   fromAddress      String // адрес откуда
   toAddress        String // адрес куда
   additionalPoints String[] // доп. точки
   passengersCount  Int // кол-во пассажиров
 
-  dispatcher   User?   @relation(fields: [dispatcherId], references: [id])
+  dispatcher   User?   @relation("TransferDispatcher", fields: [dispatcherId], references: [id])
   dispatcherId String? @db.ObjectId
+  createdBy    User?   @relation("TransferCreator", fields: [createdById], references: [id])
+  createdById  String? @db.ObjectId
 
   // назначенный водитель (может быть пусто до назначения)
   driver   Driver? @relation(fields: [driverId], references: [id])
@@ -1416,13 +1500,18 @@ model TransferReview {
 // User ---------------- ↓↓↓↓ 
 
 model device_tokens {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  platform  String
-  token     String
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  subjectType       DeviceTokenSubjectType?
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String?                @db.ObjectId
+  driver            Driver?                @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverId          String?                @db.ObjectId
+  airlinePersonal   AirlinePersonal?       @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
+  airlinePersonalId String?                @db.ObjectId
+  platform          String
+  token             String
 }
 
 model ExternalUser {
@@ -1431,12 +1520,12 @@ model ExternalUser {
   updatedAt        DateTime                     @updatedAt @map("updated_at")
   email            String                       @unique
   name             String?
+  scope            ExternalScope
+  accessType       ExternalAccessType           @default(CRM)
   hotel            Hotel?                       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
   hotelId          String?                      @db.ObjectId
-  organization     Organization?                @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  organizationId   String?                      @db.ObjectId
-  airline          Airline?                     @relation(fields: [airlineId], references: [id], onDelete: SetNull)
-  airlineId        String?                      @db.ObjectId
+  driver           Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  driverId         String?                      @db.ObjectId
   active           Boolean                      @default(true)
   refreshToken     String?
   sessionExpiresAt DateTime?
@@ -1458,45 +1547,6 @@ model ExternalUserMagicLinkToken {
   createdByAdminId String?      @db.ObjectId
 
   @@index([externalUserId, createdAt])
-  @@index([expiresAt])
-  @@index([usedAt])
-}
-
-model PassengerRequestExternalUser {
-  id                          String                                       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt                   DateTime                                     @default(now()) @map("created_at")
-  updatedAt                   DateTime                                     @updatedAt @map("updated_at")
-  email                       String?
-  login                       String                                       @unique
-  accountType                 PassengerRequestExternalAccountType          @default(CRM)
-  name                        String?
-  passengerRequest            PassengerRequest                             @relation(fields: [passengerRequestId], references: [id], onDelete: Cascade)
-  passengerRequestId          String                                       @db.ObjectId
-  passengerServiceHotelItemId String?
-  active                      Boolean                                      @default(true)
-  refreshToken                String?
-  sessionExpiresAt            DateTime?
-  magicLinkTokens             PassengerRequestExternalUserMagicLinkToken[]
-
-  @@index([passengerRequestId])
-  @@index([passengerServiceHotelItemId])
-}
-
-model PassengerRequestExternalUserMagicLinkToken {
-  id                             String                       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt                      DateTime                     @default(now()) @map("created_at")
-  updatedAt                      DateTime                     @updatedAt @map("updated_at")
-  passengerRequestExternalUser   PassengerRequestExternalUser @relation(fields: [passengerRequestExternalUserId], references: [id], onDelete: Cascade)
-  passengerRequestExternalUserId String                       @db.ObjectId
-  tokenHash                      String                       @unique
-  rawToken                       String?
-  magicLinkUrl                   String?
-  expiresAt                      DateTime
-  usedAt                         DateTime?
-  createdByAdmin                 User?                        @relation("PassengerRequestExternalUserMagicLinkTokenCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
-  createdByAdminId               String?                      @db.ObjectId
-
-  @@index([passengerRequestExternalUserId, createdAt])
   @@index([expiresAt])
   @@index([usedAt])
 }
@@ -1582,68 +1632,68 @@ model PositionOnDepartment {
 }
 
 model User {
-  id                                     String                                       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt                              DateTime                                     @default(now()) @map("created_at")
-  updatedAt                              DateTime                                     @updatedAt @map("updated_at")
-  lastSeen                               DateTime?
-  isOnline                               Boolean                                      @default(false)
-  sessionStartedAt                       DateTime?
-  totalTimeMinutes                       Int                                          @default(0)
-  dailyTimeStats                         UserDailyTime[]
-  name                                   String
-  email                                  String                                       @unique
-  number                                 String?
-  login                                  String                                       @unique
-  password                               String
-  images                                 String[]
-  role                                   Role
-  userType                               UserType                                     @default(DEFAULT)
+  id                            String                       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                     DateTime                     @default(now()) @map("created_at")
+  updatedAt                     DateTime                     @updatedAt @map("updated_at")
+  lastSeen                      DateTime?
+  isOnline                      Boolean                      @default(false)
+  sessionStartedAt              DateTime?
+  totalTimeMinutes              Int                          @default(0)
+  dailyTimeStats                UserDailyTime[]
+  name                          String
+  email                         String                       @unique
+  number                        String?
+  login                         String                       @unique
+  password                      String
+  images                        String[]
+  role                          Role
+  userType                      UserType                     @default(DEFAULT)
   // position             String?
-  sender                                 Request[]                                    @relation(name: "sender")
-  receiver                               Request[]                                    @relation(name: "receiver")
-  reserve                                Reserve[]
-  airline                                Airline?                                     @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId                              String?                                      @db.ObjectId
-  airlineDepartment                      AirlineDepartment?                           @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
-  airlineDepartmentId                    String?                                      @db.ObjectId
-  hotel                                  Hotel?                                       @relation(fields: [hotelId], references: [id], onDelete: NoAction)
-  hotelId                                String?                                      @db.ObjectId
-  chats                                  ChatUser[]
-  messageSender                          Message[]                                    @relation(name: "messageSender")
-  messageReceiver                        Message[]                                    @relation(name: "messageReceiver")
-  logs                                   Log[]
-  dispatcher                             Boolean?                                     @default(false)
-  support                                Boolean?                                     @default(false)
-  refreshToken                           String?
-  fingerprint                            String?
-  is2FAEnabled                           Boolean                                      @default(false)
-  twoFASecret                            String?
-  twoFAMethod                            TwoFAMethod?
-  messageRead                            MessageRead[]
-  NotificationRead                       NotificationRead[]
-  resetPasswordToken                     String? // для хранения токена восстановления
-  resetPasswordExpires                   DateTime? // срок действия токена
-  active                                 Boolean                                      @default(true)
-  position                               Position?                                    @relation(fields: [positionId], references: [id])
-  positionId                             String?                                      @db.ObjectId
-  postedRequests                         Request[]                                    @relation(name: "posted")
-  passengerRequests                      PassengerRequest[]
-  transfers                              Transfer[]
-  transferChats                          TransferChat[]
-  transferMessages                       TransferMessage[]
-  transferMessageReads                   TransferMessageRead[]
-  deviceTokens                           device_tokens[]
+  sender                        Request[]                    @relation(name: "sender")
+  receiver                      Request[]                    @relation(name: "receiver")
+  reserve                       Reserve[]
+  airline                       Airline?                     @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId                     String?                      @db.ObjectId
+  airlineDepartment             AirlineDepartment?           @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId           String?                      @db.ObjectId
+  hotel                         Hotel?                       @relation(fields: [hotelId], references: [id], onDelete: NoAction)
+  hotelId                       String?                      @db.ObjectId
+  chats                         ChatUser[]
+  messageSender                 Message[]                    @relation(name: "messageSender")
+  messageReceiver               Message[]                    @relation(name: "messageReceiver")
+  logs                          Log[]
+  dispatcher                    Boolean?                     @default(false)
+  support                       Boolean?                     @default(false)
+  refreshToken                  String?
+  fingerprint                   String?
+  is2FAEnabled                  Boolean                      @default(false)
+  twoFASecret                   String?
+  twoFAMethod                   TwoFAMethod?
+  messageRead                   MessageRead[]
+  NotificationRead              NotificationRead[]
+  resetPasswordToken            String? // для хранения токена восстановления
+  resetPasswordExpires          DateTime? // срок действия токена
+  active                        Boolean                      @default(true)
+  position                      Position?                    @relation(fields: [positionId], references: [id])
+  positionId                    String?                      @db.ObjectId
+  postedRequests                Request[]                    @relation(name: "posted")
+  passengerRequests             PassengerRequest[]
+  transfersAsDispatcher         Transfer[]                    @relation("TransferDispatcher")
+  transfersCreatedBy            Transfer[]                    @relation("TransferCreator")
+  transferChats                 TransferChat[]
+  transferMessages              TransferMessage[]
+  transferMessageReads          TransferMessageRead[]
+  deviceTokens                  device_tokens[]
   // dispatcherDepartment и airlineDepartment взаимоисключающие — у пользователя может быть только один
-  dispatcherDepartment                   DispatcherDepartment?                        @relation(fields: [dispatcherDepartmentId], references: [id])
-  dispatcherDepartmentId                 String?                                      @db.ObjectId
-  representativeDepartment               RepresentativeDepartment?                    @relation(fields: [representativeDepartmentId], references: [id])
-  representativeDepartmentId             String?                                      @db.ObjectId
-  assignedSupportChats                   Chat[]                                       @relation("AssignedSupportChats")
-  resolvedSupportChats                   Chat[]                                       @relation("ResolvedSupportChats")
-  assignedTickets                        SupportTicket[]                              @relation("AssignedTickets")
-  resolvedTickets                        SupportTicket[]                              @relation("ResolvedTickets")
-  createdExternalUserMagicLinks          ExternalUserMagicLinkToken[]                 @relation("ExternalUserMagicLinkTokenCreatedByAdmin")
-  createdPassengerExternalUserMagicLinks PassengerRequestExternalUserMagicLinkToken[] @relation("PassengerRequestExternalUserMagicLinkTokenCreatedByAdmin")
+  dispatcherDepartment          DispatcherDepartment?        @relation(fields: [dispatcherDepartmentId], references: [id])
+  dispatcherDepartmentId        String?                      @db.ObjectId
+  representativeDepartment      RepresentativeDepartment?    @relation(fields: [representativeDepartmentId], references: [id])
+  representativeDepartmentId    String?                      @db.ObjectId
+  assignedSupportChats          Chat[]                       @relation("AssignedSupportChats")
+  resolvedSupportChats          Chat[]                       @relation("ResolvedSupportChats")
+  assignedTickets               SupportTicket[]              @relation("AssignedTickets")
+  resolvedTickets               SupportTicket[]              @relation("ResolvedTickets")
+  createdExternalUserMagicLinks ExternalUserMagicLinkToken[] @relation("ExternalUserMagicLinkTokenCreatedByAdmin")
 }
 
 // User ---------------- ↑↑↑↑
@@ -1665,6 +1715,7 @@ model TransferPrice {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  name      String? // название (по аналогии с AirlinePrice)
 
   prices TransferPrices // вложенный тип цен
 

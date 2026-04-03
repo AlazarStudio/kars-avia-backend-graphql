@@ -12,6 +12,8 @@ import {
   RESERVE_PERSONS,
   RESERVE_UPDATED
 } from "../../services/infra/pubsub.js"
+import { publishReserveUpdated } from "../../services/infra/subscriptionPayloads.js"
+import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
@@ -28,6 +30,7 @@ import {
 } from "../../services/reserve/generateReservePas.js"
 import path from "path"
 import fs from "fs"
+import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -173,7 +176,7 @@ const reserveResolver = {
             console.error("Ошибка при логировании открытия заявки:", error)
           }
         }
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        await publishReserveUpdated(updatedReserve.id)
         return updatedReserve
       }
       return reserve
@@ -358,23 +361,35 @@ const reserveResolver = {
         airlineId: newReserve.airlineId
       })
       // Публикация уведомления и события создания резерва.
-      await prisma.notification.create({
-        data: {
-          reserve: { connect: { id: newReserve.id } },
-          airline: { connect: { id: airlineId } },
-          description: {
-            action: "create_reserve",
-            description: `Создана заявка <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span> `
+      const createReserveSiteAllowed = shouldSendNotification({
+        channel: "site",
+        action: "create_reserve",
+        entityType: "reserve",
+        entityId: newReserve.id
+      }).allowed
+
+      if (createReserveSiteAllowed) {
+        await prisma.notification.create({
+          data: {
+            reserve: { connect: { id: newReserve.id } },
+            airline: { connect: { id: airlineId } },
+            description: {
+              action: "create_reserve",
+              description: `Создана заявка <span style='color:#545873'>${newReserve.reserveNumber}</span> в аэропорт <span style='color:#545873'>${newReserve.airport.name}</span> `
+            }
           }
-        }
-      })
-      pubsub.publish(NOTIFICATION, {
-        notification: {
-          __typename: "ReserveCreatedNotification",
-          action: "create_reserve",
-          ...newReserve
-        }
-      })
+        })
+        pubsub.publish(NOTIFICATION, {
+          notification: {
+            __typename: "ReserveCreatedNotification",
+            action: "create_reserve",
+            reserveId: newReserve.id,
+            arrival: newReserve.arrival,
+            departure: newReserve.departure,
+            airline: newReserve.airline
+          }
+        })
+      }
       pubsub.publish(RESERVE_CREATED, { reserveCreated: newReserve })
       return newReserve
     },
@@ -481,27 +496,39 @@ const reserveResolver = {
               }
             }
           })
-          await prisma.notification.create({
-            data: {
-              reserve: { connect: { id: extendReserve.id } },
-              airline: { connect: { id: reserve.airlineId } },
-              description: {
-                action: "reserve_dates_change",
-                description: `Запрос на изменение дат заявки ${
-                  reserve.reserveNumber
-                } с ${formatDate(reserve.arrival)} - ${formatDate(
-                  reserve.departure
-                )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+          const reserveDatesChangeSiteAllowed = shouldSendNotification({
+            channel: "site",
+            action: "reserve_dates_change",
+            entityType: "reserve",
+            entityId: extendReserve.id
+          }).allowed
+
+          if (reserveDatesChangeSiteAllowed) {
+            await prisma.notification.create({
+              data: {
+                reserve: { connect: { id: extendReserve.id } },
+                airline: { connect: { id: reserve.airlineId } },
+                description: {
+                  action: "reserve_dates_change",
+                  description: `Запрос на изменение дат заявки ${
+                    reserve.reserveNumber
+                  } с ${formatDate(reserve.arrival)} - ${formatDate(
+                    reserve.departure
+                  )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
+                }
               }
-            }
-          })
-          pubsub.publish(NOTIFICATION, {
-            notification: {
-              __typename: "ReserveUpdatedNotification",
-              action: "reserve_dates_change",
-              ...extendReserve
-            }
-          })
+            })
+            pubsub.publish(NOTIFICATION, {
+              notification: {
+                __typename: "ReserveUpdatedNotification",
+                action: "reserve_dates_change",
+                reserveId: extendReserve.id,
+                arrival: updatedStart,
+                departure: updatedEnd,
+                airline: reserve.airline
+              }
+            })
+          }
           pubsub.publish(MESSAGE_SENT, { messageSent: message })
         }
 
@@ -521,7 +548,7 @@ const reserveResolver = {
         })
 
         if (!arrival && !departure) {
-          pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+          await publishReserveUpdated(updatedReserve.id)
           return reserve
         }
 
@@ -576,31 +603,43 @@ const reserveResolver = {
             }
           }
         }
-        await prisma.notification.create({
-          data: {
-            reserve: { connect: { id: updatedReserve.id } },
-            airline: { connect: { id: reserve.airlineId } },
-            description: {
-              action: "update_reserve",
-              description: `Заявка ${
-                reserve.reserveNumber
-              } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
-                reserve.departure
-              )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(
-                updatedReserve.departure
-              )}`
-            }
-          }
-        })
-        pubsub.publish(NOTIFICATION, {
-          notification: {
-            __typename: "ReserveUpdatedNotification",
-            action: "update_reserve",
-            ...updatedReserve
-          }
-        })
+        const updateReserveSiteAllowed = shouldSendNotification({
+          channel: "site",
+          action: "update_reserve",
+          entityType: "reserve",
+          entityId: updatedReserve.id
+        }).allowed
 
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        if (updateReserveSiteAllowed) {
+          await prisma.notification.create({
+            data: {
+              reserve: { connect: { id: updatedReserve.id } },
+              airline: { connect: { id: reserve.airlineId } },
+              description: {
+                action: "update_reserve",
+                description: `Заявка ${
+                  reserve.reserveNumber
+                } была изменена с ${formatDate(reserve.arrival)} - ${formatDate(
+                  reserve.departure
+                )} на ${formatDate(updatedReserve.arrival)} - ${formatDate(
+                  updatedReserve.departure
+                )}`
+              }
+            }
+          })
+          pubsub.publish(NOTIFICATION, {
+            notification: {
+              __typename: "ReserveUpdatedNotification",
+              action: "update_reserve",
+              reserveId: updatedReserve.id,
+              arrival: updatedReserve.arrival,
+              departure: updatedReserve.departure,
+              airline: reserve.airline
+            }
+          })
+        }
+
+        await publishReserveUpdated(updatedReserve.id)
 
         return updatedReserve
       } catch (error) {
@@ -672,7 +711,7 @@ const reserveResolver = {
           reserveId: reserveHotel.reservationId,
           hotelId: reserveHotel.hotelId
         })
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+        await publishReserveUpdated(reservationId)
         pubsub.publish(RESERVE_HOTEL, { reserveHotel })
         return reserveHotel
       } catch (error) {
@@ -819,7 +858,7 @@ const reserveResolver = {
         }
       })
 
-      pubsub.publish(RESERVE_UPDATED, { reserveUpdated: updatedReserve })
+      await publishReserveUpdated(reserveId)
 
       return {
         name: listName,
@@ -853,7 +892,7 @@ const reserveResolver = {
           newData: { status: "archived" },
           reserveId: reserve.id
         })
-        pubsub.publish(RESERVE_UPDATED, { reserveUpdated: archiveReserve })
+        await publishReserveUpdated(reserveId)
         return archiveReserve
       } else {
         throw new Error("Reserve is not expired or already archived")
@@ -867,9 +906,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_CREATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -897,9 +940,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_UPDATED]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -935,9 +982,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_HOTEL]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context
@@ -972,9 +1023,13 @@ const reserveResolver = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([RESERVE_PERSONS]),
         async (payload, variables, context) => {
-          try {
-            await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-          } catch {
+          if (
+            !(await subscriptionAuthMiddleware(
+              allMiddleware,
+              context,
+              "reserve.Subscription"
+            ))
+          ) {
             return false
           }
           const { subject, subjectType } = context

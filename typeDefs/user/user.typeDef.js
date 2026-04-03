@@ -122,7 +122,7 @@ const userTypeDef = /* GraphQL */ `
     updateUser(input: UpdateUserInput!, images: [Upload!]): AuthPayload
     logout: LogoutResponse
     deleteUser(id: ID!): User!
-    refreshToken(refreshToken: String!, fingerprint: String!): AuthPayload
+    refreshToken(refreshToken: String!, fingerprint: String): AuthPayload
     enable2FA(input: TwoFAMethodInput): QRCodeResponse
     verify2FA(token: String!): SuccessResponse
     requestResetPassword(email: String!): String!
@@ -139,6 +139,7 @@ const userTypeDef = /* GraphQL */ `
   }
 
   input SignInInput {
+    """Логин пользователя или email (одно поле)."""
     login: String!
     password: String!
     fingerprint: String!
