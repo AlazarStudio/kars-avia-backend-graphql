@@ -5,6 +5,7 @@
   "scripts": {
     "backup": "node services/cron/backup.js",
     "start": "node server2.js",
+    "start2": "node t.js",
     "production": "nodemon server.js",
     "dev": "nodemon server2.js",
     "pm": "pm2 start server.js -i max",
