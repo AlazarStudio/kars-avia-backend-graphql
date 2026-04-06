@@ -10,6 +10,7 @@ import { getPersonStaySummaries } from "../../services/analytics/personStaySumma
 import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalytics.js"
 import { analyticsAirlineServiceComparison } from "../../services/analytics/airlineServiceComparison.js"
 import { analyticsDispatchersPerformance } from "../../services/analytics/dispatchersPerformance.js"
+import { computeAirlineAnalytics } from "../../services/analytics/airlineAnalytics.js"
 import { prisma } from "../../prisma.js"
 import {
   allMiddleware,
@@ -123,6 +124,10 @@ const analyticsResolver = {
     analyticsDispatchersPerformance: async (_, { input }, context) => {
       await dispatcherOrSuperAdminMiddleware(context) // MIDDLEWARE_REVIEW: dispatcherOrSuperAdminMiddleware
       return await analyticsDispatchersPerformance(input)
+    },
+    airlineAnalytics: async (_, { input }, context) => {
+      await allMiddleware(context)
+      return await computeAirlineAnalytics(input)
     }
   }
 }

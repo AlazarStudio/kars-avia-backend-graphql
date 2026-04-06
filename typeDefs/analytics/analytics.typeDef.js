@@ -181,6 +181,69 @@ const analyticsTypeDef = /* GraphQL */ `
     endDate: Date
   }
 
+  enum AirlineAnalyticsGroupBy {
+    NONE
+    AIRPORT
+    POSITION
+    PERIOD
+  }
+
+  input AirlineAnalyticsInput {
+    airlineId: ID!
+    dateFrom: Date!
+    dateTo: Date!
+    airportIds: [ID!]
+    services: [AnalyticsServiceType!]
+    positionIds: [ID!]
+    groupBy: AirlineAnalyticsGroupBy
+    comparePeriods: [AnalyticsDateRangeInput!]
+  }
+
+  type AirlineAnalyticsMetrics {
+    totalRequests: Int!
+    uniquePeopleCount: Int!
+    usedRoomsCount: Int!
+    totalSpend: Float!
+    livingSpend: Float!
+    mealSpend: Float!
+    transferSpend: Float!
+  }
+
+  type AirlinePositionBreakdownItem {
+    positionId: ID
+    positionName: String!
+    count: Int!
+    percent: Float!
+  }
+
+  type AirlineAirportBreakdownItem {
+    airportId: ID!
+    airportName: String
+    airportCode: String
+    totalRequests: Int!
+    uniquePeopleCount: Int!
+    usedRoomsCount: Int!
+    totalSpend: Float!
+    livingSpend: Float!
+    mealSpend: Float!
+    transferSpend: Float!
+  }
+
+  type AirlineAnalyticsSegment {
+    label: String!
+    segmentKey: String!
+    segmentType: String!
+    metrics: AirlineAnalyticsMetrics!
+    positionsBreakdown: [AirlinePositionBreakdownItem!]!
+  }
+
+  type AirlineAnalyticsResult {
+    summary: AirlineAnalyticsMetrics!
+    positionsBreakdown: [AirlinePositionBreakdownItem!]!
+    airportsBreakdown: [AirlineAirportBreakdownItem!]!
+    segments: [AirlineAnalyticsSegment!]!
+  }
+
   type Query {
     analyticsEntityRequests(input: AnalyticsInput): Analytics
     analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
@@ -192,6 +255,9 @@ const analyticsTypeDef = /* GraphQL */ `
     analyticsDispatchersPerformance(
       input: DispatchersAnalyticsInput!
     ): DispatchersAnalyticsResult!
+    airlineAnalytics(
+      input: AirlineAnalyticsInput!
+    ): AirlineAnalyticsResult!
   }
 `
 
