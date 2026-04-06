@@ -1145,38 +1145,47 @@ model SavedReport {
 // Request ---------------- ↓↓↓↓ 
 
 model Request {
-  id            String           @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
-  placementAt   DateTime?        @map("placement_at")
-  sender        User             @relation(name: "sender", fields: [senderId], references: [id])
-  senderId      String           @db.ObjectId
-  airport       Airport?         @relation(fields: [airportId], references: [id])
-  airportId     String?          @db.ObjectId
-  airline       Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId     String           @db.ObjectId
-  person        AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
-  personId      String?          @db.ObjectId
-  arrival       DateTime
-  departure     DateTime
-  requestNumber String           @unique
-  roomCategory  String?
-  roomNumber    String?
-  mealPlan      MealPlan?
-  hotel         Hotel?           @relation(fields: [hotelId], references: [id])
-  hotelId       String?          @db.ObjectId
-  receiver      User?            @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId    String?          @db.ObjectId
-  posted        User?            @relation(name: "posted", fields: [postedId], references: [id])
-  postedId      String?          @db.ObjectId
-  chat          Chat[]
-  status        String           @default("created")
-  hotelChess    HotelChess[]
-  logs          Log[]
-  archive       Boolean          @default(false)
-  files         String[]
-  reserve       Boolean          @default(false)
-  Notifications Notification[]
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  placementAt         DateTime?        @map("placement_at")
+  sender              User             @relation(name: "sender", fields: [senderId], references: [id])
+  senderId            String           @db.ObjectId
+  airport             Airport?         @relation(fields: [airportId], references: [id])
+  airportId           String?          @db.ObjectId
+  airline             Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId           String           @db.ObjectId
+  person              AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
+  personId            String?          @db.ObjectId
+  arrival             DateTime
+  departure           DateTime
+  requestNumber       String           @unique
+  roomCategory        String?
+  roomNumber          String?
+  mealPlan            MealPlan?
+  hotel               Hotel?           @relation(fields: [hotelId], references: [id])
+  hotelId             String?          @db.ObjectId
+  receiver            User?            @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId          String?          @db.ObjectId
+  posted              User?            @relation(name: "posted", fields: [postedId], references: [id])
+  postedId            String?          @db.ObjectId
+  chat                Chat[]
+  status              String           @default("created")
+  hotelChess          HotelChess[]
+  logs                Log[]
+  archive             Boolean          @default(false)
+  files               String[]
+  reserve             Boolean          @default(false)
+  Notifications       Notification[]
+  requestAirlinePrice requestPrice?
+  requestHotelPrice   requestPrice?
+}
+
+type requestPrice {
+  livingCost Float?
+  breakfast  Float?
+  lunch      Float?
+  dinner     Float?
 }
 
 // Request ---------------- ↑↑↑↑
@@ -1500,16 +1509,16 @@ model TransferReview {
 // User ---------------- ↓↓↓↓ 
 
 model device_tokens {
-  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt         DateTime               @default(now()) @map("created_at")
-  updatedAt         DateTime               @updatedAt @map("updated_at")
+  id                String                  @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
   subjectType       DeviceTokenSubjectType?
-  user              User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            String?                @db.ObjectId
-  driver            Driver?                @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  driverId          String?                @db.ObjectId
-  airlinePersonal   AirlinePersonal?       @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
-  airlinePersonalId String?                @db.ObjectId
+  user              User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String?                 @db.ObjectId
+  driver            Driver?                 @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverId          String?                 @db.ObjectId
+  airlinePersonal   AirlinePersonal?        @relation(fields: [airlinePersonalId], references: [id], onDelete: Cascade)
+  airlinePersonalId String?                 @db.ObjectId
   platform          String
   token             String
 }
@@ -1678,8 +1687,8 @@ model User {
   positionId                    String?                      @db.ObjectId
   postedRequests                Request[]                    @relation(name: "posted")
   passengerRequests             PassengerRequest[]
-  transfersAsDispatcher         Transfer[]                    @relation("TransferDispatcher")
-  transfersCreatedBy            Transfer[]                    @relation("TransferCreator")
+  transfersAsDispatcher         Transfer[]                   @relation("TransferDispatcher")
+  transfersCreatedBy            Transfer[]                   @relation("TransferCreator")
   transferChats                 TransferChat[]
   transferMessages              TransferMessage[]
   transferMessageReads          TransferMessageRead[]

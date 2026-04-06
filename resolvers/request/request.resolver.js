@@ -35,6 +35,11 @@ import { shouldSendNotification } from "../../services/notification/notification
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
+import {
+  recalculateRequestPricing,
+  recalculateOverlappingRequests,
+  recalculateAffectedByRoomChange
+} from "../../services/request/requestPricing.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -618,6 +623,11 @@ const requestResolver = {
         })
         if (!request) throw new Error("Request not found")
 
+        const oldHotelChess = request.hotelChess?.[0]
+        const oldRoomId = oldHotelChess?.roomId
+        const oldChessStart = oldHotelChess?.start
+        const oldChessEnd = oldHotelChess?.end
+
         const now = new Date()
         const updatedStart = newStart ? newStart : request.arrival
         const updatedEnd = newEnd ? newEnd : request.departure
@@ -1050,6 +1060,24 @@ const requestResolver = {
           console.error("Ошибка при логировании изменения заявки:", error)
         }
 
+        const newHc = updatedRequest.hotelChess?.[0]
+        const newRoomId = newHc?.roomId || (wantsPlacement ? placementRoom?.id : null)
+
+        if (newRoomId || oldRoomId) {
+          await recalculateRequestPricing(requestId)
+
+          if (wantsPlacement || isHotelChange) {
+            await recalculateAffectedByRoomChange(
+              oldRoomId, oldChessStart, oldChessEnd,
+              newRoomId, updatedStart, updatedEnd,
+              requestId
+            )
+          } else if (datesChanged && oldRoomId) {
+            await recalculateOverlappingRequests(oldRoomId, oldChessStart, oldChessEnd, requestId)
+            await recalculateOverlappingRequests(oldRoomId, updatedStart, updatedEnd, requestId)
+          }
+        }
+
         await publishRequestUpdated(updatedRequest.id)
         return updatedRequest
       } catch (error) {
@@ -1238,10 +1266,18 @@ const requestResolver = {
         where: { id: requestId },
         data: { status: "canceled" }
       })
+      const canceledHc = request.hotelChess?.[0]
       if (request.hotelChess) {
         await prisma.hotelChess.deleteMany({
           where: { requestId: requestId }
         })
+        if (canceledHc?.roomId && canceledHc?.start && canceledHc?.end) {
+          await recalculateOverlappingRequests(
+            canceledHc.roomId,
+            canceledHc.start,
+            canceledHc.end
+          )
+        }
       }
 
       const mailOptions = {

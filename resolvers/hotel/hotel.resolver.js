@@ -41,6 +41,11 @@ import {
   issueExternalLinksForUser,
   upsertHotelExternalUser
 } from "../../services/auth/externalAutoLinks.js"
+import {
+  recalculateRequestPricing,
+  recalculateOverlappingRequests,
+  recalculateAffectedByRoomChange
+} from "../../services/request/requestPricing.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -502,6 +507,17 @@ const hotelResolver = {
                     }
                   })
                 }
+                await recalculateRequestPricing(hotelChess.requestId)
+                await recalculateAffectedByRoomChange(
+                  previousHotelChessData.roomId,
+                  previousHotelChessData.start,
+                  previousHotelChessData.end,
+                  hotelChess.roomId,
+                  hotelChess.start || previousHotelChessData.start,
+                  hotelChess.end || previousHotelChessData.end,
+                  hotelChess.requestId
+                )
+
                 await publishRequestUpdated(updatedRequest.id)
               } else if (hotelChess.reserveId) {
                 // Если hotelChess связан с бронью (reserve)
@@ -851,6 +867,14 @@ const hotelResolver = {
                     }
                   })
                 }
+
+                await recalculateRequestPricing(hotelChess.requestId)
+                await recalculateOverlappingRequests(
+                  hotelChess.roomId,
+                  hotelChess.start,
+                  hotelChess.end,
+                  hotelChess.requestId
+                )
 
                 // Публикуем событие обновления заявки
                 await publishRequestUpdated(updatedRequest.id)

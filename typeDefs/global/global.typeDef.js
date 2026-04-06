@@ -280,6 +280,13 @@ const globalTypeDef = /* GraphQL */ `
     cityIds: [ID!]
   }
 
+  type RequestPrice {
+    livingCost: Float
+    breakfast: Float
+    lunch: Float
+    dinner: Float
+  }
+
   type File {
     filename: String!
     mimetype: String!

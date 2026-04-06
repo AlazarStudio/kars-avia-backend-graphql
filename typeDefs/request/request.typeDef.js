@@ -32,6 +32,8 @@ const requestTypeDef = /* GraphQL */ `
     logs(pagination: LogPaginationInput): LogConnection!
     reserve: Boolean
     files: [String]
+    requestAirlinePrice: RequestPrice
+    requestHotelPrice: RequestPrice
   }
 
   # type Log {
