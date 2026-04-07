@@ -185,12 +185,22 @@ async function buildSegmentsByAirport({
       enabledServices
     })
 
+    const airportsBreakdownSeg = await buildAirportsBreakdown({
+      requests: group.requests,
+      transfers: [],
+      airlineId,
+      start,
+      end,
+      enabledServices
+    })
+
     segments.push({
       label: group.label,
       segmentKey: group.airportId,
       segmentType: "airport",
       metrics,
-      positionsBreakdown: buildPositionsBreakdown(group.requests)
+      positionsBreakdown: buildPositionsBreakdown(group.requests),
+      airportsBreakdown: airportsBreakdownSeg
     })
   }
 
@@ -249,12 +259,22 @@ async function buildSegmentsByPosition({
       enabledServices
     })
 
+    const airportsBreakdownSeg = await buildAirportsBreakdown({
+      requests: group.requests,
+      transfers: [],
+      airlineId,
+      start,
+      end,
+      enabledServices
+    })
+
     segments.push({
       label: group.label,
       segmentKey: group.positionId || "__none__",
       segmentType: "position",
       metrics,
-      positionsBreakdown: buildPositionsBreakdown(group.requests)
+      positionsBreakdown: buildPositionsBreakdown(group.requests),
+      airportsBreakdown: airportsBreakdownSeg
     })
   }
 
@@ -323,12 +343,22 @@ async function buildSegmentsByPeriod({
       enabledServices
     })
 
+    const airportsBreakdownSeg = await buildAirportsBreakdown({
+      requests,
+      transfers,
+      airlineId,
+      start: range.start,
+      end: range.end,
+      enabledServices
+    })
+
     segments.push({
       label: range.label,
       segmentKey: `${range.start.toISOString()}_${range.end.toISOString()}`,
       segmentType: "period",
       metrics,
-      positionsBreakdown: buildPositionsBreakdown(requests)
+      positionsBreakdown: buildPositionsBreakdown(requests),
+      airportsBreakdown: airportsBreakdownSeg
     })
   }
 

@@ -235,6 +235,7 @@ const analyticsTypeDef = /* GraphQL */ `
     segmentType: String!
     metrics: AirlineAnalyticsMetrics!
     positionsBreakdown: [AirlinePositionBreakdownItem!]!
+    airportsBreakdown: [AirlineAirportBreakdownItem!]!
   }
 
   type AirlineAnalyticsResult {
