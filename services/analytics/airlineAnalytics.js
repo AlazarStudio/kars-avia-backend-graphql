@@ -92,7 +92,9 @@ async function buildAirportsBreakdown({
   airlineId,
   start,
   end,
-  enabledServices
+  enabledServices,
+  /** Явно добавить аэропорты из фильтра без заявок (нули), чтобы сравнение периодов было симметричным */
+  airportIds = null
 }) {
   const byAirport = new Map()
 
@@ -129,6 +131,34 @@ async function buildAirportsBreakdown({
       airportCode: group.airportCode,
       ...metrics
     })
+  }
+
+  if (Array.isArray(airportIds) && airportIds.length) {
+    const present = new Set(result.map((r) => String(r.airportId)))
+    const zeroMetrics = await computeMetricsForDataset({
+      requests: [],
+      transfers: [],
+      airlineId,
+      start,
+      end,
+      enabledServices
+    })
+    for (const apId of airportIds) {
+      if (apId == null || apId === "") continue
+      const idStr = String(apId)
+      if (present.has(idStr)) continue
+      const airport = await prisma.airport.findUnique({
+        where: { id: apId },
+        select: { name: true, code: true }
+      })
+      result.push({
+        airportId: apId,
+        airportName: airport?.name ?? null,
+        airportCode: airport?.code ?? null,
+        ...zeroMetrics
+      })
+      present.add(idStr)
+    }
   }
 
   result.sort((a, b) => b.totalSpend - a.totalSpend)
@@ -349,7 +379,8 @@ async function buildSegmentsByPeriod({
       airlineId,
       start: range.start,
       end: range.end,
-      enabledServices
+      enabledServices,
+      airportIds
     })
 
     segments.push({
@@ -425,7 +456,8 @@ export async function computeAirlineAnalytics(input) {
     airlineId,
     start: mainRange.start,
     end: mainRange.end,
-    enabledServices
+    enabledServices,
+    airportIds
   })
 
   let segments = []
