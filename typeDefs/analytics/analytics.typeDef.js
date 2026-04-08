@@ -225,10 +225,19 @@ const analyticsTypeDef = /* GraphQL */ `
     transferSpend: Float!
   }
 
+  type AirlineServiceBreakdownItem {
+    service: AnalyticsServiceType!
+    totalRequests: Int!
+    uniquePeopleCount: Int!
+    usedRoomsCount: Int!
+    totalSpend: Float!
+  }
+
   type AirlineAnalyticsPeriodResult {
     summary: AirlineAnalyticsMetrics!
     positionsBreakdown: [AirlinePositionBreakdownItem!]!
     airportsBreakdown: [AirlineAirportBreakdownItem!]!
+    servicesBreakdown: [AirlineServiceBreakdownItem!]!
   }
 
   type AirlineAnalyticsResult {

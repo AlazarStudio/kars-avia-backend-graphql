@@ -163,6 +163,38 @@ async function buildAirportsBreakdown({
   return result
 }
 
+function buildServicesBreakdown({ enabledServices, summary, requests, transfers }) {
+  const requestPeopleCount = extractUniquePersonIds(requests).size
+  const usedRoomsCount = extractRoomIds(requests).size
+  const transferPeopleCount = countTransferUniquePeople(transfers).size
+
+  const serviceMetrics = {
+    LIVING: {
+      totalRequests: requests.length,
+      uniquePeopleCount: requestPeopleCount,
+      usedRoomsCount,
+      totalSpend: roundMoney(summary.livingSpend)
+    },
+    MEAL: {
+      totalRequests: requests.length,
+      uniquePeopleCount: requestPeopleCount,
+      usedRoomsCount,
+      totalSpend: roundMoney(summary.mealSpend)
+    },
+    TRANSFER: {
+      totalRequests: transfers.length,
+      uniquePeopleCount: transferPeopleCount,
+      usedRoomsCount: 0,
+      totalSpend: roundMoney(summary.transferSpend)
+    }
+  }
+
+  return enabledServices.map((service) => ({
+    service,
+    ...serviceMetrics[service]
+  }))
+}
+
 async function buildAirlineAnalyticsPeriod({
   airlineId,
   periodInput,
@@ -219,10 +251,18 @@ async function buildAirlineAnalyticsPeriod({
     airportIds
   })
 
+  const servicesBreakdown = buildServicesBreakdown({
+    enabledServices,
+    summary,
+    requests,
+    transfers
+  })
+
   return {
     summary,
     positionsBreakdown,
-    airportsBreakdown
+    airportsBreakdown,
+    servicesBreakdown
   }
 }
 
