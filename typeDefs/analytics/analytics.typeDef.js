@@ -181,22 +181,18 @@ const analyticsTypeDef = /* GraphQL */ `
     endDate: Date
   }
 
-  enum AirlineAnalyticsGroupBy {
-    NONE
-    AIRPORT
-    POSITION
-    PERIOD
+  input AirlineAnalyticsPeriodInput {
+    dateFrom: Date!
+    dateTo: Date!
+    airportIds: [ID!]
+    positionIds: [ID!]
   }
 
   input AirlineAnalyticsInput {
     airlineId: ID!
-    dateFrom: Date!
-    dateTo: Date!
-    airportIds: [ID!]
     services: [AnalyticsServiceType!]
-    positionIds: [ID!]
-    groupBy: AirlineAnalyticsGroupBy
-    comparePeriods: [AnalyticsDateRangeInput!]
+    period1: AirlineAnalyticsPeriodInput!
+    period2: AirlineAnalyticsPeriodInput
   }
 
   type AirlineAnalyticsMetrics {
@@ -229,20 +225,15 @@ const analyticsTypeDef = /* GraphQL */ `
     transferSpend: Float!
   }
 
-  type AirlineAnalyticsSegment {
-    label: String!
-    segmentKey: String!
-    segmentType: String!
-    metrics: AirlineAnalyticsMetrics!
+  type AirlineAnalyticsPeriodResult {
+    summary: AirlineAnalyticsMetrics!
     positionsBreakdown: [AirlinePositionBreakdownItem!]!
     airportsBreakdown: [AirlineAirportBreakdownItem!]!
   }
 
   type AirlineAnalyticsResult {
-    summary: AirlineAnalyticsMetrics!
-    positionsBreakdown: [AirlinePositionBreakdownItem!]!
-    airportsBreakdown: [AirlineAirportBreakdownItem!]!
-    segments: [AirlineAnalyticsSegment!]!
+    period1: AirlineAnalyticsPeriodResult!
+    period2: AirlineAnalyticsPeriodResult
   }
 
   type Query {
