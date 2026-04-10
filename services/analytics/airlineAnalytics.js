@@ -63,6 +63,7 @@ function buildServiceRequestItems({ service, requests, budgetByRequestId }) {
 
     return {
       requestId: request.id,
+      requestNumber: request.requestNumber || null,
       personId: request.personId || null,
       personName: request.person?.name || null,
       positionId: request.person?.positionId || null,
