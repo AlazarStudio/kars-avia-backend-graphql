@@ -70,6 +70,7 @@ function buildServiceRequestItems({ service, requests, budgetByRequestId }) {
       positionName: request.person?.position?.name || "Не указана",
       airportId: request.airportId || null,
       airportName: request.airport?.name || null,
+      airportCode: request.airport?.code || null,
       budget,
       livingBudget,
       mealBudget,

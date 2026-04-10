@@ -222,6 +222,7 @@ const analyticsTypeDef = /* GraphQL */ `
     positionName: String
     airportId: ID
     airportName: String
+    airportCode: String
     budget: Float!
     livingBudget: Float!
     mealBudget: Float!
