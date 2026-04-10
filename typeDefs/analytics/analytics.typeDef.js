@@ -195,54 +195,69 @@ const analyticsTypeDef = /* GraphQL */ `
     period2: AirlineAnalyticsPeriodInput
   }
 
-  type AirlineAnalyticsMetrics {
-    totalRequests: Int!
-    uniquePeopleCount: Int!
-    usedRoomsCount: Int!
-    totalSpend: Float!
-    livingSpend: Float!
-    mealSpend: Float!
-    transferSpend: Float!
-  }
-
-  type AirlinePositionBreakdownItem {
+  type AirlineAnalyticsPositionItem {
     positionId: ID
     positionName: String!
     count: Int!
     percent: Float!
+    budget: Float!
   }
 
-  type AirlineAirportBreakdownItem {
-    airportId: ID!
+  type AirlineAnalyticsAirportItem {
+    airportId: ID
     airportName: String
     airportCode: String
-    totalRequests: Int!
+    requestsCount: Int!
     uniquePeopleCount: Int!
-    usedRoomsCount: Int!
-    totalSpend: Float!
-    livingSpend: Float!
-    mealSpend: Float!
-    transferSpend: Float!
+    budget: Float!
+    usedRoomsCount: Int
   }
 
-  type AirlineServiceBreakdownItem {
+  type AirlineAnalyticsRequestItem {
+    requestId: ID!
+    personId: ID
+    personName: String
+    positionId: ID
+    positionName: String
+    airportId: ID
+    airportName: String
+    budget: Float!
+    livingBudget: Float!
+    mealBudget: Float!
+    transferBudget: Float!
+  }
+
+  type AirlineAnalyticsTransferItem {
+    transferId: ID!
+    requestNumber: String
+    fromAddress: String
+    toAddress: String
+    passengersCount: Int!
+    uniquePeopleCount: Int!
+    budget: Float!
+  }
+
+  type AirlineAnalyticsServiceBlock {
     service: AnalyticsServiceType!
     totalRequests: Int!
     uniquePeopleCount: Int!
-    usedRoomsCount: Int!
-    totalSpend: Float!
+    totalBudget: Float!
+    usedRoomsCount: Int
+    airports: [AirlineAnalyticsAirportItem!]!
+    positions: [AirlineAnalyticsPositionItem!]!
+    requests: [AirlineAnalyticsRequestItem!]!
+    transfers: [AirlineAnalyticsTransferItem!]!
   }
 
-  type AirlineAnalyticsPeriodResult {
-    summary: AirlineAnalyticsMetrics!
-    positionsBreakdown: [AirlinePositionBreakdownItem!]!
-    airportsBreakdown: [AirlineAirportBreakdownItem!]!
-    servicesBreakdown: [AirlineServiceBreakdownItem!]!
+  type AirlineAnalyticsPeriodBlock {
+    dateFrom: Date!
+    dateTo: Date!
+    services: [AirlineAnalyticsServiceBlock!]!
   }
 
   type AirlineAnalyticsResult {
-    period1: AirlineAnalyticsPeriodResult!
-    period2: AirlineAnalyticsPeriodResult
+    period1: AirlineAnalyticsPeriodBlock!
+    period2: AirlineAnalyticsPeriodBlock
   }
 
   type Query {

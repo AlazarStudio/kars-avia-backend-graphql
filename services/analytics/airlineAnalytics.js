@@ -6,10 +6,9 @@ import {
   REQUEST_INCLUDE,
   TRANSFER_INCLUDE,
   computeRequestCosts,
-  computeTransferSpend,
+  computeTransferBudgetDetails,
   extractRoomIds,
   extractUniquePersonIds,
-  buildPositionsBreakdown,
   filterTransfersByPositions,
   countTransferUniquePeople
 } from "./airlineAnalyticsUtils.js"
@@ -31,168 +30,271 @@ async function fetchTransfers(where) {
   return prisma.transfer.findMany({ where, include: TRANSFER_INCLUDE })
 }
 
-async function computeMetricsForDataset({
-  requests,
-  transfers,
-  airlineId,
-  start,
-  end,
-  enabledServices
-}) {
-  let livingSpend = 0
-  let mealSpend = 0
-  let transferSpend = 0
+function buildRequestBudgetMap(requests, start, end) {
+  const budgetByRequestId = new Map()
 
-  const wantLiving = enabledServices.includes("LIVING")
-  const wantMeal = enabledServices.includes("MEAL")
-  const wantTransfer = enabledServices.includes("TRANSFER")
-
-  if (wantLiving || wantMeal) {
-    for (const r of requests) {
-      const costs = computeRequestCosts(r, start, end)
-      if (wantLiving) livingSpend += costs.livingCost
-      if (wantMeal) mealSpend += costs.mealCost
-    }
+  for (const request of requests) {
+    const { livingCost, mealCost } = computeRequestCosts(request, start, end)
+    budgetByRequestId.set(request.id, {
+      livingBudget: roundMoney(livingCost),
+      mealBudget: roundMoney(mealCost)
+    })
   }
 
-  if (wantTransfer && transfers.length) {
-    transferSpend = await computeTransferSpend(transfers, airlineId)
-  }
-
-  livingSpend = roundMoney(livingSpend)
-  mealSpend = roundMoney(mealSpend)
-  transferSpend = roundMoney(transferSpend)
-
-  const uniquePeopleFromRequests = extractUniquePersonIds(requests)
-  const uniquePeopleFromTransfers = wantTransfer
-    ? countTransferUniquePeople(transfers)
-    : new Set()
-
-  const allPeopleIds = new Set([
-    ...uniquePeopleFromRequests,
-    ...uniquePeopleFromTransfers
-  ])
-
-  const roomIds = extractRoomIds(requests)
-
-  return {
-    totalRequests: requests.length,
-    uniquePeopleCount: allPeopleIds.size,
-    usedRoomsCount: roomIds.size,
-    totalSpend: roundMoney(livingSpend + mealSpend + transferSpend),
-    livingSpend,
-    mealSpend,
-    transferSpend
-  }
+  return budgetByRequestId
 }
 
-async function buildAirportsBreakdown({
-  requests,
-  airlineId,
-  start,
-  end,
-  enabledServices,
-  airportIds = null
-}) {
-  const byAirport = new Map()
+function getRequestBudget(budgetByRequestId, requestId) {
+  return budgetByRequestId.get(requestId) || { livingBudget: 0, mealBudget: 0 }
+}
 
-  for (const r of requests) {
-    const apId = r.airportId || "__none__"
-    if (!byAirport.has(apId)) {
-      byAirport.set(apId, {
-        airportId: r.airportId,
-        airportName: r.airport?.name || null,
-        airportCode: r.airport?.code || null,
+function getServiceRequestBudget(service, requestBudget) {
+  if (service === "LIVING") return requestBudget.livingBudget
+  if (service === "MEAL") return requestBudget.mealBudget
+  return 0
+}
+
+function buildServiceRequestItems({ service, requests, budgetByRequestId }) {
+  return requests.map((request) => {
+    const requestBudget = getRequestBudget(budgetByRequestId, request.id)
+    const livingBudget = roundMoney(requestBudget.livingBudget)
+    const mealBudget = roundMoney(requestBudget.mealBudget)
+    const budget = roundMoney(getServiceRequestBudget(service, requestBudget))
+
+    return {
+      requestId: request.id,
+      personId: request.personId || null,
+      personName: request.person?.name || null,
+      positionId: request.person?.positionId || null,
+      positionName: request.person?.position?.name || "Не указана",
+      airportId: request.airportId || null,
+      airportName: request.airport?.name || null,
+      budget,
+      livingBudget,
+      mealBudget,
+      transferBudget: 0
+    }
+  })
+}
+
+function buildServiceAirportsFromRequests({ service, requests, budgetByRequestId }) {
+  const airportMap = new Map()
+
+  for (const request of requests) {
+    const airportKey = request.airportId || "__none__"
+    if (!airportMap.has(airportKey)) {
+      airportMap.set(airportKey, {
+        airportId: request.airportId || null,
+        airportName: request.airport?.name || null,
+        airportCode: request.airport?.code || null,
         requests: [],
-        transfers: []
+        peopleIds: new Set()
       })
     }
-    byAirport.get(apId).requests.push(r)
+
+    const bucket = airportMap.get(airportKey)
+    bucket.requests.push(request)
+    if (request.personId) bucket.peopleIds.add(request.personId)
   }
 
   const result = []
-  for (const [, group] of byAirport) {
-    if (!group.airportId) continue
-
-    const metrics = await computeMetricsForDataset({
-      requests: group.requests,
-      transfers: group.transfers,
-      airlineId,
-      start,
-      end,
-      enabledServices
-    })
+  for (const bucket of airportMap.values()) {
+    let budget = 0
+    for (const request of bucket.requests) {
+      const requestBudget = getRequestBudget(budgetByRequestId, request.id)
+      budget += getServiceRequestBudget(service, requestBudget)
+    }
 
     result.push({
-      airportId: group.airportId,
-      airportName: group.airportName,
-      airportCode: group.airportCode,
-      ...metrics
+      airportId: bucket.airportId,
+      airportName: bucket.airportName,
+      airportCode: bucket.airportCode,
+      requestsCount: bucket.requests.length,
+      uniquePeopleCount: bucket.peopleIds.size,
+      budget: roundMoney(budget),
+      usedRoomsCount:
+        service === "LIVING" ? extractRoomIds(bucket.requests).size : null
     })
   }
 
-  if (Array.isArray(airportIds) && airportIds.length) {
-    const present = new Set(result.map((r) => String(r.airportId)))
-    const zeroMetrics = await computeMetricsForDataset({
-      requests: [],
-      transfers: [],
-      airlineId,
-      start,
-      end,
-      enabledServices
-    })
-    for (const apId of airportIds) {
-      if (apId == null || apId === "") continue
-      const idStr = String(apId)
-      if (present.has(idStr)) continue
-      const airport = await prisma.airport.findUnique({
-        where: { id: apId },
-        select: { name: true, code: true }
-      })
-      result.push({
-        airportId: apId,
-        airportName: airport?.name ?? null,
-        airportCode: airport?.code ?? null,
-        ...zeroMetrics
-      })
-      present.add(idStr)
-    }
-  }
-
-  result.sort((a, b) => b.totalSpend - a.totalSpend)
+  result.sort((a, b) => b.budget - a.budget)
   return result
 }
 
-function buildServicesBreakdown({ enabledServices, summary, requests, transfers }) {
-  const requestPeopleCount = extractUniquePersonIds(requests).size
-  const usedRoomsCount = extractRoomIds(requests).size
-  const transferPeopleCount = countTransferUniquePeople(transfers).size
+function buildServicePositionsFromRequests({ service, requests, budgetByRequestId }) {
+  const positionMap = new Map()
+  let totalWithPosition = 0
 
-  const serviceMetrics = {
-    LIVING: {
-      totalRequests: requests.length,
-      uniquePeopleCount: requestPeopleCount,
-      usedRoomsCount,
-      totalSpend: roundMoney(summary.livingSpend)
-    },
-    MEAL: {
-      totalRequests: requests.length,
-      uniquePeopleCount: requestPeopleCount,
-      usedRoomsCount,
-      totalSpend: roundMoney(summary.mealSpend)
-    },
-    TRANSFER: {
-      totalRequests: transfers.length,
-      uniquePeopleCount: transferPeopleCount,
-      usedRoomsCount: 0,
-      totalSpend: roundMoney(summary.transferSpend)
+  for (const request of requests) {
+    if (!request.personId) continue
+
+    totalWithPosition += 1
+    const positionId = request.person?.positionId || null
+    const positionName = request.person?.position?.name || "Не указана"
+    const key = positionId || `name:${positionName}`
+    const requestBudget = getRequestBudget(budgetByRequestId, request.id)
+    const serviceBudget = getServiceRequestBudget(service, requestBudget)
+
+    if (!positionMap.has(key)) {
+      positionMap.set(key, {
+        positionId,
+        positionName,
+        count: 0,
+        budget: 0
+      })
+    }
+
+    const row = positionMap.get(key)
+    row.count += 1
+    row.budget += serviceBudget
+  }
+
+  const result = [...positionMap.values()].map((row) => ({
+    positionId: row.positionId,
+    positionName: row.positionName,
+    count: row.count,
+    percent: totalWithPosition ? roundMoney((row.count / totalWithPosition) * 100) : 0,
+    budget: roundMoney(row.budget)
+  }))
+
+  result.sort((a, b) => b.budget - a.budget)
+  return result
+}
+
+function buildTransferItems({ transfers, transferBudgetById }) {
+  return transfers.map((transfer) => {
+    const persons = Array.isArray(transfer.persons) ? transfer.persons : []
+    const uniquePeopleIds = new Set()
+    for (const link of persons) {
+      if (link?.personal?.id) uniquePeopleIds.add(link.personal.id)
+    }
+
+    return {
+      transferId: transfer.id,
+      requestNumber: transfer.requestNumber || null,
+      fromAddress: transfer.fromAddress || null,
+      toAddress: transfer.toAddress || null,
+      passengersCount: transfer.passengersCount || 0,
+      uniquePeopleCount: uniquePeopleIds.size,
+      budget: roundMoney(transferBudgetById.get(transfer.id) || 0)
+    }
+  })
+}
+
+function buildTransferPositions({ transfers, transferBudgetById }) {
+  const positionMap = new Map()
+  let totalPeopleLinks = 0
+
+  for (const transfer of transfers) {
+    const persons = Array.isArray(transfer.persons) ? transfer.persons : []
+    const validLinks = persons.filter((link) => link?.personal)
+    const transferBudget = roundMoney(transferBudgetById.get(transfer.id) || 0)
+    const share = validLinks.length ? transferBudget / validLinks.length : 0
+
+    for (const link of validLinks) {
+      const positionId = link.personal?.positionId || null
+      const positionName = link.personal?.position?.name || "Не указана"
+      const key = positionId || `name:${positionName}`
+
+      if (!positionMap.has(key)) {
+        positionMap.set(key, {
+          positionId,
+          positionName,
+          count: 0,
+          budget: 0
+        })
+      }
+
+      const row = positionMap.get(key)
+      row.count += 1
+      row.budget += share
+      totalPeopleLinks += 1
     }
   }
 
-  return enabledServices.map((service) => ({
-    service,
-    ...serviceMetrics[service]
+  const result = [...positionMap.values()].map((row) => ({
+    positionId: row.positionId,
+    positionName: row.positionName,
+    count: row.count,
+    percent: totalPeopleLinks ? roundMoney((row.count / totalPeopleLinks) * 100) : 0,
+    budget: roundMoney(row.budget)
   }))
+
+  result.sort((a, b) => b.budget - a.budget)
+  return result
+}
+
+function buildTransferAirports({ transfers, totalBudget }) {
+  if (!transfers.length) return []
+
+  return [
+    {
+      airportId: null,
+      airportName: null,
+      airportCode: null,
+      requestsCount: transfers.length,
+      uniquePeopleCount: countTransferUniquePeople(transfers).size,
+      budget: roundMoney(totalBudget),
+      usedRoomsCount: null
+    }
+  ]
+}
+
+function buildServiceAnalyticsBlock({
+  service,
+  requests,
+  transfers,
+  budgetByRequestId,
+  transferBudgetById,
+  transferTotalBudget
+}) {
+  if (service === "TRANSFER") {
+    const totalRequests = transfers.length
+    const uniquePeopleCount = countTransferUniquePeople(transfers).size
+    const totalBudget = roundMoney(transferTotalBudget)
+
+    return {
+      service,
+      totalRequests,
+      uniquePeopleCount,
+      totalBudget,
+      usedRoomsCount: null,
+      airports: buildTransferAirports({ transfers, totalBudget }),
+      positions: buildTransferPositions({ transfers, transferBudgetById }),
+      requests: [],
+      transfers: buildTransferItems({ transfers, transferBudgetById })
+    }
+  }
+
+  let totalBudget = 0
+  for (const request of requests) {
+    const requestBudget = getRequestBudget(budgetByRequestId, request.id)
+    totalBudget += getServiceRequestBudget(service, requestBudget)
+  }
+
+  return {
+    service,
+    totalRequests: requests.length,
+    uniquePeopleCount: extractUniquePersonIds(requests).size,
+    totalBudget: roundMoney(totalBudget),
+    usedRoomsCount: service === "LIVING" ? extractRoomIds(requests).size : null,
+    airports: buildServiceAirportsFromRequests({
+      service,
+      requests,
+      budgetByRequestId
+    }),
+    positions: buildServicePositionsFromRequests({
+      service,
+      requests,
+      budgetByRequestId
+    }),
+    requests: buildServiceRequestItems({
+      service,
+      requests,
+      budgetByRequestId
+    }),
+    transfers: []
+  }
 }
 
 async function buildAirlineAnalyticsPeriod({
@@ -214,7 +316,6 @@ async function buildAirlineAnalyticsPeriod({
     airportIds,
     positionIds
   })
-
   const trWhere = buildTransferWhere({
     airlineId,
     start: range.start,
@@ -229,40 +330,27 @@ async function buildAirlineAnalyticsPeriod({
   ])
 
   const transfers = filterTransfersByPositions(rawTransfers, positionIds)
+  const budgetByRequestId = buildRequestBudgetMap(requests, range.start, range.end)
+  const { total: transferTotalBudget, byTransferId: transferBudgetById } =
+    enabledServices.includes("TRANSFER")
+      ? await computeTransferBudgetDetails(transfers, airlineId)
+      : { total: 0, byTransferId: new Map() }
 
-  const summary = await computeMetricsForDataset({
-    requests,
-    transfers,
-    airlineId,
-    start: range.start,
-    end: range.end,
-    enabledServices
-  })
-
-  const positionsBreakdown = buildPositionsBreakdown(requests)
-
-  const airportsBreakdown = await buildAirportsBreakdown({
-    requests,
-    transfers,
-    airlineId,
-    start: range.start,
-    end: range.end,
-    enabledServices,
-    airportIds
-  })
-
-  const servicesBreakdown = buildServicesBreakdown({
-    enabledServices,
-    summary,
-    requests,
-    transfers
-  })
+  const services = enabledServices.map((service) =>
+    buildServiceAnalyticsBlock({
+      service,
+      requests,
+      transfers,
+      budgetByRequestId,
+      transferBudgetById,
+      transferTotalBudget
+    })
+  )
 
   return {
-    summary,
-    positionsBreakdown,
-    airportsBreakdown,
-    servicesBreakdown
+    dateFrom: range.start,
+    dateTo: range.end,
+    services
   }
 }
 

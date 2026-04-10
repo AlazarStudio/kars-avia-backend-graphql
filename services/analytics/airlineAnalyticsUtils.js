@@ -92,7 +92,12 @@ function getVehicleType(passengersCount) {
 }
 
 export async function computeTransferSpend(transfers, airlineId) {
-  if (!transfers.length) return 0
+  const { total } = await computeTransferBudgetDetails(transfers, airlineId)
+  return total
+}
+
+export async function computeTransferBudgetDetails(transfers, airlineId) {
+  if (!transfers.length) return { total: 0, byTransferId: new Map() }
 
   const transferPrices = await prisma.transferPrice.findMany({
     where: { airlineId },
@@ -102,9 +107,10 @@ export async function computeTransferSpend(transfers, airlineId) {
     }
   })
 
-  if (!transferPrices.length) return 0
+  if (!transferPrices.length) return { total: 0, byTransferId: new Map() }
 
   let total = 0
+  const byTransferId = new Map()
 
   for (const t of transfers) {
     const vehicleType = getVehicleType(t.passengersCount || 1)
@@ -118,23 +124,15 @@ export async function computeTransferSpend(transfers, airlineId) {
       }
     }
 
-    total += price
+    const roundedPrice = roundMoney(price)
+    byTransferId.set(t.id, roundedPrice)
+    total += roundedPrice
   }
 
-  return roundMoney(total)
+  return { total: roundMoney(total), byTransferId }
 }
 
 export function computeRequestCosts(request, rangeStart, rangeEnd) {
-  const cached = request.requestAirlinePrice
-  if (cached && cached.livingCost != null) {
-    const livingCost = Number(cached.livingCost) || 0
-    const mealCost =
-      (Number(cached.breakfast) || 0) +
-      (Number(cached.lunch) || 0) +
-      (Number(cached.dinner) || 0)
-    return { livingCost: roundMoney(livingCost), mealCost: roundMoney(mealCost) }
-  }
-
   const hotelChess = request.hotelChess?.[0] || {}
   const rawIn = hotelChess.start
     ? parseAsLocal(hotelChess.start)
