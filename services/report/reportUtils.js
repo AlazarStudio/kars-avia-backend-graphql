@@ -587,6 +587,9 @@ export const parseNum = (v) => {
 
 export const buildAllocation = (data, rangeStart, rangeEnd) => {
   if (!Array.isArray(data) || !data.length) return []
+  // Параметры оставлены для совместимости сигнатуры вызова в резолверах.
+  void rangeStart
+  void rangeEnd
 
   const parseLocalDT = (s) => {
     if (!s) return null
@@ -605,45 +608,101 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     )}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`
   }
 
-  const bookings = data.map((r) => ({
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
+  const clamp01 = (n) => Math.max(0, Math.min(1, Number(n) || 0))
+
+  const bookings = data.map((r, idx) => ({
     ...r,
+    __allocKey: r.id || `row_${idx}`,
     arrivalTS: parseLocalDT(r.arrival),
     departureTS: parseLocalDT(r.departure)
   }))
 
   const rooms = new Map()
-  for (const b of bookings) {
-    if (!rooms.has(b.roomId)) rooms.set(b.roomId, [])
-    rooms.get(b.roomId).push(b)
+  for (let i = 0; i < bookings.length; i++) {
+    const b = bookings[i]
+    const roomIdPart = String(b.roomId || "").trim()
+    const roomNamePart = String(b.roomName || "").trim()
+    const hotelNamePart = String(b.hotelName || "").trim()
+    const roomKey = roomIdPart
+      ? `roomId:${roomIdPart}`
+      : roomNamePart || hotelNamePart
+        ? `roomName:${hotelNamePart}|${roomNamePart}`
+        : `single:${b.__allocKey}`
+
+    if (!rooms.has(roomKey)) rooms.set(roomKey, [])
+    rooms.get(roomKey).push(b)
   }
 
   const out = []
   let index = 1
 
   for (const [, guests] of rooms.entries()) {
-    const A = guests.reduce((min, g) => (g.arrivalTS < min.arrivalTS ? g : min))
-
-    const roomArrival = new Date(Math.min(...guests.map((g) => +g.arrivalTS)))
-    const roomDeparture = new Date(
-      Math.max(...guests.map((g) => +g.departureTS))
+    const validGuests = guests.filter(
+      (g) =>
+        g.arrivalTS instanceof Date &&
+        g.departureTS instanceof Date &&
+        !isNaN(g.arrivalTS) &&
+        !isNaN(g.departureTS) &&
+        +g.departureTS > +g.arrivalTS
     )
 
-    const roomDays = calculateEffectiveCostDaysWithPartial(
-      formatLocal(roomArrival),
-      formatLocal(roomDeparture),
-      rangeStart,
-      rangeEnd
-    )
+    const ownershipFraction = new Map()
+    validGuests.forEach((g) => ownershipFraction.set(g.__allocKey, 0))
 
-    const dailyRate = A.totalDays > 0 ? A.totalLivingCost / A.totalDays : 0
+    if (validGuests.length > 0) {
+      const points = [
+        ...new Set(
+          validGuests
+            .flatMap((g) => [+g.arrivalTS, +g.departureTS])
+            .filter((x) => Number.isFinite(x))
+        )
+      ].sort((a, b) => a - b)
 
-    const roomLivingCost = Math.round(dailyRate * roomDays)
+      for (let i = 0; i < points.length - 1; i++) {
+        const startMs = points[i]
+        const endMs = points[i + 1]
+        if (endMs <= startMs) continue
+
+        const active = validGuests.filter(
+          (g) => +g.arrivalTS < endMs && +g.departureTS > startMs
+        )
+        if (!active.length) continue
+
+        const segmentMs = endMs - startMs
+        const activeCount = active.length
+
+        for (const g of active) {
+          const ownMs = +g.departureTS - +g.arrivalTS
+          if (ownMs <= 0) continue
+          const cur = ownershipFraction.get(g.__allocKey) || 0
+          ownershipFraction.set(
+            g.__allocKey,
+            cur + (segmentMs / ownMs) * (1 / activeCount)
+          )
+        }
+      }
+    }
 
     const buildShareNote = (guest) => {
+      const guestHasInterval =
+        guest.arrivalTS instanceof Date &&
+        guest.departureTS instanceof Date &&
+        !isNaN(guest.arrivalTS) &&
+        !isNaN(guest.departureTS)
+      if (!guestHasInterval) return guest.shareNote || ""
+
       const segments = []
 
       const sorted = guests
-        .filter((g) => g !== guest)
+        .filter(
+          (g) =>
+            g !== guest &&
+            g.arrivalTS instanceof Date &&
+            g.departureTS instanceof Date &&
+            !isNaN(g.arrivalTS) &&
+            !isNaN(g.departureTS)
+        )
         .sort((a, b) => a.arrivalTS - b.arrivalTS)
 
       for (const other of sorted) {
@@ -669,39 +728,37 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     }
 
     for (const g of guests) {
-      const isA = g === A
+      const hasValidInterval =
+        g.arrivalTS instanceof Date &&
+        g.departureTS instanceof Date &&
+        !isNaN(g.arrivalTS) &&
+        !isNaN(g.departureTS) &&
+        +g.departureTS > +g.arrivalTS
 
-      const realDays = calculateEffectiveCostDaysWithPartial(
-        formatLocal(g.arrivalTS),
-        formatLocal(g.departureTS),
-        rangeStart,
-        rangeEnd
-      )
-
-      const shareNoteText = buildShareNote(g)
-
-      const finalShareNote =
-        isA && roomDays !== realDays
-          ? `${shareNoteText} (оплата рассчитана за ${roomDays} суток)`
-          : shareNoteText
+      const ownership = hasValidInterval
+        ? clamp01(ownershipFraction.get(g.__allocKey))
+        : 1
+      const baseLiving = Number(g.totalLivingCost) || 0
+      const newLiving = round2(baseLiving * ownership)
+      const mealCost = Number(g.totalMealCost) || 0
 
       out.push({
         index: index++,
         arrival: g.arrival,
         departure: g.departure,
-        totalDays: realDays,
+        totalDays: g.totalDays,
         category: g.category,
         personName: g.personName,
         roomName: g.roomName,
         roomId: g.roomId,
-        shareNote: finalShareNote,
+        shareNote: buildShareNote(g),
         personPosition: g.personPosition,
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
-        totalMealCost: g.totalMealCost,
-        totalLivingCost: isA ? roomLivingCost : 0,
-        totalDebt: (isA ? roomLivingCost : 0) + g.totalMealCost,
+        totalMealCost: mealCost,
+        totalLivingCost: newLiving,
+        totalDebt: round2(newLiving + mealCost),
         hotelName: g.hotelName
       })
     }
