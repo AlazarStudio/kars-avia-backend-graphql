@@ -592,6 +592,15 @@ export const parseNum = (v) => {
   return Number.isFinite(n) ? n : NaN
 }
 
+export const calculateRoomSegmentCost = (dailyRate, segmentMs) => {
+  const rate = Number(dailyRate) || 0
+  const ms = Number(segmentMs) || 0
+  if (rate <= 0 || ms <= 0) return 0
+  const halfDayMs = MS_PER_DAY / 2
+  const halfDayUnits = Math.ceil(ms / halfDayMs)
+  return Math.round((rate / 2) * halfDayUnits)
+}
+
 export const buildAllocation = (data, rangeStart, rangeEnd) => {
   if (!Array.isArray(data) || !data.length) return []
   // Параметры оставлены для совместимости сигнатуры вызова в резолверах.
@@ -615,9 +624,7 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     )}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`
   }
 
-  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
-  const toCents = (n) => Math.round((Number(n) || 0) * 100)
-  const fromCents = (n) => (Number(n) || 0) / 100
+  const toIntRub = (n) => Math.round(Number(n) || 0)
 
   const isValidInterval = (g) =>
     g.arrivalTS instanceof Date &&
@@ -626,53 +633,10 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     !isNaN(g.departureTS) &&
     +g.departureTS > +g.arrivalTS
 
-  const distributeRemainder = (totalCents, rawCents, keys) => {
-    if (!keys.length) return new Map()
-    const prepared = keys.map((key, idx) => {
-      const raw = Number(rawCents.get(key)) || 0
-      const floor = Math.floor(raw)
-      return {
-        key,
-        idx,
-        value: floor,
-        frac: raw - floor
-      }
-    })
-
-    let assigned = prepared.reduce((acc, item) => acc + item.value, 0)
-    let diff = totalCents - assigned
-
-    if (diff > 0) {
-      prepared
-        .slice()
-        .sort((a, b) => b.frac - a.frac || a.idx - b.idx)
-        .slice(0, diff)
-        .forEach((item) => {
-          item.value += 1
-        })
-    } else if (diff < 0) {
-      prepared
-        .slice()
-        .sort((a, b) => a.frac - b.frac || b.idx - a.idx)
-        .slice(0, Math.abs(diff))
-        .forEach((item) => {
-          item.value -= 1
-        })
-    }
-
-    assigned = prepared.reduce((acc, item) => acc + item.value, 0)
-    diff = totalCents - assigned
-    if (diff !== 0) {
-      prepared[0].value += diff
-    }
-
-    return new Map(prepared.map((item) => [item.key, item.value]))
-  }
-
   const allocateRoomBySegments = (validGuests) => {
-    const rawByGuest = new Map(validGuests.map((g) => [g.__allocKey, 0]))
+    const allocatedByGuest = new Map(validGuests.map((g) => [g.__allocKey, 0]))
     if (!validGuests.length) {
-      return { rawByGuest, roomRawTotalCents: 0 }
+      return { allocatedByGuest, roomSegmentTotal: 0 }
     }
 
     const points = [
@@ -683,13 +647,7 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
       )
     ].sort((a, b) => a - b)
 
-    const roomDailyRate = validGuests.reduce((acc, g) => {
-      const rate = Number(g.livingPricePerDay) || 0
-      return rate > acc ? rate : acc
-    }, 0)
-    const roomRatePerMs = roomDailyRate > 0 ? (roomDailyRate * 100) / MS_PER_DAY : 0
-
-    let roomRawTotalCents = 0
+    let roomSegmentTotal = 0
 
     for (let i = 0; i < points.length - 1; i++) {
       const startMs = points[i]
@@ -701,24 +659,40 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
       )
       if (!active.length) continue
 
-      const segmentMs = endMs - startMs
-      if (roomRatePerMs <= 0) continue
+      const activeSorted = active
+        .slice()
+        .sort(
+          (a, b) =>
+            +a.arrivalTS - +b.arrivalTS ||
+            String(a.__allocKey).localeCompare(String(b.__allocKey))
+        )
+      const rateSource = activeSorted[activeSorted.length - 1]
+      const segmentCost = calculateRoomSegmentCost(
+        rateSource.livingPricePerDay,
+        endMs - startMs
+      )
+      if (segmentCost <= 0) continue
 
-      // Стоимость сегмента комнаты: одна комната за интервал,
-      // а не сумма "полных" стоимостей активных заявок.
-      const roomSegmentCents = roomRatePerMs * segmentMs
-      roomRawTotalCents += roomSegmentCents
-
-      const sharePerGuest = roomSegmentCents / active.length
-      for (const g of active) {
-        rawByGuest.set(
-          g.__allocKey,
-          (rawByGuest.get(g.__allocKey) || 0) + sharePerGuest
+      const baseShare = Math.floor(segmentCost / activeSorted.length)
+      let allocatedSegment = 0
+      for (let idx = 0; idx < activeSorted.length; idx++) {
+        const guest = activeSorted[idx]
+        const isLast = idx === activeSorted.length - 1
+        const share = isLast ? segmentCost - allocatedSegment : baseShare
+        allocatedSegment += share
+        allocatedByGuest.set(
+          guest.__allocKey,
+          (allocatedByGuest.get(guest.__allocKey) || 0) + share
         )
       }
+
+      if (allocatedSegment !== segmentCost) {
+        throw new Error("Living allocation invariant broken at segment level")
+      }
+      roomSegmentTotal += segmentCost
     }
 
-    return { rawByGuest, roomRawTotalCents }
+    return { allocatedByGuest, roomSegmentTotal }
   }
 
   const bookings = data.map((r, idx) => ({
@@ -746,36 +720,28 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
 
   const out = []
   let index = 1
-  let reportRoomCostSum = 0
+  let reportSegmentSum = 0
   let reportDisplaySum = 0
 
   for (const [, guests] of rooms.entries()) {
     const validGuests = guests.filter(isValidInterval)
     const invalidGuests = guests.filter((g) => !isValidInterval(g))
-    const displayByKeyCents = new Map()
-    let roomCostSum = 0
+    const displayByKey = new Map()
+    let roomSegmentSum = 0
     let roomDisplaySum = 0
 
     if (validGuests.length) {
-      const { rawByGuest, roomRawTotalCents } = allocateRoomBySegments(validGuests)
-      const validKeys = validGuests.map((g) => g.__allocKey)
-      const roomValidTotalCents = Math.round(roomRawTotalCents)
-      const validDistributed = distributeRemainder(
-        roomValidTotalCents,
-        rawByGuest,
-        validKeys
-      )
-
+      const { allocatedByGuest, roomSegmentTotal } = allocateRoomBySegments(validGuests)
       for (const g of validGuests) {
-        displayByKeyCents.set(g.__allocKey, validDistributed.get(g.__allocKey) || 0)
+        displayByKey.set(g.__allocKey, allocatedByGuest.get(g.__allocKey) || 0)
       }
-      roomCostSum += roomValidTotalCents
+      roomSegmentSum += roomSegmentTotal
     }
 
     for (const g of invalidGuests) {
-      const originalCents = toCents(g.totalLivingCost)
-      displayByKeyCents.set(g.__allocKey, originalCents)
-      roomCostSum += originalCents
+      const originalCost = toIntRub(g.totalLivingCost)
+      displayByKey.set(g.__allocKey, originalCost)
+      roomSegmentSum += originalCost
     }
 
     const buildShareNote = (guest) => {
@@ -822,9 +788,8 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     }
 
     for (const g of guests) {
-      const originalLivingCost = Number(g.totalLivingCost) || 0
-      const displayLivingCents = displayByKeyCents.get(g.__allocKey)
-      const displayLivingCost = fromCents(displayLivingCents)
+      const originalLivingCost = toIntRub(g.totalLivingCost)
+      const displayLivingCost = toIntRub(displayByKey.get(g.__allocKey))
       const mealCost = Number(g.totalMealCost) || 0
 
       out.push({
@@ -842,23 +807,23 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
         totalMealCost: mealCost,
-        originalLivingCost: round2(originalLivingCost),
-        displayLivingCost: round2(displayLivingCost),
-        totalLivingCost: round2(displayLivingCost),
-        totalDebt: round2(displayLivingCost + mealCost),
+        originalLivingCost,
+        displayLivingCost,
+        totalLivingCost: displayLivingCost,
+        totalDebt: Math.round(displayLivingCost + mealCost),
         hotelName: g.hotelName
       })
-      roomDisplaySum += toCents(displayLivingCost)
+      roomDisplaySum += displayLivingCost
     }
 
-    if (roomDisplaySum !== roomCostSum) {
+    if (roomDisplaySum !== roomSegmentSum) {
       throw new Error("Living allocation invariant broken at room segment level")
     }
-    reportRoomCostSum += roomCostSum
+    reportSegmentSum += roomSegmentSum
     reportDisplaySum += roomDisplaySum
   }
 
-  if (reportDisplaySum !== reportRoomCostSum) {
+  if (reportDisplaySum !== reportSegmentSum) {
     throw new Error("Living allocation invariant broken at report segment level")
   }
 
