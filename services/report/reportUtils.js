@@ -128,7 +128,7 @@ export const buildPositionWhere = (position) => {
   return {}
 }
 
-export const calculateLivingCost = (request, type, days) => {
+export const getLivingPricePerDay = (request, type) => {
   const roomCategory = request.roomCategory
   let pricePerDay = 0
 
@@ -155,6 +155,11 @@ export const calculateLivingCost = (request, type, days) => {
     pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
 
+  return pricePerDay
+}
+
+export const calculateLivingCost = (request, type, days) => {
+  const pricePerDay = getLivingPricePerDay(request, type)
   return days > 0 ? days * pricePerDay : 0
 }
 
@@ -423,6 +428,7 @@ export const aggregateRequestReports = (
       reportType,
       effectiveDays
     )
+    const livingPricePerDay = getLivingPricePerDay(request, reportType)
 
     const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
       calculateMealCostForReportDays(
@@ -452,6 +458,7 @@ export const aggregateRequestReports = (
       dinnerCount,
       totalMealCost,
       totalLivingCost,
+      livingPricePerDay,
       totalDebt: totalLivingCost + totalMealCost
     }
   })
@@ -691,10 +698,9 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
       const segmentMs = endMs - startMs
       const activeRates = active
         .map((g) => {
-          const ownMs = +g.departureTS - +g.arrivalTS
-          if (ownMs <= 0) return null
-          const originalCents = toCents(g.totalLivingCost)
-          return originalCents / ownMs
+          const pricePerDay = Number(g.livingPricePerDay) || 0
+          if (pricePerDay <= 0) return null
+          return (pricePerDay * 100) / MS_PER_DAY
         })
         .filter((x) => Number.isFinite(x) && x >= 0)
 
