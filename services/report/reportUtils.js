@@ -609,7 +609,199 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
   }
 
   const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
-  const clamp01 = (n) => Math.max(0, Math.min(1, Number(n) || 0))
+  const toCents = (n) => Math.round((Number(n) || 0) * 100)
+  const fromCents = (n) => (Number(n) || 0) / 100
+  const approxEqual = (a, b, eps = 0.01) => Math.abs((a || 0) - (b || 0)) <= eps
+
+  const isValidInterval = (g) =>
+    g.arrivalTS instanceof Date &&
+    g.departureTS instanceof Date &&
+    !isNaN(g.arrivalTS) &&
+    !isNaN(g.departureTS) &&
+    +g.departureTS > +g.arrivalTS
+
+  const intervalsOverlapStrict = (a, b) => {
+    const startA = +a.arrivalTS
+    const endA = +a.departureTS
+    const startB = +b.arrivalTS
+    const endB = +b.departureTS
+    return Math.max(startA, startB) < Math.min(endA, endB)
+  }
+
+  const distributeRemainder = (totalCents, rawCents, keys) => {
+    if (!keys.length) return new Map()
+    const prepared = keys.map((key, idx) => {
+      const raw = Number(rawCents.get(key)) || 0
+      const floor = Math.floor(raw)
+      return {
+        key,
+        idx,
+        value: floor,
+        frac: raw - floor
+      }
+    })
+
+    let assigned = prepared.reduce((acc, item) => acc + item.value, 0)
+    let diff = totalCents - assigned
+
+    if (diff > 0) {
+      prepared
+        .slice()
+        .sort((a, b) => b.frac - a.frac || a.idx - b.idx)
+        .slice(0, diff)
+        .forEach((item) => {
+          item.value += 1
+        })
+    } else if (diff < 0) {
+      prepared
+        .slice()
+        .sort((a, b) => a.frac - b.frac || b.idx - a.idx)
+        .slice(0, Math.abs(diff))
+        .forEach((item) => {
+          item.value -= 1
+        })
+    }
+
+    assigned = prepared.reduce((acc, item) => acc + item.value, 0)
+    diff = totalCents - assigned
+    if (diff !== 0) {
+      prepared[0].value += diff
+    }
+
+    return new Map(prepared.map((item) => [item.key, item.value]))
+  }
+
+  const calculateOwnership = (componentGuests) => {
+    const ownership = new Map(componentGuests.map((g) => [g.__allocKey, 0]))
+    if (componentGuests.length <= 1) {
+      componentGuests.forEach((g) => ownership.set(g.__allocKey, 1))
+      return ownership
+    }
+
+    const points = [
+      ...new Set(
+        componentGuests
+          .flatMap((g) => [+g.arrivalTS, +g.departureTS])
+          .filter((x) => Number.isFinite(x))
+      )
+    ].sort((a, b) => a - b)
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const startMs = points[i]
+      const endMs = points[i + 1]
+      if (endMs <= startMs) continue
+
+      const active = componentGuests.filter(
+        (g) => +g.arrivalTS < endMs && +g.departureTS > startMs
+      )
+      if (!active.length) continue
+
+      const segmentMs = endMs - startMs
+      const activeCount = active.length
+      for (const g of active) {
+        const ownMs = +g.departureTS - +g.arrivalTS
+        if (ownMs <= 0) continue
+        const cur = ownership.get(g.__allocKey) || 0
+        ownership.set(g.__allocKey, cur + (segmentMs / ownMs) * (1 / activeCount))
+      }
+    }
+
+    return ownership
+  }
+
+  const splitIntoOverlapComponents = (roomGuests) => {
+    const validGuests = roomGuests.filter(isValidInterval)
+    const invalidGuests = roomGuests.filter((g) => !isValidInterval(g))
+    const components = []
+
+    for (const g of invalidGuests) {
+      components.push([g])
+    }
+    if (!validGuests.length) return components
+
+    const adjacency = new Map(validGuests.map((g) => [g.__allocKey, new Set()]))
+    for (let i = 0; i < validGuests.length; i++) {
+      for (let j = i + 1; j < validGuests.length; j++) {
+        const a = validGuests[i]
+        const b = validGuests[j]
+        if (intervalsOverlapStrict(a, b)) {
+          adjacency.get(a.__allocKey).add(b.__allocKey)
+          adjacency.get(b.__allocKey).add(a.__allocKey)
+        }
+      }
+    }
+
+    const byKey = new Map(validGuests.map((g) => [g.__allocKey, g]))
+    const visited = new Set()
+    for (const g of validGuests) {
+      if (visited.has(g.__allocKey)) continue
+      const queue = [g.__allocKey]
+      visited.add(g.__allocKey)
+      const componentKeys = []
+
+      while (queue.length) {
+        const cur = queue.shift()
+        componentKeys.push(cur)
+        for (const next of adjacency.get(cur) || []) {
+          if (visited.has(next)) continue
+          visited.add(next)
+          queue.push(next)
+        }
+      }
+
+      components.push(componentKeys.map((key) => byKey.get(key)))
+    }
+
+    return components
+  }
+
+  const allocateComponentDisplayCents = (componentGuests) => {
+    const keys = componentGuests.map((g) => g.__allocKey)
+    const originalCents = new Map(
+      componentGuests.map((g) => [g.__allocKey, toCents(g.totalLivingCost)])
+    )
+    const componentOriginalTotal = keys.reduce(
+      (acc, key) => acc + (originalCents.get(key) || 0),
+      0
+    )
+    if (keys.length === 1) return originalCents
+
+    const ownership = calculateOwnership(componentGuests)
+    const weighted = new Map()
+    let weightedSum = 0
+
+    for (const key of keys) {
+      const base = originalCents.get(key) || 0
+      const own = Math.max(0, Number(ownership.get(key)) || 0)
+      const val = base * own
+      weighted.set(key, val)
+      weightedSum += val
+    }
+
+    if (weightedSum <= 0) {
+      const equalShare = componentOriginalTotal / keys.length
+      const rawEqual = new Map(keys.map((key) => [key, equalShare]))
+      return distributeRemainder(componentOriginalTotal, rawEqual, keys)
+    }
+
+    const rawCents = new Map()
+    for (const key of keys) {
+      rawCents.set(
+        key,
+        ((weighted.get(key) || 0) / weightedSum) * componentOriginalTotal
+      )
+    }
+
+    const distributed = distributeRemainder(componentOriginalTotal, rawCents, keys)
+    const distributedSum = keys.reduce(
+      (acc, key) => acc + (distributed.get(key) || 0),
+      0
+    )
+    if (distributedSum !== componentOriginalTotal) {
+      throw new Error("Living allocation invariant broken at component level")
+    }
+    return distributed
+  }
 
   const bookings = data.map((r, idx) => ({
     ...r,
@@ -636,53 +828,42 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
 
   const out = []
   let index = 1
+  let reportOriginalSum = 0
+  let reportDisplaySum = 0
 
   for (const [, guests] of rooms.entries()) {
-    const validGuests = guests.filter(
-      (g) =>
-        g.arrivalTS instanceof Date &&
-        g.departureTS instanceof Date &&
-        !isNaN(g.arrivalTS) &&
-        !isNaN(g.departureTS) &&
-        +g.departureTS > +g.arrivalTS
-    )
+    const components = splitIntoOverlapComponents(guests)
+    const displayByKeyCents = new Map()
+    let roomOriginalSum = 0
+    let roomDisplaySum = 0
 
-    const ownershipFraction = new Map()
-    validGuests.forEach((g) => ownershipFraction.set(g.__allocKey, 0))
+    for (const component of components) {
+      const componentAllocation = allocateComponentDisplayCents(component)
+      const componentOriginalSum = component.reduce(
+        (acc, g) => acc + toCents(g.totalLivingCost),
+        0
+      )
+      const componentDisplaySum = component.reduce(
+        (acc, g) => acc + (componentAllocation.get(g.__allocKey) || 0),
+        0
+      )
 
-    if (validGuests.length > 0) {
-      const points = [
-        ...new Set(
-          validGuests
-            .flatMap((g) => [+g.arrivalTS, +g.departureTS])
-            .filter((x) => Number.isFinite(x))
-        )
-      ].sort((a, b) => a - b)
-
-      for (let i = 0; i < points.length - 1; i++) {
-        const startMs = points[i]
-        const endMs = points[i + 1]
-        if (endMs <= startMs) continue
-
-        const active = validGuests.filter(
-          (g) => +g.arrivalTS < endMs && +g.departureTS > startMs
-        )
-        if (!active.length) continue
-
-        const segmentMs = endMs - startMs
-        const activeCount = active.length
-
-        for (const g of active) {
-          const ownMs = +g.departureTS - +g.arrivalTS
-          if (ownMs <= 0) continue
-          const cur = ownershipFraction.get(g.__allocKey) || 0
-          ownershipFraction.set(
-            g.__allocKey,
-            cur + (segmentMs / ownMs) * (1 / activeCount)
-          )
-        }
+      if (componentOriginalSum !== componentDisplaySum) {
+        throw new Error("Living allocation invariant broken in overlap component")
       }
+
+      for (const g of component) {
+        displayByKeyCents.set(g.__allocKey, componentAllocation.get(g.__allocKey))
+      }
+      roomOriginalSum += componentOriginalSum
+      roomDisplaySum += componentDisplaySum
     }
+
+    if (roomOriginalSum !== roomDisplaySum) {
+      throw new Error("Living allocation invariant broken at room level")
+    }
+    reportOriginalSum += roomOriginalSum
+    reportDisplaySum += roomDisplaySum
 
     const buildShareNote = (guest) => {
       const guestHasInterval =
@@ -728,18 +909,9 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     }
 
     for (const g of guests) {
-      const hasValidInterval =
-        g.arrivalTS instanceof Date &&
-        g.departureTS instanceof Date &&
-        !isNaN(g.arrivalTS) &&
-        !isNaN(g.departureTS) &&
-        +g.departureTS > +g.arrivalTS
-
-      const ownership = hasValidInterval
-        ? clamp01(ownershipFraction.get(g.__allocKey))
-        : 1
-      const baseLiving = Number(g.totalLivingCost) || 0
-      const newLiving = round2(baseLiving * ownership)
+      const originalLivingCost = Number(g.totalLivingCost) || 0
+      const displayLivingCents = displayByKeyCents.get(g.__allocKey)
+      const displayLivingCost = fromCents(displayLivingCents)
       const mealCost = Number(g.totalMealCost) || 0
 
       out.push({
@@ -757,11 +929,17 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
         totalMealCost: mealCost,
-        totalLivingCost: newLiving,
-        totalDebt: round2(newLiving + mealCost),
+        originalLivingCost: round2(originalLivingCost),
+        displayLivingCost: round2(displayLivingCost),
+        totalLivingCost: round2(displayLivingCost),
+        totalDebt: round2(displayLivingCost + mealCost),
         hotelName: g.hotelName
       })
     }
+  }
+
+  if (!approxEqual(fromCents(reportOriginalSum), fromCents(reportDisplaySum), 0.001)) {
+    throw new Error("Living allocation invariant broken at report level")
   }
 
   return out
