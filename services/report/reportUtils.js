@@ -683,6 +683,12 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
       )
     ].sort((a, b) => a - b)
 
+    const roomDailyRate = validGuests.reduce((acc, g) => {
+      const rate = Number(g.livingPricePerDay) || 0
+      return rate > acc ? rate : acc
+    }, 0)
+    const roomRatePerMs = roomDailyRate > 0 ? (roomDailyRate * 100) / MS_PER_DAY : 0
+
     let roomRawTotalCents = 0
 
     for (let i = 0; i < points.length - 1; i++) {
@@ -696,20 +702,10 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
       if (!active.length) continue
 
       const segmentMs = endMs - startMs
-      const activeRates = active
-        .map((g) => {
-          const pricePerDay = Number(g.livingPricePerDay) || 0
-          if (pricePerDay <= 0) return null
-          return (pricePerDay * 100) / MS_PER_DAY
-        })
-        .filter((x) => Number.isFinite(x) && x >= 0)
-
-      if (!activeRates.length) continue
+      if (roomRatePerMs <= 0) continue
 
       // Стоимость сегмента комнаты: одна комната за интервал,
       // а не сумма "полных" стоимостей активных заявок.
-      const roomRatePerMs =
-        activeRates.reduce((acc, rate) => acc + rate, 0) / activeRates.length
       const roomSegmentCents = roomRatePerMs * segmentMs
       roomRawTotalCents += roomSegmentCents
 
