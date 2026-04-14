@@ -423,17 +423,8 @@ export const aggregateRequestReports = (
       formatDateToISO(filterEnd)
     )
 
-<<<<<<< HEAD
-    const pricePerDay = calculateLivingCost(request, reportType, 1)
+    const pricePerDay = getLivingPricePerDay(request, reportType)
     const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
-=======
-    const totalLivingCost = calculateLivingCost(
-      request,
-      reportType,
-      effectiveDays
-    )
-    const livingPricePerDay = getLivingPricePerDay(request, reportType)
->>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
 
     const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
       calculateMealCostForReportDays(
@@ -465,11 +456,7 @@ export const aggregateRequestReports = (
       dinnerCount,
       totalMealCost,
       totalLivingCost,
-<<<<<<< HEAD
       pricePerDay,
-=======
-      livingPricePerDay,
->>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
       totalDebt: totalLivingCost + totalMealCost
     }
   }).filter(Boolean)
