@@ -15,11 +15,9 @@ import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { deleteFiles } from "../../services/files/uploadFiles.js"
-import { computeRoomShareMatrix } from "../../services/rooms/computeRoomShareMatrix.js"
 import {
   applyCreateFilters,
   applyFilters,
-  buildAllocation,
   buildPositionWhere,
   aggregateRequestReports
 } from "../../services/report/reportUtils.js"
@@ -240,15 +238,6 @@ const reportResolver = {
         )
       }
 
-      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
-      //   mode: "shared_equal", // равные доли
-      //   serviceDayHour: 12,
-      //   filterStart,
-      //   filterEnd
-      // })
-
-      const new_report = buildAllocation(reportData, filterStart, filterEnd)
-
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
         : `airline_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -258,14 +247,12 @@ const reportResolver = {
       if (format === "pdf") {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
-        // await generateExcelAvia(reportData, reportPath)
         await generateExcelAvia(
-          new_report,
+          reportData,
           reportPath,
           companyData,
           createFilterInput
         )
-        // await generateExcelAvia(finalRows, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
@@ -363,15 +350,6 @@ const reportResolver = {
         contractName: hotel?.contractName || "" // если поля нет — оставим пустым
       }
 
-      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
-      //   mode: "shared_equal", // равные доли
-      //   serviceDayHour: 12,
-      //   filterStart,
-      //   filterEnd
-      // })
-
-      const new_report = buildAllocation(reportData, filterStart, filterEnd)
-
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
         : `hotel_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -382,7 +360,7 @@ const reportResolver = {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
         await generateExcelHotel(
-          new_report,
+          reportData,
           reportPath,
           companyData,
           createFilterInput
