@@ -15,7 +15,6 @@ import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { deleteFiles } from "../../services/files/uploadFiles.js"
-import { computeRoomShareMatrix } from "../../services/rooms/computeRoomShareMatrix.js"
 import {
   applyCreateFilters,
   applyFilters,
@@ -240,13 +239,6 @@ const reportResolver = {
         )
       }
 
-      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
-      //   mode: "shared_equal", // равные доли
-      //   serviceDayHour: 12,
-      //   filterStart,
-      //   filterEnd
-      // })
-
       const new_report = buildAllocation(reportData)
 
       const reportName = filter.passengersReport
@@ -258,14 +250,12 @@ const reportResolver = {
       if (format === "pdf") {
         throw new Error("PDF формат не реализован в данном примере")
       } else if (format === "xlsx") {
-        // await generateExcelAvia(reportData, reportPath)
         await generateExcelAvia(
           new_report,
           reportPath,
           companyData,
           createFilterInput
         )
-        // await generateExcelAvia(finalRows, reportPath)
       } else {
         throw new Error("Unsupported report format")
       }
@@ -362,13 +352,6 @@ const reportResolver = {
         city: hotel?.city || "",
         contractName: hotel?.contractName || "" // если поля нет — оставим пустым
       }
-
-      // const { rows: finalRows } = computeRoomShareMatrix(reportData, {
-      //   mode: "shared_equal", // равные доли
-      //   serviceDayHour: 12,
-      //   filterStart,
-      //   filterEnd
-      // })
 
       const new_report = buildAllocation(reportData)
 

@@ -128,7 +128,7 @@ export const buildPositionWhere = (position) => {
   return {}
 }
 
-export const calculateLivingCost = (request, type, days) => {
+export const getLivingPricePerDay = (request, type) => {
   const roomCategory = request.roomCategory
   let pricePerDay = 0
 
@@ -155,6 +155,11 @@ export const calculateLivingCost = (request, type, days) => {
     pricePerDay = hotelPriceMapping[roomCategory] || 0
   }
 
+  return pricePerDay
+}
+
+export const calculateLivingCost = (request, type, days) => {
+  const pricePerDay = getLivingPricePerDay(request, type)
   return days > 0 ? days * pricePerDay : 0
 }
 
@@ -418,8 +423,17 @@ export const aggregateRequestReports = (
       formatDateToISO(filterEnd)
     )
 
+<<<<<<< HEAD
     const pricePerDay = calculateLivingCost(request, reportType, 1)
     const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
+=======
+    const totalLivingCost = calculateLivingCost(
+      request,
+      reportType,
+      effectiveDays
+    )
+    const livingPricePerDay = getLivingPricePerDay(request, reportType)
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
 
     const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
       calculateMealCostForReportDays(
@@ -451,7 +465,11 @@ export const aggregateRequestReports = (
       dinnerCount,
       totalMealCost,
       totalLivingCost,
+<<<<<<< HEAD
       pricePerDay,
+=======
+      livingPricePerDay,
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
       totalDebt: totalLivingCost + totalMealCost
     }
   }).filter(Boolean)
@@ -585,6 +603,7 @@ export const parseNum = (v) => {
   return Number.isFinite(n) ? n : NaN
 }
 
+<<<<<<< HEAD
 // Эффективные сутки для одного сегмента шкалы.
 // Partial-day корректировки применяются ТОЛЬКО на реальный заезд/выезд кластера
 // (isClusterArrival / isClusterDeparture), чтобы Σ стоимостей = стоимость кластера.
@@ -652,7 +671,22 @@ const findOverlapClusters = (guests) => {
 }
 
 export const buildAllocation = (data) => {
+=======
+export const calculateRoomSegmentCost = (dailyRate, segmentMs) => {
+  const rate = Number(dailyRate) || 0
+  const ms = Number(segmentMs) || 0
+  if (rate <= 0 || ms <= 0) return 0
+  const halfDayMs = MS_PER_DAY / 2
+  const halfDayUnits = Math.ceil(ms / halfDayMs)
+  return Math.round((rate / 2) * halfDayUnits)
+}
+
+export const buildAllocation = (data, rangeStart, rangeEnd) => {
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
   if (!Array.isArray(data) || !data.length) return []
+  // Параметры оставлены для совместимости сигнатуры вызова в резолверах.
+  void rangeStart
+  void rangeEnd
 
   const parseLocalDT = (s) => {
     if (!s) return null
@@ -671,19 +705,107 @@ export const buildAllocation = (data) => {
     )}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`
   }
 
-  const bookings = data.map((r) => ({
+  const toIntRub = (n) => Math.round(Number(n) || 0)
+
+  const isValidInterval = (g) =>
+    g.arrivalTS instanceof Date &&
+    g.departureTS instanceof Date &&
+    !isNaN(g.arrivalTS) &&
+    !isNaN(g.departureTS) &&
+    +g.departureTS > +g.arrivalTS
+
+  const allocateRoomBySegments = (validGuests) => {
+    const allocatedByGuest = new Map(validGuests.map((g) => [g.__allocKey, 0]))
+    if (!validGuests.length) {
+      return { allocatedByGuest, roomSegmentTotal: 0 }
+    }
+
+    const points = [
+      ...new Set(
+        validGuests
+          .flatMap((g) => [+g.arrivalTS, +g.departureTS])
+          .filter((x) => Number.isFinite(x))
+      )
+    ].sort((a, b) => a - b)
+
+    let roomSegmentTotal = 0
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const startMs = points[i]
+      const endMs = points[i + 1]
+      if (endMs <= startMs) continue
+
+      const active = validGuests.filter(
+        (g) => +g.arrivalTS < endMs && +g.departureTS > startMs
+      )
+      if (!active.length) continue
+
+      const activeSorted = active
+        .slice()
+        .sort(
+          (a, b) =>
+            +a.arrivalTS - +b.arrivalTS ||
+            String(a.__allocKey).localeCompare(String(b.__allocKey))
+        )
+      const rateSource = activeSorted[activeSorted.length - 1]
+      const segmentCost = calculateRoomSegmentCost(
+        rateSource.livingPricePerDay,
+        endMs - startMs
+      )
+      if (segmentCost <= 0) continue
+
+      const baseShare = Math.floor(segmentCost / activeSorted.length)
+      let allocatedSegment = 0
+      for (let idx = 0; idx < activeSorted.length; idx++) {
+        const guest = activeSorted[idx]
+        const isLast = idx === activeSorted.length - 1
+        const share = isLast ? segmentCost - allocatedSegment : baseShare
+        allocatedSegment += share
+        allocatedByGuest.set(
+          guest.__allocKey,
+          (allocatedByGuest.get(guest.__allocKey) || 0) + share
+        )
+      }
+
+      if (allocatedSegment !== segmentCost) {
+        throw new Error("Living allocation invariant broken at segment level")
+      }
+      roomSegmentTotal += segmentCost
+    }
+
+    return { allocatedByGuest, roomSegmentTotal }
+  }
+
+  const bookings = data.map((r, idx) => ({
     ...r,
+    __allocKey: r.id || `row_${idx}`,
     arrivalTS: parseLocalDT(r.arrival),
     departureTS: parseLocalDT(r.departure)
   }))
 
   // Гости без roomId не группируются вместе — каждый получает уникальный ключ
   const rooms = new Map()
+<<<<<<< HEAD
   let soloIndex = 0
   for (const b of bookings) {
     const key = b.roomId ? b.roomId : `__solo_${soloIndex++}`
     if (!rooms.has(key)) rooms.set(key, [])
     rooms.get(key).push(b)
+=======
+  for (let i = 0; i < bookings.length; i++) {
+    const b = bookings[i]
+    const roomIdPart = String(b.roomId || "").trim()
+    const roomNamePart = String(b.roomName || "").trim()
+    const hotelNamePart = String(b.hotelName || "").trim()
+    const roomKey = roomIdPart
+      ? `roomId:${roomIdPart}`
+      : roomNamePart || hotelNamePart
+        ? `roomName:${hotelNamePart}|${roomNamePart}`
+        : `single:${b.__allocKey}`
+
+    if (!rooms.has(roomKey)) rooms.set(roomKey, [])
+    rooms.get(roomKey).push(b)
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
   }
 
   // Карта livingCost для каждого гостя (все номера, все кластеры)
@@ -757,8 +879,11 @@ export const buildAllocation = (data) => {
   // Формируем строки отчёта
   const out = []
   let index = 1
+  let reportSegmentSum = 0
+  let reportDisplaySum = 0
 
   for (const [, guests] of rooms.entries()) {
+<<<<<<< HEAD
     const valid = guests.filter(
       (g) => g.arrivalTS && g.departureTS && g.arrivalTS < g.departureTS
     )
@@ -772,6 +897,46 @@ export const buildAllocation = (data) => {
             g !== guest &&
             g.arrivalTS < guest.departureTS &&
             g.departureTS > guest.arrivalTS
+=======
+    const validGuests = guests.filter(isValidInterval)
+    const invalidGuests = guests.filter((g) => !isValidInterval(g))
+    const displayByKey = new Map()
+    let roomSegmentSum = 0
+    let roomDisplaySum = 0
+
+    if (validGuests.length) {
+      const { allocatedByGuest, roomSegmentTotal } = allocateRoomBySegments(validGuests)
+      for (const g of validGuests) {
+        displayByKey.set(g.__allocKey, allocatedByGuest.get(g.__allocKey) || 0)
+      }
+      roomSegmentSum += roomSegmentTotal
+    }
+
+    for (const g of invalidGuests) {
+      const originalCost = toIntRub(g.totalLivingCost)
+      displayByKey.set(g.__allocKey, originalCost)
+      roomSegmentSum += originalCost
+    }
+
+    const buildShareNote = (guest) => {
+      const guestHasInterval =
+        guest.arrivalTS instanceof Date &&
+        guest.departureTS instanceof Date &&
+        !isNaN(guest.arrivalTS) &&
+        !isNaN(guest.departureTS)
+      if (!guestHasInterval) return guest.shareNote || ""
+
+      const segments = []
+
+      const sorted = guests
+        .filter(
+          (g) =>
+            g !== guest &&
+            g.arrivalTS instanceof Date &&
+            g.departureTS instanceof Date &&
+            !isNaN(g.arrivalTS) &&
+            !isNaN(g.departureTS)
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
         )
         .sort((a, b) => a.arrivalTS - b.arrivalTS)
 
@@ -791,8 +956,14 @@ export const buildAllocation = (data) => {
     }
 
     for (const g of guests) {
+<<<<<<< HEAD
       const livingCost = allLivingCosts.get(g) ?? 0
       if (!livingCost && !g.totalMealCost) continue
+=======
+      const originalLivingCost = toIntRub(g.totalLivingCost)
+      const displayLivingCost = toIntRub(displayByKey.get(g.__allocKey))
+      const mealCost = Number(g.totalMealCost) || 0
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
 
       out.push({
         index: index++,
@@ -808,12 +979,31 @@ export const buildAllocation = (data) => {
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
+<<<<<<< HEAD
         totalMealCost: g.totalMealCost,
         totalLivingCost: livingCost,
         totalDebt: livingCost + g.totalMealCost,
+=======
+        totalMealCost: mealCost,
+        originalLivingCost,
+        displayLivingCost,
+        totalLivingCost: displayLivingCost,
+        totalDebt: Math.round(displayLivingCost + mealCost),
+>>>>>>> 4631f8dcf35599351efa3ca1297c1fbf54a8d796
         hotelName: g.hotelName
       })
+      roomDisplaySum += displayLivingCost
     }
+
+    if (roomDisplaySum !== roomSegmentSum) {
+      throw new Error("Living allocation invariant broken at room segment level")
+    }
+    reportSegmentSum += roomSegmentSum
+    reportDisplaySum += roomDisplaySum
+  }
+
+  if (reportDisplaySum !== reportSegmentSum) {
+    throw new Error("Living allocation invariant broken at report segment level")
   }
 
   return out
