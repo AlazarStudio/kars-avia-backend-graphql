@@ -16,6 +16,78 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 
+const hasOwn = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj || {}, key)
+
+const syncDepartmentPositionLinks = async ({
+  departmentId,
+  positionIds,
+  positionAccessMenus
+}) => {
+  const hasPositionIds = Array.isArray(positionIds)
+  const hasPositionMenus = Array.isArray(positionAccessMenus)
+
+  if (!hasPositionIds && !hasPositionMenus) {
+    return
+  }
+
+  const normalizedMenuItems = hasPositionMenus
+    ? positionAccessMenus.filter((item) => item?.positionId)
+    : []
+  const menuPositionIds = normalizedMenuItems.map((item) => item.positionId)
+
+  const currentPositions = await prisma.positionOnDepartment.findMany({
+    where: { airlineDepartmentId: departmentId },
+    select: { positionId: true }
+  })
+  const currentIds = currentPositions.map((item) => item.positionId)
+
+  const desiredIds = hasPositionIds
+    ? [...new Set([...(positionIds || []), ...menuPositionIds])]
+    : [...new Set([...currentIds, ...menuPositionIds])]
+
+  const toConnect = desiredIds.filter((id) => !currentIds.includes(id))
+  const toDisconnect = hasPositionIds
+    ? currentIds.filter((id) => !desiredIds.includes(id))
+    : []
+
+  if (toConnect.length > 0) {
+    await prisma.positionOnDepartment.createMany({
+      data: toConnect.map((positionId) => ({
+        airlineDepartmentId: departmentId,
+        positionId
+      }))
+    })
+  }
+
+  if (toDisconnect.length > 0) {
+    await prisma.positionOnDepartment.deleteMany({
+      where: {
+        airlineDepartmentId: departmentId,
+        positionId: { in: toDisconnect }
+      }
+    })
+  }
+
+  if (hasPositionMenus) {
+    for (const menuItem of normalizedMenuItems) {
+      if (!hasOwn(menuItem, "accessMenu")) {
+        continue
+      }
+
+      await prisma.positionOnDepartment.updateMany({
+        where: {
+          airlineDepartmentId: departmentId,
+          positionId: menuItem.positionId
+        },
+        data: {
+          accessMenu: menuItem.accessMenu ?? null
+        }
+      })
+    }
+  }
+}
+
 const airlineResolver = {
   Upload: GraphQLUpload,
 
@@ -383,47 +455,11 @@ const airlineResolver = {
                 }
               })
 
-              // Обновляем связи с должностями
-              if (depart.positionIds) {
-                // Получаем текущие связи (id должностей, связанных с департаментом)
-                const currentPositions =
-                  await prisma.positionOnDepartment.findMany({
-                    where: { airlineDepartmentId: depart.id },
-                    select: { positionId: true }
-                  })
-                const currentIds = currentPositions.map(
-                  (item) => item.positionId
-                )
-                const newIds = depart.positionIds
-
-                // Вычисляем какие id нужно добавить, а какие убрать
-                const toConnect = newIds.filter(
-                  (id) => !currentIds.includes(id)
-                )
-                const toDisconnect = currentIds.filter(
-                  (id) => !newIds.includes(id)
-                )
-
-                // Добавляем новые связи
-                if (toConnect.length > 0) {
-                  await prisma.positionOnDepartment.createMany({
-                    data: toConnect.map((positionId) => ({
-                      airlineDepartmentId: depart.id,
-                      positionId: positionId
-                    }))
-                  })
-                }
-
-                // Удаляем отсутствующие связи
-                if (toDisconnect.length > 0) {
-                  await prisma.positionOnDepartment.deleteMany({
-                    where: {
-                      airlineDepartmentId: depart.id,
-                      positionId: { in: toDisconnect }
-                    }
-                  })
-                }
-              }
+              await syncDepartmentPositionLinks({
+                departmentId: depart.id,
+                positionIds: depart.positionIds,
+                positionAccessMenus: depart.positionAccessMenus
+              })
 
               await logAction({
                 context,
@@ -448,46 +484,11 @@ const airlineResolver = {
                 }
               })
 
-              if (depart.positionIds) {
-                // Получаем текущие связи (id должностей, связанных с департаментом)
-                const currentPositions =
-                  await prisma.positionOnDepartment.findMany({
-                    where: { airlineDepartmentId: newDepart.id },
-                    select: { positionId: true }
-                  })
-                const currentIds = currentPositions.map(
-                  (item) => item.positionId
-                )
-                const newIds = depart.positionIds
-
-                // Вычисляем какие id нужно добавить, а какие убрать
-                const toConnect = newIds.filter(
-                  (id) => !currentIds.includes(id)
-                )
-                const toDisconnect = currentIds.filter(
-                  (id) => !newIds.includes(id)
-                )
-
-                // Добавляем новые связи
-                if (toConnect.length > 0) {
-                  await prisma.positionOnDepartment.createMany({
-                    data: toConnect.map((positionId) => ({
-                      airlineDepartmentId: newDepart.id,
-                      positionId: positionId
-                    }))
-                  })
-                }
-
-                // Удаляем отсутствующие связи
-                if (toDisconnect.length > 0) {
-                  await prisma.positionOnDepartment.deleteMany({
-                    where: {
-                      airlineDepartmentId: newDepart.id,
-                      positionId: { in: toDisconnect }
-                    }
-                  })
-                }
-              }
+              await syncDepartmentPositionLinks({
+                departmentId: newDepart.id,
+                positionIds: depart.positionIds,
+                positionAccessMenus: depart.positionAccessMenus
+              })
 
               await logAction({
                 context,
@@ -955,6 +956,12 @@ const airlineResolver = {
         include: { position: true }
       })
       return posOnDept.map((record) => record.position)
+    },
+    positionAccessMenus: async (parent) => {
+      return await prisma.positionOnDepartment.findMany({
+        where: { airlineDepartmentId: parent.id },
+        include: { position: true }
+      })
     }
   },
 

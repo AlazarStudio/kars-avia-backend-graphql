@@ -33,6 +33,13 @@ const airlineTypeDef = /* GraphQL */ `
     accessMenu: AccessMenu
     notificationMenu: NotificationMenu
     position: [Position]
+    positionAccessMenus: [PositionAccessMenu!]
+  }
+
+  type PositionAccessMenu {
+    positionId: ID!
+    position: Position
+    accessMenu: AccessMenu
   }
 
   type AirlinePersonal {
@@ -85,6 +92,12 @@ const airlineTypeDef = /* GraphQL */ `
     notificationMenu: NotificationMenuInput
     userIds: [ID!]
     positionIds: [ID!]
+    positionAccessMenus: [PositionAccessMenuInput!]
+  }
+
+  input PositionAccessMenuInput {
+    positionId: ID!
+    accessMenu: AccessMenuInput
   }
 
   input AirlinePersonalInput {

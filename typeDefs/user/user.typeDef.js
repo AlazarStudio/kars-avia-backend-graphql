@@ -64,6 +64,7 @@ const userTypeDef = /* GraphQL */ `
     dispatcherDepartment: DispatcherDepartment
     representativeDepartmentId: ID
     representativeDepartment: RepresentativeDepartment
+    effectiveAccessMenu: AccessMenu
     support: Boolean
     active: Boolean
     refreshToken: String

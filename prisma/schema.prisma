@@ -1633,6 +1633,7 @@ model PositionOnDepartment {
   airlineDepartmentId String            @db.ObjectId
   position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
   positionId          String            @db.ObjectId
+  accessMenu          AccessMenu?
   // hotelChess HotelChess[]
   // capacity   Int?
   // passengers Passenger[]
