@@ -215,12 +215,14 @@ const analyticsTypeDef = /* GraphQL */ `
 
   type AirlineAnalyticsRequestItem {
     requestId: ID!
+    requestNumber: String
     personId: ID
     personName: String
     positionId: ID
     positionName: String
     airportId: ID
     airportName: String
+    airportCode: String
     budget: Float!
     livingBudget: Float!
     mealBudget: Float!

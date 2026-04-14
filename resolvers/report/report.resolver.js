@@ -247,7 +247,7 @@ const reportResolver = {
       //   filterEnd
       // })
 
-      const new_report = buildAllocation(reportData, filterStart, filterEnd)
+      const new_report = buildAllocation(reportData)
 
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`
@@ -370,7 +370,7 @@ const reportResolver = {
       //   filterEnd
       // })
 
-      const new_report = buildAllocation(reportData, filterStart, filterEnd)
+      const new_report = buildAllocation(reportData)
 
       const reportName = filter.passengersReport
         ? `passenger_report_${startDateStr}-${endDateStr}_${Date.now()}.${format}`

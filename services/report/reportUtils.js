@@ -228,8 +228,8 @@ export const getAirlineMealPrice = (request) => {
 export const calculateMealCostForReportDays = (
   request,
   reportType,
-  effectiveDays,
-  fullDays,
+  _effectiveDays,
+  _fullDays,
   mealPlan,
   startDate,
   endDate
@@ -418,11 +418,8 @@ export const aggregateRequestReports = (
       formatDateToISO(filterEnd)
     )
 
-    const totalLivingCost = calculateLivingCost(
-      request,
-      reportType,
-      effectiveDays
-    )
+    const pricePerDay = calculateLivingCost(request, reportType, 1)
+    const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
 
     const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
       calculateMealCostForReportDays(
@@ -434,6 +431,8 @@ export const aggregateRequestReports = (
         effectiveArrival,
         effectiveDeparture
       )
+
+    if (!totalLivingCost && !totalMealCost) return null
 
     return {
       index: index + 1,
@@ -452,9 +451,10 @@ export const aggregateRequestReports = (
       dinnerCount,
       totalMealCost,
       totalLivingCost,
+      pricePerDay,
       totalDebt: totalLivingCost + totalMealCost
     }
-  })
+  }).filter(Boolean)
 }
 
 export const calculateTotalDays = (start, end) => {
@@ -466,8 +466,8 @@ export const calculateTotalDays = (start, end) => {
 export const calculateEffectiveCostDaysWithPartial = (
   arrivalStr,
   departureStr,
-  reportStart,
-  reportEnd
+  _reportStart,
+  _reportEnd
 ) => {
   const parseDateTime = (str) => {
     if (!str || typeof str !== "string") return null
@@ -585,7 +585,73 @@ export const parseNum = (v) => {
   return Number.isFinite(n) ? n : NaN
 }
 
-export const buildAllocation = (data, rangeStart, rangeEnd) => {
+// Эффективные сутки для одного сегмента шкалы.
+// Partial-day корректировки применяются ТОЛЬКО на реальный заезд/выезд кластера
+// (isClusterArrival / isClusterDeparture), чтобы Σ стоимостей = стоимость кластера.
+const calcSegmentDays = (t1, t2, isClusterArrival, isClusterDeparture) => {
+  const MS_PER_DAY = 86400000
+  const d1 = new Date(t1.getFullYear(), t1.getMonth(), t1.getDate())
+  const d2 = new Date(t2.getFullYear(), t2.getMonth(), t2.getDate())
+  const baseDays = Math.max(0, Math.floor((d2 - d1) / MS_PER_DAY))
+
+  let arrivalAdjust = 0
+  if (isClusterArrival) {
+    const m = t1.getHours() * 60 + t1.getMinutes()
+    if (t1.getHours() === 0 && t1.getMinutes() === 10) arrivalAdjust = 0
+    else if (m < 6 * 60) arrivalAdjust = 1
+    else if (m < 14 * 60) arrivalAdjust = 0.5
+  }
+
+  let departureAdjust = 0
+  if (isClusterDeparture) {
+    const m = t2.getHours() * 60 + t2.getMinutes()
+    if (t2.getHours() === 23 && t2.getMinutes() === 50) departureAdjust = 1
+    else if (m >= 18 * 60) departureAdjust = 1
+    else if (m > 12 * 60) departureAdjust = 0.5
+  }
+
+  return baseDays + arrivalAdjust + departureAdjust
+}
+
+// Разбивает гостей одного номера на кластеры по реальному пересечению периодов.
+// Гости, жившие в разное время (без пересечения), попадают в разные кластеры
+// и рассчитываются независимо.
+const findOverlapClusters = (guests) => {
+  if (!guests.length) return []
+  const assigned = new Set()
+  const clusters = []
+
+  for (let i = 0; i < guests.length; i++) {
+    if (assigned.has(i)) continue
+    const cluster = [i]
+    assigned.add(i)
+
+    let changed = true
+    while (changed) {
+      changed = false
+      for (let j = 0; j < guests.length; j++) {
+        if (assigned.has(j)) continue
+        const cand = guests[j]
+        const overlaps = cluster.some((idx) => {
+          const g = guests[idx]
+          // строгое пересечение: один выехал — другой ещё не заехал → не пересекаются
+          return g.arrivalTS < cand.departureTS && g.departureTS > cand.arrivalTS
+        })
+        if (overlaps) {
+          cluster.push(j)
+          assigned.add(j)
+          changed = true
+        }
+      }
+    }
+
+    clusters.push(cluster.map((idx) => guests[idx]))
+  }
+
+  return clusters
+}
+
+export const buildAllocation = (data) => {
   if (!Array.isArray(data) || !data.length) return []
 
   const parseLocalDT = (s) => {
@@ -611,97 +677,140 @@ export const buildAllocation = (data, rangeStart, rangeEnd) => {
     departureTS: parseLocalDT(r.departure)
   }))
 
+  // Гости без roomId не группируются вместе — каждый получает уникальный ключ
   const rooms = new Map()
+  let soloIndex = 0
   for (const b of bookings) {
-    if (!rooms.has(b.roomId)) rooms.set(b.roomId, [])
-    rooms.get(b.roomId).push(b)
+    const key = b.roomId ? b.roomId : `__solo_${soloIndex++}`
+    if (!rooms.has(key)) rooms.set(key, [])
+    rooms.get(key).push(b)
   }
 
+  // Карта livingCost для каждого гостя (все номера, все кластеры)
+  const allLivingCosts = new Map()
+
+  for (const [, guests] of rooms.entries()) {
+    const valid = guests.filter(
+      (g) => g.arrivalTS && g.departureTS && g.arrivalTS < g.departureTS
+    )
+
+    // Разбиваем на кластеры: только реально пересекающиеся гости считаются вместе
+    const clusters = findOverlapClusters(valid)
+
+    for (const cluster of clusters) {
+      const pricePerDay = cluster.find((g) => g.pricePerDay > 0)?.pricePerDay || 0
+
+      const clusterArrival = new Date(Math.min(...cluster.map((g) => +g.arrivalTS)))
+      const clusterDeparture = new Date(Math.max(...cluster.map((g) => +g.departureTS)))
+
+      // Временная шкала событий кластера
+      const eventSet = new Set()
+      for (const g of cluster) {
+        eventSet.add(+g.arrivalTS)
+        eventSet.add(+g.departureTS)
+      }
+      const timeline = [...eventSet].sort((a, b) => a - b)
+
+      // Накапливаем стоимость посегментно
+      const guestCosts = new Map(cluster.map((g) => [g, 0]))
+
+      for (let i = 0; i < timeline.length - 1; i++) {
+        const t1 = new Date(timeline[i])
+        const t2 = new Date(timeline[i + 1])
+
+        const present = cluster.filter(
+          (g) => +g.arrivalTS <= +t1 && +g.departureTS >= +t2
+        )
+        if (!present.length) continue
+
+        const days = calcSegmentDays(
+          t1, t2,
+          +t1 === +clusterArrival,
+          +t2 === +clusterDeparture
+        )
+        if (days <= 0) continue
+
+        const costPerPerson = (pricePerDay * days) / present.length
+        for (const g of present) guestCosts.set(g, guestCosts.get(g) + costPerPerson)
+      }
+
+      // Округляем + корректируем копеечное расхождение у гостя с наибольшей долей
+      const totalClusterCost =
+        pricePerDay * calcSegmentDays(clusterArrival, clusterDeparture, true, true)
+
+      const roundedCosts = new Map()
+      for (const [g, cost] of guestCosts) roundedCosts.set(g, Math.round(cost))
+
+      const computedSum = [...roundedCosts.values()].reduce((s, c) => s + c, 0)
+      const diff = Math.round(totalClusterCost) - computedSum
+      if (diff !== 0) {
+        const topGuest = [...guestCosts.entries()].reduce((a, b) =>
+          a[1] >= b[1] ? a : b
+        )[0]
+        roundedCosts.set(topGuest, (roundedCosts.get(topGuest) || 0) + diff)
+      }
+
+      for (const [g, cost] of roundedCosts) allLivingCosts.set(g, cost)
+    }
+  }
+
+  // Формируем строки отчёта
   const out = []
   let index = 1
 
   for (const [, guests] of rooms.entries()) {
-    const A = guests.reduce((min, g) => (g.arrivalTS < min.arrivalTS ? g : min))
-
-    const roomArrival = new Date(Math.min(...guests.map((g) => +g.arrivalTS)))
-    const roomDeparture = new Date(
-      Math.max(...guests.map((g) => +g.departureTS))
+    const valid = guests.filter(
+      (g) => g.arrivalTS && g.departureTS && g.arrivalTS < g.departureTS
     )
-
-    const roomDays = calculateEffectiveCostDaysWithPartial(
-      formatLocal(roomArrival),
-      formatLocal(roomDeparture),
-      rangeStart,
-      rangeEnd
-    )
-
-    const dailyRate = A.totalDays > 0 ? A.totalLivingCost / A.totalDays : 0
-
-    const roomLivingCost = Math.round(dailyRate * roomDays)
 
     const buildShareNote = (guest) => {
-      const segments = []
-
-      const sorted = guests
-        .filter((g) => g !== guest)
+      if (!guest.arrivalTS || !guest.departureTS) return ""
+      // Ищем реально пересекающихся соседей только из того же кластера
+      const others = valid
+        .filter(
+          (g) =>
+            g !== guest &&
+            g.arrivalTS < guest.departureTS &&
+            g.departureTS > guest.arrivalTS
+        )
         .sort((a, b) => a.arrivalTS - b.arrivalTS)
 
-      for (const other of sorted) {
+      const segments = []
+      for (const other of others) {
         const start = new Date(Math.max(+guest.arrivalTS, +other.arrivalTS))
         const end = new Date(Math.min(+guest.departureTS, +other.departureTS))
-
         if (start < end) {
           segments.push(
-            `с ${formatLocal(start)} по ${formatLocal(end)} жил с ${
-              other.personName
-            }`
+            `с ${formatLocal(start)} по ${formatLocal(end)} жил с ${other.personName}`
           )
         }
       }
-
-      if (!segments.length) {
-        return `с ${formatLocal(guest.arrivalTS)} по ${formatLocal(
-          guest.departureTS
-        )} жил один`
-      }
-
-      return segments.join(", ")
+      return segments.length
+        ? segments.join(", ")
+        : `с ${formatLocal(guest.arrivalTS)} по ${formatLocal(guest.departureTS)} жил один`
     }
 
     for (const g of guests) {
-      const isA = g === A
-
-      const realDays = calculateEffectiveCostDaysWithPartial(
-        formatLocal(g.arrivalTS),
-        formatLocal(g.departureTS),
-        rangeStart,
-        rangeEnd
-      )
-
-      const shareNoteText = buildShareNote(g)
-
-      const finalShareNote =
-        isA && roomDays !== realDays
-          ? `${shareNoteText} (оплата рассчитана за ${roomDays} суток)`
-          : shareNoteText
+      const livingCost = allLivingCosts.get(g) ?? 0
+      if (!livingCost && !g.totalMealCost) continue
 
       out.push({
         index: index++,
         arrival: g.arrival,
         departure: g.departure,
-        totalDays: realDays,
+        totalDays: g.totalDays,
         category: g.category,
         personName: g.personName,
         roomName: g.roomName,
         roomId: g.roomId,
-        shareNote: finalShareNote,
+        shareNote: buildShareNote(g),
         personPosition: g.personPosition,
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
         totalMealCost: g.totalMealCost,
-        totalLivingCost: isA ? roomLivingCost : 0,
-        totalDebt: (isA ? roomLivingCost : 0) + g.totalMealCost,
+        totalLivingCost: livingCost,
+        totalDebt: livingCost + g.totalMealCost,
         hotelName: g.hotelName
       })
     }

@@ -63,12 +63,14 @@ function buildServiceRequestItems({ service, requests, budgetByRequestId }) {
 
     return {
       requestId: request.id,
+      requestNumber: request.requestNumber || null,
       personId: request.personId || null,
       personName: request.person?.name || null,
       positionId: request.person?.positionId || null,
       positionName: request.person?.position?.name || "Не указана",
       airportId: request.airportId || null,
       airportName: request.airport?.name || null,
+      airportCode: request.airport?.code || null,
       budget,
       livingBudget,
       mealBudget,
