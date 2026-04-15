@@ -197,19 +197,17 @@ function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
 
   const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
   const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
-  if (effectiveArrival >= effectiveDeparture) {
+  if (effectiveArrival > effectiveDeparture) {
     return null
   }
 
-  const effectiveDays = calculateEffectiveCostDaysWithPartial(
+  const effectiveDaysRaw = calculateEffectiveCostDaysWithPartial(
     formatDateToISO(effectiveArrival),
     formatDateToISO(effectiveDeparture),
     formatDateToISO(rangeStart),
     formatDateToISO(rangeEnd)
   )
-  if (effectiveDays <= 0) {
-    return null
-  }
+  const effectiveDays = Math.max(0, Number(effectiveDaysRaw) || 0)
 
   const livingCost = calculateLivingCost(request, "airline", effectiveDays)
   const mealPlan = request.mealPlan || { dailyMeals: [] }
