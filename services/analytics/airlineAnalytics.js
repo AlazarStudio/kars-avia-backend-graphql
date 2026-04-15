@@ -5,7 +5,7 @@ import {
   buildTransferWhere,
   REQUEST_INCLUDE,
   TRANSFER_INCLUDE,
-  computeRequestCosts,
+  buildRequestBudgetMapWithAllocation,
   computeTransferBudgetDetails,
   extractRoomIds,
   extractUniquePersonIds,
@@ -28,20 +28,6 @@ async function fetchRequests(where) {
 
 async function fetchTransfers(where) {
   return prisma.transfer.findMany({ where, include: TRANSFER_INCLUDE })
-}
-
-function buildRequestBudgetMap(requests, start, end) {
-  const budgetByRequestId = new Map()
-
-  for (const request of requests) {
-    const { livingCost, mealCost } = computeRequestCosts(request, start, end)
-    budgetByRequestId.set(request.id, {
-      livingBudget: roundMoney(livingCost),
-      mealBudget: roundMoney(mealCost)
-    })
-  }
-
-  return budgetByRequestId
 }
 
 function getRequestBudget(budgetByRequestId, requestId) {
@@ -332,7 +318,11 @@ async function buildAirlineAnalyticsPeriod({
   ])
 
   const transfers = filterTransfersByPositions(rawTransfers, positionIds)
-  const budgetByRequestId = buildRequestBudgetMap(requests, range.start, range.end)
+  const budgetByRequestId = buildRequestBudgetMapWithAllocation(
+    requests,
+    range.start,
+    range.end
+  )
   const { total: transferTotalBudget, byTransferId: transferBudgetById } =
     enabledServices.includes("TRANSFER")
       ? await computeTransferBudgetDetails(transfers, airlineId)

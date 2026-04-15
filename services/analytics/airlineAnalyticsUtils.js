@@ -4,7 +4,9 @@ import {
   calculateMealCostForReportDays,
   calculateEffectiveCostDaysWithPartial,
   parseAsLocal,
-  formatDateToISO
+  formatDateToISO,
+  formatLocalDate,
+  buildAllocation
 } from "../report/reportUtils.js"
 
 const ACTIVE_STATUSES = [
@@ -17,6 +19,18 @@ const ACTIVE_STATUSES = [
 ]
 
 const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100
+
+const createAllocationKey = (row) =>
+  [
+    row.arrival || "",
+    row.departure || "",
+    row.personName || "",
+    row.personPosition || "",
+    row.roomId || "",
+    row.roomName || "",
+    row.category || "",
+    String(roundMoney(row.totalMealCost || 0))
+  ].join("|")
 
 export function validateDateRange(dateFrom, dateTo, label = "period") {
   const start = new Date(dateFrom)
@@ -170,6 +184,125 @@ export function computeRequestCosts(request, rangeStart, rangeEnd) {
     livingCost: roundMoney(Number(livingCost) || 0),
     mealCost: roundMoney(Number(totalMealCost) || 0)
   }
+}
+
+function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
+  const hotelChess = request.hotelChess?.[0] || {}
+  const rawIn = hotelChess.start
+    ? parseAsLocal(hotelChess.start)
+    : parseAsLocal(request.arrival)
+  const rawOut = hotelChess.end
+    ? parseAsLocal(hotelChess.end)
+    : parseAsLocal(request.departure)
+
+  const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
+  const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
+  if (effectiveArrival >= effectiveDeparture) {
+    return null
+  }
+
+  const effectiveDays = calculateEffectiveCostDaysWithPartial(
+    formatDateToISO(effectiveArrival),
+    formatDateToISO(effectiveDeparture),
+    formatDateToISO(rangeStart),
+    formatDateToISO(rangeEnd)
+  )
+  if (effectiveDays <= 0) {
+    return null
+  }
+
+  const livingCost = calculateLivingCost(request, "airline", effectiveDays)
+  const mealPlan = request.mealPlan || { dailyMeals: [] }
+  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
+    ? calculateMealCostForReportDays(
+        request,
+        "airline",
+        effectiveDays,
+        effectiveDays,
+        mealPlan,
+        effectiveArrival,
+        effectiveDeparture
+      )
+    : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+
+  if (!livingCost && !totalMealCost) {
+    return null
+  }
+
+  const pricePerDay = effectiveDays > 0 ? Number(livingCost || 0) / effectiveDays : 0
+
+  return {
+    id: request.id,
+    arrival: formatLocalDate(effectiveArrival),
+    departure: formatLocalDate(effectiveDeparture),
+    totalDays: effectiveDays,
+    category: request.roomCategory || "",
+    personName: request.person?.name || "Не указано",
+    personPosition: request.person?.position?.name || "Не указано",
+    roomName: hotelChess.room?.name || "",
+    roomId: hotelChess.room?.id || hotelChess.roomId || "",
+    breakfastCount,
+    lunchCount,
+    dinnerCount,
+    totalMealCost: roundMoney(Number(totalMealCost) || 0),
+    totalLivingCost: roundMoney(Number(livingCost) || 0),
+    pricePerDay: roundMoney(pricePerDay),
+    totalDebt: roundMoney((Number(livingCost) || 0) + (Number(totalMealCost) || 0)),
+    hotelName: request.hotel?.name || "Не указано"
+  }
+}
+
+export function buildRequestBudgetMapWithAllocation(requests, rangeStart, rangeEnd) {
+  const rows = []
+  const requestIdQueuesByKey = new Map()
+
+  for (const request of requests) {
+    const row = buildRequestRowForAllocation(request, rangeStart, rangeEnd)
+    if (!row) continue
+
+    rows.push(row)
+    const key = createAllocationKey(row)
+    if (!requestIdQueuesByKey.has(key)) {
+      requestIdQueuesByKey.set(key, [])
+    }
+    requestIdQueuesByKey.get(key).push(request.id)
+  }
+
+  const livingBudgetByRequestId = new Map()
+  const mealBudgetByRequestId = new Map()
+
+  for (const row of rows) {
+    mealBudgetByRequestId.set(
+      row.id,
+      roundMoney((mealBudgetByRequestId.get(row.id) || 0) + (Number(row.totalMealCost) || 0))
+    )
+  }
+
+  const allocatedRows = buildAllocation(rows)
+  for (const allocatedRow of allocatedRows) {
+    const key = createAllocationKey(allocatedRow)
+    const queue = requestIdQueuesByKey.get(key)
+    if (!queue?.length) continue
+
+    const requestId = queue.shift()
+    livingBudgetByRequestId.set(
+      requestId,
+      roundMoney(
+        (livingBudgetByRequestId.get(requestId) || 0) +
+          (Number(allocatedRow.totalLivingCost) || 0)
+      )
+    )
+  }
+
+  const budgetByRequestId = new Map()
+  for (const request of requests) {
+    budgetByRequestId.set(request.id, {
+      livingBudget: roundMoney(livingBudgetByRequestId.get(request.id) || 0),
+      mealBudget: roundMoney(mealBudgetByRequestId.get(request.id) || 0)
+    })
+  }
+
+  return budgetByRequestId
 }
 
 export function extractRoomIds(requests) {

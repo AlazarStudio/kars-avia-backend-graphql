@@ -1,12 +1,6 @@
 import { prisma } from "../../prisma.js"
-import {
-  buildPositionWhere,
-  calculateLivingCost,
-  calculateMealCostForReportDays,
-  calculateEffectiveCostDaysWithPartial,
-  parseAsLocal,
-  formatDateToISO
-} from "../report/reportUtils.js"
+import { buildPositionWhere } from "../report/reportUtils.js"
+import { buildRequestBudgetMapWithAllocation } from "./airlineAnalyticsUtils.js"
 
 const assertDate = (d, name) => {
   const dt = new Date(d)
@@ -111,42 +105,6 @@ function extractRoomsUsedFromRequest(request) {
   return ids
 }
 
-function computeRequestCostsWithinRange(request, rangeStart, rangeEnd, reportType) {
-  const hotelChess = request.hotelChess?.[0] || {}
-  const rawIn = hotelChess.start ? parseAsLocal(hotelChess.start) : parseAsLocal(request.arrival)
-  const rawOut = hotelChess.end ? parseAsLocal(hotelChess.end) : parseAsLocal(request.departure)
-
-  const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
-  const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
-
-  const effectiveDays = calculateEffectiveCostDaysWithPartial(
-    formatDateToISO(effectiveArrival),
-    formatDateToISO(effectiveDeparture),
-    formatDateToISO(rangeStart),
-    formatDateToISO(rangeEnd)
-  )
-
-  const totalLivingCost = calculateLivingCost(request, reportType, effectiveDays)
-
-  const mealPlan = request.mealPlan || { dailyMeals: [] }
-  const { totalMealCost } = mealPlan?.dailyMeals
-    ? calculateMealCostForReportDays(
-        request,
-        reportType,
-        effectiveDays,
-        effectiveDays,
-        mealPlan,
-        effectiveArrival,
-        effectiveDeparture
-      )
-    : { totalMealCost: 0 }
-
-  return {
-    totalLivingCost: Number(totalLivingCost) || 0,
-    totalMealCost: Number(totalMealCost) || 0
-  }
-}
-
 async function computePeriodMetricsForRegion({
   airlineId,
   airportIds,
@@ -208,6 +166,7 @@ async function computePeriodMetricsForRegion({
         airport: true
       }
     })
+    const budgetByRequestId = buildRequestBudgetMapWithAllocation(requests, start, end)
 
     for (const r of requests) {
       const personId = r.personId
@@ -225,13 +184,16 @@ async function computePeriodMetricsForRegion({
         // room фонд к питанию не относится
       }
 
-      const costs = computeRequestCostsWithinRange(r, start, end, "airline")
+      const requestBudget = budgetByRequestId.get(r.id) || {
+        livingBudget: 0,
+        mealBudget: 0
+      }
 
       if (services.includes("LIVING")) {
-        metricsByService.get("LIVING").budgetRub += costs.totalLivingCost
+        metricsByService.get("LIVING").budgetRub += requestBudget.livingBudget
       }
       if (services.includes("MEAL")) {
-        metricsByService.get("MEAL").budgetRub += costs.totalMealCost
+        metricsByService.get("MEAL").budgetRub += requestBudget.mealBudget
       }
     }
   }
