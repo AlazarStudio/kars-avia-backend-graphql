@@ -1,63 +1,29 @@
 import { prisma } from "../../prisma.js"
 import {
-  getAirlinePriceForCategory,
-  getAirlineMealPrice
+  buildAllocation,
+  calculateEffectiveCostDaysWithPartial,
+  calculateMealCostForReportDays,
+  formatDateToISO,
+  formatLocalDate,
+  getAirlineMealPrice,
+  getLivingPricePerDay,
+  parseAsLocal
 } from "../report/reportUtils.js"
 import { logger } from "../infra/logger.js"
 
-const NO_MEAL_CATEGORIES = ["apartment", "studio"]
+const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100
 
-const MS_PER_DAY = 86_400_000
-
-function listDays(start, end) {
-  const days = []
-  const s = new Date(start)
-  const e = new Date(end)
-  let cur = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate()))
-  const last = new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), e.getUTCDate()))
-  while (cur < last) {
-    days.push(new Date(cur))
-    cur = new Date(cur.getTime() + MS_PER_DAY)
-  }
-  return days
-}
-
-async function countOccupantsForDay(roomId, dayStart, dayEnd) {
-  return prisma.hotelChess.count({
-    where: {
-      roomId,
-      start: { lt: dayEnd },
-      end: { gt: dayStart }
-    }
-  })
-}
-
-function getHotelPricePerDay(room) {
-  const cat = room.category
-  if (cat === "studio" || cat === "apartment") {
-    return room.price || 0
-  }
-  return room.roomKind?.price || 0
-}
-
-function getAirlinePricePerDay(request) {
-  return getAirlinePriceForCategory(request, request.roomCategory)
-}
-
-function getMealCounts(mealPlan) {
-  if (!mealPlan?.included || !mealPlan.dailyMeals?.length) {
-    return { breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
-  }
-  let breakfastCount = 0
-  let lunchCount = 0
-  let dinnerCount = 0
-  for (const day of mealPlan.dailyMeals) {
-    breakfastCount += day.breakfast ?? 0
-    lunchCount += day.lunch ?? 0
-    dinnerCount += day.dinner ?? 0
-  }
-  return { breakfastCount, lunchCount, dinnerCount }
-}
+const createAllocationKey = (row) =>
+  [
+    row.arrival || "",
+    row.departure || "",
+    row.personName || "",
+    row.personPosition || "",
+    row.roomId || "",
+    row.roomName || "",
+    row.category || "",
+    String(roundMoney(row.totalMealCost || 0))
+  ].join("|")
 
 const REQUEST_INCLUDE_FOR_PRICING = {
   hotelChess: {
@@ -67,7 +33,173 @@ const REQUEST_INCLUDE_FOR_PRICING = {
   },
   hotel: { select: { id: true, mealPrice: true, mealPriceForAir: true } },
   airline: { include: { prices: { include: { airports: true } } } },
-  airport: { select: { id: true } }
+  airport: { select: { id: true } },
+  person: { include: { position: true } }
+}
+
+function getEffectiveStay(request) {
+  const hc = request.hotelChess?.[0]
+  const rawStart = hc?.start ? parseAsLocal(hc.start) : parseAsLocal(request.arrival)
+  const rawEnd = hc?.end ? parseAsLocal(hc.end) : parseAsLocal(request.departure)
+
+  if (!rawStart || !rawEnd || rawStart >= rawEnd) return null
+  return { start: rawStart, end: rawEnd }
+}
+
+function getMealPricesForType(request, reportType) {
+  if (reportType === "airline") {
+    return getAirlineMealPrice(request)
+  }
+  return request.hotel?.mealPrice
+}
+
+function buildRequestRowForAllocation(request, reportType) {
+  const stay = getEffectiveStay(request)
+  if (!stay) return null
+
+  const effectiveDays = calculateEffectiveCostDaysWithPartial(
+    formatDateToISO(stay.start),
+    formatDateToISO(stay.end),
+    formatDateToISO(stay.start),
+    formatDateToISO(stay.end)
+  )
+  if (effectiveDays <= 0) return null
+
+  const pricePerDay = getLivingPricePerDay(request, reportType)
+  const mealPlan = request.mealPlan || { dailyMeals: [] }
+  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
+    ? calculateMealCostForReportDays(
+        request,
+        reportType,
+        effectiveDays,
+        effectiveDays,
+        mealPlan,
+        stay.start,
+        stay.end
+      )
+    : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+
+  const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
+  if (!totalLivingCost && !totalMealCost) return null
+
+  const hc = request.hotelChess?.[0] || {}
+  return {
+    id: request.id,
+    arrival: formatLocalDate(stay.start),
+    departure: formatLocalDate(stay.end),
+    totalDays: effectiveDays,
+    category: request.roomCategory || "",
+    personName: request.person?.name || "Не указано",
+    personPosition: request.person?.position?.name || "Не указано",
+    roomName: hc.room?.name || "",
+    roomId: hc.room?.id || hc.roomId || "",
+    breakfastCount,
+    lunchCount,
+    dinnerCount,
+    totalMealCost: roundMoney(totalMealCost),
+    totalLivingCost: roundMoney(totalLivingCost),
+    pricePerDay: roundMoney(pricePerDay),
+    totalDebt: roundMoney(totalLivingCost + totalMealCost),
+    hotelName: request.hotel?.name || "Не указано"
+  }
+}
+
+function buildLivingCostsByRequestId(requests, reportType) {
+  const rows = []
+  const requestIdQueuesByKey = new Map()
+
+  for (const request of requests) {
+    const row = buildRequestRowForAllocation(request, reportType)
+    if (!row) continue
+    rows.push(row)
+
+    const key = createAllocationKey(row)
+    if (!requestIdQueuesByKey.has(key)) {
+      requestIdQueuesByKey.set(key, [])
+    }
+    requestIdQueuesByKey.get(key).push(request.id)
+  }
+
+  const livingCostByRequestId = new Map()
+  const allocatedRows = buildAllocation(rows)
+  for (const allocatedRow of allocatedRows) {
+    const key = createAllocationKey(allocatedRow)
+    const queue = requestIdQueuesByKey.get(key)
+    if (!queue?.length) continue
+    const requestId = queue.shift()
+    livingCostByRequestId.set(
+      requestId,
+      roundMoney(
+        (livingCostByRequestId.get(requestId) || 0) +
+          (Number(allocatedRow.totalLivingCost) || 0)
+      )
+    )
+  }
+
+  return livingCostByRequestId
+}
+
+function calculateMealParts(request, reportType) {
+  const stay = getEffectiveStay(request)
+  if (!stay) {
+    return { breakfast: 0, lunch: 0, dinner: 0 }
+  }
+
+  const effectiveDays = calculateEffectiveCostDaysWithPartial(
+    formatDateToISO(stay.start),
+    formatDateToISO(stay.end),
+    formatDateToISO(stay.start),
+    formatDateToISO(stay.end)
+  )
+  if (effectiveDays <= 0) {
+    return { breakfast: 0, lunch: 0, dinner: 0 }
+  }
+
+  const mealPlan = request.mealPlan || { dailyMeals: [] }
+  const { breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
+    ? calculateMealCostForReportDays(
+        request,
+        reportType,
+        effectiveDays,
+        effectiveDays,
+        mealPlan,
+        stay.start,
+        stay.end
+      )
+    : { breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+
+  const mealPrices = getMealPricesForType(request, reportType)
+  return {
+    breakfast: roundMoney(breakfastCount * (mealPrices?.breakfast || 0)),
+    lunch: roundMoney(lunchCount * (mealPrices?.lunch || 0)),
+    dinner: roundMoney(dinnerCount * (mealPrices?.dinner || 0))
+  }
+}
+
+function buildPriceForRequest(request, reportType, livingCostByRequestId) {
+  const mealParts = calculateMealParts(request, reportType)
+  return {
+    livingCost: roundMoney(livingCostByRequestId.get(request.id) || 0),
+    breakfast: mealParts.breakfast,
+    lunch: mealParts.lunch,
+    dinner: mealParts.dinner
+  }
+}
+
+async function fetchRoomClusterRequests(roomId, start, end) {
+  if (!roomId || !start || !end) return []
+  return prisma.request.findMany({
+    where: {
+      hotelChess: {
+        some: {
+          roomId,
+          start: { lt: new Date(end) },
+          end: { gt: new Date(start) }
+        }
+      }
+    },
+    include: REQUEST_INCLUDE_FOR_PRICING
+  })
 }
 
 export async function calculateRequestHotelPrice(requestId) {
@@ -78,32 +210,11 @@ export async function calculateRequestHotelPrice(requestId) {
   if (!request) return null
 
   const hc = request.hotelChess?.[0]
-  if (!hc || !hc.roomId || !hc.start || !hc.end) return null
+  if (!hc?.roomId || !hc?.start || !hc?.end) return null
 
-  const room = hc.room
-  if (!room) return null
-
-  const pricePerDay = getHotelPricePerDay(room)
-  const days = listDays(hc.start, hc.end)
-
-  let livingCost = 0
-  for (const day of days) {
-    const dayEnd = new Date(day.getTime() + MS_PER_DAY)
-    const occupants = await countOccupantsForDay(hc.roomId, day, dayEnd)
-    const divisor = Math.max(1, occupants)
-    livingCost += pricePerDay / divisor
-  }
-  livingCost = Math.round(livingCost * 100) / 100
-
-  const isNoMeal = NO_MEAL_CATEGORIES.includes(request.roomCategory)
-  const { breakfastCount, lunchCount, dinnerCount } = getMealCounts(request.mealPlan)
-  const mealPrice = request.hotel?.mealPrice
-
-  const breakfast = isNoMeal ? 0 : Math.round(breakfastCount * (mealPrice?.breakfast || 0) * 100) / 100
-  const lunch = isNoMeal ? 0 : Math.round(lunchCount * (mealPrice?.lunch || 0) * 100) / 100
-  const dinner = isNoMeal ? 0 : Math.round(dinnerCount * (mealPrice?.dinner || 0) * 100) / 100
-
-  return { livingCost, breakfast, lunch, dinner }
+  const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
+  const livingCostByRequestId = buildLivingCostsByRequestId(clusterRequests, "hotel")
+  return buildPriceForRequest(request, "hotel", livingCostByRequestId)
 }
 
 export async function calculateRequestAirlinePrice(requestId) {
@@ -114,29 +225,11 @@ export async function calculateRequestAirlinePrice(requestId) {
   if (!request) return null
 
   const hc = request.hotelChess?.[0]
-  if (!hc || !hc.roomId || !hc.start || !hc.end) return null
+  if (!hc?.roomId || !hc?.start || !hc?.end) return null
 
-  const pricePerDay = getAirlinePricePerDay(request)
-  const days = listDays(hc.start, hc.end)
-
-  let livingCost = 0
-  for (const day of days) {
-    const dayEnd = new Date(day.getTime() + MS_PER_DAY)
-    const occupants = await countOccupantsForDay(hc.roomId, day, dayEnd)
-    const divisor = Math.max(1, occupants)
-    livingCost += pricePerDay / divisor
-  }
-  livingCost = Math.round(livingCost * 100) / 100
-
-  const isNoMeal = NO_MEAL_CATEGORIES.includes(request.roomCategory)
-  const { breakfastCount, lunchCount, dinnerCount } = getMealCounts(request.mealPlan)
-  const airlineMealPrice = getAirlineMealPrice(request)
-
-  const breakfast = isNoMeal ? 0 : Math.round(breakfastCount * (airlineMealPrice?.breakfast || 0) * 100) / 100
-  const lunch = isNoMeal ? 0 : Math.round(lunchCount * (airlineMealPrice?.lunch || 0) * 100) / 100
-  const dinner = isNoMeal ? 0 : Math.round(dinnerCount * (airlineMealPrice?.dinner || 0) * 100) / 100
-
-  return { livingCost, breakfast, lunch, dinner }
+  const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
+  const livingCostByRequestId = buildLivingCostsByRequestId(clusterRequests, "airline")
+  return buildPriceForRequest(request, "airline", livingCostByRequestId)
 }
 
 export async function recalculateRequestPricing(requestId) {
@@ -181,9 +274,7 @@ export async function recalculateOverlappingRequests(roomId, start, end, exclude
         .filter((id) => id && id !== excludeRequestId)
     )]
 
-    for (const reqId of requestIds) {
-      await recalculateRequestPricing(reqId)
-    }
+    await Promise.all(requestIds.map((reqId) => recalculateRequestPricing(reqId)))
   } catch (error) {
     logger.error("Ошибка при пересчете пересекающихся заявок:", error)
   }

@@ -1100,6 +1100,7 @@ const requestResolver = {
         throw new Error("Request not found")
       }
       const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals)
+      await recalculateRequestPricing(requestId)
       try {
         await logAction({
           context,
