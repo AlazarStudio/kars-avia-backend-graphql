@@ -1,0 +1,10 @@
+node_modules
+generated
+uploads
+reports
+reserve_files
+logs
+backups
+.env
+.git
+*.log

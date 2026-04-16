@@ -32,7 +32,7 @@ const app = express()
 app.get("/health", async (req, res) => {
   try {
     // минимальная проверка БД
-    await prisma.$queryRaw`SELECT 1`
+    await prisma.$runCommandRaw({ ping: 1 })
 
     res.status(200).json({
       status: "ok",

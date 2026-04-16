@@ -1,0 +1,83 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────
+#  KarsAvia — полный стек (фронт + бэк + БД)
+#  Запуск: docker compose up --build
+# ─────────────────────────────────────────────
+
+services:
+
+  # ── 1. MongoDB (одиночный узел, replica set rs0) ──────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: karsavia-mongo
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # ── 2. Инициализация replica set (запускается однократно и завершается) ──
+  mongo-init:
+    image: mongo:7.0
+    container_name: karsavia-mongo-init
+    restart: on-failure
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: >
+      mongosh --host mongo:27017 --quiet --eval
+      "try { let s = rs.status(); print('RS already initialized, state: ' + s.myState); }
+       catch(e) { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongo:27017'}]}); print('RS initiated.'); }"
+
+  # ── 3. Backend (GraphQL API, порт 4000) ───────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karsavia-backend
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env.docker
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./reports:/app/reports
+      - ./reserve_files:/app/reserve_files
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
+  # ── 4. Frontend (React SPA, порт 3000) ────────────────────────────────────
+  frontend:
+    build:
+      context: ../kars-avia
+      dockerfile: Dockerfile
+      args:
+        # Браузер пользователя обращается к бэку напрямую по localhost:4000
+        VITE_BACKEND_HOST: localhost:4000
+    container_name: karsavia-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+
+volumes:
+  mongo-data:
+    name: karsavia-mongo-data
