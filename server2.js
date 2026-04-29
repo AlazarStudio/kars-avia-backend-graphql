@@ -22,8 +22,10 @@ import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import filesRouter from "./services/routes/files.js"
+import { assertSubscriptionPubSubConfig } from "./services/infra/pubsub.js"
 
 dotenv.config()
+assertSubscriptionPubSubConfig()
 const app = express()
 
 /* =========================

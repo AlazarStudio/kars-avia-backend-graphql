@@ -1,8 +1,9 @@
 // pubsub.js
-// Без REDIS_URL: события только внутри одного процесса Node.
-// Несколько инстансов / PM2 cluster: задайте REDIS_URL — используется Redis Pub/Sub.
-import { PubSub } from "graphql-subscriptions"
-import { RedisPubSub } from "graphql-redis-subscriptions"
+// В multi-instance окружении subscriptions должны работать через Redis.
+import Redis from "ioredis"
+import { CustomEvent } from "@whatwg-node/events"
+import { PubSub, PubSubEngine } from "graphql-subscriptions"
+import { createRedisEventTarget } from "@graphql-yoga/redis-event-target"
 import { logger } from "./logger.js"
 
 /** Per-user channel for Subscription.newUnreadMessage */
@@ -15,15 +16,72 @@ export function messageReadTopic(chatId) {
   return `MESSAGE_READ_${chatId}`
 }
 
-function createPubSubEngine() {
-  const url = process.env.REDIS_URL?.trim()
-  if (url) {
-    logger.info("[PUBSUB] Using Redis (REDIS_URL is set)")
-    return new RedisPubSub({
-      connection: url
-    })
+function isClusterLikeRuntime() {
+  const pm2Instance = process.env.NODE_APP_INSTANCE
+  const pm2Instances = process.env.instances || process.env.PM2_INSTANCES
+  return pm2Instance != null || (pm2Instances != null && pm2Instances !== "1")
+}
+
+export function assertSubscriptionPubSubConfig() {
+  const hasRedis = Boolean(process.env.REDIS_URL?.trim())
+  if (isClusterLikeRuntime() && !hasRedis) {
+    throw new Error(
+      "[PUBSUB] REDIS_URL is required for subscriptions in PM2 cluster/multi-instance runtime"
+    )
   }
-  return new PubSub()
+}
+
+class RedisEventTargetPubSub extends PubSubEngine {
+  constructor(eventTarget) {
+    super()
+    this.eventTarget = eventTarget
+    this.nextSubscriptionId = 1
+    this.listeners = new Map()
+  }
+
+  publish(triggerName, payload) {
+    this.eventTarget.dispatchEvent(
+      new CustomEvent(triggerName, {
+        detail: payload
+      })
+    )
+    return Promise.resolve()
+  }
+
+  subscribe(triggerName, onMessage) {
+    const id = this.nextSubscriptionId++
+    const listener = (event) => {
+      onMessage(event.detail)
+    }
+
+    this.listeners.set(id, { triggerName, listener })
+    this.eventTarget.addEventListener(triggerName, listener)
+    return Promise.resolve(id)
+  }
+
+  unsubscribe(subscriptionId) {
+    const entry = this.listeners.get(subscriptionId)
+    if (!entry) return
+    this.listeners.delete(subscriptionId)
+    this.eventTarget.removeEventListener(entry.triggerName, entry.listener)
+  }
+}
+
+function createPubSubEngine() {
+  const redisUrl = process.env.REDIS_URL?.trim()
+  if (!redisUrl) {
+    logger.warn("[PUBSUB] REDIS_URL is not set, using in-memory PubSub")
+    return new PubSub()
+  }
+
+  logger.info("[PUBSUB] Using Redis event target")
+  const publishClient = new Redis(redisUrl)
+  const subscribeClient = new Redis(redisUrl)
+  const eventTarget = createRedisEventTarget({
+    publishClient,
+    subscribeClient
+  })
+  return new RedisEventTargetPubSub(eventTarget)
 }
 
 const pubSubEngine = createPubSubEngine()
