@@ -1448,6 +1448,58 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    removePassengerRequestDriver: async (_, { requestId, driverIndex }, context) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.transferService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+      const drivers = prev.drivers || []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+
+      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const nextDrivers = drivers
+        .filter((_, index) => index !== driverIndex)
+        .map(normalizePassengerServiceDriver)
+      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          transferService: {
+            ...prev,
+            status: nextStatus,
+            drivers: nextDrivers
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_driver",
+        description: "Водитель удален из трансфера ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил водителя ${removedDriver?.fullName || `#${driverIndex}`} из трансфера ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     addPassengerRequestBaggageDriver: async (
       _,
       { requestId, driver },
@@ -1513,6 +1565,62 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_baggage_driver",
         description: "Водитель добавлен в доставку багажа ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} добавил водителя в доставку багажа ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    removePassengerRequestBaggageDriver: async (
+      _,
+      { requestId, driverIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const prev = existing.baggageDeliveryService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        drivers: []
+      }
+      const drivers = prev.drivers || []
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+
+      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const nextDrivers = drivers
+        .filter((_, index) => index !== driverIndex)
+        .map(normalizePassengerServiceDriver)
+      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          baggageDeliveryService: {
+            ...prev,
+            status: nextStatus,
+            drivers: nextDrivers
+          }
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_baggage_driver",
+        description: "Водитель удален из доставки багажа ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил водителя ${removedDriver?.fullName || `#${driverIndex}`} из доставки багажа ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

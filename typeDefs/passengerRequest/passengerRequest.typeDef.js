@@ -436,6 +436,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driver: PassengerServiceDriverInput!
     ): PassengerRequest!
 
+    removePassengerRequestDriver(
+      requestId: ID!
+      driverIndex: Int!
+    ): PassengerRequest!
+
+    removePassengerRequestBaggageDriver(
+      requestId: ID!
+      driverIndex: Int!
+    ): PassengerRequest!
+
     """
     Водитель принимает заказ на доставку багажа — статус переходит в IN_PROGRESS.
     """
