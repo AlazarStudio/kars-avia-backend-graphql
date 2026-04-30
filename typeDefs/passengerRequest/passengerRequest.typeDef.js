@@ -402,6 +402,11 @@ const passengerRequestTypeDef = /* GraphQL */ `
       hotel: PassengerServiceHotelInput!
     ): PassengerRequest!
 
+    removePassengerRequestHotel(
+      requestId: ID!
+      hotelIndex: Int!
+    ): PassengerRequest!
+
     addPassengerRequestHotelPerson(
       requestId: ID!
       hotelIndex: Int!

@@ -994,6 +994,135 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    removePassengerRequestHotel: async (_, { requestId, hotelIndex }, context) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: [],
+        evictions: []
+      }
+      const hotels = living.hotels || []
+      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid hotelIndex")
+      }
+
+      const removedHotel = hotels[hotelIndex]
+      const indexMap = new Map()
+      let nextIndex = 0
+      hotels.forEach((hotel, idx) => {
+        if (idx === hotelIndex) return
+        indexMap.set(idx, nextIndex)
+        nextIndex += 1
+      })
+
+      const nextHotels = hotels
+        .filter((_, idx) => idx !== hotelIndex)
+        .map((hotel, idx) => {
+          const hotelName = hotel?.name ?? null
+          const nextPeople = (hotel?.people || []).map((person) => {
+            const normalizedPerson = ensureHotelPerson(person, idx, hotelName)
+            const nextChesses = (normalizedPerson.accommodationChesses || [])
+              .filter((item) => item?.hotelIndex !== hotelIndex)
+              .map((item) => {
+                const mappedIndex = indexMap.get(item?.hotelIndex)
+                if (mappedIndex == null) return item
+                return {
+                  ...item,
+                  hotelIndex: mappedIndex,
+                  hotelName: hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
+                }
+              })
+            return {
+              ...normalizedPerson,
+              accommodationChesses: nextChesses
+            }
+          })
+          return {
+            ...hotel,
+            people: nextPeople
+          }
+        })
+
+      const nextEvictions = (living.evictions || [])
+        .filter((item) => item?.hotelIndex !== hotelIndex)
+        .map((item) => {
+          const mappedIndex = indexMap.get(item?.hotelIndex)
+          if (mappedIndex == null) return item
+          return {
+            ...item,
+            hotelIndex: mappedIndex,
+            hotelName: hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
+          }
+        })
+
+      const nextStatus = nextHotels.length === 0 ? "NEW" : living.status
+      const nextLivingService = {
+        ...living,
+        hotels: nextHotels,
+        evictions: nextEvictions,
+        status: nextStatus
+      }
+
+      const [, , passengerRequest] = await prisma.$transaction([
+        prisma.passengerRequestHotelReport.deleteMany({
+          where: {
+            passengerRequestId: requestId,
+            hotelIndex
+          }
+        }),
+        prisma.passengerRequestHotelReport.updateMany({
+          where: {
+            passengerRequestId: requestId,
+            hotelIndex: { gt: hotelIndex }
+          },
+          data: {
+            hotelIndex: {
+              decrement: 1
+            }
+          }
+        }),
+        prisma.passengerRequest.update({
+          where: { id: requestId },
+          data: {
+            livingService: nextLivingService
+          }
+        })
+      ])
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_hotel",
+        description: `Отель удален из ФАП: ${removedHotel?.name || hotelIndex}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил отель ${removedHotel?.name || `#${hotelIndex}`} из ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: removedHotel?.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> удален отель <span style='color:#545873'>${removedHotel?.name || `#${hotelIndex}`}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
+      })
+
+      return passengerRequest
+    },
+
     addPassengerRequestHotelPerson: async (
       _,
       { requestId, hotelIndex, person },
