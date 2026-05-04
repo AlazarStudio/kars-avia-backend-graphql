@@ -67,6 +67,8 @@ class RedisEventTargetPubSub extends PubSubEngine {
   }
 }
 
+let redisPubSubClients = null
+
 function createPubSubEngine() {
   const redisUrl = process.env.REDIS_URL?.trim()
   if (!redisUrl) {
@@ -77,6 +79,7 @@ function createPubSubEngine() {
   logger.info("[PUBSUB] Using Redis event target")
   const publishClient = new Redis(redisUrl)
   const subscribeClient = new Redis(redisUrl)
+  redisPubSubClients = { publishClient, subscribeClient }
   const eventTarget = createRedisEventTarget({
     publishClient,
     subscribeClient
@@ -85,6 +88,18 @@ function createPubSubEngine() {
 }
 
 const pubSubEngine = createPubSubEngine()
+
+export async function disconnectPubSubRedis() {
+  if (!redisPubSubClients) return
+  const { publishClient, subscribeClient } = redisPubSubClients
+  redisPubSubClients = null
+  try {
+    await Promise.all([publishClient.quit(), subscribeClient.quit()])
+    logger.info("[PUBSUB] Redis clients closed")
+  } catch (err) {
+    logger.warn("[PUBSUB] Redis quit error", err)
+  }
+}
 
 export const pubsub = {
   publish(trigger, payload) {

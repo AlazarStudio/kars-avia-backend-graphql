@@ -52,6 +52,9 @@ const transporter = nodemailer.createTransport({
   }
 })
 
+const notifyReceiverEmail =
+  process.env.EMAIL_RECEIVER || process.env.EMAIL_RESIEVER
+
 // Основной объект-резольвер для работы с заявками (request)
 const requestResolver = {
   // Подключаем тип Upload для обработки загрузки файлов через GraphQL
@@ -1031,7 +1034,7 @@ const requestResolver = {
         })
 
         const mailOptions = {
-          to: `${process.env.EMAIL_RECEIVER}`,
+          to: `${notifyReceiverEmail}`,
           subject: "Request updated",
           html: `Даты заявки  <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> обновлены c <span style='color:#545873'>${formatDate(
             request.arrival
@@ -1283,7 +1286,7 @@ const requestResolver = {
 
       const mailOptions = {
         // from: `${process.env.EMAIL_USER}`,
-        to: `${process.env.EMAIL_RECEIVER}`,
+        to: `${notifyReceiverEmail}`,
         subject: "Request canceled",
         html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
       }
@@ -1295,7 +1298,7 @@ const requestResolver = {
           action: "cancel_request",
           entityType: "request",
           entityId: canceledRequest.id,
-          recipientId: process.env.EMAIL_RECEIVER
+          recipientId: notifyReceiverEmail
         }).allowed
 
       if (cancelRequestEmailReceiverAllowed) {

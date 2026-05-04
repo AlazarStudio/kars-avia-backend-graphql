@@ -1,6 +1,6 @@
+import "./load-env.js"
 import cors from "cors"
 import http from "http"
-import dotenv from "dotenv"
 import express from "express"
 import { prisma } from "./prisma.js"
 import { ApolloServer } from "@apollo/server"
@@ -21,10 +21,13 @@ import {
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
+import { getCorsOptions } from "./services/infra/corsOptions.js"
 import filesRouter from "./services/routes/files.js"
-import { assertSubscriptionPubSubConfig } from "./services/infra/pubsub.js"
+import {
+  assertSubscriptionPubSubConfig,
+  disconnectPubSubRedis
+} from "./services/infra/pubsub.js"
 
-dotenv.config()
 assertSubscriptionPubSubConfig()
 const app = express()
 
@@ -269,7 +272,7 @@ app.use("/files", filesRouter)
 
 app.use(
   "/",
-  cors(),
+  cors(getCorsOptions()),
   express.json(),
   expressMiddleware(server, {
     context: async ({ req }) => buildGraphqlContext(req)
@@ -301,6 +304,8 @@ const shutdown = async (signal) => {
     // 2. Закрываем WebSocket-сервер
     await serverCleanup.dispose()
     logger.info("[SHUTDOWN] WS server closed")
+
+    await disconnectPubSubRedis()
 
     // 3. Останавливаем HTTP/HTTPS сервер
     const closeServer = (srv, name) =>
