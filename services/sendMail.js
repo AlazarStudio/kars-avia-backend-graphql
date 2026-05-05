@@ -1,6 +1,11 @@
 import nodemailer from "nodemailer"
 
 export async function sendEmail({ to, subject, html }) {
+  if (!to) {
+    console.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
+    return
+  }
+
   if (process.env.NODE_ENV === "dev" || process.env.EMAIL_ENABLED === "false") {
     console.log(
       `[TEST MODE] Письмо не отправлено. Кому: ${to}, Тема: ${subject}`
