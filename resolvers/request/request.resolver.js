@@ -385,11 +385,11 @@ const requestResolver = {
           )
         }
       }
-      if (existingRequest != null) {
-        throw new Error(
-          `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
-        )
-      }
+      // if (existingRequest != null) {
+      //   throw new Error(
+      //     `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
+      //   )
+      // }
       // Определение текущего месяца и года для формирования номера заявки
       const currentDate = new Date()
       const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
