@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer"
 
 export async function sendEmail({ to, subject, html }) {
-  if (!to) {
+  if (!to || to === "undefined" || to === "null") {
     console.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
     return
   }
