@@ -336,7 +336,8 @@ const requestResolver = {
         airlineId,
         senderId,
         status,
-        reserve
+        reserve,
+        defaultTimesUsed
       } = input
       // Приведение дат к формату YYYY-MM-DD (отсекаем время)
       const arrivalDate = arrival.split("T")[0]
@@ -467,6 +468,7 @@ const requestResolver = {
           sender: { connect: { id: senderId } },
           status,
           reserve,
+          defaultTimesUsed: defaultTimesUsed ?? false,
           files: filesPath,
           requestNumber
         },

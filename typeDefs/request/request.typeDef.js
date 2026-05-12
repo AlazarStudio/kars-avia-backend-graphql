@@ -31,6 +31,7 @@ const requestTypeDef = /* GraphQL */ `
     # logs: [Log]
     logs(pagination: LogPaginationInput): LogConnection!
     reserve: Boolean
+    defaultTimesUsed: Boolean
     files: [String]
     requestAirlinePrice: RequestPrice
     requestHotelPrice: RequestPrice
@@ -66,6 +67,7 @@ const requestTypeDef = /* GraphQL */ `
     senderId: ID!
     status: String
     reserve: Boolean
+    defaultTimesUsed: Boolean
   }
 
   input UpdateRequestInput {
