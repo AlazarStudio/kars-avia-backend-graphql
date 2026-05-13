@@ -17,7 +17,6 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import speakeasy from "@levminer/speakeasy"
 import qrcode from "qrcode"
-import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
 import {
   pubsub,
@@ -27,21 +26,23 @@ import {
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
-import { sendResetPasswordEmail } from "../../services/user/sendResetPasswordEmail.js"
 import { logger } from "../../services/infra/logger.js"
 import { buildClosedSessionStats } from "../../services/user/userActivity.js"
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
-
-// Создаем транспортёр для отправки email с использованием SMTP
-const transporter = nodemailer.createTransport({
-  host: "smtp.beget.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-})
+import {
+  registerSelfUser,
+  requestPasswordResetByEmail,
+  resetPasswordWithToken,
+  verifyEmailWithToken
+} from "../../services/auth/publicAuthService.js"
+import {
+  resolveRoleAndUserType,
+  ROLE
+} from "../../services/auth/resolveRoleAndUserType.js"
+import {
+  sendAccountCreatedByAdminEmail,
+  sendPasswordChangedNotificationEmail
+} from "../../services/email/sendAuthEmails.js"
 
 const buildOfflineUpdateData = ({ currentUser, now }) => {
   const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
@@ -57,39 +58,6 @@ const buildOfflineUpdateData = ({ currentUser, now }) => {
     totalTimeMinutes: (currentUser?.totalTimeMinutes || 0) + addedMinutes,
     dailyTimeStats: nextDailyStats
   }
-}
-
-const buildUserAuthPayload = ({ user, sessionToken }) => {
-  const token = jwt.sign(
-    {
-      subjectType: "USER",
-      userId: user.id,
-      role: user.role,
-      hotelId: user.hotelId,
-      airlineId: user.airlineId,
-      airlineDepartmentId: user.airlineDepartmentId,
-      dispatcherDepartmentId: user.dispatcherDepartmentId,
-      representativeDepartmentId: user.representativeDepartmentId,
-      sessionToken
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "24h" }
-  )
-
-  return {
-    ...user,
-    token,
-    refreshToken: sessionToken
-  }
-}
-
-const USER_TYPE = {
-  DEFAULT: "DEFAULT",
-  REPRESENTATIVE: "REPRESENTATIVE"
-}
-
-const ROLE = {
-  REPRESENTATIVE: "REPRESENTATIVE"
 }
 
 const ACCESS_MENU_KEYS = [
@@ -148,20 +116,6 @@ const resolveEffectiveAccessMenu = ({ departmentAccessMenu, positionAccessMenu }
   }
 
   return merged
-}
-
-const resolveRoleAndUserType = ({ role, userType, fallbackRole = "USER" }) => {
-  const finalRole = role || fallbackRole
-  let finalUserType = userType || USER_TYPE.DEFAULT
-
-  // Keep role/userType consistent for representative accounts.
-  if (finalRole === ROLE.REPRESENTATIVE) {
-    finalUserType = USER_TYPE.REPRESENTATIVE
-  } else if (finalUserType === USER_TYPE.REPRESENTATIVE) {
-    finalUserType = USER_TYPE.DEFAULT
-  }
-
-  return { finalRole, finalUserType }
 }
 
 // Основной объект-резольвер для работы с пользователями (userResolver)
@@ -481,7 +435,8 @@ const userResolver = {
         airlineDepartmentId: finalAirlineDeptId,
         dispatcherDepartmentId: finalDispatcherDeptId,
         representativeDepartmentId: finalRepresentativeDeptId,
-        images: imagePaths
+        images: imagePaths,
+        emailVerified: true
       }
 
       // Создаем пользователя в базе данных
@@ -489,13 +444,11 @@ const userResolver = {
         data: createdData
       })
 
-      // (Опционально) Отправка email с данными аккаунта (закомментировано)
       try {
-        const info = await transporter.sendMail({
-          from: `${process.env.EMAIL_USER}`,
-          to: `${createdData.email}`,
-          subject: "Данные вашего аккаунта",
-          text: `Ваш логин: ${createdData.login} \n Ваш пароль: ${password}`
+        await sendAccountCreatedByAdminEmail({
+          to: createdData.email,
+          name: createdData.name,
+          login: createdData.login
         })
       } catch (error) {
         console.error("Ошибка при отправке письма:", error)
@@ -524,169 +477,27 @@ const userResolver = {
 
     // Регистрация (signUp) нового пользователя самостоятельно
     signUp: async (_, { input, images }) => {
-      // Обработка загрузки изображений
-      let imagePaths = []
-      if (images && images.length > 0) {
-        for (const image of images) {
-          imagePaths.push(await uploadImage(image, { bucket: "user" }))
-        }
-      }
-
-      // Генерация секрета для двухфакторной аутентификации (2FA)
-      const twoFASecret = speakeasy.generateSecret().base32
       const { name, email, login, password, role, userType } = input
-      const loginNormalized = normalizeUserLogin(login)
-      const { finalRole, finalUserType } = resolveRoleAndUserType({
+      const newUser = await registerSelfUser({
+        name,
+        email,
+        login,
+        password,
         role,
-        userType
+        userType,
+        images: images || undefined
       })
-      const hashedPassword = await argon2.hash(password)
-
-      // Проверка на существование пользователя с таким email или login
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email },
-            { login: { equals: loginNormalized, mode: "insensitive" } }
-          ]
-        }
-      })
-
-      if (existingUser) {
-        const existingLoginNorm = normalizeUserLogin(existingUser.login)
-        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
-          throw new Error(
-            "Пользователь с таким email и логином уже существует",
-            "USER_EXISTS"
-          )
-        } else if (existingUser.email === email) {
-          throw new Error(
-            "Пользователь с таким email уже существует",
-            "EMAIL_EXISTS"
-          )
-        } else if (existingLoginNorm === loginNormalized) {
-          throw new Error(
-            "Пользователь с таким логином уже существует",
-            "LOGIN_EXISTS"
-          )
-        }
-      }
-
-      // Создание нового пользователя с сохранением 2FA-секрета
-      const newUser = await prisma.user.create({
-        data: {
-          name,
-          email,
-          login: loginNormalized,
-          password: hashedPassword,
-          role: finalRole,
-          userType: finalUserType,
-          images: imagePaths,
-          twoFASecret
-        }
-      })
-
-      const sessionToken = uuidv4()
-      await prisma.user.update({
-        where: { id: newUser.id },
-        data: { refreshToken: sessionToken, fingerprint: null }
-      })
-
-      // Генерация токена доступа с помощью jwt
-      const token = jwt.sign(
-        {
-          subjectType: "USER",
-          userId: newUser.id,
-          role: newUser.role,
-          hotelId: newUser.hotelId,
-          airlineId: newUser.airlineId,
-          sessionToken
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      )
-
-      pubsub.publish(USER_CREATED, { userCreated: newUser })
-
-      // Возвращаем пользователя вместе с токеном
+      const { password: _pw, ...safe } = newUser
       return {
-        ...newUser,
-        token
+        ...safe,
+        token: null,
+        refreshToken: null
       }
     },
 
     // Аутентификация (signIn) пользователя
     signIn: async (_, { input }) => {
-      const { login, password, fingerprint, token2FA } = input
-      const identifier = normalizeUserLogin(login)
-      if (!identifier) {
-        throw new Error("Invalid credentials")
-      }
-      // Логин или email в одном поле (без учёта регистра)
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { login: { equals: identifier, mode: "insensitive" } },
-            { email: { equals: identifier, mode: "insensitive" } }
-          ]
-        }
-      })
-      if (!user) {
-        throw new Error("Invalid credentials")
-      }
-      // Проверка корректности пароля с помощью argon2.verify
-      if (!user.active) {
-        throw new Error("User is not active")
-      }
-
-      if (!(await argon2.verify(user.password, password))) {
-        throw new Error("Invalid credentials")
-      }
-      // Если у пользователя включена двухфакторная аутентификация, проверяем токен 2FA
-      if (user.is2FAEnabled) {
-        let verified
-        if (user.twoFAMethod === "TOTP") {
-          verified = speakeasy.totp.verify({
-            secret: user.twoFASecret,
-            encoding: "base32",
-            token: token2FA
-          })
-        } else if (user.twoFAMethod === "HOTP") {
-          verified = speakeasy.hotp.verify({
-            secret: user.twoFASecret,
-            encoding: "base32",
-            token: token2FA,
-            counter: 0
-          })
-        }
-        if (!verified) {
-          throw new Error("Invalid 2FA token")
-        }
-      }
-      // Новый sessionToken инвалидирует предыдущие access-токены этого пользователя.
-      const sessionToken = uuidv4()
-      const now = new Date()
-      const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
-        sessionStartedAt: user.sessionStartedAt,
-        currentDailyStats: user.dailyTimeStats || [],
-        now
-      })
-
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          refreshToken: sessionToken,
-          fingerprint,
-          lastSeen: now,
-          isOnline: true,
-          sessionStartedAt: now,
-          totalTimeMinutes: (user.totalTimeMinutes || 0) + addedMinutes,
-          dailyTimeStats: nextDailyStats
-        }
-      })
-      pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
-
-      return buildUserAuthPayload({ user: updatedUser, sessionToken })
+      return signInUser(input)
     },
 
     // Обновление данных пользователя. Разрешено либо админам, либо самому пользователю.
@@ -819,6 +630,7 @@ const userResolver = {
       }
 
       // Обработка смены пароля: если передан новый пароль, требуется проверить старый
+      let notifyPasswordChanged = false
       if (password) {
         if (!oldPassword) {
           throw new Error(
@@ -833,6 +645,9 @@ const userResolver = {
         // Хэшируем новый пароль и добавляем в объект обновления
         const hashedPassword = await argon2.hash(password)
         updatedData.password = hashedPassword
+        updatedData.refreshToken = uuidv4()
+        updatedData.fingerprint = null
+        notifyPasswordChanged = true
       }
 
       const nextRole = updatedData.role ?? currentUser.role
@@ -850,6 +665,14 @@ const userResolver = {
         data: updatedData
       })
 
+      if (notifyPasswordChanged) {
+        try {
+          await sendPasswordChangedNotificationEmail(updatedUser.email)
+        } catch (e) {
+          console.error("Ошибка при отправке уведомления о смене пароля:", e)
+        }
+      }
+
       // Публикуем событие создания/обновления пользователя
       pubsub.publish(USER_CREATED, { userCreated: updatedUser })
       return updatedUser
@@ -857,65 +680,17 @@ const userResolver = {
 
     // Мутация для запроса восстановления пароля.
     // Ищется пользователь по email, генерируется токен сброса, обновляются поля в базе и отправляется email.
-    requestResetPassword: async (_, { email }, context) => {
-      // Ищем пользователя по email
-      const user = await prisma.user.findUnique({ where: { email } })
-      // Для безопасности возвращаем одно и то же сообщение, независимо от результата
-      const message = "Инструкции отправлены на указанный email."
-      if (!user) {
-        return message
-      }
+    requestResetPassword: async (_, { email }) => {
+      return requestPasswordResetByEmail(email)
+    },
 
-      // Генерируем уникальный токен и устанавливаем срок действия (1 час)
-      const token = uuidv4()
-      const expires = new Date(Date.now() + 60 * 60 * 1000)
-
-      // Обновляем данные пользователя, сохраняя токен и его срок действия
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          resetPasswordToken: token,
-          resetPasswordExpires: expires
-        }
-      })
-
-      // Отправляем письмо с инструкциями по сбросу пароля
-      await sendResetPasswordEmail(user.email, token)
-
-      return message
+    verifyEmail: async (_, { token }) => {
+      return verifyEmailWithToken(token)
     },
 
     // Мутация для сброса пароля с использованием токена восстановления.
     resetPassword: async (_, { token, newPassword }, context) => {
-      if (!token || !newPassword) {
-        throw new Error("Неверные данные")
-      }
-
-      // Ищем пользователя по токену, проверяя, что срок действия не истек
-      const user = await prisma.user.findFirst({
-        where: {
-          resetPasswordToken: token,
-          resetPasswordExpires: { gte: new Date() }
-        }
-      })
-
-      if (!user) {
-        throw new Error("Неверный или просроченный токен")
-      }
-
-      const hashedPassword = await argon2.hash(newPassword)
-
-      // Обновляем пароль и очищаем поля токена сброса
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          resetPasswordToken: null,
-          resetPasswordExpires: null
-        }
-      })
-
-      return "Пароль успешно обновлен."
+      return resetPasswordWithToken({ token, newPassword })
     },
 
     // Включение двухфакторной аутентификации (2FA) для текущего пользователя.

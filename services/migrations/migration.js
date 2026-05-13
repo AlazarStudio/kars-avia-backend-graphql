@@ -57,8 +57,7 @@ async function migrateUsers() {
       twoFASecret: oldUser.twoFASecret || null,
       twoFAMethod: oldUser.twoFAMethod || null,
       messageRead: { connect: [] },
-      resetPasswordToken: null,
-      resetPasswordExpires: null
+      emailVerified: true
     }
 
     try {

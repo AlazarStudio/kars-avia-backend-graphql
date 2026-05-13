@@ -67,6 +67,7 @@ const userTypeDef = /* GraphQL */ `
     effectiveAccessMenu: AccessMenu
     support: Boolean
     active: Boolean
+    emailVerified: Boolean
     refreshToken: String
     fingerprint: String
     online: Boolean
@@ -126,6 +127,7 @@ const userTypeDef = /* GraphQL */ `
     refreshToken(refreshToken: String!, fingerprint: String): AuthPayload
     enable2FA(input: TwoFAMethodInput): QRCodeResponse
     verify2FA(token: String!): SuccessResponse
+    verifyEmail(token: String!): String!
     requestResetPassword(email: String!): String!
     resetPassword(token: String!, newPassword: String!): String!
     markUserOnline: User!

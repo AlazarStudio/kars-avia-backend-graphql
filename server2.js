@@ -23,6 +23,7 @@ import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import { getCorsOptions } from "./services/infra/corsOptions.js"
 import filesRouter from "./services/routes/files.js"
+import authRouter from "./services/routes/auth.js"
 import {
   assertSubscriptionPubSubConfig,
   disconnectPubSubRedis
@@ -263,6 +264,13 @@ app.use("/uploads", (req, res) => {
 
 // Защищенный роут для файлов (требует JWT токен и проверяет права доступа)
 app.use("/files", filesRouter)
+
+app.use(
+  "/api/auth",
+  cors(getCorsOptions()),
+  express.json({ limit: "64kb" }),
+  authRouter
+)
 
 // Убрана статическая раздача файлов для безопасности
 // Все файлы теперь доступны только через /files/* с авторизацией
