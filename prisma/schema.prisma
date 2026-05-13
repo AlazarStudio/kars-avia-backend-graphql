@@ -1182,6 +1182,7 @@ model Request {
   files               String[]
   reserve             Boolean          @default(false)
   defaultTimesUsed    Boolean          @default(false)
+  note                String?
   Notifications       Notification[]
   requestAirlinePrice requestPrice?
   requestHotelPrice   requestPrice?

@@ -4,7 +4,7 @@ import { GraphQLError } from "graphql"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { deleteImage, uploadImage } from "../../services/files/uploadImage.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
-import { pubsub } from "../../services/infra/pubsub.js"
+import { pubsub, MESSAGE_SENT } from "../../services/infra/pubsub.js"
 import {
   buildDocumentationTree,
   sanitizeTreeInput
@@ -776,6 +776,7 @@ const supportResolver = {
           resolvedBy: true
         }
       })
+      pubsub.publish(MESSAGE_SENT, { messageSent: { id: `status-${chatId}`, chatId, text: null, sender: null, readBy: null } })
       return updated
     },
     resolveSupportTicket: async (_, { chatId }, context) => {
@@ -845,6 +846,7 @@ const supportResolver = {
           }
         }
       })
+      pubsub.publish(MESSAGE_SENT, { messageSent: { id: `status-${chatId}`, chatId, text: null, sender: null, readBy: null } })
       return updated
     }
   },
