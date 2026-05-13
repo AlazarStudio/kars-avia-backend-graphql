@@ -22,6 +22,7 @@ import requestResolver from "./request/request.resolver.js"
 import reserveResolver from "./reserve/reserve.resolver.js"
 import supportResolver from "./support/support.resolver.js"
 import transferResolver from "./transfer/transfer.resolver.js"
+import travellineResolver from "./travelline/travelline.resolver.js"
 import userResolver from "./user/user.resolver.js"
 
 const mergedResolvers = mergeResolvers([
@@ -47,6 +48,7 @@ const mergedResolvers = mergeResolvers([
   reserveResolver,
   supportResolver,
   transferResolver,
+  travellineResolver,
   userResolver
 ])
 

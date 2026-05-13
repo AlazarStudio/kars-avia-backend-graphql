@@ -234,6 +234,16 @@ export async function calculateRequestAirlinePrice(requestId) {
 
 export async function recalculateRequestPricing(requestId) {
   try {
+    // У TravelLine virtual Hotel нет hotelContract — пропускаем расчёт,
+    // чтобы избежать ошибок и нулевых апдейтов.
+    const req = await prisma.request.findUnique({
+      where: { id: requestId },
+      select: { hotel: { select: { external: true } } }
+    })
+    if (req?.hotel?.external) {
+      return { hotelPrice: null, airlinePrice: null }
+    }
+
     const [hotelPrice, airlinePrice] = await Promise.all([
       calculateRequestHotelPrice(requestId),
       calculateRequestAirlinePrice(requestId)

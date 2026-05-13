@@ -813,6 +813,11 @@ model Hotel {
   hotelContract      hotelContract[]
   additionalServices AdditionalServices[]
   externalUsers      ExternalUser[]
+  external           Boolean              @default(false)
+  externalSource     String?
+  externalId         String?
+
+  @@index([externalSource, externalId])
 }
 
 model HotelChess {
@@ -1183,6 +1188,8 @@ model Request {
   reserve             Boolean          @default(false)
   defaultTimesUsed    Boolean          @default(false)
   note                String?
+  externalBookingNumber String?
+  externalSource      String?
   Notifications       Notification[]
   requestAirlinePrice requestPrice?
   requestHotelPrice   requestPrice?
@@ -1788,3 +1795,48 @@ model CityOnTransferPrice {
 }
 
 // Misc ---------------- ↑↑↑↑
+
+// TravelLine integration ---------------- ↓↓↓↓
+
+model SystemSetting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  value     String
+  type      String   @default("string")
+  group     String?
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+}
+
+model TlBookingRecord {
+  id                      String   @id @map("_id")
+  propertyId              String
+  propertyName            String?
+  roomTypeId              String
+  ratePlanId              String
+  arrival                 String
+  departure               String
+  adults                  Int      @default(1)
+  children                Int      @default(0)
+  totalPrice              Float    @default(0)
+  currency                String   @default("RUB")
+  status                  String   @default("confirmed")
+  guestFirst              String
+  guestLast               String
+  guestEmail              String?
+  guestPhone              String?
+  comment                 String?
+  roomTypeName            String?
+  ratePlanName            String?
+  cancellationPoliciesRaw String?
+  raw                     String
+  createdAt               DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([createdAt])
+}
+
+// TravelLine integration ---------------- ↑↑↑↑

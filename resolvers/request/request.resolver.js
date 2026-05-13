@@ -35,6 +35,7 @@ import { shouldSendNotification } from "../../services/notification/notification
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
+import { travellineService } from "../../services/travelline/travellineService.js"
 import {
   recalculateRequestPricing,
   recalculateOverlappingRequests,
@@ -1268,6 +1269,21 @@ const requestResolver = {
           })
         }
         pubsub.publish(MESSAGE_SENT, { messageSent: message })
+      }
+
+      // Если заявка размещена через TravelLine — сначала отменяем бронь в TL.
+      // Если TL вернул ошибку — пробрасываем её, Request не меняется (предотвращаем рассинхрон).
+      if (request.externalSource === "travelline" && request.externalBookingNumber) {
+        try {
+          await travellineService.cancelReservation(request.externalBookingNumber)
+        } catch (err) {
+          logger.warn(
+            `cancelRequest: TravelLine cancel failed for booking ${request.externalBookingNumber}: ${err?.message}`
+          )
+          throw new Error(
+            `Не удалось отменить бронь в TravelLine: ${err?.message ?? err}. Заявка не отменена.`
+          )
+        }
       }
 
       const canceledRequest = await prisma.request.update({

@@ -36,6 +36,8 @@ const requestTypeDef = /* GraphQL */ `
     files: [String]
     requestAirlinePrice: RequestPrice
     requestHotelPrice: RequestPrice
+    externalBookingNumber: String
+    externalSource: String
   }
 
   # type Log {

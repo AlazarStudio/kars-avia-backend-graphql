@@ -21,6 +21,7 @@ import requestTypeDef from "./request/request.typeDef.js"
 import reserveTypeDef from "./reserve/reserve.typeDef.js"
 import supportTypeDef from "./support/support.typeDef.js"
 import transferTypeDef from "./transfer/transfer.typeDef.js"
+import travellineTypeDef from "./travelline/travelline.typeDef.js"
 import userTypeDef from "./user/user.typeDef.js"
 
 const mergedTypeDefs = mergeTypeDefs([
@@ -45,6 +46,7 @@ const mergedTypeDefs = mergeTypeDefs([
   reserveTypeDef,
   supportTypeDef,
   transferTypeDef,
+  travellineTypeDef,
   userTypeDef
 ])
 
