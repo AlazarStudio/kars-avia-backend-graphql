@@ -29,6 +29,7 @@ import { sendEmail } from "../../services/sendMail.js"
 import { logger } from "../../services/infra/logger.js"
 import { buildClosedSessionStats } from "../../services/user/userActivity.js"
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
+import { signInUser } from "../../services/auth/signInUser.js"
 import {
   registerSelfUser,
   requestPasswordResetByEmail,
