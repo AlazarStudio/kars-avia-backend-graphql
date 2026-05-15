@@ -282,6 +282,18 @@ const travellineTypeDef = /* GraphQL */ `
     mealPlanCode: String
   }
 
+  type TlSyncStatus {
+    running: Boolean!
+    total: Int!
+    done: Int!
+    currentName: String
+    startedAt: String
+    finishedAt: String
+    error: String
+    lastSyncAt: String
+    autoSyncHours: Int
+  }
+
   type HotelPlacementOption {
     source: String!
     id: String!
@@ -326,10 +338,14 @@ const travellineTypeDef = /* GraphQL */ `
     tlReservation(id: ID!): TlReservation!
     tlCancellationPenalty(bookingId: String!): TlCancellationPenalty!
     hotelOptionsForPlacement(city: String!): [HotelPlacementOption!]!
+    tlSyncStatus: TlSyncStatus!
+    tlLocalProperties(filter: TlSearchPropertiesInput): TlPropertiesResult!
   }
 
   extend type Mutation {
     tlSetConfig(input: TlSetConfigInput!): Boolean!
+    tlSyncCatalog(countryCode: String): TlSyncStatus!
+    tlSetAutoSyncHours(hours: Int!): Int!
     tlCreateReservation(input: TlCreateReservationInput!): TlReservation!
     tlCancelReservation(id: ID!): Boolean!
     tlVerifyBooking(input: TlVerifyInput!): TlVerifyResult!

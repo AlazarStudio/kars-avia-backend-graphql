@@ -816,6 +816,8 @@ model Hotel {
   external           Boolean              @default(false)
   externalSource     String?
   externalId         String?
+  externalRaw        String?
+  externalSyncedAt   DateTime?
 
   @@index([externalSource, externalId])
 }

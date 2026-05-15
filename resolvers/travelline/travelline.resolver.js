@@ -16,58 +16,68 @@ const travellineResolver = {
 
       const trimmed = city.trim()
 
-      const [localHotels, tlHotels] = await Promise.all([
-        prisma.hotel
-          .findMany({
-            where: {
-              active: true,
-              show: true,
-              information: { is: { city: { equals: trimmed, mode: "insensitive" } } }
-            },
-            select: {
-              id: true,
-              name: true,
-              images: true,
-              stars: true,
-              access: true,
-              information: true,
-              rooms: { select: { id: true }, take: 1 }
-            }
-          })
-          .catch((err) => {
-            logger.warn(`hotelOptionsForPlacement local fetch failed: ${err?.message}`)
-            return []
-          }),
-        travellineService.getHotelsByLocalCityName(trimmed)
-      ])
+      // Локальные отели — kars-avia (не external) и TL-двойники (external=true) — оба из БД
+      const allHotels = await prisma.hotel
+        .findMany({
+          where: {
+            active: true,
+            information: { is: { city: { equals: trimmed, mode: "insensitive" } } },
+            OR: [
+              { external: { not: true }, show: true },
+              { external: true }
+            ]
+          },
+          select: {
+            id: true,
+            name: true,
+            images: true,
+            stars: true,
+            access: true,
+            information: true,
+            external: true,
+            externalSource: true,
+            externalId: true,
+            externalRaw: true,
+            rooms: { select: { id: true }, take: 1 }
+          }
+        })
+        .catch((err) => {
+          logger.warn(`hotelOptionsForPlacement fetch failed: ${err?.message}`)
+          return []
+        })
 
-      const localOptions = localHotels.map((h) => ({
-        source: "local",
-        id: h.id,
-        name: h.name,
-        photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
-        city: h.information?.city ?? null,
-        address: h.information?.address ?? null,
-        stars: h.stars ?? null,
-        description: null,
-        access: !!h.access,
-        hasRooms: (h.rooms?.length ?? 0) > 0
-      }))
+      const options = allHotels.map((h) => {
+        if (h.external && h.externalSource === "travelline") {
+          let parsed = null
+          try { parsed = h.externalRaw ? JSON.parse(h.externalRaw) : null } catch { parsed = null }
+          return {
+            source: "travelline",
+            id: h.externalId || h.id,
+            name: h.name,
+            photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+            city: h.information?.city ?? null,
+            address: h.information?.address ?? null,
+            stars: h.stars ?? null,
+            description: parsed?.description ?? null,
+            access: null,
+            hasRooms: null
+          }
+        }
+        return {
+          source: "local",
+          id: h.id,
+          name: h.name,
+          photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+          city: h.information?.city ?? null,
+          address: h.information?.address ?? null,
+          stars: h.stars ?? null,
+          description: null,
+          access: !!h.access,
+          hasRooms: (h.rooms?.length ?? 0) > 0
+        }
+      })
 
-      const tlOptions = (tlHotels ?? []).map((p) => ({
-        source: "travelline",
-        id: p.id,
-        name: p.name,
-        photo: Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : null,
-        city: p.address?.city ?? null,
-        address: p.address?.street ?? null,
-        stars: p.stars ?? null,
-        description: p.description ?? null,
-        access: null,
-        hasRooms: null
-      }))
-
-      return [...localOptions, ...tlOptions]
+      return options
     },
 
     tlCities: async (_, { countryCode }, context) => {
@@ -128,6 +138,46 @@ const travellineResolver = {
     tlCancellationPenalty: async (_, { bookingId }, context) => {
       await adminMiddleware(context)
       return travellineService.calculateCancellationPenalty(bookingId)
+    },
+
+    tlSyncStatus: async (_, __, context) => {
+      await adminMiddleware(context)
+      return travellineService.getSyncStatus()
+    },
+
+    tlLocalProperties: async (_, { filter }, context) => {
+      await allMiddleware(context)
+      const where = { externalSource: "travelline" }
+      if (filter?.city) {
+        where.information = {
+          is: { city: { equals: String(filter.city).trim(), mode: "insensitive" } }
+        }
+      }
+      const hotels = await prisma.hotel.findMany({ where })
+      const items = hotels.map((h) => {
+        const raw = h.externalRaw
+        let parsed = null
+        try { parsed = raw ? JSON.parse(raw) : null } catch { parsed = null }
+        return {
+          id: h.externalId || h.id,
+          name: h.name,
+          description: parsed?.description ?? null,
+          phone: parsed?.phone ?? parsed?.contactInfo?.phone ?? null,
+          email: parsed?.email ?? parsed?.contactInfo?.email ?? null,
+          address: {
+            country: parsed?.address?.country ?? h.information?.country ?? null,
+            city: parsed?.address?.city ?? h.information?.city ?? null,
+            street: parsed?.address?.street ?? h.information?.address ?? null,
+            zip: parsed?.address?.zip ?? null
+          },
+          latitude: parsed?.latitude ?? null,
+          longitude: parsed?.longitude ?? null,
+          photos: Array.isArray(h.images) ? h.images : [],
+          stars: h.stars ?? null,
+          raw: raw || JSON.stringify(parsed ?? {})
+        }
+      })
+      return { items, total: items.length, page: 1, pageSize: items.length }
     }
   },
 
@@ -135,6 +185,16 @@ const travellineResolver = {
     tlSetConfig: async (_, { input }, context) => {
       await adminMiddleware(context)
       return travellineService.setConfig(input.clientId, input.clientSecret, input.baseUrl)
+    },
+
+    tlSyncCatalog: async (_, { countryCode }, context) => {
+      await adminMiddleware(context)
+      return travellineService.startCatalogSync(countryCode || "RUS")
+    },
+
+    tlSetAutoSyncHours: async (_, { hours }, context) => {
+      await adminMiddleware(context)
+      return travellineService.setAutoSyncHours(hours)
     },
 
     tlCreateReservation: async (_, { input }, context) => {

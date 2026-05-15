@@ -81,6 +81,9 @@ const hotelTypeDef = /* GraphQL */ `
     gallery: [String]
     hotelContract: [HotelContract]
     additionalServices: [AdditionalServices]
+    external: Boolean
+    externalSource: String
+    externalId: String
   }
 
   # Тип бронирования номера (HotelChess)

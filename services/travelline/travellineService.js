@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync } from "fs"
+import { writeFile } from "fs/promises"
+import path from "path"
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
@@ -7,6 +10,122 @@ const DEFAULT_BASE_URL = "https://partner.qatl.ru"
 const CLIENT_ID_KEY = "travelline.client_id"
 const CLIENT_SECRET_KEY = "travelline.client_secret"
 const BASE_URL_KEY = "travelline.base_url"
+
+// Скачивает URL-картинки в локальный uploads, возвращает массив локальных путей.
+// При ошибке скачивания конкретной картинки — fallback на оригинальный URL.
+async function downloadImages(urls, externalId) {
+  if (!Array.isArray(urls) || urls.length === 0) return []
+  const baseDir = path.resolve("uploads", "travelline", String(externalId))
+  if (!existsSync(baseDir)) {
+    try {
+      mkdirSync(baseDir, { recursive: true })
+    } catch (err) {
+      logger.warn(`downloadImages: mkdir failed: ${err?.message}`)
+      return urls
+    }
+  }
+  const result = []
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i]
+    if (!url || typeof url !== "string") continue
+    try {
+      const res = await fetch(url)
+      if (!res.ok) {
+        logger.warn(`downloadImages: HTTP ${res.status} for ${url}`)
+        result.push(url)
+        continue
+      }
+      const buf = Buffer.from(await res.arrayBuffer())
+      const ext = (url.split("?")[0].match(/\.([a-z0-9]{2,5})$/i)?.[1] || "jpg").toLowerCase()
+      const fileName = `photo-${i}.${ext}`
+      await writeFile(path.join(baseDir, fileName), buf)
+      result.push(`/uploads/travelline/${externalId}/${fileName}`)
+    } catch (err) {
+      logger.warn(`downloadImages: ${url} failed: ${err?.message}`)
+      result.push(url)
+    }
+  }
+  return result
+}
+
+// Собирает все URL картинок из любых полей prop.images / prop.photos / room.images …
+function collectImageUrls(node, out = new Set()) {
+  if (!node) return out
+  if (typeof node === "string") {
+    if (/^https?:\/\//i.test(node) && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(node)) {
+      out.add(node)
+    }
+    return out
+  }
+  if (Array.isArray(node)) {
+    for (const x of node) collectImageUrls(x, out)
+    return out
+  }
+  if (typeof node === "object") {
+    if (typeof node.url === "string" && /^https?:\/\//i.test(node.url)) out.add(node.url)
+    if (typeof node.src === "string" && /^https?:\/\//i.test(node.src)) out.add(node.src)
+    for (const k of Object.keys(node)) {
+      if (k === "raw") continue // не лезем внутрь сериализованного raw
+      collectImageUrls(node[k], out)
+    }
+  }
+  return out
+}
+
+// Скачивает множество URL и возвращает Map<url, localPath>.
+// Если скачивание упало — в Map остаётся исходный URL → исходный URL.
+async function downloadImagesMap(urls, externalId) {
+  const map = new Map()
+  if (!urls || (urls.size ?? urls.length) === 0) return map
+  const list = Array.from(urls instanceof Set ? urls : urls)
+  const baseDir = path.resolve("uploads", "travelline", String(externalId))
+  if (!existsSync(baseDir)) {
+    try { mkdirSync(baseDir, { recursive: true }) } catch { /* noop */ }
+  }
+  let i = 0
+  for (const url of list) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) {
+        map.set(url, url)
+        continue
+      }
+      const buf = Buffer.from(await res.arrayBuffer())
+      const ext = (url.split("?")[0].match(/\.([a-z0-9]{2,5})$/i)?.[1] || "jpg").toLowerCase()
+      const fileName = `photo-${i}.${ext}`
+      await writeFile(path.join(baseDir, fileName), buf)
+      map.set(url, `/uploads/travelline/${externalId}/${fileName}`)
+    } catch (err) {
+      logger.warn(`downloadImagesMap: ${url} failed: ${err?.message}`)
+      map.set(url, url)
+    }
+    i++
+  }
+  return map
+}
+
+// Глубоко рекурсивно подменяет TL URL картинок в объекте на локальные пути
+function patchRawImages(node, map) {
+  if (!node || !map || map.size === 0) return node
+  if (typeof node === "string") {
+    return map.has(node) ? map.get(node) : node
+  }
+  if (Array.isArray(node)) {
+    return node.map((x) => patchRawImages(x, map))
+  }
+  if (typeof node === "object") {
+    const out = {}
+    for (const k of Object.keys(node)) {
+      if (k === "raw") {
+        out[k] = node[k]
+        continue
+      }
+      out[k] = patchRawImages(node[k], map)
+    }
+    return out
+  }
+  return node
+}
 
 // TravelLine mealPlanCode → наш MealPlan (что фактически входит)
 function mapTlMealPlanCode(code) {
@@ -37,7 +156,135 @@ const PREFIX_READ_RESERVATION = "/api/read-reservation"
 class TravellineService {
   constructor() {
     this.tokenCache = null
-    this.citiesCache = new Map() // countryCode -> { items: [{id, name, ...}], expiresAt }
+    this.citiesCache = new Map() // countryCode -> { items, expiresAt }
+    this.syncState = {
+      running: false,
+      total: 0,
+      done: 0,
+      currentName: null,
+      startedAt: null,
+      finishedAt: null,
+      error: null
+    }
+  }
+
+  // ─── Catalog sync ────────────────────────────────────────────────────────
+
+  async getSyncStatus() {
+    const [last, interval] = await Promise.all([
+      prisma.systemSetting
+        .findUnique({ where: { key: "travelline.last_sync_at" } })
+        .catch(() => null),
+      prisma.systemSetting
+        .findUnique({ where: { key: "travelline.auto_sync_hours" } })
+        .catch(() => null)
+    ])
+    return {
+      ...this.syncState,
+      lastSyncAt: last?.value ?? this.syncState.finishedAt ?? null,
+      autoSyncHours: interval?.value ? Number(interval.value) : 24
+    }
+  }
+
+  async setAutoSyncHours(hours) {
+    const v = Math.max(1, Math.min(168, Number(hours) || 24))
+    await prisma.systemSetting.upsert({
+      where: { key: "travelline.auto_sync_hours" },
+      create: {
+        key: "travelline.auto_sync_hours",
+        value: String(v),
+        type: "number",
+        group: "travelline",
+        label: "TravelLine Auto-Sync Interval (hours)"
+      },
+      update: { value: String(v) }
+    })
+    return v
+  }
+
+  // Проверка тиком: запустить sync если прошло >= autoSyncHours с lastSyncAt
+  async maybeAutoSync() {
+    if (this.syncState.running) return
+    try {
+      const cfg = await this.getConfig()
+      if (!cfg.isConfigured) return
+      const st = await this.getSyncStatus()
+      if (!st.lastSyncAt) return // первичная синхронизация — её делает фронт при заходе
+      const last = new Date(st.lastSyncAt).getTime()
+      const dueAfterMs = (st.autoSyncHours || 24) * 60 * 60 * 1000
+      if (Date.now() - last >= dueAfterMs) {
+        logger.info(`TravelLine auto-sync: starting (interval ${st.autoSyncHours}h)`)
+        this.startCatalogSync()
+      }
+    } catch (err) {
+      logger.warn(`maybeAutoSync error: ${err?.message}`)
+    }
+  }
+
+  startCatalogSync(countryCode = "RUS") {
+    if (this.syncState.running) {
+      return this.getSyncStatus()
+    }
+    this.syncState = {
+      running: true,
+      total: 0,
+      done: 0,
+      currentName: null,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      error: null
+    }
+    // Запускаем фоном
+    this._runSync(countryCode).catch((err) => {
+      this.syncState.error = err?.message || String(err)
+      this.syncState.running = false
+      this.syncState.finishedAt = new Date().toISOString()
+      logger.error(`TravelLine sync failed: ${this.syncState.error}`)
+    })
+    return this.getSyncStatus()
+  }
+
+  async _runSync(countryCode = "RUS") {
+    logger.info(`TravelLine sync: starting for country ${countryCode}`)
+    const { items } = await this.searchProperties({ pageSize: 200 })
+    this.syncState.total = items.length
+    logger.info(`TravelLine sync: ${items.length} properties to process`)
+    for (const p of items) {
+      this.syncState.currentName = p.name
+      try {
+        // Listing endpoint отдаёт неполные данные — берём полный property отдельно
+        let fullProp = p
+        try {
+          fullProp = await this.getProperty(p.id)
+        } catch (err) {
+          logger.warn(`sync: getProperty(${p.id}) failed: ${err?.message}, using listing data`)
+        }
+        await this.ensureTravellineHotel(p.id, fullProp)
+      } catch (err) {
+        logger.warn(`TravelLine sync: ensureTravellineHotel(${p.id}) failed: ${err?.message}`)
+      }
+      this.syncState.done++
+    }
+    const finishedAt = new Date().toISOString()
+    this.syncState.finishedAt = finishedAt
+    this.syncState.running = false
+    this.syncState.currentName = null
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: "travelline.last_sync_at" },
+        create: {
+          key: "travelline.last_sync_at",
+          value: finishedAt,
+          type: "string",
+          group: "travelline",
+          label: "TravelLine Last Sync At"
+        },
+        update: { value: finishedAt }
+      })
+    } catch (err) {
+      logger.warn(`TravelLine sync: failed to persist last_sync_at: ${err?.message}`)
+    }
+    logger.info(`TravelLine sync: done ${this.syncState.done}/${this.syncState.total}`)
   }
 
   // ─── City name → cityId lookup (with cache) ──────────────────────────────
@@ -75,15 +322,56 @@ class TravellineService {
     }
   }
 
-  // Найти или создать локальный Hotel-двойник для TravelLine property
-  async ensureTravellineHotel(propertyId) {
+  // Найти или создать локальный Hotel-двойник для TravelLine property.
+  // Если передан preloadedProp — используем его вместо запроса к TL Content API.
+  async ensureTravellineHotel(propertyId, preloadedProp = null) {
     if (!propertyId) return null
     const externalId = String(propertyId)
     const existing = await prisma.hotel.findFirst({
       where: { externalSource: "travelline", externalId }
     })
+
+    // Если запись уже есть — при наличии preloadedProp обновим контент,
+    // иначе вернём как есть (только дозальём дефолтные времена еды если их нет).
     if (existing) {
-      // Если у старой записи нет времён питания — допишем дефолтные
+      if (preloadedProp) {
+        try {
+          // Парсим raw отеля чтобы выудить все URL картинок (photos, images, room photos)
+          let rawObj = null
+          try {
+            rawObj = JSON.parse(JSON.stringify(preloadedProp.raw ? JSON.parse(preloadedProp.raw) : preloadedProp))
+          } catch {
+            rawObj = preloadedProp
+          }
+          const collectedUrls = collectImageUrls(rawObj)
+          const downloadMap = await downloadImagesMap(collectedUrls, externalId)
+          const patchedRaw = patchRawImages(rawObj, downloadMap)
+          const localImages = (Array.isArray(preloadedProp?.photos) ? preloadedProp.photos : [])
+            .map((u) => downloadMap.get(u) || u)
+
+          return await prisma.hotel.update({
+            where: { id: existing.id },
+            data: {
+              name: preloadedProp?.name ?? existing.name,
+              images: localImages.length > 0 ? localImages : existing.images,
+              stars: preloadedProp?.stars ?? existing.stars,
+              externalRaw: JSON.stringify(patchedRaw),
+              externalSyncedAt: new Date(),
+              breakfast: existing.breakfast || { start: "07:00", end: "10:00" },
+              lunch: existing.lunch || { start: "12:00", end: "15:00" },
+              dinner: existing.dinner || { start: "18:00", end: "21:00" },
+              information: {
+                country: preloadedProp?.address?.country ?? existing.information?.country ?? "",
+                city: preloadedProp?.address?.city ?? existing.information?.city ?? "",
+                address: preloadedProp?.address?.street ?? existing.information?.address ?? ""
+              }
+            }
+          })
+        } catch (err) {
+          logger.warn(`ensureTravellineHotel: update existing failed: ${err?.message}`)
+          return existing
+        }
+      }
       if (!existing.breakfast) {
         try {
           return await prisma.hotel.update({
@@ -101,24 +389,39 @@ class TravellineService {
       return existing
     }
 
-    let prop = null
-    try {
-      prop = await this.getProperty(propertyId)
-    } catch (err) {
-      logger.warn(`ensureTravellineHotel: getProperty(${propertyId}) failed: ${err?.message}`)
+    let prop = preloadedProp
+    if (!prop) {
+      try {
+        prop = await this.getProperty(propertyId)
+      } catch (err) {
+        logger.warn(`ensureTravellineHotel: getProperty(${propertyId}) failed: ${err?.message}`)
+      }
     }
+
+    let rawObj = null
+    try {
+      rawObj = JSON.parse(JSON.stringify(prop?.raw ? JSON.parse(prop.raw) : prop))
+    } catch {
+      rawObj = prop
+    }
+    const collectedUrls = collectImageUrls(rawObj)
+    const downloadMap = await downloadImagesMap(collectedUrls, externalId)
+    const patchedRaw = patchRawImages(rawObj, downloadMap)
+    const localImages = (Array.isArray(prop?.photos) ? prop.photos : [])
+      .map((u) => downloadMap.get(u) || u)
 
     const created = await prisma.hotel.create({
       data: {
         name: prop?.name ?? `TravelLine ${externalId}`,
-        images: Array.isArray(prop?.photos) ? prop.photos : [],
+        images: localImages,
         stars: prop?.stars ?? null,
         external: true,
         externalSource: "travelline",
         externalId,
+        externalRaw: patchedRaw ? JSON.stringify(patchedRaw) : null,
+        externalSyncedAt: new Date(),
         active: true,
         show: false,
-        // Дефолтные времена приёмов пищи, чтобы calculateMeal мог посчитать порции
         breakfast: { start: "07:00", end: "10:00" },
         lunch: { start: "12:00", end: "15:00" },
         dinner: { start: "18:00", end: "21:00" },
@@ -129,7 +432,7 @@ class TravellineService {
         }
       }
     })
-    logger.info(`ensureTravellineHotel: created virtual Hotel ${created.id} for property ${externalId}`)
+    logger.info(`ensureTravellineHotel: created Hotel ${created.id} for property ${externalId}`)
     return created
   }
 
@@ -747,7 +1050,7 @@ class TravellineService {
       if (!byProperty.has(pid)) byProperty.set(pid, [])
     }
 
-    return Array.from(byProperty.entries()).map(([propertyId, stays]) => {
+    const summaries = Array.from(byProperty.entries()).map(([propertyId, stays]) => {
       const matchingStays = stays.filter(stayCoversMeal)
 
       let minTotalPrice
@@ -791,6 +1094,36 @@ class TravellineService {
         reason
       }
     })
+
+    // Подтянуть в БД все propertyIds, которых у нас ещё нет (фоном — не блокируем ответ)
+    this._ensureMissingPropertiesAsync(summaries.map((s) => s.propertyId))
+
+    return summaries
+  }
+
+  // Фоновая дозаливка незнакомых TL отелей в локальную БД
+  async _ensureMissingPropertiesAsync(propertyIds) {
+    try {
+      const ids = (propertyIds || []).map(String).filter(Boolean)
+      if (ids.length === 0) return
+      const known = await prisma.hotel.findMany({
+        where: { externalSource: "travelline", externalId: { in: ids } },
+        select: { externalId: true }
+      })
+      const knownSet = new Set(known.map((h) => h.externalId))
+      const missing = ids.filter((id) => !knownSet.has(id))
+      if (missing.length === 0) return
+      logger.info(`searchPropertiesAvailability: ingesting ${missing.length} new properties`)
+      for (const id of missing) {
+        try {
+          await this.ensureTravellineHotel(id)
+        } catch (err) {
+          logger.warn(`_ensureMissingPropertiesAsync(${id}): ${err?.message}`)
+        }
+      }
+    } catch (err) {
+      logger.warn(`_ensureMissingPropertiesAsync error: ${err?.message}`)
+    }
   }
 
   // ─── Reservation API ────────────────────────────────────────────────────────

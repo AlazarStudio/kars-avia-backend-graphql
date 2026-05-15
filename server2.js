@@ -295,6 +295,11 @@ const HOST = "0.0.0.0"
 
 httpServer.listen({ port: PORT, host: HOST }, () => {
   console.log(`Server running on http://localhost:${PORT}/graphql`)
+  // TravelLine: периодическая авто-синхронизация (тик раз в час)
+  import("./services/travelline/travellineService.js").then(({ travellineService }) => {
+    travellineService.maybeAutoSync()
+    setInterval(() => travellineService.maybeAutoSync(), 60 * 60 * 1000)
+  })
 })
 
 /* =========================
