@@ -12,6 +12,7 @@ const requestTypeDef = /* GraphQL */ `
     airport: Airport!
     arrival: Date!
     departure: Date!
+    actualCheckInAt: Date
     roomCategory: String
     mealPlan: MealPlan
     senderId: ID!
@@ -79,6 +80,7 @@ const requestTypeDef = /* GraphQL */ `
     airlineId: ID
     arrival: Date
     departure: Date
+    actualCheckInAt: Date
     roomCategory: String
     mealPlan: MealPlanInput
     hotelId: ID

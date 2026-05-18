@@ -23,6 +23,7 @@ import {
   publishReserveUpdated
 } from "../../services/infra/subscriptionPayloads.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
+import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
 import { withFilter } from "graphql-subscriptions"
 import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
@@ -318,7 +319,12 @@ const hotelResolver = {
         // Сохраняем предыдущие данные отеля для логирования изменений
         const previousHotelData = await prisma.hotel.findUnique({
           where: { id },
-          select: { prices: true, mealPrice: true, mealPriceForAir: true } // Получаем текущие цены
+          select: {
+            prices: true,
+            mealPrice: true,
+            mealPriceForAir: true,
+            breakfastIncluded: true
+          }
         })
 
         const updatedHotel = await prisma.hotel.update({
@@ -342,6 +348,31 @@ const hotelResolver = {
             ...(galleryPaths.length > 0 && { gallery: { set: galleryPaths } })
           }
         })
+
+        if (
+          input.breakfastIncluded !== undefined &&
+          input.breakfastIncluded !== previousHotelData.breakfastIncluded
+        ) {
+          const activeRequests = await prisma.request.findMany({
+            where: {
+              hotelId: id,
+              status: {
+                in: [
+                  "done",
+                  "transferred",
+                  "extended",
+                  "archiving",
+                  "archived",
+                  "reduced"
+                ]
+              }
+            },
+            select: { id: true }
+          })
+          await Promise.all(
+            activeRequests.map((r) => recalculateRequestPricing(r.id))
+          )
+        }
 
         if (hotelChesses) {
           for (const hotelChess of hotelChesses) {
@@ -1529,9 +1560,10 @@ const hotelResolver = {
     },
     // Определяем резольвер для поля hotelContract
     hotelContract: async (parent) => {
-      return await prisma.hotelContract.findMany({
-        where: { hotelId: parent.id }
+      const contracts = await prisma.hotelContract.findMany({
+        where: { hotelId: parent.id, isArchived: false }
       })
+      return sortContractsByExpiration(contracts)
     }
   },
 

@@ -42,12 +42,31 @@ const hotelTypeDef = /* GraphQL */ `
     end: String!
   }
 
+  type HotelLocation {
+    country: String
+    region: String
+    republic: String
+    district: String
+    city: String
+    address: String
+  }
+
+  input HotelLocationInput {
+    country: String
+    region: String
+    republic: String
+    district: String
+    city: String
+    address: String
+  }
+
   # Основной тип отеля, отражающий актуальную структуру базы данных
   type Hotel {
     id: ID!
     name: String!
     nameFull: String
     airport: Airport
+    location: HotelLocation
     information: Information
     provision: Int
     quote: Int
@@ -75,6 +94,7 @@ const hotelTypeDef = /* GraphQL */ `
     active: Boolean
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
     access: Boolean
     type: HotelType
     # position: [Position]
@@ -174,6 +194,7 @@ const hotelTypeDef = /* GraphQL */ `
     name: String!
     nameFull: String
     airportId: ID
+    location: HotelLocationInput
     information: InformationInput
     provision: Int
     quote: Int
@@ -193,12 +214,14 @@ const hotelTypeDef = /* GraphQL */ `
     type: HotelType
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
   }
 
   input UpdateHotelInput {
     name: String
     nameFull: String
     airportId: ID
+    location: HotelLocationInput
     information: InformationInput
     provision: Int
     quote: Int
@@ -220,6 +243,7 @@ const hotelTypeDef = /* GraphQL */ `
     access: Boolean
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
   }
 
   input HotelChessInput {

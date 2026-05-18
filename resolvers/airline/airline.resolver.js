@@ -15,6 +15,7 @@ import {
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
+import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
 
 const hasOwn = (obj, key) =>
   Object.prototype.hasOwnProperty.call(obj || {}, key)
@@ -197,7 +198,10 @@ const airlineResolver = {
           images: [],
           prices: {
             create: airlinePriceData.map((priceInput) => ({
+              name: priceInput.name ?? "",
               prices: priceInput.prices,
+              mealPrice: priceInput.mealPrice,
+              ...(priceInput.geography && { geography: priceInput.geography }),
               airports: {
                 create: priceInput.airportIds
                   ? priceInput.airportIds.map((airportId) => ({
@@ -333,7 +337,10 @@ const airlineResolver = {
                 data: {
                   name: priceInput.name,
                   prices: priceInput.prices,
-                  mealPrice: priceInput.mealPrice
+                  mealPrice: priceInput.mealPrice,
+                  ...(priceInput.geography !== undefined && {
+                    geography: priceInput.geography
+                  })
                 }
               })
 
@@ -361,7 +368,8 @@ const airlineResolver = {
                   airlineId: id,
                   name: priceInput.name,
                   prices: priceInput.prices,
-                  mealPrice: priceInput.mealPrice
+                  mealPrice: priceInput.mealPrice,
+                  ...(priceInput.geography && { geography: priceInput.geography })
                 }
               })
 
@@ -933,9 +941,10 @@ const airlineResolver = {
     },
     // Определяем резольвер для поля airlineContract
     airlineContract: async (parent) => {
-      return await prisma.airlineContract.findMany({
-        where: { airlineId: parent.id }
+      const contracts = await prisma.airlineContract.findMany({
+        where: { airlineId: parent.id, isArchived: false }
       })
+      return sortContractsByExpiration(contracts)
     }
   },
 

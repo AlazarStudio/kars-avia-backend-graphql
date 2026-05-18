@@ -16,18 +16,21 @@ const contractTypeDef = /* GraphQL */ `
 
   input AirlineContractOrderByInput {
     date: SortOrder
+    contractEndDate: SortOrder
     contractNumber: SortOrder
     createdAt: SortOrder
   }
 
   input HotelContractOrderByInput {
     date: SortOrder
+    contractEndDate: SortOrder
     contractNumber: SortOrder
     createdAt: SortOrder
   }
 
   input OrganizationContractOrderByInput {
     date: SortOrder
+    contractEndDate: SortOrder
     contractNumber: SortOrder
     createdAt: SortOrder
   }
@@ -39,6 +42,7 @@ const contractTypeDef = /* GraphQL */ `
     dateTo: Date
     applicationType: String
     search: String
+    archived: Boolean
   }
 
   input HotelContractFilter {
@@ -48,6 +52,7 @@ const contractTypeDef = /* GraphQL */ `
     dateFrom: Date
     dateTo: Date
     search: String
+    archived: Boolean
   }
 
   input OrganizationContractFilter {
@@ -57,6 +62,7 @@ const contractTypeDef = /* GraphQL */ `
     dateFrom: Date
     dateTo: Date
     search: String
+    archived: Boolean
   }
 
   type AirlineContractConnection {
@@ -88,6 +94,8 @@ const contractTypeDef = /* GraphQL */ `
     organizationContractId: ID
     organizationContract: OrganizationContract
     date: Date
+    agreementEndDate: Date
+    isProlongationEnabled: Boolean!
     contractNumber: String
     itemAgreement: String
     notes: String
@@ -101,6 +109,15 @@ const contractTypeDef = /* GraphQL */ `
     airlineId: ID
     airline: Airline
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean!
+    daysUntilEnd: Int
+    isExpiringSoon: Boolean!
+    isExpired: Boolean!
+    expirationPriority: Int!
+    isArchived: Boolean!
+    archivedAt: Date
+    archivedById: ID
     contractNumber: String
     region: String
     applicationType: String
@@ -118,6 +135,15 @@ const contractTypeDef = /* GraphQL */ `
     cityId: ID
     region: City!
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean!
+    daysUntilEnd: Int
+    isExpiringSoon: Boolean!
+    isExpired: Boolean!
+    expirationPriority: Int!
+    isArchived: Boolean!
+    archivedAt: Date
+    archivedById: ID
     contractNumber: String
     notes: String
     legalEntity: String
@@ -139,6 +165,15 @@ const contractTypeDef = /* GraphQL */ `
     cityId: ID
     region: City!
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean!
+    daysUntilEnd: Int
+    isExpiringSoon: Boolean!
+    isExpired: Boolean!
+    expirationPriority: Int!
+    isArchived: Boolean!
+    archivedAt: Date
+    archivedById: ID
     contractNumber: String
     notes: String
     # legalEntity: String
@@ -158,6 +193,8 @@ const contractTypeDef = /* GraphQL */ `
     hotelContractId: ID
     organizationContractId: ID
     date: Date
+    agreementEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     itemAgreement: String
     notes: String
@@ -168,6 +205,8 @@ const contractTypeDef = /* GraphQL */ `
     companyId: ID
     airlineId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     region: String
     applicationType: String
@@ -179,6 +218,8 @@ const contractTypeDef = /* GraphQL */ `
     companyId: ID
     airlineId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     region: String
     applicationType: String
@@ -191,6 +232,8 @@ const contractTypeDef = /* GraphQL */ `
     hotelId: ID
     cityId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     notes: String
     legalEntity: String
@@ -207,6 +250,8 @@ const contractTypeDef = /* GraphQL */ `
     hotelId: ID
     cityId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     notes: String
     legalEntity: String
@@ -223,6 +268,8 @@ const contractTypeDef = /* GraphQL */ `
     organizationId: ID
     cityId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     notes: String
     # legalEntity: String
@@ -239,6 +286,8 @@ const contractTypeDef = /* GraphQL */ `
     organizationId: ID
     cityId: ID
     date: Date
+    contractEndDate: Date
+    isProlongationEnabled: Boolean
     contractNumber: String
     notes: String
     # legalEntity: String
@@ -292,6 +341,8 @@ const contractTypeDef = /* GraphQL */ `
       files: [Upload!]
     ): AirlineContract!
     deleteAirlineContract(id: ID!): Boolean!
+    archiveAirlineContract(id: ID!): AirlineContract!
+    restoreAirlineContract(id: ID!): AirlineContract!
 
     createAdditionalAgreement(
       input: AdditionalAgreementInput!
@@ -314,6 +365,8 @@ const contractTypeDef = /* GraphQL */ `
       files: [Upload!]
     ): HotelContract!
     deleteHotelContract(id: ID!): Boolean!
+    archiveHotelContract(id: ID!): HotelContract!
+    restoreHotelContract(id: ID!): HotelContract!
 
     createOrganizationContract(
       input: OrganizationContractCreateInput!
@@ -325,6 +378,8 @@ const contractTypeDef = /* GraphQL */ `
       files: [Upload!]
     ): OrganizationContract!
     deleteOrganizationContract(id: ID!): Boolean!
+    archiveOrganizationContract(id: ID!): OrganizationContract!
+    restoreOrganizationContract(id: ID!): OrganizationContract!
   }
 
   type Subscription {

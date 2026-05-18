@@ -3,11 +3,14 @@ import {
   calculateLivingCost,
   calculateMealCostForReportDays,
   calculateEffectiveCostDaysWithPartial,
-  parseAsLocal,
   formatDateToISO,
   formatLocalDate,
   buildAllocation
 } from "../report/reportUtils.js"
+import {
+  getRequestCheckInAt,
+  getRequestCheckOutAt
+} from "../request/requestStayDates.js"
 
 const ACTIVE_STATUSES = [
   "done",
@@ -72,11 +75,20 @@ export function buildRequestWhere({ airlineId, start, end, airportIds, positionI
 
 export const REQUEST_INCLUDE = {
   person: { include: { position: true } },
-  hotelChess: true,
+  hotelChess: { include: { room: { include: { roomKind: true } } } },
   airline: { include: { prices: { include: { airports: true } } } },
-  hotel: true,
+  hotel: {
+    select: {
+      id: true,
+      name: true,
+      location: true,
+      information: true,
+      airportId: true,
+      breakfastIncluded: true
+    }
+  },
   mealPlan: true,
-  airport: true
+  airport: { select: { id: true, city: true } }
 }
 
 export function buildTransferWhere({ airlineId, start, end }) {
@@ -147,13 +159,8 @@ export async function computeTransferBudgetDetails(transfers, airlineId) {
 }
 
 export function computeRequestCosts(request, rangeStart, rangeEnd) {
-  const hotelChess = request.hotelChess?.[0] || {}
-  const rawIn = hotelChess.start
-    ? parseAsLocal(hotelChess.start)
-    : parseAsLocal(request.arrival)
-  const rawOut = hotelChess.end
-    ? parseAsLocal(hotelChess.end)
-    : parseAsLocal(request.departure)
+  const rawIn = getRequestCheckInAt(request)
+  const rawOut = getRequestCheckOutAt(request)
 
   const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
   const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
@@ -188,12 +195,8 @@ export function computeRequestCosts(request, rangeStart, rangeEnd) {
 
 function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
   const hotelChess = request.hotelChess?.[0] || {}
-  const rawIn = hotelChess.start
-    ? parseAsLocal(hotelChess.start)
-    : parseAsLocal(request.arrival)
-  const rawOut = hotelChess.end
-    ? parseAsLocal(hotelChess.end)
-    : parseAsLocal(request.departure)
+  const rawIn = getRequestCheckInAt(request)
+  const rawOut = getRequestCheckOutAt(request)
 
   const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
   const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut

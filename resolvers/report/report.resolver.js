@@ -22,6 +22,10 @@ import {
   buildPositionWhere,
   aggregateRequestReports
 } from "../../services/report/reportUtils.js"
+import {
+  getHotelLocation,
+  resolvePriceByHotelLocation
+} from "../../services/airline/resolvePriceByHotelLocation.js"
 
 const reportResolver = {
   Query: {
@@ -196,36 +200,34 @@ const reportResolver = {
           include: { prices: { include: { airports: true } } }
         })
 
-        const airlinePrices = company?.prices
-
-        let airlinePriceId = null
-
-        for (const contract of airlinePrices) {
-          if (contract.airports && contract.airports.length > 0) {
-            const match = contract.airports.find(
-              (item) => item.airportId && item.airportId === filter.airportId
-            )
-            if (match) {
-              airlinePriceId = contract.id
-            }
-          }
+        const firstRequestWithHotel = requests.find((r) => r.hotel)
+        const reportHotel = firstRequestWithHotel?.hotel
+        let reportAirport = firstRequestWithHotel?.airport || null
+        if (!reportAirport && filter.airportId) {
+          reportAirport = await prisma.airport.findUnique({
+            where: { id: filter.airportId }
+          })
         }
 
-        if (airlinePriceId === null) {
+        const hotelLocation = getHotelLocation(reportHotel, reportAirport)
+        const contract = resolvePriceByHotelLocation({
+          airlinePrices: company?.prices,
+          hotelLocation,
+          airportId:
+            firstRequestWithHotel?.airport?.id ||
+            filter.airportId ||
+            reportHotel?.airportId ||
+            null
+        })
+
+        if (!contract) {
           throw new Error("Airline has no prices")
         }
-
-        const contract = await prisma.airlinePrice.findUnique({
-          where: { id: airlinePriceId }
-        })
-        const city = await prisma.airport.findUnique({
-          where: { id: filter.airportId }
-        })
 
         companyData = {
           name: company.name,
           nameFull: company.nameFull,
-          city: city.city,
+          city: hotelLocation.city || reportAirport?.city || "",
           contractName: contract.name
         }
 

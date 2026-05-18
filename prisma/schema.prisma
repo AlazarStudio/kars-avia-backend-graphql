@@ -109,6 +109,23 @@ type DailyMeal {
   dinner    Int
 }
 
+type HotelLocation {
+  country   String? @default("")
+  region    String? @default("")
+  republic  String? @default("")
+  district  String? @default("")
+  city      String? @default("")
+  address   String? @default("")
+}
+
+type PriceGeography {
+  country   String? @default("")
+  region    String? @default("")
+  republic  String? @default("")
+  district  String? @default("")
+  city      String? @default("")
+}
+
 type Information {
   country     String? @default("")
   city        String? @default("")
@@ -412,6 +429,7 @@ model AirlinePrice {
   airlinePriceCategory   PriceCategory?          @relation(fields: [airlinePriceCategoryId], references: [id])
   airlinePriceCategoryId String?                 @db.ObjectId
   airports               AirportOnAirlinePrice[]
+  geography              PriceGeography?
   name                   String
   prices                 Price?
   mealPrice              MealPrice?
@@ -539,6 +557,8 @@ model additionalAgreement {
   hotelContract          hotelContract?        @relation(fields: [hotelContractId], references: [id], onDelete: Cascade)
   hotelContractId        String?               @db.ObjectId
   date                   DateTime?
+  agreementEndDate       DateTime?
+  isProlongationEnabled  Boolean               @default(false)
   contractNumber         String?
   itemAgreement          String?
   notes                  String?
@@ -555,13 +575,18 @@ model airlineContract {
   companyId            String?               @db.ObjectId
   airline              Airline?              @relation(fields: [airlineId], references: [id], onDelete: Cascade)
   airlineId            String?               @db.ObjectId
-  date                 DateTime?
-  contractNumber       String?
-  region               String?
-  applicationType      String?
-  notes                String?
-  additionalAgreements additionalAgreement[]
-  files                String[]
+  date                   DateTime?
+  contractEndDate        DateTime?
+  isProlongationEnabled  Boolean               @default(false)
+  contractNumber         String?
+  region                 String?
+  applicationType        String?
+  notes                  String?
+  isArchived             Boolean               @default(false)
+  archivedAt             DateTime?
+  archivedById           String?               @db.ObjectId
+  additionalAgreements   additionalAgreement[]
+  files                  String[]
 }
 
 model Company {
@@ -584,17 +609,22 @@ model hotelContract {
   companyId           String?               @db.ObjectId
   hotel               Hotel?                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   hotelId             String?               @db.ObjectId
-  date                DateTime?
-  contractNumber      String?
-  region              City?                 @relation(fields: [cityId], references: [id])
-  cityId              String?               @db.ObjectId
-  notes               String?
-  legalEntity         String?
+  date                   DateTime?
+  contractEndDate        DateTime?
+  isProlongationEnabled  Boolean               @default(false)
+  contractNumber         String?
+  region                 City?                 @relation(fields: [cityId], references: [id])
+  cityId                 String?               @db.ObjectId
+  notes                  String?
+  legalEntity            String?
   signatureMark       String?
   completionMark      String?
   normativeAct        String?
   applicationType     String?
   executor            String?
+  isArchived          Boolean               @default(false)
+  archivedAt          DateTime?
+  archivedById        String?               @db.ObjectId
   files               String[]
   additionalAgreement additionalAgreement[]
 }
@@ -607,17 +637,22 @@ model organizationContract {
   companyId           String?               @db.ObjectId
   organization        Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId      String?               @db.ObjectId
-  date                DateTime?
-  contractNumber      String?
-  region              City?                 @relation(fields: [cityId], references: [id])
-  cityId              String?               @db.ObjectId
-  notes               String?
+  date                   DateTime?
+  contractEndDate        DateTime?
+  isProlongationEnabled  Boolean               @default(false)
+  contractNumber         String?
+  region                 City?                 @relation(fields: [cityId], references: [id])
+  cityId                 String?               @db.ObjectId
+  notes                  String?
   // legalEntity         String?
   // signatureMark       String?
   // completionMark      String?
   // normativeAct        String?
   applicationType     String?
   // executor            String?
+  isArchived          Boolean               @default(false)
+  archivedAt          DateTime?
+  archivedById        String?               @db.ObjectId
   files               String[]
   additionalAgreement additionalAgreement[]
 }
@@ -773,6 +808,7 @@ model Hotel {
   provision          Int?
   quote              Int?
   capacity           Int?
+  location           HotelLocation?
   information        Information?
   breakfast          MealTime?
   lunch              MealTime?
@@ -802,6 +838,7 @@ model Hotel {
   active             Boolean              @default(true)
   show               Boolean              @default(true)
   meal               Boolean              @default(true)
+  breakfastIncluded  Boolean              @default(false)
   access             Boolean              @default(false)
   type               HotelType            @default(hotel)
   gallery            String[]
@@ -1161,6 +1198,7 @@ model Request {
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
   placementAt         DateTime?        @map("placement_at")
+  actualCheckInAt     DateTime?        @map("actual_check_in_at")
   sender              User             @relation(name: "sender", fields: [senderId], references: [id])
   senderId            String           @db.ObjectId
   airport             Airport?         @relation(fields: [airportId], references: [id])

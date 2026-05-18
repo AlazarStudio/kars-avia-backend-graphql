@@ -212,12 +212,29 @@ const globalTypeDef = /* GraphQL */ `
     dinner: Int
   }
 
+  type PriceGeography {
+    country: String
+    region: String
+    republic: String
+    district: String
+    city: String
+  }
+
+  input PriceGeographyInput {
+    country: String
+    region: String
+    republic: String
+    district: String
+    city: String
+  }
+
   # Новый тип тарифного договора для авиакомпании
   type AirlinePrice {
     id: ID!
     prices: Price
     mealPrice: MealPrice
     name: String
+    geography: PriceGeography
     airports: [AirportOnAirlinePrice]
     priceCategory: PriceCategory
   }
@@ -228,7 +245,8 @@ const globalTypeDef = /* GraphQL */ `
     prices: PriceInput
     mealPrice: MealPriceInput
     name: String
-    airportIds: [ID!] # список id аэропортов, к которым применяется договор
+    geography: PriceGeographyInput
+    airportIds: [ID!] # deprecated: используйте geography
   }
 
   # Новый тип для связи аэропортов с тарифом авиакомпании
@@ -285,6 +303,7 @@ const globalTypeDef = /* GraphQL */ `
     breakfast: Float
     lunch: Float
     dinner: Float
+    breakfastIncluded: Boolean
   }
 
   type File {

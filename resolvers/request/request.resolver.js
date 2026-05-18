@@ -646,6 +646,18 @@ const requestResolver = {
           )
         }
 
+        if (input.actualCheckInAt != null) {
+          const actualCheckIn = new Date(input.actualCheckInAt)
+          const checkOutEnd = oldHotelChess?.end
+            ? new Date(oldHotelChess.end)
+            : updatedEnd
+          if (actualCheckIn > checkOutEnd) {
+            throw new Error(
+              "Фактическое заселение не может быть позже даты выезда"
+            )
+          }
+        }
+
         const wantsPlacement = roomId != null
         const isHotelChange =
           inputHotelId != null && inputHotelId !== request.hotelId
@@ -1441,6 +1453,40 @@ const requestResolver = {
       return await prisma.hotel.findUnique({
         where: { id: parent.hotelId }
       })
+    },
+    requestHotelPrice: async (parent) => {
+      if (!parent.requestHotelPrice) return null
+      if (!parent.hotelId) {
+        return { ...parent.requestHotelPrice, breakfastIncluded: false }
+      }
+      const hotel =
+        parent.hotel?.breakfastIncluded !== undefined
+          ? parent.hotel
+          : await prisma.hotel.findUnique({
+              where: { id: parent.hotelId },
+              select: { breakfastIncluded: true }
+            })
+      return {
+        ...parent.requestHotelPrice,
+        breakfastIncluded: Boolean(hotel?.breakfastIncluded)
+      }
+    },
+    requestAirlinePrice: async (parent) => {
+      if (!parent.requestAirlinePrice) return null
+      if (!parent.hotelId) {
+        return { ...parent.requestAirlinePrice, breakfastIncluded: false }
+      }
+      const hotel =
+        parent.hotel?.breakfastIncluded !== undefined
+          ? parent.hotel
+          : await prisma.hotel.findUnique({
+              where: { id: parent.hotelId },
+              select: { breakfastIncluded: true }
+            })
+      return {
+        ...parent.requestAirlinePrice,
+        breakfastIncluded: Boolean(hotel?.breakfastIncluded)
+      }
     },
     // Получение первой записи hotelChess, связанной с данной заявкой.
     hotelChess: async (parent) => {

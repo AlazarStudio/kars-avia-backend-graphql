@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import { getRequestCheckInAt, getRequestCheckOutAt } from "../request/requestStayDates.js"
 
 const MS_PER_DAY = 86400000
 
@@ -60,6 +61,7 @@ export const getPersonStaySummaries = async ({ startDate, endDate, filters }) =>
       person: { select: { id: true, name: true, position: { select: { name: true } } } },
       sender: { select: { id: true, name: true } },
       posted: { select: { id: true, name: true } },
+      actualCheckInAt: true,
       hotelChess: { select: { start: true, end: true } }
     },
     orderBy: { arrival: "asc" }
@@ -81,8 +83,8 @@ export const getPersonStaySummaries = async ({ startDate, endDate, filters }) =>
         postedByMap: new Map()
       }
 
-    const stayStart = request.hotelChess?.[0]?.start || request.arrival
-    const stayEnd = request.hotelChess?.[0]?.end || request.departure
+    const stayStart = getRequestCheckInAt(request)
+    const stayEnd = getRequestCheckOutAt(request)
 
     if (stayStart && stayEnd) {
       const startMs = Math.max(toDayStartUtcMs(stayStart), rangeStartMs)
