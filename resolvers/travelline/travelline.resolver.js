@@ -16,16 +16,26 @@ const travellineResolver = {
 
       const trimmed = city.trim()
 
+      // Видимость как в запросе `hotels`: суперадмин/диспетчер видят и скрытые
+      // (show=false) отели, остальные роли — только show=true. Без этого город
+      // мог присутствовать в выпадающем списке, но не давать ни одной гостиницы.
+      const { user } = context
+      const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
+
       // Локальные отели — kars-avia (не external) и TL-двойники (external=true) — оба из БД
       const allHotels = await prisma.hotel
         .findMany({
           where: {
             active: true,
             information: { is: { city: { equals: trimmed, mode: "insensitive" } } },
-            OR: [
-              { external: { not: true }, show: true },
-              { external: true }
-            ]
+            ...(isSuper
+              ? {}
+              : {
+                  OR: [
+                    { external: { not: true }, show: true },
+                    { external: true }
+                  ]
+                })
           },
           select: {
             id: true,
