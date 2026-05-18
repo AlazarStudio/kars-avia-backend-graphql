@@ -1561,7 +1561,7 @@ const hotelResolver = {
     // Определяем резольвер для поля hotelContract
     hotelContract: async (parent) => {
       const contracts = await prisma.hotelContract.findMany({
-        where: { hotelId: parent.id, isArchived: false }
+        where: { hotelId: parent.id, isArchived: { not: true } }
       })
       return sortContractsByExpiration(contracts)
     }

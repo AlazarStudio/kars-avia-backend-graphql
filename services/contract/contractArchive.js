@@ -4,7 +4,13 @@ import { getContractExpirationMeta } from "./contractExpiration.js"
 export const isArchivedContractFilter = (filter) => filter?.archived === true
 
 export const appendArchiveFilter = (filter, AND) => {
-  AND.push({ isArchived: filter?.archived === true })
+  if (filter?.archived === true) {
+    AND.push({ isArchived: true })
+  } else {
+    // Активный список: матчим false, null и документы без поля isArchived
+    // (старые договоры, созданные до добавления поля)
+    AND.push({ isArchived: { not: true } })
+  }
 }
 
 export const archiveContractRecord = async ({

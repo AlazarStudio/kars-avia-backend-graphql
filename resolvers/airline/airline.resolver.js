@@ -942,7 +942,7 @@ const airlineResolver = {
     // Определяем резольвер для поля airlineContract
     airlineContract: async (parent) => {
       const contracts = await prisma.airlineContract.findMany({
-        where: { airlineId: parent.id, isArchived: false }
+        where: { airlineId: parent.id, isArchived: { not: true } }
       })
       return sortContractsByExpiration(contracts)
     }
