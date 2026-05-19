@@ -16,8 +16,11 @@ import mergedResolvers from "./resolvers/resolvers.js"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import {
   startArchivingJob,
-  stopArchivingJob
+  startPresenceCleanupJob,
+  stopArchivingJob,
+  stopPresenceCleanupJob
 } from "./services/cron/cronTasks.js"
+import { touchLastSeenForContext } from "./services/user/userPresence.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
@@ -71,7 +74,9 @@ const schema = makeExecutableSchema({
 
 async function buildGraphqlContext(req) {
   try {
-    return await buildAuthContext(req.headers.authorization || null)
+    const context = await buildAuthContext(req.headers.authorization || null)
+    touchLastSeenForContext(context)
+    return context
   } catch (e) {
     if (isAuthError(e)) {
       throw new GraphQLError("Unauthorized", {
@@ -160,6 +165,7 @@ const serverCleanup = useServer(
         } subjectId=${context.subject?.id || "-"}`
       )
 
+      touchLastSeenForContext(context)
       return context
     },
 
@@ -221,6 +227,7 @@ const server = new ApolloServer({
    ⏱ CRON
 ========================= */
 startArchivingJob()
+startPresenceCleanupJob()
 
 await server.start()
 
@@ -312,6 +319,7 @@ const shutdown = async (signal) => {
   try {
     // 1. Останавливаем cron
     stopArchivingJob()
+    stopPresenceCleanupJob()
     logger.info("[SHUTDOWN] Cron stopped")
 
     // 2. Закрываем WebSocket-сервер

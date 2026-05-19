@@ -2,8 +2,13 @@
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
+import {
+  getPresenceCleanupIntervalMs,
+  markStaleUsersOffline
+} from "../user/userPresence.js"
 
 let intervalId = null
+let presenceIntervalId = null
 
 const checkAndArchiveRequests = async () => {
   try {
@@ -45,5 +50,34 @@ export const stopArchivingJob = () => {
     clearInterval(intervalId)
     intervalId = null
     logger.info("[CRON] Archiving job stopped")
+  }
+}
+
+const runPresenceCleanup = async () => {
+  try {
+    await markStaleUsersOffline()
+  } catch (e) {
+    logger.error("[CRON] presence cleanup failed", e)
+  }
+}
+
+export const startPresenceCleanupJob = () => {
+  if (presenceIntervalId) return
+
+  const intervalMs = getPresenceCleanupIntervalMs()
+
+  logger.info(
+    `[CRON] Presence cleanup job started (interval ${intervalMs}ms)`
+  )
+
+  void runPresenceCleanup()
+  presenceIntervalId = setInterval(runPresenceCleanup, intervalMs)
+}
+
+export const stopPresenceCleanupJob = () => {
+  if (presenceIntervalId) {
+    clearInterval(presenceIntervalId)
+    presenceIntervalId = null
+    logger.info("[CRON] Presence cleanup job stopped")
   }
 }

@@ -27,7 +27,10 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { logger } from "../../services/infra/logger.js"
-import { buildClosedSessionStats } from "../../services/user/userActivity.js"
+import {
+  buildOfflineUpdateData,
+  resolveUserOnlineStatus
+} from "../../services/user/userPresence.js"
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 import { signInUser } from "../../services/auth/signInUser.js"
 import {
@@ -44,22 +47,6 @@ import {
   sendAccountCreatedByAdminEmail,
   sendPasswordChangedNotificationEmail
 } from "../../services/email/sendAuthEmails.js"
-
-const buildOfflineUpdateData = ({ currentUser, now }) => {
-  const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
-    sessionStartedAt: currentUser?.sessionStartedAt,
-    currentDailyStats: currentUser?.dailyTimeStats || [],
-    now
-  })
-
-  return {
-    isOnline: false,
-    sessionStartedAt: null,
-    lastSeen: now,
-    totalTimeMinutes: (currentUser?.totalTimeMinutes || 0) + addedMinutes,
-    dailyTimeStats: nextDailyStats
-  }
-}
 
 const ACCESS_MENU_KEYS = [
   "requestMenu",
@@ -1083,27 +1070,19 @@ const userResolver = {
       return null
     },
     online: async (parent) => {
-      if (typeof parent.isOnline === "boolean") {
-        return parent.isOnline
+      let isOnline = parent.isOnline
+      let lastSeen = parent.lastSeen
+
+      if (typeof isOnline !== "boolean" || lastSeen === undefined) {
+        const user = await prisma.user.findUnique({
+          where: { id: parent.id },
+          select: { isOnline: true, lastSeen: true }
+        })
+        isOnline = user?.isOnline
+        lastSeen = user?.lastSeen
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: parent.id },
-        select: { isOnline: true, lastSeen: true }
-      })
-
-      if (user?.isOnline) return true
-      if (!user?.lastSeen) return false
-
-      const lastSeenDate =
-        user.lastSeen instanceof Date ? user.lastSeen : new Date(user.lastSeen)
-
-      const now = new Date()
-
-      const fiveMinutesInMs = 5 * 60 * 1000
-      const lastSeenPlus5 = new Date(lastSeenDate.getTime() + fiveMinutesInMs)
-
-      return now <= lastSeenPlus5
+      return resolveUserOnlineStatus({ isOnline, lastSeen })
     },
     dailyTimeStats: (parent) => {
       if (!Array.isArray(parent.dailyTimeStats)) return []
