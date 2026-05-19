@@ -214,10 +214,6 @@ const dispatcherResolver = {
               airport: true,
               createdBy: true
             }
-          },
-          readBy: {
-            where: { userId: user.id },
-            include: { user: { select: { id: true, name: true } } }
           }
         }
       })
@@ -291,42 +287,6 @@ const dispatcherResolver = {
           dispatchers: true
         }
       })
-    },
-    unreadNotificationsCount: async (_, __, context) => {
-      await allMiddleware(context)
-      const { user } = context
-      let filter = {}
-      if (user.dispatcher === true) {
-        filter = {}
-      }
-      if (user.airlineId) {
-        filter = { airlineId: user.airlineId }
-      }
-      if (user.hotelId) {
-        filter = { hotelId: user.hotelId }
-      }
-
-      const needsMenuCheck =
-        user.role !== "SUPERADMIN" &&
-        (user.dispatcher === true || (user.airlineId && user.airlineDepartmentId))
-      let menuActionFilter = {}
-      if (needsMenuCheck) {
-        const menu = await getNotificationMenuForUser(user)
-        const disabledActions = getDisabledActionsFromMenu(menu)
-        if (disabledActions.length > 0) {
-          menuActionFilter = {
-            NOT: { description: { is: { action: { in: disabledActions } } } }
-          }
-        }
-      }
-
-      const readFilter = { readBy: { none: { userId: user.id } } }
-      const whereParts = [filter, menuActionFilter, readFilter].filter(
-        (part) => part && Object.keys(part).length > 0
-      )
-      const where = whereParts.length === 1 ? whereParts[0] : { AND: whereParts }
-
-      return await prisma.notification.count({ where })
     }
   },
   Mutation: {
@@ -626,45 +586,6 @@ const dispatcherResolver = {
       })
 
       return department
-    },
-    markNotificationRead: async (_, { id }, context) => {
-      await allMiddleware(context)
-      const { user } = context
-      await prisma.notificationRead.upsert({
-        where: { notificationId_userId: { notificationId: id, userId: user.id } },
-        update: { readAt: new Date() },
-        create: { notificationId: id, userId: user.id, readAt: new Date() }
-      })
-      return true
-    },
-    markAllNotificationsRead: async (_, __, context) => {
-      await allMiddleware(context)
-      const { user } = context
-      let filter = {}
-      if (user.dispatcher === true) {
-        filter = {}
-      }
-      if (user.airlineId) {
-        filter = { airlineId: user.airlineId }
-      }
-      if (user.hotelId) {
-        filter = { hotelId: user.hotelId }
-      }
-      const unread = await prisma.notification.findMany({
-        where: { ...filter, readBy: { none: { userId: user.id } } },
-        select: { id: true }
-      })
-      if (unread.length === 0) return 0
-      await Promise.all(
-        unread.map(n =>
-          prisma.notificationRead.upsert({
-            where: { notificationId_userId: { notificationId: n.id, userId: user.id } },
-            update: { readAt: new Date() },
-            create: { notificationId: n.id, userId: user.id, readAt: new Date() }
-          })
-        )
-      )
-      return unread.length
     }
     // allDataUpdate: async (_, {}, context) => {
     //   await superAdminMiddleware(context)
