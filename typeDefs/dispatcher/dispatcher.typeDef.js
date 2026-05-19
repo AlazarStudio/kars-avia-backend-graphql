@@ -311,6 +311,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     getAllNotifications(
       pagination: NotificationPaginationInput
     ): NotificationConnection!
+    unreadNotificationsCount: Int!
     dispatcherDepartments(
       pagination: DispatcherDepartmentPaginationInput
     ): DispatcherDepartmentConnection!
@@ -334,6 +335,8 @@ const dispatcherTypeDef = /* GraphQL */ `
       input: DispatcherDepartmentInput!
     ): DispatcherDepartment!
     deleteDispatcherDepartment(id: ID!): DispatcherDepartment!
+    markNotificationRead(id: ID!): Boolean!
+    markAllNotificationsRead: Int!
   }
 
   type Subscription {

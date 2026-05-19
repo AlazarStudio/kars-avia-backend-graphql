@@ -287,6 +287,23 @@ const dispatcherResolver = {
           dispatchers: true
         }
       })
+    },
+    unreadNotificationsCount: async (_, __, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      let filter = {}
+      if (user.dispatcher === true) {
+        filter = {}
+      }
+      if (user.airlineId) {
+        filter = { airlineId: user.airlineId }
+      }
+      if (user.hotelId) {
+        filter = { hotelId: user.hotelId }
+      }
+      return await prisma.notification.count({
+        where: { ...filter, readBy: { none: { userId: user.id } } }
+      })
     }
   },
   Mutation: {
@@ -586,6 +603,40 @@ const dispatcherResolver = {
       })
 
       return department
+    },
+    markNotificationRead: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      await prisma.notificationRead.upsert({
+        where: { notificationId_userId: { notificationId: id, userId: user.id } },
+        update: { readAt: new Date() },
+        create: { notificationId: id, userId: user.id, readAt: new Date() }
+      })
+      return true
+    },
+    markAllNotificationsRead: async (_, __, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      let filter = {}
+      if (user.dispatcher === true) {
+        filter = {}
+      }
+      if (user.airlineId) {
+        filter = { airlineId: user.airlineId }
+      }
+      if (user.hotelId) {
+        filter = { hotelId: user.hotelId }
+      }
+      const unread = await prisma.notification.findMany({
+        where: { ...filter, readBy: { none: { userId: user.id } } },
+        select: { id: true }
+      })
+      if (unread.length === 0) return 0
+      await prisma.notificationRead.createMany({
+        data: unread.map(n => ({ notificationId: n.id, userId: user.id, readAt: new Date() })),
+        skipDuplicates: true
+      })
+      return unread.length
     }
     // allDataUpdate: async (_, {}, context) => {
     //   await superAdminMiddleware(context)
