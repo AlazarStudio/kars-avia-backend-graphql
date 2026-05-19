@@ -301,9 +301,28 @@ const dispatcherResolver = {
       if (user.hotelId) {
         filter = { hotelId: user.hotelId }
       }
-      return await prisma.notification.count({
-        where: { ...filter, readBy: { none: { userId: user.id } } }
-      })
+
+      const needsMenuCheck =
+        user.role !== "SUPERADMIN" &&
+        (user.dispatcher === true || (user.airlineId && user.airlineDepartmentId))
+      let menuActionFilter = {}
+      if (needsMenuCheck) {
+        const menu = await getNotificationMenuForUser(user)
+        const disabledActions = getDisabledActionsFromMenu(menu)
+        if (disabledActions.length > 0) {
+          menuActionFilter = {
+            NOT: { description: { is: { action: { in: disabledActions } } } }
+          }
+        }
+      }
+
+      const readFilter = { readBy: { none: { userId: user.id } } }
+      const whereParts = [filter, menuActionFilter, readFilter].filter(
+        (part) => part && Object.keys(part).length > 0
+      )
+      const where = whereParts.length === 1 ? whereParts[0] : { AND: whereParts }
+
+      return await prisma.notification.count({ where })
     }
   },
   Mutation: {
@@ -632,10 +651,15 @@ const dispatcherResolver = {
         select: { id: true }
       })
       if (unread.length === 0) return 0
-      await prisma.notificationRead.createMany({
-        data: unread.map(n => ({ notificationId: n.id, userId: user.id, readAt: new Date() })),
-        skipDuplicates: true
-      })
+      await Promise.all(
+        unread.map(n =>
+          prisma.notificationRead.upsert({
+            where: { notificationId_userId: { notificationId: n.id, userId: user.id } },
+            update: { readAt: new Date() },
+            create: { notificationId: n.id, userId: user.id, readAt: new Date() }
+          })
+        )
+      )
       return unread.length
     }
     // allDataUpdate: async (_, {}, context) => {
