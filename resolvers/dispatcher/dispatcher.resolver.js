@@ -214,6 +214,10 @@ const dispatcherResolver = {
               airport: true,
               createdBy: true
             }
+          },
+          readBy: {
+            where: { userId: user.id },
+            include: { user: { select: { id: true, name: true } } }
           }
         }
       })
