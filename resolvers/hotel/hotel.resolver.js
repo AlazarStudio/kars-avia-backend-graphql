@@ -29,6 +29,8 @@ import calculateMeal from "../../services/meal/calculateMeal.js"
 import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { buildHotelChessTransferEmail } from "../../services/email/requestEmailTemplates.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -483,28 +485,20 @@ const hotelResolver = {
                   requestId: updatedRequest.id
                 })
 
-                const mailOptions = {
-                  to: `${process.env.EMAIL_KARS}`,
-                  subject: "Request updated",
-                  html: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> была перенесена в номер <span style='color:#545873'>${room.name}</span> пользователем <span style='color:#545873'>${user.name}</span>`
-                }
-
-                const hotelChessRequestEmailAllowed =
-                  (await AllowedEmailNotification(
-                    user,
-                    "update_hotel_chess_request"
-                  )) &&
-                  shouldSendNotification({
-                    channel: "email",
-                    action: "update_hotel_chess_request",
-                    entityType: "request",
-                    entityId: updatedRequest.id,
-                    recipientId: process.env.EMAIL_KARS
-                  }).allowed
-
-                if (hotelChessRequestEmailAllowed) {
-                  await sendEmail(mailOptions)
-                }
+                const transferEmail = buildHotelChessTransferEmail({
+                  requestNumber: updatedRequest.requestNumber,
+                  roomName: room.name
+                })
+                await sendRequestPartyEmail({
+                  actor: user,
+                  airlineId: updatedRequest.airlineId,
+                  action: "update_hotel_chess_request",
+                  subject: transferEmail.subject,
+                  html: transferEmail.html,
+                  entityType: "request",
+                  entityId: updatedRequest.id,
+                  dispatcherFallbackTo: "EMAIL_KARS"
+                })
 
                 const hotelChessRequestSiteAllowed = shouldSendNotification({
                   channel: "site",

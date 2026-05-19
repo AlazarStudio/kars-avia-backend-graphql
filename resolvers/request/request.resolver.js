@@ -29,9 +29,15 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
-import { sendEmail } from "../../services/sendMail.js"
-import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import {
+  buildCancelRequestDoneEmail,
+  buildCancelRequestRequestEmail,
+  buildCreateRequestEmail,
+  buildExtendRequestEmail,
+  buildUpdateRequestEmail
+} from "../../services/email/requestEmailTemplates.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
@@ -497,33 +503,23 @@ const requestResolver = {
           user: { connect: { id: senderId } }
         }
       })
-      const mailOptions = {
-        // from: `${process.env.EMAIL_USER}`,
-        to: `${process.env.EMAIL_KARS}`,
-        subject: "Request created",
-        html:
-          newRequest.person && newRequest.person.position
-            ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> в аэропорт 
-        <span style='color:#545873'>${newRequest.airport.name}</span>`
-            : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
-      }
-
-      // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
-      const createRequestEmailAllowed =
-        (await AllowedEmailNotification(user, "create_request")) &&
-        shouldSendNotification({
-          channel: "email",
-          action: "create_request",
-          entityType: "request",
-          entityId: newRequest.id,
-          recipientId: process.env.EMAIL_KARS
-        }).allowed
-
-      if (createRequestEmailAllowed) {
-        await sendEmail(mailOptions)
-      }
+      const createEmail = buildCreateRequestEmail({
+        requestNumber: newRequest.requestNumber,
+        personName: newRequest.person?.name,
+        positionName: newRequest.person?.position?.name,
+        airportName: newRequest.airport.name,
+        isPreliminary: !(newRequest.person && newRequest.person.position)
+      })
+      await sendRequestPartyEmail({
+        actor: user,
+        airlineId,
+        action: "create_request",
+        subject: createEmail.subject,
+        html: createEmail.html,
+        entityType: "request",
+        entityId: newRequest.id,
+        dispatcherFallbackTo: "EMAIL_KARS"
+      })
 
       // Логирование создания заявки
       try {
@@ -779,29 +775,23 @@ const requestResolver = {
             })
           }
 
-          const mailOptions = {
-            to: `${process.env.EMAIL_KARS}`,
-            subject: "Request updated",
-            html: `Запрос на изменение дат заявки <span style='color:#545873'>№${
-              request.requestNumber
-            }</span> с ${formatDate(request.arrival)} - ${formatDate(
-              request.departure
-            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
-          }
-
-          const extendRequestEmailAllowed =
-            (await AllowedEmailNotification(user, "extend_request")) &&
-            shouldSendNotification({
-              channel: "email",
-              action: "extend_request",
-              entityType: "request",
-              entityId: extendRequest.requestId,
-              recipientId: process.env.EMAIL_KARS
-            }).allowed
-
-          if (extendRequestEmailAllowed) {
-            await sendEmail(mailOptions)
-          }
+          const extendEmail = buildExtendRequestEmail({
+            requestNumber: request.requestNumber,
+            oldArrival: formatDate(request.arrival),
+            oldDeparture: formatDate(request.departure),
+            newArrival: formatDate(updatedStart),
+            newDeparture: formatDate(updatedEnd)
+          })
+          await sendRequestPartyEmail({
+            actor: user,
+            airlineId: request.airlineId,
+            action: "extend_request",
+            subject: extendEmail.subject,
+            html: extendEmail.html,
+            entityType: "request",
+            entityId: extendRequest.requestId,
+            dispatcherFallbackTo: "EMAIL_KARS"
+          })
 
           if (extendRequestSiteAllowed) {
             pubsub.publish(NOTIFICATION, {
@@ -1050,21 +1040,23 @@ const requestResolver = {
           }
         })
 
-        const mailOptions = {
-          to: `${notifyReceiverEmail}`,
-          subject: "Request updated",
-          html: `Даты заявки  <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> обновлены c <span style='color:#545873'>${formatDate(
-            request.arrival
-          )} - ${formatDate(
-            request.departure
-          )}</span> до <span style='color:#545873'>${formatDate(
-            updatedStart
-          )} - ${formatDate(updatedEnd)}</span>`
-        }
-
-        if (await AllowedEmailNotification(user, "update_request")) {
-          await sendEmail(mailOptions)
-        }
+        const updateEmail = buildUpdateRequestEmail({
+          requestNumber: updatedRequest.requestNumber,
+          oldArrival: formatDate(request.arrival),
+          oldDeparture: formatDate(request.departure),
+          newArrival: formatDate(updatedStart),
+          newDeparture: formatDate(updatedEnd)
+        })
+        await sendRequestPartyEmail({
+          actor: user,
+          airlineId: request.airlineId ?? updatedRequest.airlineId,
+          action: "update_request",
+          subject: updateEmail.subject,
+          html: updateEmail.html,
+          entityType: "request",
+          entityId: updatedRequest.id,
+          dispatcherFallbackTo: "EMAIL_RECEIVER"
+        })
 
         try {
           await logAction({
@@ -1247,26 +1239,19 @@ const requestResolver = {
           })
         }
 
-        const mailOptions = {
-          // from: `${process.env.EMAIL_USER}`,
-          to: `${process.env.EMAIL_KARS}`,
-          subject: "Request cancelled",
-          html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
-        }
-
-        const cancelRequestEmailKarsAllowed =
-          (await AllowedEmailNotification(user, "cancel_request")) &&
-          shouldSendNotification({
-            channel: "email",
-            action: "cancel_request",
-            entityType: "request",
-            entityId: request.id,
-            recipientId: process.env.EMAIL_KARS
-          }).allowed
-
-        if (cancelRequestEmailKarsAllowed) {
-          await sendEmail(mailOptions)
-        }
+        const cancelRequestEmail = buildCancelRequestRequestEmail({
+          requestNumber: request.requestNumber
+        })
+        await sendRequestPartyEmail({
+          actor: user,
+          airlineId: request.airlineId,
+          action: "cancel_request",
+          subject: cancelRequestEmail.subject,
+          html: cancelRequestEmail.html,
+          entityType: "request",
+          entityId: request.id,
+          dispatcherFallbackTo: "EMAIL_KARS"
+        })
 
         if (cancelRequestSiteAllowed) {
           pubsub.publish(NOTIFICATION, {
@@ -1316,26 +1301,19 @@ const requestResolver = {
         }
       }
 
-      const mailOptions = {
-        // from: `${process.env.EMAIL_USER}`,
-        to: `${notifyReceiverEmail}`,
-        subject: "Request canceled",
-        html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
-      }
-
-      const cancelRequestEmailReceiverAllowed =
-        (await AllowedEmailNotification(user, "cancel_request")) &&
-        shouldSendNotification({
-          channel: "email",
-          action: "cancel_request",
-          entityType: "request",
-          entityId: canceledRequest.id,
-          recipientId: notifyReceiverEmail
-        }).allowed
-
-      if (cancelRequestEmailReceiverAllowed) {
-        await sendEmail(mailOptions)
-      }
+      const cancelDoneEmail = buildCancelRequestDoneEmail({
+        requestNumber: canceledRequest.requestNumber
+      })
+      await sendRequestPartyEmail({
+        actor: user,
+        airlineId: request.airlineId,
+        action: "cancel_request",
+        subject: cancelDoneEmail.subject,
+        html: cancelDoneEmail.html,
+        entityType: "request",
+        entityId: canceledRequest.id,
+        dispatcherFallbackTo: "EMAIL_RECEIVER"
+      })
 
       await logAction({
         context,

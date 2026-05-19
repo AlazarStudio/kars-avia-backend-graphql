@@ -47,7 +47,13 @@ export function validateDateRange(dateFrom, dateTo, label = "period") {
   return { start, end }
 }
 
-export function buildRequestWhere({ airlineId, start, end, airportIds, positionIds }) {
+export function buildRequestWhere({
+  airlineId,
+  start,
+  end,
+  airportIds,
+  positionIds
+}) {
   const where = {
     airlineId,
     status: { in: ACTIVE_STATUSES },
@@ -88,7 +94,7 @@ export const REQUEST_INCLUDE = {
     }
   },
   mealPlan: true,
-  airport: { select: { id: true, city: true } }
+  airport: { select: { id: true, city: true, code: true, name: true } }
 }
 
 export function buildTransferWhere({ airlineId, start, end }) {
@@ -214,23 +220,25 @@ function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
 
   const livingCost = calculateLivingCost(request, "airline", effectiveDays)
   const mealPlan = request.mealPlan || { dailyMeals: [] }
-  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
-    ? calculateMealCostForReportDays(
-        request,
-        "airline",
-        effectiveDays,
-        effectiveDays,
-        mealPlan,
-        effectiveArrival,
-        effectiveDeparture
-      )
-    : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
+    mealPlan?.dailyMeals
+      ? calculateMealCostForReportDays(
+          request,
+          "airline",
+          effectiveDays,
+          effectiveDays,
+          mealPlan,
+          effectiveArrival,
+          effectiveDeparture
+        )
+      : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
 
   if (!livingCost && !totalMealCost) {
     return null
   }
 
-  const pricePerDay = effectiveDays > 0 ? Number(livingCost || 0) / effectiveDays : 0
+  const pricePerDay =
+    effectiveDays > 0 ? Number(livingCost || 0) / effectiveDays : 0
 
   return {
     id: request.id,
@@ -248,12 +256,18 @@ function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
     totalMealCost: roundMoney(Number(totalMealCost) || 0),
     totalLivingCost: roundMoney(Number(livingCost) || 0),
     pricePerDay: roundMoney(pricePerDay),
-    totalDebt: roundMoney((Number(livingCost) || 0) + (Number(totalMealCost) || 0)),
+    totalDebt: roundMoney(
+      (Number(livingCost) || 0) + (Number(totalMealCost) || 0)
+    ),
     hotelName: request.hotel?.name || "Не указано"
   }
 }
 
-export function buildRequestBudgetMapWithAllocation(requests, rangeStart, rangeEnd) {
+export function buildRequestBudgetMapWithAllocation(
+  requests,
+  rangeStart,
+  rangeEnd
+) {
   const rows = []
   const requestIdQueuesByKey = new Map()
 
@@ -275,7 +289,10 @@ export function buildRequestBudgetMapWithAllocation(requests, rangeStart, rangeE
   for (const row of rows) {
     mealBudgetByRequestId.set(
       row.id,
-      roundMoney((mealBudgetByRequestId.get(row.id) || 0) + (Number(row.totalMealCost) || 0))
+      roundMoney(
+        (mealBudgetByRequestId.get(row.id) || 0) +
+          (Number(row.totalMealCost) || 0)
+      )
     )
   }
 
@@ -336,7 +353,11 @@ export function buildPositionsBreakdown(requests) {
     const posName = r.person?.position?.name || "Не указана"
     const posId = r.person?.positionId || null
     if (!posMap.has(posName)) {
-      posMap.set(posName, { positionId: posId, positionName: posName, count: 0 })
+      posMap.set(posName, {
+        positionId: posId,
+        positionName: posName,
+        count: 0
+      })
     }
     posMap.get(posName).count++
   }
