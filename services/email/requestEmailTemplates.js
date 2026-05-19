@@ -19,20 +19,24 @@ export function buildCreateRequestEmail({
   personName,
   positionName,
   airportName,
-  isPreliminary
+  isPreliminary,
+  airlineName
 }) {
   const no = spanNo(requestNumber)
   const airport = span(airportName)
+  const airline = span(airlineName)
 
   if (isPreliminary) {
     const subject = `Создана предварительная бронь №${requestNumber}`
-    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport}.`
+    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}.`
+    // add link to request in kars-frontend
     return { subject, html }
   }
 
   const subject = `Создана заявка №${requestNumber}`
   const person = span([positionName, personName].filter(Boolean).join(" "))
-  const html = `Поступила заявка ${no} для ${person} в аэропорт ${airport}.`
+  const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}.`
+  // add link to request in kars-frontend
   return { subject, html }
 }
 
@@ -43,12 +47,16 @@ function buildDateRangeEmail({
   newArrival,
   newDeparture,
   subject,
-  intro
+  intro,
+  airlineName
 }) {
   const no = spanNo(requestNumber)
   const oldRange = span(`${oldArrival} — ${oldDeparture}`)
   const newRange = span(`${newArrival} — ${newDeparture}`)
-  const html = `${intro} ${no} с ${oldRange} на ${newRange}.`
+  const airline = span(airlineName)
+
+  const html = `${intro} ${no} с ${oldRange} на ${newRange} авиакомпания ${airline}.`
+  // add link to request in kars-frontend
   return { subject, html }
 }
 
@@ -57,7 +65,8 @@ export function buildExtendRequestEmail({
   oldArrival,
   oldDeparture,
   newArrival,
-  newDeparture
+  newDeparture,
+  airlineName
 }) {
   return buildDateRangeEmail({
     requestNumber,
@@ -66,7 +75,8 @@ export function buildExtendRequestEmail({
     newArrival,
     newDeparture,
     subject: `Запрос на изменение дат заявки №${requestNumber}`,
-    intro: "Запрошено изменение дат заявки"
+    intro: "Запрошено изменение дат заявки",
+    airlineName
   })
 }
 
@@ -82,12 +92,14 @@ export function buildUpdateRequestEmail({
   const newRange = span(`${newArrival} — ${newDeparture}`)
   const subject = `Изменены даты заявки №${requestNumber}`
   const html = `Даты заявки ${no} обновлены с ${oldRange} до ${newRange}.`
+  // add link to request in kars-frontend
   return { subject, html }
 }
 
 export function buildCancelRequestRequestEmail({ requestNumber }) {
   const subject = `Запрос на отмену заявки №${requestNumber}`
   const html = `Запрошена отмена заявки ${spanNo(requestNumber)}.`
+  // add link to request in kars-frontend
   return { subject, html }
 }
 
@@ -100,5 +112,6 @@ export function buildCancelRequestDoneEmail({ requestNumber }) {
 export function buildHotelChessTransferEmail({ requestNumber, roomName }) {
   const subject = `Изменено размещение по заявке №${requestNumber}`
   const html = `Размещение по заявке ${spanNo(requestNumber)} изменено: номер ${span(roomName)}.`
+  // add link to request in kars-frontend
   return { subject, html }
 }

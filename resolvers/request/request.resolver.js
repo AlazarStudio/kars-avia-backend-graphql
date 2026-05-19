@@ -508,7 +508,8 @@ const requestResolver = {
         personName: newRequest.person?.name,
         positionName: newRequest.person?.position?.name,
         airportName: newRequest.airport.name,
-        isPreliminary: !(newRequest.person && newRequest.person.position)
+        isPreliminary: !(newRequest.person && newRequest.person.position),
+        airlineName: newRequest.airline.name
       })
       await sendRequestPartyEmail({
         actor: user,
@@ -780,7 +781,8 @@ const requestResolver = {
             oldArrival: formatDate(request.arrival),
             oldDeparture: formatDate(request.departure),
             newArrival: formatDate(updatedStart),
-            newDeparture: formatDate(updatedEnd)
+            newDeparture: formatDate(updatedEnd),
+            airlineName: request.airline.name
           })
           await sendRequestPartyEmail({
             actor: user,
