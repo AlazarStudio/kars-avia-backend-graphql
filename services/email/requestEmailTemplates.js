@@ -26,7 +26,7 @@ function requestRelayLinkHtml(requestId) {
   const url = buildRequestRelayUrl(requestId)
   if (!url) return ""
   const href = esc(url)
-  return `<br><a href="${href}">Открыть заявку</a>`
+  return `<br><br>Перейти к заявке:<br><a href="${href}">${href}</a>`
 }
 
 function formatMealPlanLine(mealPlan) {
