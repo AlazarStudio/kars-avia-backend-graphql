@@ -1,3 +1,5 @@
+import { getFrontendUrl } from "../auth/appConfig.js"
+
 function esc(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -12,6 +14,19 @@ function span(text) {
 
 function spanNo(text) {
   return span(`№${text}`)
+}
+
+function buildRequestRelayUrl(requestId) {
+  const base = getFrontendUrl()
+  if (!base || !requestId) return ""
+  return `${base}/relay?id=${encodeURIComponent(requestId)}`
+}
+
+function requestRelayLinkHtml(requestId) {
+  const url = buildRequestRelayUrl(requestId)
+  if (!url) return ""
+  const href = esc(url)
+  return `<br><a href="${href}">Открыть заявку</a>`
 }
 
 function formatMealPlanLine(mealPlan) {
@@ -36,7 +51,8 @@ export function buildCreateRequestEmail({
   airlineName,
   arrivalTime,
   departureTime,
-  mealPlan
+  mealPlan,
+  requestId
 }) {
   const no = spanNo(requestNumber)
   const airport = span(airportName)
@@ -44,13 +60,14 @@ export function buildCreateRequestEmail({
   const arrival = span(arrivalTime)
   const departure = span(departureTime)
   const meal = formatMealPlanLine(mealPlan)
+  const link = requestRelayLinkHtml(requestId)
 
   if (isPreliminary) {
     const subject = `Создана предварительная бронь №${requestNumber}`
     const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}.<br>
 Заезд: ${arrival}, выезд: ${departure}.<br>
-Питание: ${meal}.`
-    // add link to request in kars-frontend
+Питание: ${meal}.<br>
+${link}`
     return { subject, html }
   }
 
@@ -58,8 +75,8 @@ export function buildCreateRequestEmail({
   const person = span([positionName, personName].filter(Boolean).join(" "))
   const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}.<br>
 Заезд: ${arrival}, выезд: ${departure}.<br>
-Питание: ${meal}.`
-  // add link to request in kars-frontend
+Питание: ${meal}.<br>
+${link}`
   return { subject, html }
 }
 
@@ -71,15 +88,16 @@ function buildDateRangeEmail({
   newDeparture,
   subject,
   intro,
-  airlineName
+  airlineName,
+  requestId
 }) {
   const no = spanNo(requestNumber)
   const oldRange = span(`${oldArrival} — ${oldDeparture}`)
   const newRange = span(`${newArrival} — ${newDeparture}`)
   const airline = span(airlineName)
+  const link = requestRelayLinkHtml(requestId)
 
-  const html = `${intro} ${no} с ${oldRange} на ${newRange} авиакомпания ${airline}.`
-  // add link to request in kars-frontend
+  const html = `${intro} ${no} с ${oldRange} на ${newRange} авиакомпания ${airline}.<br>${link}`
   return { subject, html }
 }
 
@@ -89,7 +107,8 @@ export function buildExtendRequestEmail({
   oldDeparture,
   newArrival,
   newDeparture,
-  airlineName
+  airlineName,
+  requestId
 }) {
   return buildDateRangeEmail({
     requestNumber,
@@ -99,7 +118,8 @@ export function buildExtendRequestEmail({
     newDeparture,
     subject: `Запрос на изменение дат заявки №${requestNumber}`,
     intro: "Запрошено изменение дат заявки",
-    airlineName
+    airlineName,
+    requestId
   })
 }
 
@@ -119,10 +139,10 @@ export function buildUpdateRequestEmail({
   return { subject, html }
 }
 
-export function buildCancelRequestRequestEmail({ requestNumber }) {
+export function buildCancelRequestRequestEmail({ requestNumber, requestId }) {
   const subject = `Запрос на отмену заявки №${requestNumber}`
-  const html = `Запрошена отмена заявки ${spanNo(requestNumber)}.`
-  // add link to request in kars-frontend
+  const link = requestRelayLinkHtml(requestId)
+  const html = `Запрошена отмена заявки ${spanNo(requestNumber)}.<br>${link}`
   return { subject, html }
 }
 

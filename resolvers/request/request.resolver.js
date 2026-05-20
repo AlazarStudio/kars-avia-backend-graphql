@@ -512,7 +512,8 @@ const requestResolver = {
         airlineName: newRequest.airline.name,
         arrivalTime: formatDate(newRequest.arrival),
         departureTime: formatDate(newRequest.departure),
-        mealPlan: newRequest.mealPlan
+        mealPlan: newRequest.mealPlan,
+        requestId: newRequest.id
       })
       await sendRequestPartyEmail({
         actor: user,
@@ -785,7 +786,8 @@ const requestResolver = {
             oldDeparture: formatDate(request.departure),
             newArrival: formatDate(updatedStart),
             newDeparture: formatDate(updatedEnd),
-            airlineName: request.airline.name
+            airlineName: request.airline.name,
+            requestId: extendRequest.requestId
           })
           await sendRequestPartyEmail({
             actor: user,
@@ -1260,7 +1262,8 @@ const requestResolver = {
         }
 
         const cancelRequestEmail = buildCancelRequestRequestEmail({
-          requestNumber: request.requestNumber
+          requestNumber: request.requestNumber,
+          requestId: request.id
         })
         await sendRequestPartyEmail({
           actor: user,
