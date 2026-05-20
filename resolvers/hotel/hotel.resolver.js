@@ -839,29 +839,6 @@ const hotelResolver = {
                   alsoNotifyAirline: true
                 })
 
-                const mailOptions = {
-                  to: `${process.env.EMAIL_HOTEL}`,
-                  subject: placementEmail.subject,
-                  html: placementEmail.html
-                }
-
-                const createHotelChessRequestEmailAllowed =
-                  (await AllowedEmailNotification(
-                    user,
-                    "update_hotel_chess_request"
-                  )) &&
-                  shouldSendNotification({
-                    channel: "email",
-                    action: "update_hotel_chess_request",
-                    entityType: "request",
-                    entityId: updatedRequest.id,
-                    recipientId: process.env.EMAIL_HOTEL
-                  }).allowed
-
-                if (createHotelChessRequestEmailAllowed) {
-                  await sendEmail(mailOptions)
-                }
-
                 await logAction({
                   context,
                   action: "create_hotel_chess",
