@@ -20,22 +20,29 @@ export function buildCreateRequestEmail({
   positionName,
   airportName,
   isPreliminary,
-  airlineName
+  airlineName,
+  arrivalTime,
+  departureTime,
+  mealPlan
 }) {
   const no = spanNo(requestNumber)
   const airport = span(airportName)
   const airline = span(airlineName)
+  const arrival = span(arrivalTime)
+  const departure = span(departureTime)
+
+  console.log("mealPlan ", mealPlan)
 
   if (isPreliminary) {
     const subject = `Создана предварительная бронь №${requestNumber}`
-    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}.`
+    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}. \n Заезд: ${arrival}, выезд: ${departure}.`
     // add link to request in kars-frontend
     return { subject, html }
   }
 
   const subject = `Создана заявка №${requestNumber}`
   const person = span([positionName, personName].filter(Boolean).join(" "))
-  const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}.`
+  const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}. \n Заезд: ${arrival}, выезд: ${departure}.`
   // add link to request in kars-frontend
   return { subject, html }
 }

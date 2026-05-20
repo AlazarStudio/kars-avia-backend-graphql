@@ -509,7 +509,10 @@ const requestResolver = {
         positionName: newRequest.person?.position?.name,
         airportName: newRequest.airport.name,
         isPreliminary: !(newRequest.person && newRequest.person.position),
-        airlineName: newRequest.airline.name
+        airlineName: newRequest.airline.name,
+        arrivalTime: formatDate(newRequest.arrival),
+        departureTime: formatDate(newRequest.departure),
+        mealPlan: newRequest.mealPlan
       })
       await sendRequestPartyEmail({
         actor: user,
