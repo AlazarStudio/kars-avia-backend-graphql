@@ -239,9 +239,8 @@ const dispatcherResolver = {
     },
     getAirlineUserPositions: async (_, { airlineId }, context) => {
       await airlineAdminMiddleware(context)
-      const resolvedAirlineId = resolveAirlineId(context, airlineId)
       return await prisma.position.findMany({
-        where: { separator: "airlineUser", airlineId: resolvedAirlineId },
+        where: { separator: "airlineUser", airlineId },
         orderBy: { name: "asc" }
       })
     },
