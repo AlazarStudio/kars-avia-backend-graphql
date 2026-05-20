@@ -55,17 +55,19 @@ ${
   return { subject, html }
 }
 
-export function buildAccountCreatedByAdminEmail({ name, login }) {
+export function buildAccountCreatedByAdminEmail({ name, login, password }) {
   const service = esc(getServiceName())
   const base = getFrontendUrl()
   const loginUrl = base ? `${esc(base)}/login` : ""
   const n = esc(name)
   const lg = esc(login)
+  const pw = esc(password)
   const subject = `Ваш аккаунт в ${getServiceName()}`
   const html = `<p>Здравствуйте, ${n}!</p>
 <p>Для вас создан аккаунт в ${service}.</p>
 <p><strong>Логин:</strong> ${lg}</p>
-<p>Пароль задаёт администратор при создании учётной записи — он не отправляется по электронной почте. Если вы не знаете пароль, воспользуйтесь функцией «Забыли пароль» на странице входа.</p>
+<p><strong>Пароль:</strong> ${pw}</p>
+<p>Рекомендуем сменить пароль после первого входа.</p>
 ${
   loginUrl
     ? `<p>Вход: <a href="${loginUrl}">${loginUrl}</a></p>`

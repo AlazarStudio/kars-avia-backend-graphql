@@ -152,9 +152,55 @@ export function buildCancelRequestDoneEmail({ requestNumber }) {
   return { subject, html }
 }
 
-export function buildHotelChessTransferEmail({ requestNumber, roomName }) {
+export function buildHotelChessTransferEmail({
+  requestNumber,
+  roomName,
+  requestId
+}) {
   const subject = `Изменено размещение по заявке №${requestNumber}`
-  const html = `Размещение по заявке ${spanNo(requestNumber)} изменено: номер ${span(roomName)}.`
-  // add link to request in kars-frontend
+  const link = requestRelayLinkHtml(requestId)
+  const html = `Размещение по заявке ${spanNo(requestNumber)} изменено: номер ${span(roomName)}.<br>${link}`
+  return { subject, html }
+}
+
+export function buildHotelChessPlacementEmail({
+  requestNumber,
+  hotelName,
+  roomName,
+  personName,
+  requestId
+}) {
+  const subject = `Заявка №${requestNumber} размещена в отеле`
+  const person = personName
+    ? span(personName)
+    : span("Предварительная бронь")
+  const link = requestRelayLinkHtml(requestId)
+  const html = `${person} размещён(а) в отеле ${span(hotelName)} в номер ${span(roomName)} по заявке ${spanNo(requestNumber)}.<br>${link}`
+  return { subject, html }
+}
+
+export function buildNewMessageEmail({
+  requestNumber,
+  reserveNumber,
+  senderName,
+  textPreview,
+  requestId,
+  reserveId
+}) {
+  const entityLabel = requestNumber
+    ? `заявке ${spanNo(requestNumber)}`
+    : reserveNumber
+      ? `брони ${spanNo(reserveNumber)}`
+      : "чате"
+  const subject = requestNumber
+    ? `Новое сообщение по заявке №${requestNumber}`
+    : reserveNumber
+      ? `Новое сообщение по брони №${reserveNumber}`
+      : "Новое сообщение в чате"
+  const preview = span(
+    textPreview?.length > 200 ? `${textPreview.slice(0, 200)}…` : textPreview
+  )
+  const link = requestRelayLinkHtml(requestId || reserveId)
+  const html = `Новое сообщение от ${span(senderName)} в ${entityLabel}:<br>${preview}<br>${link}`
   return { subject, html }
 }

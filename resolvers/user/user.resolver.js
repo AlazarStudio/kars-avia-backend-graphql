@@ -451,7 +451,8 @@ const userResolver = {
         await sendAccountCreatedByAdminEmail({
           to: createdData.email,
           name: createdData.name,
-          login: createdData.login
+          login: createdData.login,
+          password
         })
       } catch (error) {
         console.error("Ошибка при отправке письма:", error)

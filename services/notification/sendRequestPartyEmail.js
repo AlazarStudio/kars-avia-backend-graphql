@@ -1,5 +1,8 @@
+import {
+  sendAirlineEmail,
+  deliverAirlineDepartmentEmails
+} from "./sendAirlineEmail.js"
 import { sendDispatcherEmail } from "./sendDispatcherEmail.js"
-import { sendAirlineEmail } from "./sendAirlineEmail.js"
 
 export async function sendRequestPartyEmail({
   actor,
@@ -9,7 +12,8 @@ export async function sendRequestPartyEmail({
   html,
   entityType,
   entityId,
-  dispatcherFallbackTo
+  dispatcherFallbackTo,
+  alsoNotifyAirline = false
 }) {
   if (actor?.dispatcher === true) {
     await sendAirlineEmail({
@@ -30,6 +34,18 @@ export async function sendRequestPartyEmail({
       entityType,
       entityId,
       fallbackTo: dispatcherFallbackTo
+    })
+  }
+
+  if (alsoNotifyAirline && airlineId) {
+    await deliverAirlineDepartmentEmails({
+      airlineId,
+      action,
+      subject,
+      html,
+      entityType,
+      entityId,
+      fallbackTo: "EMAIL_AVIA"
     })
   }
 }

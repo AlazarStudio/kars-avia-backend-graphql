@@ -34,7 +34,11 @@ export async function sendPasswordChangedNotificationEmail(to) {
   await sendEmail({ to, subject, html })
 }
 
-export async function sendAccountCreatedByAdminEmail({ to, name, login }) {
-  const { subject, html } = buildAccountCreatedByAdminEmail({ name, login })
+export async function sendAccountCreatedByAdminEmail({ to, name, login, password }) {
+  const { subject, html } = buildAccountCreatedByAdminEmail({
+    name,
+    login,
+    password
+  })
   await sendEmail({ to, subject, html })
 }

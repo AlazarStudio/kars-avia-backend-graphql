@@ -14,6 +14,8 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -542,6 +544,61 @@ const chatResolver = {
         }
 
         await publishReserveUpdated(message.chat.reserveId)
+      }
+
+      if (message.chat.requestId || message.chat.reserveId) {
+        const actor = message.sender ?? { dispatcher: false }
+        let requestNumber
+        let reserveNumber
+        let airlineId = message.chat.airlineId
+        let entityId
+        let entityType
+        let requestId
+        let reserveId
+
+        if (message.chat.requestId) {
+          const req = await prisma.request.findUnique({
+            where: { id: message.chat.requestId },
+            select: { requestNumber: true, airlineId: true }
+          })
+          requestNumber = req?.requestNumber
+          airlineId = req?.airlineId ?? airlineId
+          entityId = message.chat.requestId
+          entityType = "request"
+          requestId = message.chat.requestId
+        } else {
+          const res = await prisma.reserve.findUnique({
+            where: { id: message.chat.reserveId },
+            select: { reserveNumber: true, airlineId: true }
+          })
+          reserveNumber = res?.reserveNumber
+          airlineId = res?.airlineId ?? airlineId
+          entityId = message.chat.reserveId
+          entityType = "reserve"
+          reserveId = message.chat.reserveId
+        }
+
+        const senderName =
+          message.sender?.name ?? message.senderName ?? "Пользователь"
+        const newMessageEmail = buildNewMessageEmail({
+          requestNumber,
+          reserveNumber,
+          senderName,
+          textPreview: message.text,
+          requestId,
+          reserveId
+        })
+
+        await sendRequestPartyEmail({
+          actor,
+          airlineId,
+          action: "new_message",
+          subject: newMessageEmail.subject,
+          html: newMessageEmail.html,
+          entityType,
+          entityId,
+          dispatcherFallbackTo: "EMAIL_KARS"
+        })
       }
 
       if (senderId && !isExternal) {

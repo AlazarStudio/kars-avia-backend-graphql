@@ -30,7 +30,10 @@ import { sendEmail } from "../../services/sendMail.js"
 import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
-import { buildHotelChessTransferEmail } from "../../services/email/requestEmailTemplates.js"
+import {
+  buildHotelChessPlacementEmail,
+  buildHotelChessTransferEmail
+} from "../../services/email/requestEmailTemplates.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -490,7 +493,8 @@ const hotelResolver = {
 
                 const transferEmail = buildHotelChessTransferEmail({
                   requestNumber: updatedRequest.requestNumber,
-                  roomName: room.name
+                  roomName: room.name,
+                  requestId: updatedRequest.id
                 })
                 await sendRequestPartyEmail({
                   actor: user,
@@ -500,7 +504,8 @@ const hotelResolver = {
                   html: transferEmail.html,
                   entityType: "request",
                   entityId: updatedRequest.id,
-                  dispatcherFallbackTo: "EMAIL_KARS"
+                  dispatcherFallbackTo: "EMAIL_KARS",
+                  alsoNotifyAirline: true
                 })
 
                 const hotelChessRequestSiteAllowed = shouldSendNotification({
@@ -815,23 +820,29 @@ const hotelResolver = {
                   })
                 }
 
+                const placementEmail = buildHotelChessPlacementEmail({
+                  requestNumber: updatedRequest.requestNumber,
+                  hotelName: hotel?.name,
+                  roomName: room.name,
+                  personName: updatedRequest.person?.name,
+                  requestId: updatedRequest.id
+                })
+                await sendRequestPartyEmail({
+                  actor: user,
+                  airlineId: updatedRequest.airlineId,
+                  action: "update_hotel_chess_request",
+                  subject: placementEmail.subject,
+                  html: placementEmail.html,
+                  entityType: "request",
+                  entityId: updatedRequest.id,
+                  dispatcherFallbackTo: "EMAIL_KARS",
+                  alsoNotifyAirline: true
+                })
+
                 const mailOptions = {
-                  // from: `${process.env.EMAIL_USER}`,
                   to: `${process.env.EMAIL_HOTEL}`,
-                  subject: "Request updated",
-                  html: `<span style='color:#545873'>${
-                    updatedRequest.person
-                      ? updatedRequest.person.name
-                      : "Предварительная бронь"
-                  }</span> был(а) размещён в отеле <span style='color:#545873'>${
-                    hotel?.name
-                  }</span> в номер <span style='color:#545873'>${
-                    room.name
-                  }</span> по заявке <span style='color:#545873'>№ ${
-                    updatedRequest.requestNumber
-                  }</span> пользователем <span style='color:#545873'>${
-                    user.name
-                  }</span>`
+                  subject: placementEmail.subject,
+                  html: placementEmail.html
                 }
 
                 const createHotelChessRequestEmailAllowed =

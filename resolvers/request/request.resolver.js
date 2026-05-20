@@ -1197,16 +1197,39 @@ const requestResolver = {
         include: { hotelChess: true }
       })
 
-      if (user.airlineId && request.status != "created") {
+      // Запрос на отмену (чат, site, email) — только если заявка уже не в статусе created.
+      // При created авиакомпания отменяет заявку самостоятельно, без запроса диспетчеру.
+      if (
+        user.airlineId &&
+        !user.dispatcher &&
+        request.status !== "created"
+      ) {
         const currentTime = new Date()
         const adjustedTime = new Date(
           currentTime.getTime() + 3 * 60 * 60 * 1000
         )
         const formattedTime = adjustedTime.toISOString()
 
-        const chat = await prisma.chat.findFirst({
+        let chat = await prisma.chat.findFirst({
           where: { requestId: requestId, separator: "airline" }
         })
+        if (!chat) {
+          chat = await prisma.chat.create({
+            data: {
+              request: { connect: { id: requestId } },
+              separator: "airline",
+              ...(request.airlineId
+                ? { airline: { connect: { id: request.airlineId } } }
+                : {})
+            }
+          })
+          await prisma.chatUser.create({
+            data: {
+              chat: { connect: { id: chat.id } },
+              user: { connect: { id: user.id } }
+            }
+          })
+        }
         const message = await prisma.message.create({
           data: {
             text: `Запрос на отмену заявки`,
