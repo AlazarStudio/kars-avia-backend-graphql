@@ -994,7 +994,11 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
-    removePassengerRequestHotel: async (_, { requestId, hotelIndex }, context) => {
+    removePassengerRequestHotel: async (
+      _,
+      { requestId, hotelIndex },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
@@ -1036,7 +1040,8 @@ const passengerRequestResolvers = {
                 return {
                   ...item,
                   hotelIndex: mappedIndex,
-                  hotelName: hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
+                  hotelName:
+                    hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
                 }
               })
             return {
@@ -1448,7 +1453,11 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
-    removePassengerRequestDriver: async (_, { requestId, driverIndex }, context) => {
+    removePassengerRequestDriver: async (
+      _,
+      { requestId, driverIndex },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
@@ -1466,7 +1475,9 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Invalid driverIndex")
       }
 
-      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const removedDriver = normalizePassengerServiceDriver(
+        drivers[driverIndex]
+      )
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)
@@ -1600,7 +1611,9 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Invalid driverIndex")
       }
 
-      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const removedDriver = normalizePassengerServiceDriver(
+        drivers[driverIndex]
+      )
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)

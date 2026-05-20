@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import {
   buildOfflineUpdateData,
+  buildOnlineRestoreData,
   isLastSeenStale,
   resolveUserOnlineStatus
 } from "../../services/user/userPresenceUtils.js"
@@ -21,6 +22,22 @@ test("isLastSeenStale returns true after timeout window", () => {
   const now = new Date("2026-05-19T12:11:01.000Z")
   const lastSeen = new Date("2026-05-19T12:00:00.000Z")
   assert.equal(isLastSeenStale(lastSeen, now, 10 * 60 * 1000), true)
+})
+
+test("buildOnlineRestoreData sets online flags and starts session when missing", () => {
+  const now = new Date("2026-05-19T10:00:00.000Z")
+
+  const withoutSession = buildOnlineRestoreData({ sessionStartedAt: null, now })
+  assert.equal(withoutSession.isOnline, true)
+  assert.equal(withoutSession.lastSeen, now)
+  assert.equal(withoutSession.sessionStartedAt, now)
+
+  const existingSession = new Date("2026-05-19T09:00:00.000Z")
+  const withSession = buildOnlineRestoreData({
+    sessionStartedAt: existingSession,
+    now
+  })
+  assert.equal(withSession.sessionStartedAt, existingSession)
 })
 
 test("buildOfflineUpdateData closes session and resets flags", () => {

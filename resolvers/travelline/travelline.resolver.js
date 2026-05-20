@@ -1,6 +1,9 @@
 import { prisma } from "../../prisma.js"
 import { travellineService } from "../../services/travelline/travellineService.js"
-import { adminMiddleware, allMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  adminMiddleware,
+  allMiddleware
+} from "../../middlewares/authMiddleware.js"
 import { logger } from "../../services/infra/logger.js"
 
 const travellineResolver = {
@@ -27,7 +30,9 @@ const travellineResolver = {
         .findMany({
           where: {
             active: true,
-            information: { is: { city: { equals: trimmed, mode: "insensitive" } } },
+            information: {
+              is: { city: { equals: trimmed, mode: "insensitive" } }
+            },
             ...(isSuper
               ? {}
               : {
@@ -59,12 +64,19 @@ const travellineResolver = {
       const options = allHotels.map((h) => {
         if (h.external && h.externalSource === "travelline") {
           let parsed = null
-          try { parsed = h.externalRaw ? JSON.parse(h.externalRaw) : null } catch { parsed = null }
+          try {
+            parsed = h.externalRaw ? JSON.parse(h.externalRaw) : null
+          } catch {
+            parsed = null
+          }
           return {
             source: "travelline",
             id: h.externalId || h.id,
             name: h.name,
-            photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+            photo:
+              Array.isArray(h.images) && h.images.length > 0
+                ? h.images[0]
+                : null,
             city: h.information?.city ?? null,
             address: h.information?.address ?? null,
             stars: h.stars ?? null,
@@ -77,7 +89,8 @@ const travellineResolver = {
           source: "local",
           id: h.id,
           name: h.name,
-          photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+          photo:
+            Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
           city: h.information?.city ?? null,
           address: h.information?.address ?? null,
           stars: h.stars ?? null,
@@ -97,7 +110,10 @@ const travellineResolver = {
 
     tlPropertiesByCity: async (_, { input }, context) => {
       await adminMiddleware(context)
-      return travellineService.searchPropertiesByCity(input.cityId, input.count ?? 200)
+      return travellineService.searchPropertiesByCity(
+        input.cityId,
+        input.count ?? 200
+      )
     },
 
     tlSearchProperties: async (_, { filter }, context) => {
@@ -160,14 +176,20 @@ const travellineResolver = {
       const where = { externalSource: "travelline" }
       if (filter?.city) {
         where.information = {
-          is: { city: { equals: String(filter.city).trim(), mode: "insensitive" } }
+          is: {
+            city: { equals: String(filter.city).trim(), mode: "insensitive" }
+          }
         }
       }
       const hotels = await prisma.hotel.findMany({ where })
       const items = hotels.map((h) => {
         const raw = h.externalRaw
         let parsed = null
-        try { parsed = raw ? JSON.parse(raw) : null } catch { parsed = null }
+        try {
+          parsed = raw ? JSON.parse(raw) : null
+        } catch {
+          parsed = null
+        }
         return {
           id: h.externalId || h.id,
           name: h.name,
@@ -194,7 +216,11 @@ const travellineResolver = {
   Mutation: {
     tlSetConfig: async (_, { input }, context) => {
       await adminMiddleware(context)
-      return travellineService.setConfig(input.clientId, input.clientSecret, input.baseUrl)
+      return travellineService.setConfig(
+        input.clientId,
+        input.clientSecret,
+        input.baseUrl
+      )
     },
 
     tlSyncCatalog: async (_, { countryCode }, context) => {

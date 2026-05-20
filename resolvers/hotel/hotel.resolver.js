@@ -76,7 +76,9 @@ const hotelResolver = {
 
       const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
 
-      const baseWhere = isSuper ? { active: true } : { active: true, show: true }
+      const baseWhere = isSuper
+        ? { active: true }
+        : { active: true, show: true }
       const filterWhere = buildHotelWhere(filter)
       const where =
         Object.keys(filterWhere).length > 0
@@ -204,7 +206,8 @@ const hotelResolver = {
         }
       })
 
-      const adminId = context.subjectType === "USER" ? context.subject?.id : null
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
       try {
         const externalUser = await upsertHotelExternalUser({
           hotelId: createdHotel.id,
@@ -860,12 +863,13 @@ const hotelResolver = {
                   reserveId: hotelChess.reserveId
                 })
 
-                const createHotelChessRequestSiteAllowed = shouldSendNotification({
-                  channel: "site",
-                  action: "update_hotel_chess_request",
-                  entityType: "request",
-                  entityId: updatedRequest.id
-                }).allowed
+                const createHotelChessRequestSiteAllowed =
+                  shouldSendNotification({
+                    channel: "site",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id
+                  }).allowed
 
                 if (createHotelChessRequestSiteAllowed) {
                   await prisma.notification.create({

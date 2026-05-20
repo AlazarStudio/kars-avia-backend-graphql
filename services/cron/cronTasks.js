@@ -66,9 +66,7 @@ export const startPresenceCleanupJob = () => {
 
   const intervalMs = getPresenceCleanupIntervalMs()
 
-  logger.info(
-    `[CRON] Presence cleanup job started (interval ${intervalMs}ms)`
-  )
+  logger.info(`[CRON] Presence cleanup job started (interval ${intervalMs}ms)`)
 
   void runPresenceCleanup()
   presenceIntervalId = setInterval(runPresenceCleanup, intervalMs)

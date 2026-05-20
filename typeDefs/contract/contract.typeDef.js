@@ -329,7 +329,7 @@ const contractTypeDef = /* GraphQL */ `
     additionalAgreements(airlineContractId: ID): [AdditionalAgreement!]!
   }
 
-# Mutation 
+  # Mutation
   type Mutation {
     createAirlineContract(
       input: AirlineContractCreateInput!

@@ -326,14 +326,18 @@ const travellineTypeDef = /* GraphQL */ `
   extend type Query {
     tlConfig: TlConfig!
     tlCities(countryCode: String): [TlCity!]!
-    tlPropertiesByCity(input: TlSearchPropertiesByCityInput!): TlPropertiesResult!
+    tlPropertiesByCity(
+      input: TlSearchPropertiesByCityInput!
+    ): TlPropertiesResult!
     tlSearchProperties(filter: TlSearchPropertiesInput): TlPropertiesResult!
     tlProperty(id: ID!): TlProperty!
     tlRoomTypes(propertyId: ID!): [TlRoomType!]!
     tlRatePlans(propertyId: ID!): [TlRatePlan!]!
     tlAvailability(input: TlAvailabilityInput!): TlAvailabilityResult!
     tlPropertyCalendar(input: TlCalendarInput!): [TlCalendarCell!]!
-    tlPropertiesAvailability(input: TlSearchDatesInput!): [TlPropertyPriceSummary!]!
+    tlPropertiesAvailability(
+      input: TlSearchDatesInput!
+    ): [TlPropertyPriceSummary!]!
     tlReservations: [TlReservation!]!
     tlReservation(id: ID!): TlReservation!
     tlCancellationPenalty(bookingId: String!): TlCancellationPenalty!

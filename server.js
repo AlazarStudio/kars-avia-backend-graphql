@@ -213,7 +213,11 @@ const server = new ApolloServer({
   csrfPrevention: {
     // Разрешаем multipart upload-клиентам с JWT в Authorization работать
     // при включенной CSRF-защите Apollo.
-    requestHeaders: ["authorization", "x-apollo-operation-name", "apollo-require-preflight"]
+    requestHeaders: [
+      "authorization",
+      "x-apollo-operation-name",
+      "apollo-require-preflight"
+    ]
   },
   cache: "bounded",
   plugins: [
@@ -247,14 +251,18 @@ app.use("/graphql", (req, res, next) => {
     const contentType = req.headers["content-type"] || ""
     const isMultipart = String(contentType).includes("multipart/form-data")
     const operationName =
-      req.headers["x-apollo-operation-name"] || req.headers["apollo-operation-name"] || "unknown"
+      req.headers["x-apollo-operation-name"] ||
+      req.headers["apollo-operation-name"] ||
+      "unknown"
     const hasCsrfHeaders =
       Boolean(req.headers.authorization) ||
       Boolean(req.headers["apollo-require-preflight"]) ||
       Boolean(req.headers["x-apollo-operation-name"])
 
     if (isMultipart) {
-      logger.info(`[GRAPHQL UPLOAD] multipart request operation=${operationName}`)
+      logger.info(
+        `[GRAPHQL UPLOAD] multipart request operation=${operationName}`
+      )
     }
 
     if (isMultipart && !hasCsrfHeaders) {

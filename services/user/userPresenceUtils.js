@@ -34,6 +34,14 @@ export function isLastSeenStale(
   return now.getTime() - lastSeenDate.getTime() > timeoutMs
 }
 
+export function buildOnlineRestoreData({ sessionStartedAt, now = new Date() }) {
+  return {
+    isOnline: true,
+    lastSeen: now,
+    sessionStartedAt: sessionStartedAt || now
+  }
+}
+
 export function buildOfflineUpdateData({ currentUser, now = new Date() }) {
   const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
     sessionStartedAt: currentUser?.sessionStartedAt,

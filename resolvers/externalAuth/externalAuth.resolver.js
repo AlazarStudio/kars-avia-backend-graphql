@@ -74,7 +74,9 @@ const issueTokenForExternalUser = async ({
   passengerRequestId
 }) => {
   const now = new Date()
-  const oneHourAgo = new Date(now.getTime() - EXTERNAL_MAGIC_LINK_REQUEST_WINDOW_MS)
+  const oneHourAgo = new Date(
+    now.getTime() - EXTERNAL_MAGIC_LINK_REQUEST_WINDOW_MS
+  )
 
   const [latestToken, issuedInLastHour] = await prisma.$transaction([
     prisma.externalUserMagicLinkToken.findFirst({

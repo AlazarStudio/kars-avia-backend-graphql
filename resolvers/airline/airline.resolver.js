@@ -105,11 +105,11 @@ const airlineResolver = {
               department: true,
               prices: true,
               transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
-            }
-          }
+                include: {
+                  airportOnTransferPrice: { include: { airport: true } },
+                  cityOnTransferPrice: { include: { city: true } }
+                }
+              }
             },
             orderBy: { name: "asc" }
           })
@@ -122,11 +122,11 @@ const airlineResolver = {
               department: true,
               prices: true,
               transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
-            }
-          }
+                include: {
+                  airportOnTransferPrice: { include: { airport: true } },
+                  cityOnTransferPrice: { include: { city: true } }
+                }
+              }
             },
             orderBy: { name: "asc" }
           })
@@ -189,7 +189,11 @@ const airlineResolver = {
 
       const airlinePriceData = input.prices || []
       const transferPricesData = input.transferPrices || []
-      const { prices: _prices, transferPrices: _transferPrices, ...airlineInput } = input
+      const {
+        prices: _prices,
+        transferPrices: _transferPrices,
+        ...airlineInput
+      } = input
 
       // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
@@ -213,7 +217,7 @@ const airlineResolver = {
           },
           transferPrices: {
             create: transferPricesData.map((tp) => ({
-              name: tp.name ?? '',
+              name: tp.name ?? "",
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -369,7 +373,9 @@ const airlineResolver = {
                   name: priceInput.name,
                   prices: priceInput.prices,
                   mealPrice: priceInput.mealPrice,
-                  ...(priceInput.geography && { geography: priceInput.geography })
+                  ...(priceInput.geography && {
+                    geography: priceInput.geography
+                  })
                 }
               })
 
@@ -393,7 +399,10 @@ const airlineResolver = {
             if (tp.id) {
               await prisma.transferPrice.update({
                 where: { id: tp.id },
-                data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
+                data: {
+                  prices: tp.prices,
+                  ...(tp.name != null && { name: tp.name })
+                }
               })
               await prisma.airportOnTransferPrice.deleteMany({
                 where: { transferPriceId: tp.id }
@@ -425,7 +434,7 @@ const airlineResolver = {
               const created = await prisma.transferPrice.create({
                 data: {
                   airlineId: id,
-                  name: tp.name ?? '',
+                  name: tp.name ?? "",
                   prices: tp.prices,
                   airportOnTransferPrice: {
                     create: (tp.airportIds || []).map((airportId) => ({
@@ -585,11 +594,11 @@ const airlineResolver = {
             staff: true,
             prices: true,
             transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
             }
-          }
           }
         })
         await logAction({

@@ -72,9 +72,9 @@ const filePathsResolver = {
   Driver: {
     documents: (parent) => {
       if (!parent.documents) return null
-      
+
       const normalized = {}
-      Object.keys(parent.documents).forEach(key => {
+      Object.keys(parent.documents).forEach((key) => {
         normalized[key] = normalizeFilePaths(parent.documents[key] || [])
       })
       return normalized

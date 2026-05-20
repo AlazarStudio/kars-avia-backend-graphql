@@ -87,8 +87,8 @@ const userTypeDef = /* GraphQL */ `
     user: [User]
     airlinePersonal: [AirlinePersonal]
     airlineDepartment: [AirlineDepartment]
+    airlineId: ID
     # hotelId: ID
-    # airlineId: ID
   }
 
   input UserPaginationInput {
@@ -142,7 +142,9 @@ const userTypeDef = /* GraphQL */ `
   }
 
   input SignInInput {
-    """Логин пользователя или email (одно поле)."""
+    """
+    Логин пользователя или email (одно поле).
+    """
     login: String!
     password: String!
     fingerprint: String!
@@ -150,12 +152,12 @@ const userTypeDef = /* GraphQL */ `
   }
 
   input PositionInput {
+    id: ID
     name: String!
     separator: String
     category: String
+    airlineId: ID
     # hotelId: ID
-    # airlineId: ID
-    # airlineDepartmentId: ID
   }
 
   input RegisterUserInput {

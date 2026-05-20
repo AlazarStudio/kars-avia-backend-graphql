@@ -297,7 +297,7 @@ const supportResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          const uploadedPath = await uploadImage(image, {bucket: "patchnote"})
+          const uploadedPath = await uploadImage(image, { bucket: "patchnote" })
           imagePaths.push(uploadedPath)
         }
       }
@@ -313,7 +313,7 @@ const supportResolver = {
       let imagePaths = []
       if (images && images.length > 0) {
         for (const image of images) {
-          const uploadedPath = await uploadImage(image, {bucket: "patchnote"})
+          const uploadedPath = await uploadImage(image, { bucket: "patchnote" })
           imagePaths.push(uploadedPath)
         }
       }
@@ -331,7 +331,7 @@ const supportResolver = {
       for (const grp of imageGroupsByKey ?? []) {
         keyMap[grp.key] = []
         for (const img of grp.images)
-          keyMap[grp.key].push(await uploadImage(img, {bucket: "patchnote"}))
+          keyMap[grp.key].push(await uploadImage(img, { bucket: "patchnote" }))
       }
 
       function transform(node) {
@@ -371,7 +371,7 @@ const supportResolver = {
         for (const grp of imageGroupsByKey) {
           const urls = []
           for (const img of grp.images ?? []) {
-            urls.push(await uploadImage(img, {bucket: "patchnote"}))
+            urls.push(await uploadImage(img, { bucket: "patchnote" }))
           }
           keyToNewUrls[grp.key] = urls
         }
@@ -709,7 +709,10 @@ const supportResolver = {
       }
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
-        include: { assignedTo: true, tickets: { orderBy: { ticketNumber: "desc" } } }
+        include: {
+          assignedTo: true,
+          tickets: { orderBy: { ticketNumber: "desc" } }
+        }
       })
       if (!chat || !chat.isSupport) {
         throw new GraphQLError("Чат поддержки не найден")
@@ -776,7 +779,15 @@ const supportResolver = {
           resolvedBy: true
         }
       })
-      pubsub.publish(MESSAGE_SENT, { messageSent: { id: `status-${chatId}`, chatId, text: null, sender: null, readBy: null } })
+      pubsub.publish(MESSAGE_SENT, {
+        messageSent: {
+          id: `status-${chatId}`,
+          chatId,
+          text: null,
+          sender: null,
+          readBy: null
+        }
+      })
       return updated
     },
     resolveSupportTicket: async (_, { chatId }, context) => {
@@ -787,13 +798,18 @@ const supportResolver = {
       }
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
-        include: { assignedTo: true, tickets: { orderBy: { ticketNumber: "desc" } } }
+        include: {
+          assignedTo: true,
+          tickets: { orderBy: { ticketNumber: "desc" } }
+        }
       })
       if (!chat || !chat.isSupport) {
         throw new GraphQLError("Чат поддержки не найден")
       }
       if (chat.assignedToId !== user.id) {
-        throw new GraphQLError("Закрыть тикет может только агент, ведущий этот чат")
+        throw new GraphQLError(
+          "Закрыть тикет может только агент, ведущий этот чат"
+        )
       }
       let activeTicket = chat.tickets?.find((t) => t.status === "IN_PROGRESS")
       if (!activeTicket && chat.tickets?.length === 0) {
@@ -846,7 +862,15 @@ const supportResolver = {
           }
         }
       })
-      pubsub.publish(MESSAGE_SENT, { messageSent: { id: `status-${chatId}`, chatId, text: null, sender: null, readBy: null } })
+      pubsub.publish(MESSAGE_SENT, {
+        messageSent: {
+          id: `status-${chatId}`,
+          chatId,
+          text: null,
+          sender: null,
+          readBy: null
+        }
+      })
       return updated
     }
   },

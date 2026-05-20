@@ -23,11 +23,7 @@ export const getHotelLocation = (hotel, airport) => {
   const loc = hotel?.location || {}
   const info = hotel?.information || {}
 
-  const city =
-    loc.city ||
-    info.city ||
-    airport?.city ||
-    ""
+  const city = loc.city || info.city || airport?.city || ""
 
   return {
     country: loc.country || info.country || "",

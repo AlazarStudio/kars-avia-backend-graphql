@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { uploadImage, deleteImage } from "../../services/files/uploadImage.js"
 import logAction from "../../services/infra/logaction.js"
+import { assertAirlinePositionForUser } from "../../services/position/positionAccess.js"
 import {
   adminHotelAirMiddleware,
   adminMiddleware,
@@ -29,6 +30,7 @@ import { sendEmail } from "../../services/sendMail.js"
 import { logger } from "../../services/infra/logger.js"
 import {
   buildOfflineUpdateData,
+  buildOnlineRestoreData,
   resolveUserOnlineStatus
 } from "../../services/user/userPresence.js"
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
@@ -85,7 +87,10 @@ const ACCESS_MENU_KEYS = [
 const hasOwn = (obj, key) =>
   Object.prototype.hasOwnProperty.call(obj || {}, key)
 
-const resolveEffectiveAccessMenu = ({ departmentAccessMenu, positionAccessMenu }) => {
+const resolveEffectiveAccessMenu = ({
+  departmentAccessMenu,
+  positionAccessMenu
+}) => {
   if (!departmentAccessMenu && !positionAccessMenu) {
     return null
   }
@@ -93,7 +98,10 @@ const resolveEffectiveAccessMenu = ({ departmentAccessMenu, positionAccessMenu }
   const merged = {}
 
   for (const key of ACCESS_MENU_KEYS) {
-    if (hasOwn(positionAccessMenu, key) && positionAccessMenu[key] !== undefined) {
+    if (
+      hasOwn(positionAccessMenu, key) &&
+      positionAccessMenu[key] !== undefined
+    ) {
       merged[key] = positionAccessMenu[key]
       continue
     }
@@ -346,6 +354,10 @@ const userResolver = {
         }
       }
 
+      if (positionId) {
+        await assertAirlinePositionForUser(prisma, positionId, airlineId)
+      }
+
       // Хэширование пароля с помощью argon2
       const hashedPassword = await argon2.hash(password)
 
@@ -361,7 +373,10 @@ const userResolver = {
 
       if (existingUser) {
         const existingLoginNorm = normalizeUserLogin(existingUser.login)
-        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
+        if (
+          existingUser.email === email &&
+          existingLoginNorm === loginNormalized
+        ) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -590,7 +605,18 @@ const userResolver = {
           updatedData.userType = userType
         }
       }
-      if (positionId !== undefined) updatedData.positionId = positionId
+      if (positionId !== undefined) {
+        const targetAirlineId =
+          airlineId !== undefined ? airlineId : currentUser.airlineId
+        if (positionId !== null) {
+          await assertAirlinePositionForUser(
+            prisma,
+            positionId,
+            targetAirlineId
+          )
+        }
+        updatedData.positionId = positionId
+      }
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
       // dispatcherDepartment, representativeDepartment и airlineDepartment взаимоисключающие
@@ -901,11 +927,10 @@ const userResolver = {
 
       const updatedUser = await prisma.user.update({
         where: { id: context.user.id },
-        data: {
-          isOnline: true,
-          lastSeen: now,
-          sessionStartedAt: currentUser?.sessionStartedAt || now
-        }
+        data: buildOnlineRestoreData({
+          sessionStartedAt: currentUser?.sessionStartedAt,
+          now
+        })
       })
 
       pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
@@ -1112,13 +1137,14 @@ const userResolver = {
 
       let positionAccessMenu = null
       if (parent.positionId) {
-        const positionOnDepartment = await prisma.positionOnDepartment.findFirst({
-          where: {
-            airlineDepartmentId: parent.airlineDepartmentId,
-            positionId: parent.positionId
-          },
-          select: { accessMenu: true }
-        })
+        const positionOnDepartment =
+          await prisma.positionOnDepartment.findFirst({
+            where: {
+              airlineDepartmentId: parent.airlineDepartmentId,
+              positionId: parent.positionId
+            },
+            select: { accessMenu: true }
+          })
         positionAccessMenu = positionOnDepartment?.accessMenu || null
       }
 

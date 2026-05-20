@@ -12,9 +12,16 @@ import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
   superAdminMiddleware,
-  dispatcherOrSuperAdminMiddleware
+  dispatcherOrSuperAdminMiddleware,
+  airlineAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
+import {
+  AIRLINE_POSITION_SEPARATORS,
+  assertPositionAccess,
+  isAirlinePosition,
+  resolveAirlineId
+} from "../../services/position/positionAccess.js"
 import {
   AllowedSiteNotification,
   getDisabledActionsFromMenu,
@@ -223,14 +230,20 @@ const dispatcherResolver = {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({})
     },
-    getAirlinePositions: async (_, {}, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      return await prisma.position.findMany({ where: { separator: "airline" } })
-    },
-    getAirlineUserPositions: async (_, {}, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+    getAirlinePositions: async (_, { airlineId }, context) => {
+      await airlineAdminMiddleware(context)
+      const resolvedAirlineId = resolveAirlineId(context, airlineId)
       return await prisma.position.findMany({
-        where: { separator: "airlineUser" }
+        where: { separator: "airline", airlineId: resolvedAirlineId },
+        orderBy: { name: "asc" }
+      })
+    },
+    getAirlineUserPositions: async (_, { airlineId }, context) => {
+      await airlineAdminMiddleware(context)
+      const resolvedAirlineId = resolveAirlineId(context, airlineId)
+      return await prisma.position.findMany({
+        where: { separator: "airlineUser", airlineId: resolvedAirlineId },
+        orderBy: { name: "asc" }
       })
     },
     getHotelPositions: async (_, {}, context) => {
@@ -250,8 +263,17 @@ const dispatcherResolver = {
       })
     },
     getPosition: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      return await prisma.position.findUnique({ where: { id } })
+      const position = await prisma.position.findUnique({ where: { id } })
+      if (!position) {
+        return null
+      }
+      if (isAirlinePosition(position)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, position)
+      } else {
+        await allMiddleware(context)
+      }
+      return position
     },
     dispatcherDepartments: async (_, { pagination }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)
@@ -424,28 +446,98 @@ const dispatcherResolver = {
       return true
     },
     createPosition: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name, separator, category } = input
-      const position = await prisma.position.create({
+      const { name, separator, category, airlineId } = input
+
+      if (!separator) {
+        throw new GraphQLError("separator обязателен", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const isAirline = AIRLINE_POSITION_SEPARATORS.includes(separator)
+
+      if (isAirline) {
+        await airlineAdminMiddleware(context)
+        const resolvedAirlineId = resolveAirlineId(context, airlineId)
+        return await prisma.position.create({
+          data: {
+            name,
+            separator,
+            category,
+            airlineId: resolvedAirlineId
+          }
+        })
+      }
+
+      await allMiddleware(context)
+      return await prisma.position.create({
         data: {
           name,
           separator,
           category
         }
       })
-      return position
     },
     updatePosition: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name } = input
-      const position = await prisma.position.update({
-        where: { id: input.id },
-        data: {
-          name,
-          category
-        }
+      const { id, name, category } = input
+      if (!id) {
+        throw new GraphQLError("id обязателен для обновления должности", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const existing = await prisma.position.findUnique({ where: { id } })
+      if (!existing) {
+        throw new GraphQLError("Должность не найдена", {
+          extensions: { code: "NOT_FOUND" }
+        })
+      }
+
+      if (isAirlinePosition(existing)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, existing)
+      } else {
+        await allMiddleware(context)
+      }
+
+      const data = {}
+      if (name !== undefined) data.name = name
+      if (category !== undefined) data.category = category
+
+      return await prisma.position.update({
+        where: { id },
+        data
       })
-      return position
+    },
+    deletePosition: async (_, { id }, context) => {
+      const existing = await prisma.position.findUnique({ where: { id } })
+      if (!existing) {
+        throw new GraphQLError("Должность не найдена", {
+          extensions: { code: "NOT_FOUND" }
+        })
+      }
+
+      if (isAirlinePosition(existing)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, existing)
+      } else {
+        await allMiddleware(context)
+      }
+
+      const [usersCount, staffCount, deptLinksCount] = await Promise.all([
+        prisma.user.count({ where: { positionId: id } }),
+        prisma.airlinePersonal.count({ where: { positionId: id } }),
+        prisma.positionOnDepartment.count({ where: { positionId: id } })
+      ])
+
+      if (usersCount + staffCount + deptLinksCount > 0) {
+        throw new GraphQLError(
+          "Невозможно удалить должность: она используется пользователями, сотрудниками или отделами",
+          { extensions: { code: "POSITION_IN_USE" } }
+        )
+      }
+
+      return await prisma.position.delete({ where: { id } })
     },
     createDispatcherDepartment: async (_, { input }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)

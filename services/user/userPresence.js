@@ -3,15 +3,14 @@ import { pubsub, USER_ONLINE } from "../infra/pubsub.js"
 import { logger } from "../infra/logger.js"
 import {
   buildOfflineUpdateData,
+  buildOnlineRestoreData,
   getIdleTimeoutMs,
-  getLastSeenDebounceMs,
-  getPresenceCleanupIntervalMs,
-  isLastSeenStale,
-  resolveUserOnlineStatus
+  getLastSeenDebounceMs
 } from "./userPresenceUtils.js"
 
 export {
   buildOfflineUpdateData,
+  buildOnlineRestoreData,
   getIdleTimeoutMs,
   getLastSeenDebounceMs,
   getPresenceCleanupIntervalMs,
@@ -29,11 +28,38 @@ const OFFLINE_USER_SELECT = {
   isOnline: true
 }
 
-export function touchLastSeen(userId) {
-  if (!userId) return
+const TOUCH_USER_SELECT = {
+  isOnline: true,
+  sessionStartedAt: true
+}
+
+async function touchLastSeenAsync(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: TOUCH_USER_SELECT
+  })
+
+  if (!user) return
+
+  const now = new Date()
+  const nowMs = now.getTime()
+
+  if (!user.isOnline) {
+    lastTouchByUserId.set(userId, nowMs)
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: buildOnlineRestoreData({
+        sessionStartedAt: user.sessionStartedAt,
+        now
+      })
+    })
+
+    pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
+    return
+  }
 
   const debounceMs = getLastSeenDebounceMs()
-  const nowMs = Date.now()
   const lastMs = lastTouchByUserId.get(userId)
 
   if (lastMs != null && nowMs - lastMs < debounceMs) {
@@ -42,14 +68,18 @@ export function touchLastSeen(userId) {
 
   lastTouchByUserId.set(userId, nowMs)
 
-  prisma.user
-    .update({
-      where: { id: userId },
-      data: { lastSeen: new Date() }
-    })
-    .catch((err) => {
-      logger.error(`[PRESENCE] touchLastSeen failed for user ${userId}`, err)
-    })
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastSeen: now }
+  })
+}
+
+export function touchLastSeen(userId) {
+  if (!userId) return
+
+  void touchLastSeenAsync(userId).catch((err) => {
+    logger.error(`[PRESENCE] touchLastSeen failed for user ${userId}`, err)
+  })
 }
 
 export function touchLastSeenForContext(context) {

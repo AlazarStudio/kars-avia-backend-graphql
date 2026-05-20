@@ -356,7 +356,9 @@ const chatResolver = {
         if (!sender) throw new Error("Отправитель не найден")
         if (sender.support) {
           if (chat.assignedToId !== senderId) {
-            throw new Error("Ответить в чате техподдержки может только агент, принявший тикет. Сначала возьмите тикет в работу.")
+            throw new Error(
+              "Ответить в чате техподдержки может только агент, принявший тикет. Сначала возьмите тикет в работу."
+            )
           }
         } else {
           if (chat.supportStatus === "RESOLVED") {
@@ -417,13 +419,17 @@ const chatResolver = {
             where: { id: context.subject.hotelId },
             select: { name: true }
           })
-          extName = hotel?.name ? `Гостиница «${hotel.name}»` : (extName || "Гостиница")
+          extName = hotel?.name
+            ? `Гостиница «${hotel.name}»`
+            : extName || "Гостиница"
         } else if (scope === "DRIVER" && context.subject.driverId) {
           const driver = await prisma.user.findUnique({
             where: { id: context.subject.driverId },
             select: { name: true }
           })
-          extName = driver?.name ? `Водитель: ${driver.name}` : (extName || "Водитель")
+          extName = driver?.name
+            ? `Водитель: ${driver.name}`
+            : extName || "Водитель"
         } else if (!extName) {
           extName = "Внешний пользователь"
         }
@@ -905,14 +911,21 @@ const chatResolver = {
 
           const message = payload.messageSent
 
-          if (variables.chatId && message.chat && message.chat.id !== variables.chatId) {
+          if (
+            variables.chatId &&
+            message.chat &&
+            message.chat.id !== variables.chatId
+          ) {
             return false
           }
 
           if (isExternal) {
             if (message.chat?.passengerRequestId) return true
             if (message.chatId && !message.chat) {
-              const chat = await prisma.chat.findUnique({ where: { id: message.chatId }, select: { passengerRequestId: true } })
+              const chat = await prisma.chat.findUnique({
+                where: { id: message.chatId },
+                select: { passengerRequestId: true }
+              })
               return !!chat?.passengerRequestId
             }
             return false
@@ -925,7 +938,10 @@ const chatResolver = {
           }
 
           if (message.chat) {
-            if (subject.airlineId && message.chat.airlineId === subject.airlineId) {
+            if (
+              subject.airlineId &&
+              message.chat.airlineId === subject.airlineId
+            ) {
               return true
             }
             if (subject.hotelId && message.chat.hotelId === subject.hotelId) {
@@ -959,7 +975,9 @@ const chatResolver = {
                 return true
               }
               const isParticipant = chat.participants?.some(
-                (participant) => participant.userId === subject.id || participant.user?.id === subject.id
+                (participant) =>
+                  participant.userId === subject.id ||
+                  participant.user?.id === subject.id
               )
               if (isParticipant) return true
             }
@@ -1136,7 +1154,13 @@ const chatResolver = {
       if (!parent.assignedToId) return null
       return prisma.user.findUnique({
         where: { id: parent.assignedToId },
-        select: { id: true, name: true, email: true, images: true, support: true }
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          images: true,
+          support: true
+        }
       })
     },
     resolvedBy: async (parent) => {
@@ -1144,7 +1168,13 @@ const chatResolver = {
       if (!parent.resolvedById) return null
       return prisma.user.findUnique({
         where: { id: parent.resolvedById },
-        select: { id: true, name: true, email: true, images: true, support: true }
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          images: true,
+          support: true
+        }
       })
     }
   },

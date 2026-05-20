@@ -1075,20 +1075,35 @@ const requestResolver = {
         }
 
         const newHc = updatedRequest.hotelChess?.[0]
-        const newRoomId = newHc?.roomId || (wantsPlacement ? placementRoom?.id : null)
+        const newRoomId =
+          newHc?.roomId || (wantsPlacement ? placementRoom?.id : null)
 
         if (newRoomId || oldRoomId) {
           await recalculateRequestPricing(requestId)
 
           if (wantsPlacement || isHotelChange) {
             await recalculateAffectedByRoomChange(
-              oldRoomId, oldChessStart, oldChessEnd,
-              newRoomId, updatedStart, updatedEnd,
+              oldRoomId,
+              oldChessStart,
+              oldChessEnd,
+              newRoomId,
+              updatedStart,
+              updatedEnd,
               requestId
             )
           } else if (datesChanged && oldRoomId) {
-            await recalculateOverlappingRequests(oldRoomId, oldChessStart, oldChessEnd, requestId)
-            await recalculateOverlappingRequests(oldRoomId, updatedStart, updatedEnd, requestId)
+            await recalculateOverlappingRequests(
+              oldRoomId,
+              oldChessStart,
+              oldChessEnd,
+              requestId
+            )
+            await recalculateOverlappingRequests(
+              oldRoomId,
+              updatedStart,
+              updatedEnd,
+              requestId
+            )
           }
         }
 
@@ -1272,9 +1287,14 @@ const requestResolver = {
 
       // Если заявка размещена через TravelLine — сначала отменяем бронь в TL.
       // Если TL вернул ошибку — пробрасываем её, Request не меняется (предотвращаем рассинхрон).
-      if (request.externalSource === "travelline" && request.externalBookingNumber) {
+      if (
+        request.externalSource === "travelline" &&
+        request.externalBookingNumber
+      ) {
         try {
-          await travellineService.cancelReservation(request.externalBookingNumber)
+          await travellineService.cancelReservation(
+            request.externalBookingNumber
+          )
         } catch (err) {
           logger.warn(
             `cancelRequest: TravelLine cancel failed for booking ${request.externalBookingNumber}: ${err?.message}`
