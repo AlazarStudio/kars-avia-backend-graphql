@@ -14,6 +14,19 @@ function spanNo(text) {
   return span(`№${text}`)
 }
 
+function formatMealPlanLine(mealPlan) {
+  if (!mealPlan?.included) {
+    return span("не включено")
+  }
+  const yes = (v) => (v ? "да" : "нет")
+  const parts = [
+    `завтрак: ${yes(mealPlan.breakfastEnabled)}`,
+    `обед: ${yes(mealPlan.lunchEnabled)}`,
+    `ужин: ${yes(mealPlan.dinnerEnabled)}`
+  ]
+  return span(`включено (${parts.join(", ")})`)
+}
+
 export function buildCreateRequestEmail({
   requestNumber,
   personName,
@@ -30,19 +43,22 @@ export function buildCreateRequestEmail({
   const airline = span(airlineName)
   const arrival = span(arrivalTime)
   const departure = span(departureTime)
-
-  console.log("mealPlan ", mealPlan)
+  const meal = formatMealPlanLine(mealPlan)
 
   if (isPreliminary) {
     const subject = `Создана предварительная бронь №${requestNumber}`
-    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}. \n Заезд: ${arrival}, выезд: ${departure}.`
+    const html = `Поступила предварительная бронь ${no} в аэропорт ${airport} авиакомпания ${airline}.<br>
+Заезд: ${arrival}, выезд: ${departure}.<br>
+Питание: ${meal}.`
     // add link to request in kars-frontend
     return { subject, html }
   }
 
   const subject = `Создана заявка №${requestNumber}`
   const person = span([positionName, personName].filter(Boolean).join(" "))
-  const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}. \n Заезд: ${arrival}, выезд: ${departure}.`
+  const html = `Создана заявка ${no} для ${person} в аэропорт ${airport} авиакомпания ${airline}.<br>
+Заезд: ${arrival}, выезд: ${departure}.<br>
+Питание: ${meal}.`
   // add link to request in kars-frontend
   return { subject, html }
 }
