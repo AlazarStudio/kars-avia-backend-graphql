@@ -1,17 +1,19 @@
 const siteTypeDef = /* GraphQL */ `
   #graphql
 
+  scalar Date
+
   type MaintenanceBanner {
     enabled: Boolean!
     message: String
-    endsAt: DateTime
+    endsAt: Date
     isVisible: Boolean!
   }
 
   input UpdateMaintenanceBannerInput {
     enabled: Boolean!
     message: String
-    endsAt: DateTime
+    endsAt: Date
   }
 
   extend type Query {
