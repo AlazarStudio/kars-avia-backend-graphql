@@ -303,7 +303,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     # getAllNotifications: Notification
     getPosition(id: ID!): Position
     getAllPositions: [Position]
-    getAirlinePositions(airlineId: ID!): [Position!]!
+    getAirlinePositions: [Position!]!
     getAirlineUserPositions(airlineId: ID!): [Position!]!
     getHotelPositions: [Position]
     getDispatcherPositions: [Position]
