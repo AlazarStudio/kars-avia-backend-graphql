@@ -665,6 +665,12 @@ const dispatcherResolver = {
     },
     deleteDispatcherDepartment: async (_, { id }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)
+
+      await prisma.user.updateMany({
+        where: { dispatcherDepartmentId: id },
+        data: { dispatcherDepartmentId: null }
+      })
+
       const department = await prisma.dispatcherDepartment.update({
         where: { id },
         data: { active: false },

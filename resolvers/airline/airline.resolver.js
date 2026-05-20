@@ -698,13 +698,23 @@ const airlineResolver = {
     deleteAirlineDepartment: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
       await airlineAdminMiddleware(context)
-      // Удаляем департамент и возвращаем связанные с ним данные (например, персонал)
-      const department = await prisma.airlineDepartment.delete({
-        where: { id },
-        include: {
-          staff: true
-        }
-      })
+
+      const [, , department] = await prisma.$transaction([
+        prisma.user.updateMany({
+          where: { airlineDepartmentId: id },
+          data: { airlineDepartmentId: null }
+        }),
+        prisma.airlinePersonal.updateMany({
+          where: { departmentId: id },
+          data: { departmentId: null }
+        }),
+        prisma.airlineDepartment.delete({
+          where: { id },
+          include: {
+            staff: true
+          }
+        })
+      ])
       // Получаем обновленную информацию об авиакомпании, к которой относится удалённый департамент
       const airlineWithRelations = await prisma.airline.findUnique({
         where: { id: department.airlineId }

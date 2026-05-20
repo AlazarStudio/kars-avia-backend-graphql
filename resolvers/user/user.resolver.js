@@ -975,6 +975,13 @@ const userResolver = {
         throw new Error("Access forbidden")
       }
 
+      const deactivateData = {
+        active: false,
+        airlineDepartmentId: null,
+        dispatcherDepartmentId: null,
+        representativeDepartmentId: null
+      }
+
       // Если пользователь привязан к авиакомпании – проверяем права авиадминистратора
       if (userForDelete.airlineId) {
         await airlineAdminMiddleware(context)
@@ -985,9 +992,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
 
@@ -1001,9 +1006,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
 
@@ -1017,9 +1020,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
     }

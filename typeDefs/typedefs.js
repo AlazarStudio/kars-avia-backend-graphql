@@ -19,6 +19,7 @@ import representativeTypeDef from "./representative/representative.typeDef.js"
 import reportTypeDef from "./report/report.typeDef.js"
 import requestTypeDef from "./request/request.typeDef.js"
 import reserveTypeDef from "./reserve/reserve.typeDef.js"
+import siteTypeDef from "./site/site.typeDef.js"
 import supportTypeDef from "./support/support.typeDef.js"
 import transferTypeDef from "./transfer/transfer.typeDef.js"
 import travellineTypeDef from "./travelline/travelline.typeDef.js"
@@ -44,6 +45,7 @@ const mergedTypeDefs = mergeTypeDefs([
   reportTypeDef,
   requestTypeDef,
   reserveTypeDef,
+  siteTypeDef,
   supportTypeDef,
   transferTypeDef,
   travellineTypeDef,

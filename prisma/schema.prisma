@@ -719,6 +719,15 @@ model PatchNote {
   images      String[]
 }
 
+model MaintenanceBanner {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  enabled   Boolean   @default(false)
+  message   String    @default("")
+  endsAt    DateTime? @map("ends_at")
+}
+
 // Схемы для документации
 model Section {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
