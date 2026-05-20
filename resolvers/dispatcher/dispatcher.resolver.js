@@ -230,11 +230,10 @@ const dispatcherResolver = {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({})
     },
-    getAirlinePositions: async (_, { airlineId }, context) => {
+    getAirlinePositions: async (_, {}, context) => {
       await airlineAdminMiddleware(context)
-      const resolvedAirlineId = resolveAirlineId(context, airlineId)
       return await prisma.position.findMany({
-        where: { separator: "airline", airlineId: resolvedAirlineId },
+        where: { separator: "airline" },
         orderBy: { name: "asc" }
       })
     },
