@@ -10,6 +10,8 @@ const reserveTypeDef = /* GraphQL */ `
     updatedAt: Date
     airport: Airport
     airline: Airline
+    airlineDepartmentId: ID
+    airlineDepartment: AirlineDepartment
     senderId: ID!
     arrival: Date!
     departure: Date!

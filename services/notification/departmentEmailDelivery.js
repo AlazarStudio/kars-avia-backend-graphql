@@ -15,9 +15,12 @@ export async function deliverDepartmentEmails({
   html,
   entityType,
   entityId,
-  fallbackTo
+  fallbackTo,
+  skipEnvFallback = false
 }) {
   if (!recipients?.length) {
+    if (skipEnvFallback) return
+
     const to = resolveEnvEmail(fallbackTo)
     const { allowed } = shouldSendNotification({
       channel: "email",

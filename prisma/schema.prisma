@@ -379,6 +379,8 @@ model AirlineDepartment {
   accessMenu       AccessMenu?
   notificationMenu NotificationMenu?
   position         PositionOnDepartment[]
+  requests         Request[]
+  reserves         Reserve[]
 }
 
 model AirlinePersonal {
@@ -1242,6 +1244,8 @@ model Request {
   Notifications         Notification[]
   requestAirlinePrice   requestPrice?
   requestHotelPrice     requestPrice?
+  airlineDepartment     AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId   String?            @db.ObjectId
 }
 
 type requestPrice {
@@ -1278,8 +1282,10 @@ model Reserve {
   archive        Boolean        @default(false)
   hotelChess     HotelChess[]
   files          String[]
-  passengerList  String[]
-  Notifications  Notification[]
+  passengerList       String[]
+  Notifications       Notification[]
+  airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
+  airlineDepartmentId String?            @db.ObjectId
 }
 
 model ReserveHotel {

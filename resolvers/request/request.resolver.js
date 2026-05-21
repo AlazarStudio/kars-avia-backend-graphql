@@ -31,6 +31,7 @@ import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { resolveCreatorDepartmentFromSender } from "../../services/notification/resolveCreatorAirlineDepartment.js"
 import {
   buildCancelRequestDoneEmail,
   buildCancelRequestRequestEmail,
@@ -462,6 +463,11 @@ const requestResolver = {
           mealPlan.dinnerEnabled = mealPlan.dinnerEnabled || false
         }
       }
+      const creatorDepartmentId = await resolveCreatorDepartmentFromSender({
+        senderId,
+        personId
+      })
+
       // Создание заявки в базе данных с подключением связанных сущностей
       const newRequest = await prisma.request.create({
         data: {
@@ -474,6 +480,11 @@ const requestResolver = {
           mealPlan,
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
+          ...(creatorDepartmentId
+            ? {
+                airlineDepartment: { connect: { id: creatorDepartmentId } }
+              }
+            : {}),
           status,
           reserve,
           defaultTimesUsed: defaultTimesUsed ?? false,
@@ -879,7 +890,6 @@ const requestResolver = {
             place,
             request.hotelChess?.[0]?.id
           )
-          shouldRemoveHotelChess = true
         } else if (inputHotelId != null) {
           shouldRemoveHotelChess = true
           placementHotelId = inputHotelId
@@ -979,18 +989,47 @@ const requestResolver = {
         }
 
         if (wantsPlacement) {
-          const newHotelChess = await prisma.hotelChess.create({
-            data: {
-              hotel: { connect: { id: placementHotelId } },
-              room: { connect: { id: placementRoom.id } },
-              place: placementPlace,
-              start: updatedStart,
-              end: updatedEnd,
-              request: { connect: { id: requestId } },
-              mealPlan: mealPlanData
-            }
-          })
-          pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
+          await ensureNoOverlap(
+            placementRoom.id,
+            placementPlace,
+            updatedStart,
+            updatedEnd,
+            request.hotelChess?.[0]?.id
+          )
+
+          const existingHc =
+            request.hotelChess?.[0] ||
+            (await prisma.hotelChess.findFirst({ where: { requestId } }))
+
+          if (existingHc) {
+            const updatedHotelChess = await prisma.hotelChess.update({
+              where: { id: existingHc.id },
+              data: {
+                hotel: { connect: { id: placementHotelId } },
+                room: { connect: { id: placementRoom.id } },
+                place: placementPlace,
+                start: updatedStart,
+                end: updatedEnd,
+                mealPlan: mealPlanData
+              }
+            })
+            pubsub.publish(HOTEL_UPDATED, {
+              hotelUpdated: updatedHotelChess
+            })
+          } else {
+            const newHotelChess = await prisma.hotelChess.create({
+              data: {
+                hotel: { connect: { id: placementHotelId } },
+                room: { connect: { id: placementRoom.id } },
+                place: placementPlace,
+                start: updatedStart,
+                end: updatedEnd,
+                request: { connect: { id: requestId } },
+                mealPlan: mealPlanData
+              }
+            })
+            pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
+          }
         }
 
         if (inputMealPlan && request.mealPlan) {

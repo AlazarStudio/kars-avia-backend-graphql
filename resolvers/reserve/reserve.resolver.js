@@ -31,6 +31,7 @@ import {
 import path from "path"
 import fs from "fs"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { resolveCreatorDepartmentFromSender } from "../../services/notification/resolveCreatorAirlineDepartment.js"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -303,6 +304,10 @@ const reserveResolver = {
         }
       }
 
+      const creatorDepartmentId = await resolveCreatorDepartmentFromSender({
+        senderId
+      })
+
       // Создание нового резерва с подключением связанных сущностей.
       const newReserve = await prisma.reserve.create({
         data: {
@@ -312,6 +317,11 @@ const reserveResolver = {
           mealPlan,
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
+          ...(creatorDepartmentId
+            ? {
+                airlineDepartment: { connect: { id: creatorDepartmentId } }
+              }
+            : {}),
           status,
           reserveNumber,
           passengers,

@@ -3,6 +3,7 @@ import {
   deliverAirlineDepartmentEmails
 } from "./sendAirlineEmail.js"
 import { sendDispatcherEmail } from "./sendDispatcherEmail.js"
+import { resolveCreatorAirlineDepartment } from "./resolveCreatorAirlineDepartment.js"
 
 export async function sendRequestPartyEmail({
   actor,
@@ -15,6 +16,17 @@ export async function sendRequestPartyEmail({
   dispatcherFallbackTo,
   alsoNotifyAirline = false
 }) {
+  let airlineDepartmentId = null
+  if (
+    entityId &&
+    (entityType === "request" || entityType === "reserve")
+  ) {
+    airlineDepartmentId = await resolveCreatorAirlineDepartment(
+      entityType,
+      entityId
+    )
+  }
+
   if (actor?.dispatcher === true) {
     await sendAirlineEmail({
       actor,
@@ -23,7 +35,8 @@ export async function sendRequestPartyEmail({
       subject,
       html,
       entityType,
-      entityId
+      entityId,
+      airlineDepartmentId
     })
   } else {
     await sendDispatcherEmail({
@@ -45,7 +58,8 @@ export async function sendRequestPartyEmail({
       html,
       entityType,
       entityId,
-      fallbackTo: "EMAIL_AVIA"
+      fallbackTo: "EMAIL_AVIA",
+      airlineDepartmentId
     })
   }
 }

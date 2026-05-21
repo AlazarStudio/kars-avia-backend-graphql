@@ -121,17 +121,30 @@ export async function getUniqueDispatcherEmailRecipients(action) {
   return dedupeDepartmentRecipients(departments)
 }
 
-export async function getAirlineDepartmentsForEmail(action, airlineId) {
+export async function getAirlineDepartmentsForEmail(
+  action,
+  airlineId,
+  { departmentId } = {}
+) {
+  const where = { active: true, airlineId, email: { not: null } }
+  if (departmentId) where.id = departmentId
+
   const departments = await prisma.airlineDepartment.findMany({
-    where: { active: true, airlineId, email: { not: null } },
+    where,
     select: { id: true, email: true, notificationMenu: true }
   })
 
   return filterDepartmentsForEmail(departments, action)
 }
 
-export async function getUniqueAirlineEmailRecipients(action, airlineId) {
-  const departments = await getAirlineDepartmentsForEmail(action, airlineId)
+export async function getUniqueAirlineEmailRecipients(
+  action,
+  airlineId,
+  { departmentId } = {}
+) {
+  const departments = await getAirlineDepartmentsForEmail(action, airlineId, {
+    departmentId
+  })
   return dedupeDepartmentRecipients(departments)
 }
 

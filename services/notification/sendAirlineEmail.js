@@ -8,7 +8,8 @@ export async function deliverAirlineDepartmentEmails({
   html,
   entityType,
   entityId,
-  fallbackTo = "EMAIL_AVIA"
+  fallbackTo = "EMAIL_AVIA",
+  airlineDepartmentId = null
 }) {
   if (!airlineId) {
     console.warn(
@@ -17,7 +18,10 @@ export async function deliverAirlineDepartmentEmails({
     return
   }
 
-  const recipients = await getUniqueAirlineEmailRecipients(action, airlineId)
+  const scoped = Boolean(airlineDepartmentId)
+  const recipients = await getUniqueAirlineEmailRecipients(action, airlineId, {
+    departmentId: airlineDepartmentId ?? undefined
+  })
 
   await deliverDepartmentEmails({
     recipients,
@@ -26,7 +30,8 @@ export async function deliverAirlineDepartmentEmails({
     html,
     entityType,
     entityId,
-    fallbackTo
+    fallbackTo,
+    skipEnvFallback: scoped
   })
 }
 
@@ -38,7 +43,8 @@ export async function sendAirlineEmail({
   html,
   entityType,
   entityId,
-  fallbackTo = "EMAIL_AVIA"
+  fallbackTo = "EMAIL_AVIA",
+  airlineDepartmentId = null
 }) {
   if (actor?.dispatcher !== true) return
 
@@ -49,6 +55,7 @@ export async function sendAirlineEmail({
     html,
     entityType,
     entityId,
-    fallbackTo
+    fallbackTo,
+    airlineDepartmentId
   })
 }

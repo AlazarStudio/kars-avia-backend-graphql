@@ -25,6 +25,8 @@ const requestTypeDef = /* GraphQL */ `
     roomNumber: String
     airlineId: ID
     airline: Airline!
+    airlineDepartmentId: ID
+    airlineDepartment: AirlineDepartment
     status: String
     requestNumber: String
     archive: Boolean

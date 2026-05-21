@@ -508,7 +508,6 @@ const chatResolver = {
           })
         }
 
-        await publishRequestUpdated(message.chat.requestId)
       }
 
       if (message.chat.reserveId) {
