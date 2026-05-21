@@ -1,4 +1,5 @@
 import { sendEmail } from "../sendMail.js"
+import { normalizeEmail } from "./notificationMenuCheck.js"
 import { shouldSendNotification } from "./notificationRateGuard.js"
 
 export function resolveEnvEmail(fallbackTo) {
@@ -27,7 +28,7 @@ export async function deliverDepartmentEmails({
       action,
       entityType,
       entityId,
-      recipientId: to ?? fallbackTo
+      recipientId: normalizeEmail(to) || to || fallbackTo
     })
     if (allowed) {
       await sendEmail({ to, subject, html })
@@ -41,7 +42,10 @@ export async function deliverDepartmentEmails({
       action,
       entityType,
       entityId,
-      recipientId: recipient.departmentId
+      recipientId:
+        normalizeEmail(recipient.email) ||
+        recipient.departmentId ||
+        recipient.email
     })
     if (allowed) {
       await sendEmail({ to: recipient.email, subject, html })

@@ -397,6 +397,7 @@ const hotelResolver = {
         }
 
         const affectedRequestIds = new Set()
+        const placementEmailSentForRequest = new Set()
         let cachedHotelMealInfo = null
         const getHotelMealInfo = async () => {
           if (!cachedHotelMealInfo) {
@@ -503,17 +504,20 @@ const hotelResolver = {
                   roomName: room.name,
                   requestId: updatedRequest.id
                 })
-                await sendRequestPartyEmail({
-                  actor: user,
-                  airlineId: updatedRequest.airlineId,
-                  action: "update_hotel_chess_request",
-                  subject: transferEmail.subject,
-                  html: transferEmail.html,
-                  entityType: "request",
-                  entityId: updatedRequest.id,
-                  dispatcherFallbackTo: "EMAIL_KARS",
-                  alsoNotifyAirline: true
-                })
+                if (!placementEmailSentForRequest.has(updatedRequest.id)) {
+                  placementEmailSentForRequest.add(updatedRequest.id)
+                  await sendRequestPartyEmail({
+                    actor: user,
+                    airlineId: updatedRequest.airlineId,
+                    action: "update_hotel_chess_request",
+                    subject: transferEmail.subject,
+                    html: transferEmail.html,
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    dispatcherFallbackTo: "EMAIL_KARS",
+                    alsoNotifyAirline: true
+                  })
+                }
 
                 const hotelChessRequestSiteAllowed = shouldSendNotification({
                   channel: "site",
@@ -761,17 +765,20 @@ const hotelResolver = {
                     personName: updatedRequest.person?.name,
                     requestId: updatedRequest.id
                   })
-                  await sendRequestPartyEmail({
-                    actor: user,
-                    airlineId: updatedRequest.airlineId,
-                    action: "update_hotel_chess_request",
-                    subject: placementEmail.subject,
-                    html: placementEmail.html,
-                    entityType: "request",
-                    entityId: updatedRequest.id,
-                    dispatcherFallbackTo: "EMAIL_KARS",
-                    alsoNotifyAirline: true
-                  })
+                  if (!placementEmailSentForRequest.has(updatedRequest.id)) {
+                    placementEmailSentForRequest.add(updatedRequest.id)
+                    await sendRequestPartyEmail({
+                      actor: user,
+                      airlineId: updatedRequest.airlineId,
+                      action: "update_hotel_chess_request",
+                      subject: placementEmail.subject,
+                      html: placementEmail.html,
+                      entityType: "request",
+                      entityId: updatedRequest.id,
+                      dispatcherFallbackTo: "EMAIL_KARS",
+                      alsoNotifyAirline: true
+                    })
+                  }
 
                   await logAction({
                     context,
