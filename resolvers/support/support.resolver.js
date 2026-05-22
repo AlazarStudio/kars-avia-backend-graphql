@@ -21,7 +21,8 @@ import {
 import {
   assertCanOpenSupportChat,
   assertSupportAgent,
-  findSupportAgents
+  findSupportAgents,
+  getAuthUser
 } from "../../services/support/supportAgent.js"
 
 // Резольвер для чатов поддержки (агенты — диспетчеры с dispatcher: true).
@@ -66,8 +67,7 @@ const supportResolver = {
     },
     supportTicketStats: async (_, { startDate, endDate }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { user } = context
-      assertSupportAgent(user)
+      assertSupportAgent(context)
       const where = {}
       if (startDate || endDate) {
         where.createdAt = {}
@@ -91,8 +91,7 @@ const supportResolver = {
     // Query: supportChats — список чатов для диспетчеров
     supportChats: async (_, __, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { user } = context
-      assertSupportAgent(user)
+      assertSupportAgent(context)
 
       // Возвращаем все чаты с участниками, сообщениями и данными тикета
       const chats = await prisma.chat.findMany({
@@ -178,8 +177,7 @@ const supportResolver = {
     },
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      console.log(JSON.stringify(context))
-      assertCanOpenSupportChat(context.user)
+      assertCanOpenSupportChat(context)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -598,7 +596,7 @@ const supportResolver = {
     },
     createSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      assertCanOpenSupportChat(context.user)
+      assertCanOpenSupportChat(context)
       // Проверяем, существует ли уже чат поддержки для данного userId
       const existingChat = await prisma.chat.findFirst({
         where: {
@@ -689,8 +687,8 @@ const supportResolver = {
     },
     claimSupportTicket: async (_, { chatId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { user } = context
-      assertSupportAgent(user)
+      assertSupportAgent(context)
+      const user = getAuthUser(context)
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -776,8 +774,8 @@ const supportResolver = {
     },
     resolveSupportTicket: async (_, { chatId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { user } = context
-      assertSupportAgent(user)
+      assertSupportAgent(context)
+      const user = getAuthUser(context)
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
