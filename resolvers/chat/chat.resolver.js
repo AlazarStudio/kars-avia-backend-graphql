@@ -353,13 +353,13 @@ const chatResolver = {
       if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
-          select: { id: true, support: true }
+          select: { id: true, dispatcher: true }
         })
         if (!sender) throw new Error("Отправитель не найден")
-        if (sender.support) {
+        if (sender.dispatcher === true) {
           if (chat.assignedToId !== senderId) {
             throw new Error(
-              "Ответить в чате техподдержки может только агент, принявший тикет. Сначала возьмите тикет в работу."
+              "Ответить в чате поддержки может только диспетчер, принявший тикет. Сначала возьмите тикет в работу."
             )
           }
         } else {

@@ -18,10 +18,14 @@ import {
   allMiddleware,
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
+import {
+  assertCanOpenSupportChat,
+  assertSupportAgent,
+  findSupportAgents
+} from "../../services/support/supportAgent.js"
 
-// Резольвер для поддержки (support) чатов.
-// Этот резольвер отвечает за получение списка чатов поддержки, создание нового чата поддержки для пользователя,
-// а также за поиск чата поддержки, связанного с конкретным пользователем.
+// Резольвер для чатов поддержки (агенты — диспетчеры с dispatcher: true).
+// Создание чата — обычные пользователи; обработка тикетов — диспетчеры.
 const supportResolver = {
   Upload: GraphQLUpload,
 
@@ -63,9 +67,7 @@ const supportResolver = {
     supportTicketStats: async (_, { startDate, endDate }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      if (!user.support) {
-        throw new GraphQLError("Доступ только для агентов техподдержки")
-      }
+      assertSupportAgent(user)
       const where = {}
       if (startDate || endDate) {
         where.createdAt = {}
@@ -86,18 +88,11 @@ const supportResolver = {
       ])
       return { totalAppeals, totalClosed, totalOpen }
     },
-    // Query: supportChats
-    // Возвращает список всех чатов поддержки.
-    // Доступ разрешён только для пользователей, у которых свойство support задано (например, это агент поддержки).
-    // Каждый чат включает участников (participants) с данными о пользователе и сообщения (messages).
+    // Query: supportChats — список чатов для диспетчеров
     supportChats: async (_, __, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-
-      // Если у текущего пользователя нет прав поддержки, выбрасываем ошибку
-      if (!user.support) {
-        throw new Error("Access denied")
-      }
+      assertSupportAgent(user)
 
       // Возвращаем все чаты с участниками, сообщениями и данными тикета
       const chats = await prisma.chat.findMany({
@@ -168,10 +163,9 @@ const supportResolver = {
         }
       })
 
-      // Фильтруем участников с support: false для каждого чата
       const filteredChats = chats.map((chat) => {
         const filteredParticipants = chat.participants.filter(
-          (participant) => !participant.user.support // Оставляем только тех, у кого support: false
+          (participant) => !participant.user.dispatcher
         )
 
         return {
@@ -182,11 +176,9 @@ const supportResolver = {
 
       return filteredChats
     },
-    // Query: userSupportChat
-    // Возвращает чат поддержки, связанный с указанным userId.
-    // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      assertCanOpenSupportChat(context.user)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -235,14 +227,10 @@ const supportResolver = {
       })
       // Если чат не найден, создаем новый
       if (!chat) {
-        // Получаем всех пользователей, имеющих флаг поддержки (support: true)
-        const supportUsers = await prisma.user.findMany({
-          where: { support: true }
-        })
-        if (supportUsers.length === 0) {
-          throw new Error("No support agents available")
+        const dispatchers = await findSupportAgents()
+        if (dispatchers.length === 0) {
+          throw new GraphQLError("Нет доступных диспетчеров")
         }
-        // Создаем новый чат поддержки с первым тикетом
         chat = await prisma.chat.create({
           data: {
             isSupport: true,
@@ -250,8 +238,8 @@ const supportResolver = {
             participants: {
               create: [
                 { user: { connect: { id: userId } } },
-                ...supportUsers.map((support) => ({
-                  user: { connect: { id: support.id } }
+                ...dispatchers.map((dispatcher) => ({
+                  user: { connect: { id: dispatcher.id } }
                 }))
               ]
             },
@@ -609,6 +597,7 @@ const supportResolver = {
     },
     createSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      assertCanOpenSupportChat(context.user)
       // Проверяем, существует ли уже чат поддержки для данного userId
       const existingChat = await prisma.chat.findFirst({
         where: {
@@ -645,16 +634,12 @@ const supportResolver = {
         })
       }
 
-      // Получаем всех пользователей-агентов поддержки
-      const supportUsers = await prisma.user.findMany({
-        where: { support: true }
-      })
+      const dispatchers = await findSupportAgents()
 
-      if (supportUsers.length === 0) {
-        throw new Error("No support agents available")
+      if (dispatchers.length === 0) {
+        throw new GraphQLError("Нет доступных диспетчеров")
       }
 
-      // Создаем новый чат поддержки с первым тикетом
       const chat = await prisma.chat.create({
         data: {
           isSupport: true,
@@ -662,8 +647,8 @@ const supportResolver = {
           participants: {
             create: [
               { user: { connect: { id: userId } } },
-              ...supportUsers.map((support) => ({
-                user: { connect: { id: support.id } }
+              ...dispatchers.map((dispatcher) => ({
+                user: { connect: { id: dispatcher.id } }
               }))
             ]
           },
@@ -704,9 +689,7 @@ const supportResolver = {
     claimSupportTicket: async (_, { chatId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      if (!user.support) {
-        throw new GraphQLError("Только агент техподдержки может взять тикет")
-      }
+      assertSupportAgent(user)
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -718,7 +701,7 @@ const supportResolver = {
         throw new GraphQLError("Чат поддержки не найден")
       }
       if (chat.assignedToId && chat.assignedToId !== user.id) {
-        throw new GraphQLError("Тикет уже взят другим агентом")
+        throw new GraphQLError("Тикет уже взят другим диспетчером")
       }
       if (chat.assignedToId === user.id) {
         return prisma.chat.findUnique({
@@ -793,9 +776,7 @@ const supportResolver = {
     resolveSupportTicket: async (_, { chatId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      if (!user.support) {
-        throw new GraphQLError("Только агент техподдержки может закрыть тикет")
-      }
+      assertSupportAgent(user)
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: {
@@ -808,7 +789,7 @@ const supportResolver = {
       }
       if (chat.assignedToId !== user.id) {
         throw new GraphQLError(
-          "Закрыть тикет может только агент, ведущий этот чат"
+          "Закрыть тикет может только диспетчер, ведущий этот чат"
         )
       }
       let activeTicket = chat.tickets?.find((t) => t.status === "IN_PROGRESS")
@@ -896,7 +877,7 @@ const supportResolver = {
         where: {
           chatId: parent.id,
           user: {
-            support: false // Фильтруем пользователей, у которых support: false
+            dispatcher: false
           }
         },
         include: {
