@@ -178,7 +178,7 @@ const supportResolver = {
     },
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      assertCanOpenSupportChat(context.user)
+      // assertCanOpenSupportChat(context.user)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {

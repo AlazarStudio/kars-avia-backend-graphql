@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Устанавливаем зависимости
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Копируем исходный код
 COPY . .
@@ -18,6 +18,6 @@ RUN mkdir -p uploads reports reserve_files logs backups
 EXPOSE 4000
 
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
