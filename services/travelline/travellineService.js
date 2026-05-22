@@ -152,6 +152,7 @@ const PREFIX_CONTENT = "/api/content"
 const PREFIX_SEARCH = "/api/search"
 const PREFIX_RESERVATION = "/api/reservation"
 const PREFIX_READ_RESERVATION = "/api/read-reservation"
+const PREFIX_REFERENCE_DATA = "/api/reference-data"
 
 class TravellineService {
   constructor() {
@@ -703,6 +704,46 @@ class TravellineService {
 
   // ─── Search API ────────────────────────────────────────────────────────────
 
+  // ─── РЗПВ helpers ────────────────────────────────────────────────────────────
+
+  _extractTimeServices(stay) {
+    const services = stay.services ?? stay.additionalServices ?? stay.extraServices ?? []
+    const currency = stay.currencyCode ?? "RUB"
+
+    const mapPeriods = (s) => {
+      const periods = s.periods ?? s.options ?? s.priceRanges ?? []
+      if (periods.length > 0) {
+        return periods.map((p) => ({
+          periodFrom: p.from ?? p.periodFrom ?? p.checkInFrom ?? p.start ?? "",
+          periodTo: p.to ?? p.periodTo ?? p.checkInTo ?? p.end ?? "",
+          price: p.price ?? p.amount ?? p.priceBeforeTax ?? 0,
+          currency: p.currency ?? p.currencyCode ?? currency
+        }))
+      }
+      // Сервис без вложенных периодов — сам является периодом
+      return [{
+        periodFrom: s.from ?? s.periodFrom ?? s.checkInFrom ?? s.start ?? "",
+        periodTo: s.to ?? s.periodTo ?? s.checkInTo ?? s.end ?? "",
+        price: s.price ?? s.amount ?? s.priceBeforeTax ?? 0,
+        currency: s.currency ?? s.currencyCode ?? currency
+      }]
+    }
+
+    const earlyCheckInOptions = []
+    const lateCheckOutOptions = []
+
+    for (const s of services) {
+      const type = String(s.type ?? s.serviceType ?? s.code ?? "").toLowerCase()
+      if (type.includes("earlycheckin") || type.includes("early_check_in") || type === "earlyin") {
+        earlyCheckInOptions.push(...mapPeriods(s))
+      } else if (type.includes("latecheckout") || type.includes("late_check_out") || type === "lateout") {
+        lateCheckOutOptions.push(...mapPeriods(s))
+      }
+    }
+
+    return { earlyCheckInOptions, lateCheckOutOptions }
+  }
+
   async searchAvailability(input) {
     const arrival = new Date(input.arrival)
     const departure = new Date(input.departure)
@@ -721,6 +762,9 @@ class TravellineService {
       adults: String(input.adults ?? 1)
     })
     childAges.forEach((age) => params.append("childAges", String(age)))
+
+    const corporateIds = input.corporateIds ?? []
+    corporateIds.forEach((id) => params.append("corporateIds", String(id)))
 
     const { data, raw } = await this.request(
       "GET",
@@ -759,6 +803,8 @@ class TravellineService {
           : []
 
       const placements = stay.roomType?.placements ?? []
+      const { earlyCheckInOptions, lateCheckOutOptions } = this._extractTimeServices(stay)
+      const corporateIdsOnRate = stay.ratePlan?.corporateIds ?? stay.corporateIds ?? null
 
       rates.push({
         roomTypeId,
@@ -787,6 +833,9 @@ class TravellineService {
           type: p.placementType ?? p.type ?? null,
           capacity: p.capacity ?? p.count ?? null
         })),
+        earlyCheckInOptions: earlyCheckInOptions.length > 0 ? earlyCheckInOptions : null,
+        lateCheckOutOptions: lateCheckOutOptions.length > 0 ? lateCheckOutOptions : null,
+        corporateIds: corporateIdsOnRate,
         raw: JSON.stringify(stay)
       })
     }
@@ -829,6 +878,18 @@ class TravellineService {
       guests: opts.guests,
       ...(opts.checksum ? { checksum: opts.checksum } : {})
     }
+
+    const additionalServices = []
+    if (opts.earlyCheckInDateTime) {
+      additionalServices.push({ type: "EarlyCheckIn", dateTimeLocal: opts.earlyCheckInDateTime })
+    }
+    if (opts.lateCheckOutDateTime) {
+      additionalServices.push({ type: "LateCheckOut", dateTimeLocal: opts.lateCheckOutDateTime })
+    }
+    if (additionalServices.length > 0) {
+      roomStay.additionalServices = additionalServices
+    }
+
     return roomStay
   }
 
@@ -844,7 +905,9 @@ class TravellineService {
       guests: [{ firstName: "Guest", lastName: "Guest" }],
       checksum: input.checksum,
       checkInTime: input.checkInTime,
-      checkOutTime: input.checkOutTime
+      checkOutTime: input.checkOutTime,
+      earlyCheckInDateTime: input.earlyCheckInDateTime,
+      lateCheckOutDateTime: input.lateCheckOutDateTime
     })
 
     const body = {
@@ -855,7 +918,8 @@ class TravellineService {
           firstName: "Guest",
           lastName: "Guest",
           contacts: { phones: [], emails: [] }
-        }
+        },
+        ...(input.corporateId ? { corporateId: input.corporateId } : {})
       }
     }
 
@@ -993,6 +1057,10 @@ class TravellineService {
 
     if (input.propertyIds && input.propertyIds.length > 0) {
       body.propertyIds = input.propertyIds
+    }
+
+    if (input.corporateIds && input.corporateIds.length > 0) {
+      body.corporateIds = input.corporateIds
     }
 
     let data
@@ -1155,7 +1223,9 @@ class TravellineService {
       ],
       checksum: input.checksum,
       checkInTime: input.checkInTime,
-      checkOutTime: input.checkOutTime
+      checkOutTime: input.checkOutTime,
+      earlyCheckInDateTime: input.earlyCheckInDateTime,
+      lateCheckOutDateTime: input.lateCheckOutDateTime
     })
 
     const phones = customer?.phone ? [{ phoneNumber: customer.phone }] : []
@@ -1172,7 +1242,8 @@ class TravellineService {
         propertyId: input.propertyId,
         roomStays: [roomStay],
         customer: bookingCustomer,
-        bookingComments: input.comment ? [input.comment] : []
+        bookingComments: input.comment ? [input.comment] : [],
+        ...(input.corporateId ? { corporateId: input.corporateId } : {})
       }
     }
 
@@ -1230,6 +1301,9 @@ class TravellineService {
           roomTypeName: input.roomTypeName ?? null,
           ratePlanName: input.ratePlanName ?? null,
           cancellationPoliciesRaw: input.cancellationPoliciesJson ?? null,
+          earlyCheckInDateTime: input.earlyCheckInDateTime ?? null,
+          lateCheckOutDateTime: input.lateCheckOutDateTime ?? null,
+          corporateId: input.corporateId ?? null,
           raw: reservation.raw
         },
         update: { status: reservation.status, raw: reservation.raw }
@@ -1367,6 +1441,175 @@ class TravellineService {
     return true
   }
 
+  async amendReservation(input) {
+    const record = await prisma.tlBookingRecord.findUnique({
+      where: { id: input.bookingId }
+    })
+    if (!record) {
+      throw new Error(`TravelLine: бронь ${input.bookingId} не найдена в БД`)
+    }
+
+    // Fetch current booking from TravelLine to get up-to-date version and checksum
+    // (stored raw may be stale; TravelLine rejects modify with outdated checksum/version)
+    let bookingVersion = null
+    let existingChecksum = null
+    let existingGuests = [{ firstName: record.guestFirst ?? "Guest", lastName: record.guestLast ?? "Guest" }]
+    let existingPlacements = []
+
+    try {
+      const { data: currentData } = await this.request(
+        "GET",
+        `${PREFIX_RESERVATION}/v1/bookings/${input.bookingId}`
+      )
+      const currentBooking = currentData?.booking ?? currentData
+      bookingVersion = currentBooking?.version ?? null
+      const currentStay = currentBooking?.roomStays?.[0] ?? currentBooking?.placements?.[0] ?? {}
+      existingChecksum = currentStay?.checksum ?? null
+      if (Array.isArray(currentStay?.guests) && currentStay.guests.length > 0) {
+        existingGuests = currentStay.guests
+      }
+      if (Array.isArray(currentStay?.roomType?.placements)) {
+        existingPlacements = currentStay.roomType.placements.map((p) => p.code)
+      }
+      logger.info(`amendReservation(${input.bookingId}): fetched live booking, version=${bookingVersion}, checksum=${existingChecksum}`)
+    } catch (fetchErr) {
+      // Fallback to stored raw if GET fails
+      logger.warn(`amendReservation(${input.bookingId}): GET booking failed (${fetchErr?.message}), falling back to stored raw`)
+      let rawBooking = {}
+      try { rawBooking = JSON.parse(record.raw ?? "{}") } catch {}
+      bookingVersion = rawBooking?.version ?? rawBooking?.booking?.version ?? null
+      const storedStay = rawBooking?.roomStays?.[0] ?? rawBooking?.booking?.roomStays?.[0] ?? {}
+      existingChecksum = storedStay?.checksum ?? null
+      if (Array.isArray(storedStay?.guests) && storedStay.guests.length > 0) existingGuests = storedStay.guests
+      if (Array.isArray(storedStay?.roomType?.placements)) existingPlacements = storedStay.roomType.placements.map((p) => p.code)
+    }
+
+    const childAges = input.childAges?.length > 0 ? input.childAges : []
+    const placements = input.roomTypePlacements?.length > 0 ? input.roomTypePlacements : existingPlacements
+    const adults = input.adults ?? record.adults ?? 1
+
+    // Derive check-in/out times from existing booking
+    let checkInTime = "15:00"
+    let checkOutTime = "11:00"
+    try {
+      const rawFallback = JSON.parse(record.raw ?? "{}")
+      const stayFallback = rawFallback?.roomStays?.[0] ?? rawFallback?.booking?.roomStays?.[0] ?? {}
+      checkInTime = input.checkInTime ?? stayFallback?.stayDates?.arrivalDateTime?.slice(11, 16) ?? "15:00"
+      checkOutTime = input.checkOutTime ?? stayFallback?.stayDates?.departureDateTime?.slice(11, 16) ?? "11:00"
+    } catch {}
+
+    // Search availability for NEW dates to get a fresh checksum
+    // The checksum in modify must match current pricing conditions for the new dates
+    let newChecksum = existingChecksum
+    try {
+      const arrivalDate = input.arrival.slice(0, 10)
+      const departureDate = input.departure.slice(0, 10)
+      const searchParams = new URLSearchParams({
+        arrivalDate,
+        departureDate,
+        adults: String(adults)
+      })
+      childAges.forEach((age) => searchParams.append("childAges", String(age)))
+      const effectiveCorporateId = input.corporateId ?? record.corporateId ?? null
+      if (effectiveCorporateId) searchParams.append("corporateIds", effectiveCorporateId)
+
+      const { data: searchData } = await this.request(
+        "GET",
+        `${PREFIX_SEARCH}/v1/properties/${record.propertyId}/room-stays?${searchParams.toString()}`
+      )
+      const matchingStay = (searchData?.roomStays ?? []).find(
+        (s) => s.roomType?.id === record.roomTypeId && s.ratePlan?.id === record.ratePlanId
+      )
+      if (matchingStay?.checksum) {
+        newChecksum = matchingStay.checksum
+        logger.info(`amendReservation(${input.bookingId}): got fresh checksum from search`)
+      } else {
+        logger.warn(`amendReservation(${input.bookingId}): rate ${record.roomTypeId}/${record.ratePlanId} not found in search for new dates — room may be unavailable`)
+      }
+    } catch (searchErr) {
+      logger.warn(`amendReservation(${input.bookingId}): availability search failed (${searchErr?.message}), using existing checksum`)
+    }
+
+    const arrivalDate = input.arrival.slice(0, 10)
+    const departureDate = input.departure.slice(0, 10)
+
+    const roomStayBody = {
+      roomType: {
+        id: record.roomTypeId,
+        placements: placements.map((code) => ({ code }))
+      },
+      ratePlan: { id: record.ratePlanId },
+      stayDates: {
+        arrivalDateTime: `${arrivalDate}T${checkInTime}`,
+        departureDateTime: `${departureDate}T${checkOutTime}`
+      },
+      guestCount: {
+        adultCount: adults,
+        ...(childAges.length > 0 ? { childAges } : {})
+      },
+      guests: existingGuests,
+      checksum: newChecksum,
+      // РЗПВ via additionalServices (same format as createBooking / buildRoomStay)
+      // Date portion reconstructed from new dates + preserved time to guarantee match with stayDates
+      ...(() => {
+        const svc = []
+        if (input.earlyCheckInDateTime) svc.push({ type: "EarlyCheckIn", dateTimeLocal: `${arrivalDate}T${input.earlyCheckInDateTime.slice(11, 16)}` })
+        if (input.lateCheckOutDateTime) svc.push({ type: "LateCheckOut", dateTimeLocal: `${departureDate}T${input.lateCheckOutDateTime.slice(11, 16)}` })
+        return svc.length > 0 ? { additionalServices: svc } : {}
+      })()
+    }
+
+    const amendBody = {
+      booking: {
+        propertyId: record.propertyId,
+        ...(bookingVersion != null ? { version: bookingVersion } : {}),
+        roomStays: [roomStayBody],
+        customer: {
+          firstName: record.guestFirst ?? "Guest",
+          lastName: record.guestLast ?? "Guest",
+          contacts: { phones: [], emails: [] }
+        },
+        ...(input.corporateId ?? record.corporateId ? { corporateId: input.corporateId ?? record.corporateId } : {}),
+        ...(input.comment ? { bookingComments: [input.comment] } : {})
+      }
+    }
+
+    // POST /api/reservation/v1/bookings/{number}/modify
+    logger.info(`amendReservation(${input.bookingId}): POST /modify`)
+    const { data: modifyData } = await this.request(
+      "POST",
+      `${PREFIX_RESERVATION}/v1/bookings/${input.bookingId}/modify`,
+      amendBody
+    )
+    logger.info(`amendReservation(${input.bookingId}) modify response: ${JSON.stringify(modifyData)}`)
+
+    const newStay = modifyData?.booking?.roomStays?.[0] ?? modifyData?.booking?.placements?.[0] ?? {}
+    const newArrival = newStay.stayDates?.arrivalDateTime ?? input.arrival
+    const newDeparture = newStay.stayDates?.departureDateTime ?? input.departure
+    const newTotalPrice = modifyData?.booking?.totalPrice ?? newStay.total?.priceBeforeTax ?? null
+
+    await prisma.tlBookingRecord.updateMany({
+      where: { id: input.bookingId },
+      data: {
+        arrival: newArrival,
+        departure: newDeparture,
+        ...(input.earlyCheckInDateTime ? { earlyCheckInDateTime: input.earlyCheckInDateTime } : {}),
+        ...(input.lateCheckOutDateTime ? { lateCheckOutDateTime: input.lateCheckOutDateTime } : {}),
+        raw: JSON.stringify(modifyData?.booking ?? modifyData)
+      }
+    })
+
+    return {
+      ok: true,
+      conditionChange: false,
+      newArrival,
+      newDeparture,
+      newTotalPrice,
+      newChecksum: newStay.checksum ?? null,
+      message: modifyData?.message ?? null
+    }
+  }
+
   async listReservations() {
     try {
       const localRecords = await prisma.tlBookingRecord.findMany({ select: { propertyId: true } })
@@ -1421,9 +1664,102 @@ class TravellineService {
       roomTypeName: r.roomTypeName ?? null,
       ratePlanName: r.ratePlanName ?? null,
       cancellationPoliciesJson: r.cancellationPoliciesRaw ?? null,
+      earlyCheckInDateTime: r.earlyCheckInDateTime ?? null,
+      lateCheckOutDateTime: r.lateCheckOutDateTime ?? null,
+      corporateId: r.corporateId ?? null,
       createdAt: r.createdAt.toISOString(),
       raw: r.raw
     }))
+  }
+
+  // ─── Corporate clients ────────────────────────────────────────────────────
+
+  async searchExtraStays(propertyId, input) {
+    const body = {
+      stayDates: {
+        arrivalDateTime: input.arrivalDateTime,
+        departureDateTime: input.departureDateTime
+      },
+      roomType: {
+        id: input.roomTypeId,
+        placements: (input.roomTypePlacements ?? []).map((code) => ({ code }))
+      },
+      ratePlan: {
+        id: input.ratePlanId,
+        ...(input.corporateId ? { corporateIds: [input.corporateId] } : {})
+      },
+      guestCount: {
+        adultCount: input.adults ?? 1,
+        childAges: input.childAges ?? []
+      }
+    }
+    const { data } = await this.request(
+      "POST",
+      `${PREFIX_SEARCH}/v1/properties/${propertyId}/extra-stays`,
+      body
+    )
+    const extraStays = data?.extraStays
+    const mapOption = (s) => ({
+      dateTimeLocal: s.dateTimeLocal,
+      price: s.total?.priceBeforeTax ?? 0,
+      currency: s.currencyCode ?? "RUB"
+    })
+    return {
+      earlyCheckIn: (extraStays?.earlyCheckIn ?? []).map(mapOption),
+      lateCheckOut: (extraStays?.lateCheckOut ?? []).map(mapOption)
+    }
+  }
+
+  // ─── Corporate clients ────────────────────────────────────────────────────
+
+  async createCorporate(data) {
+    const body = {
+      taxpayerIdentificationNumber: data.inn,
+      registrationReasonCode: data.kpp
+    }
+    const { data: res } = await this.request(
+      "POST",
+      `${PREFIX_REFERENCE_DATA}/corporates`,
+      body
+    )
+    const mapped = this._mapCorporate(res?.corporate ?? res)
+    // Сохраняем в локальную БД — TravelLine не предоставляет endpoint для списка
+    try {
+      await prisma.tlCorporateRecord.upsert({
+        where: { id: mapped.id },
+        create: { id: mapped.id, legalName: mapped.legalName || null, inn: mapped.inn || null, kpp: mapped.kpp || null },
+        update: { legalName: mapped.legalName || null }
+      })
+    } catch (err) {
+      logger.warn(`createCorporate: failed to save locally: ${err?.message}`)
+    }
+    return mapped
+  }
+
+  async getCorporate(corporateId) {
+    const { data } = await this.request(
+      "GET",
+      `${PREFIX_REFERENCE_DATA}/corporates/${corporateId}`
+    )
+    return this._mapCorporate(data?.corporate ?? data)
+  }
+
+  async listCorporates() {
+    // TravelLine не предоставляет endpoint для получения списка корп. клиентов,
+    // поэтому возвращаем из локальной БД (туда записываются при создании)
+    const records = await prisma.tlCorporateRecord.findMany({ orderBy: { createdAt: "asc" } })
+    return records.map((r) => ({ id: r.id, legalName: r.legalName ?? "", inn: r.inn ?? null, kpp: r.kpp ?? null, raw: "{}" }))
+  }
+
+  _mapCorporate(c) {
+    if (!c) return null
+    return {
+      id: String(c.id ?? ""),
+      legalName: c.legalName ?? "",
+      inn: c.taxpayerIdentificationNumber ?? c.inn ?? null,
+      kpp: c.registrationReasonCode ?? c.kpp ?? null,
+      raw: JSON.stringify(c)
+    }
   }
 
   // ─── Mappers ───────────────────────────────────────────────────────────────

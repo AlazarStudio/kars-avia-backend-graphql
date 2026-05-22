@@ -1887,10 +1887,23 @@ model TlBookingRecord {
   roomTypeName            String?
   ratePlanName            String?
   cancellationPoliciesRaw String?
+  earlyCheckInDateTime    String?
+  lateCheckOutDateTime    String?
+  corporateId             String?
   raw                     String
   createdAt               DateTime @default(now())
 
   @@index([propertyId])
+  @@index([createdAt])
+}
+
+model TlCorporateRecord {
+  id        String   @id @map("_id")
+  legalName String?
+  inn       String?
+  kpp       String?
+  createdAt DateTime @default(now())
+
   @@index([createdAt])
 }
 

@@ -171,6 +171,21 @@ const travellineResolver = {
       return travellineService.getSyncStatus()
     },
 
+    tlCorporate: async (_, { id }, context) => {
+      await adminMiddleware(context)
+      return travellineService.getCorporate(id)
+    },
+
+    tlCorporates: async (_, __, context) => {
+      await adminMiddleware(context)
+      return travellineService.listCorporates()
+    },
+
+    tlExtraStays: async (_, { propertyId, input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.searchExtraStays(propertyId, input)
+    },
+
     tlLocalProperties: async (_, { filter }, context) => {
       await allMiddleware(context)
       const where = { externalSource: "travelline" }
@@ -251,6 +266,16 @@ const travellineResolver = {
     tlRawRequest: async (_, { input }, context) => {
       await adminMiddleware(context)
       return travellineService.rawRequest(input)
+    },
+
+    tlCreateCorporate: async (_, { input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.createCorporate(input)
+    },
+
+    tlAmendReservation: async (_, { input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.amendReservation(input)
     }
   }
 }
