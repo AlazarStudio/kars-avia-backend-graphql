@@ -8,24 +8,44 @@ export const getAuthUser = (context) => {
   return null
 }
 
-export const isSupportAgent = (user) => user?.dispatcher === true
+/** Агент support-чата: диспетчер, support или суперадмин */
+export const isSupportAgent = (user) => {
+  if (!user) return false
+  if (user.role === "SUPERADMIN") return true
+  if (user.dispatcher === true) return true
+  if (user.support === true) return true
+  return false
+}
+
+export const isSupportChatClient = (user) => !isSupportAgent(user)
 
 export const isSupportAgentFromContext = (context) =>
   isSupportAgent(getAuthUser(context))
 
 export const assertSupportAgent = (context) => {
   if (!isSupportAgentFromContext(context)) {
-    throw new GraphQLError("Доступ только для диспетчеров")
+    throw new GraphQLError(
+      "Доступ только для диспетчеров, агентов поддержки или суперадмина"
+    )
   }
 }
 
 export const assertCanOpenSupportChat = (context) => {
   if (isSupportAgentFromContext(context)) {
-    throw new GraphQLError("Диспетчер не может создавать чат с поддержкой")
+    throw new GraphQLError(
+      "Агент поддержки не может создавать чат с поддержкой"
+    )
   }
 }
 
 export const findSupportAgents = () =>
   prisma.user.findMany({
-    where: { dispatcher: true, active: true }
+    where: {
+      active: true,
+      OR: [
+        { dispatcher: true },
+        { support: true },
+        { role: "SUPERADMIN" }
+      ]
+    }
   })

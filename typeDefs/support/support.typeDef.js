@@ -140,15 +140,15 @@ const supportTypeDef = /* GraphQL */ `
     documentationTree(id: ID!): Json
     getPatchNote(id: ID!): PatchNote
     getDocumentation(id: ID!): Documentation
-    supportChats: [SupportChat!]! # Для диспетчеров: все чаты с пользователями
-    userSupportChat(userId: ID!): Chat! # Для пользователя (не диспетчера): чат с диспетчерской поддержкой
+    supportChats: [SupportChat!]! # Для агентов: диспетчер, support, суперадмин
+    userSupportChat(userId: ID!): Chat! # Для клиента (не агента): чат с поддержкой
     supportTicketStats(startDate: Date, endDate: Date): SupportTicketStats!
   }
 
   type Mutation {
-    createSupportChat(userId: ID!): Chat! # Создает чат между пользователем и диспетчерами (не для диспетчера)
-    claimSupportTicket(chatId: ID!): Chat! # Взять тикет в работу (только один диспетчер может вести чат)
-    resolveSupportTicket(chatId: ID!): Chat! # Отметить тикет как решённый (диспетчер)
+    createSupportChat(userId: ID!): Chat! # Клиент + агенты; не для агента поддержки
+    claimSupportTicket(chatId: ID!): Chat! # Взять тикет (один агент на чат)
+    resolveSupportTicket(chatId: ID!): Chat! # Закрыть тикет (назначенный агент)
     createPatchNote(data: PatchNoteInput!, images: [Upload!]): PatchNote!
     updatePatchNote(
       id: ID!

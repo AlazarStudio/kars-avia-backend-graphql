@@ -22,8 +22,10 @@ import {
   assertCanOpenSupportChat,
   assertSupportAgent,
   findSupportAgents,
-  getAuthUser
+  getAuthUser,
+  isSupportChatClient
 } from "../../services/support/supportAgent.js"
+import { publishNewUnreadToSupportClients } from "../../services/chat/chatSubscriptionAccess.js"
 
 // Резольвер для чатов поддержки (агенты — диспетчеры с dispatcher: true).
 // Создание чата — обычные пользователи; обработка тикетов — диспетчеры.
@@ -164,7 +166,7 @@ const supportResolver = {
 
       const filteredChats = chats.map((chat) => {
         const filteredParticipants = chat.participants.filter(
-          (participant) => !participant.user.dispatcher
+          (participant) => isSupportChatClient(participant.user)
         )
 
         return {
@@ -177,6 +179,7 @@ const supportResolver = {
     },
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      assertCanOpenSupportChat(context)
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
       let chat = await prisma.chat.findFirst({
         where: {
@@ -760,15 +763,15 @@ const supportResolver = {
           resolvedBy: true
         }
       })
-      pubsub.publish(MESSAGE_SENT, {
-        messageSent: {
-          id: `status-${chatId}`,
-          chatId,
-          text: null,
-          sender: null,
-          readBy: null
-        }
-      })
+      const statusPayload = {
+        id: `status-${chatId}`,
+        chatId,
+        text: null,
+        sender: null,
+        readBy: null
+      }
+      pubsub.publish(MESSAGE_SENT, { messageSent: statusPayload })
+      await publishNewUnreadToSupportClients(chatId, statusPayload)
       return updated
     },
     resolveSupportTicket: async (_, { chatId }, context) => {
@@ -841,15 +844,15 @@ const supportResolver = {
           }
         }
       })
-      pubsub.publish(MESSAGE_SENT, {
-        messageSent: {
-          id: `status-${chatId}`,
-          chatId,
-          text: null,
-          sender: null,
-          readBy: null
-        }
-      })
+      const statusPayload = {
+        id: `status-${chatId}`,
+        chatId,
+        text: null,
+        sender: null,
+        readBy: null
+      }
+      pubsub.publish(MESSAGE_SENT, { messageSent: statusPayload })
+      await publishNewUnreadToSupportClients(chatId, statusPayload)
       return updated
     }
   },
@@ -872,12 +875,7 @@ const supportResolver = {
     // Возвращает список участников чата, извлекая данные пользователей из связей в таблице chatUser.
     participants: async (parent) => {
       const chatUsers = await prisma.chatUser.findMany({
-        where: {
-          chatId: parent.id,
-          user: {
-            dispatcher: false
-          }
-        },
+        where: { chatId: parent.id },
         include: {
           user: {
             select: {
@@ -896,7 +894,9 @@ const supportResolver = {
           }
         }
       })
-      return chatUsers.map((chatUser) => chatUser.user)
+      return chatUsers
+        .map((chatUser) => chatUser.user)
+        .filter((user) => isSupportChatClient(user))
     },
     // Вычисляет количество непрочитанных сообщений в чате для конкретного пользователя.
     // Для этого определяется время последнего прочтения сообщений и считается число сообщений,

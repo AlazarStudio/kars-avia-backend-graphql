@@ -16,6 +16,11 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
 import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"
+import {
+  canReceiveChatReadSubscription,
+  canReceiveChatSubscription
+} from "../../services/chat/chatSubscriptionAccess.js"
+import { isSupportAgent } from "../../services/support/supportAgent.js"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -353,13 +358,13 @@ const chatResolver = {
       if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
-          select: { id: true, dispatcher: true }
+          select: { id: true, dispatcher: true, support: true, role: true }
         })
         if (!sender) throw new Error("Отправитель не найден")
-        if (sender.dispatcher === true) {
+        if (isSupportAgent(sender)) {
           if (chat.assignedToId !== senderId) {
             throw new Error(
-              "Ответить в чате поддержки может только диспетчер, принявший тикет. Сначала возьмите тикет в работу."
+              "Ответить в чате поддержки может только агент, принявший тикет. Сначала возьмите тикет в работу."
             )
           }
         } else {
@@ -468,7 +473,8 @@ const chatResolver = {
               reserveId: true,
               passengerRequestId: true,
               airlineId: true,
-              hotelId: true
+              hotelId: true,
+              isSupport: true
             }
           }
         }
@@ -989,57 +995,11 @@ const chatResolver = {
 
           if (subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
-          if (message.chat) {
-            if (
-              subject.airlineId &&
-              message.chat.airlineId === subject.airlineId
-            ) {
-              return true
-            }
-            if (subject.hotelId && message.chat.hotelId === subject.hotelId) {
-              return true
-            }
-            if (message.chat.participants) {
-              const isParticipant = message.chat.participants.some(
-                (participant) => participant.id === subject.id
-              )
-              if (isParticipant) return true
-            }
-          }
-
-          if (!message.chat && message.chatId) {
-            const chat = await prisma.chat.findUnique({
-              where: { id: message.chatId },
-              include: {
-                participants: {
-                  include: {
-                    user: { select: { id: true } }
-                  }
-                }
-              }
-            })
-
-            if (chat) {
-              if (subject.airlineId && chat.airlineId === subject.airlineId) {
-                return true
-              }
-              if (subject.hotelId && chat.hotelId === subject.hotelId) {
-                return true
-              }
-              const isParticipant = chat.participants?.some(
-                (participant) =>
-                  participant.userId === subject.id ||
-                  participant.user?.id === subject.id
-              )
-              if (isParticipant) return true
-            }
-          }
-
-          return false
+          return canReceiveChatSubscription(subject, message)
         }
       )
     },
@@ -1063,7 +1023,7 @@ const chatResolver = {
           const { subject, subjectType } = context
           if (!subject || subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
@@ -1090,25 +1050,14 @@ const chatResolver = {
           const { subject, subjectType } = context
           if (!subject || subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
           const eventChatId = payload?.messageRead?.chatId || variables.chatId
           if (!eventChatId || eventChatId !== variables.chatId) return false
 
-          const chat = await prisma.chat.findUnique({
-            where: { id: eventChatId }
-          })
-
-          if (!chat) return false
-          if (subject.airlineId && chat.airlineId === subject.airlineId) {
-            return true
-          }
-          if (subject.hotelId && chat.hotelId === subject.hotelId) {
-            return true
-          }
-          return false
+          return canReceiveChatReadSubscription(subject, eventChatId)
         }
       ),
       resolve: (payload) => payload.messageRead
