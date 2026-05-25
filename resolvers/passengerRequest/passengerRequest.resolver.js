@@ -151,6 +151,8 @@ const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   departure: person.departure ?? null,
   roomCategory: person.roomCategory ?? null,
   roomKind: person.roomKind ?? null,
+  personType: normalizePersonType(person?.personType),
+  airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
   accommodationChesses: ensureAccommodationChesses(
     person,
     hotelIndex,
@@ -171,9 +173,26 @@ const normalizeOptionalString = (value) => {
   return trimmed || null
 }
 
+const normalizePersonType = (value) =>
+  value === "CREW" ? "CREW" : "PASSENGER"
+
+const normalizeCrewMember = (member = {}) => ({
+  airlinePersonalId: normalizeOptionalString(member?.airlinePersonalId),
+  fullName: member?.fullName?.trim?.() || "",
+  position: normalizeOptionalString(member?.position),
+  gender: normalizeOptionalString(member?.gender),
+  phone: normalizeOptionalString(member?.phone)
+})
+
+// Имя embedded-поля трансфера по направлению (ARRIVAL = аэропорт→гостиница)
+const getTransferField = (direction) =>
+  direction === "DEPARTURE" ? "departureTransferService" : "transferService"
+
 const ensureDriverPerson = (p) => ({
   fullName: (p?.fullName?.trim?.() ?? "") || "",
-  phone: normalizeOptionalString(p?.phone)
+  phone: normalizeOptionalString(p?.phone),
+  personType: normalizePersonType(p?.personType),
+  airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId)
 })
 
 const normalizePassengerServiceDriver = (driver = {}) => ({
@@ -401,7 +420,9 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        departureTransferService,
         baggageDeliveryService,
+        crewMembers,
         status,
         createdById: inputCreatorId,
         ...rest
@@ -423,6 +444,10 @@ const passengerRequestResolvers = {
 
       data.airport = { connect: { id: airportId } }
       if (status) data.status = status
+
+      if (Array.isArray(crewMembers)) {
+        data.crewMembers = crewMembers.map(normalizeCrewMember)
+      }
 
       if (waterService) {
         data.waterService = {
@@ -459,6 +484,15 @@ const passengerRequestResolvers = {
       if (transferService) {
         data.transferService = {
           plan: transferService.plan || null,
+          status: "NEW",
+          times: null,
+          drivers: []
+        }
+      }
+
+      if (departureTransferService) {
+        data.departureTransferService = {
+          plan: departureTransferService.plan || null,
           status: "NEW",
           times: null,
           drivers: []
@@ -543,7 +577,9 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        departureTransferService,
         baggageDeliveryService,
+        crewMembers,
         ...rest
       } = input
 
@@ -552,6 +588,10 @@ const passengerRequestResolvers = {
       Object.entries(rest).forEach(([key, value]) => {
         if (value !== undefined) data[key] = value
       })
+
+      if (Array.isArray(crewMembers)) {
+        data.crewMembers = crewMembers.map(normalizeCrewMember)
+      }
 
       if (airlineId) {
         data.airline = { connect: { id: airlineId } }
@@ -592,6 +632,16 @@ const passengerRequestResolvers = {
           ...prev,
           ...(transferService.plan !== undefined && {
             plan: transferService.plan
+          })
+        }
+      }
+
+      if (departureTransferService) {
+        const prev = existing.departureTransferService || {}
+        data.departureTransferService = {
+          ...prev,
+          ...(departureTransferService.plan !== undefined && {
+            plan: departureTransferService.plan
           })
         }
       }
@@ -700,6 +750,45 @@ const passengerRequestResolvers = {
 
       return passengerRequest
     },
+
+    // ростер экипажа заявки
+    updatePassengerRequestCrew: async (
+      _,
+      { requestId, crewMembers },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const normalizedCrew = Array.isArray(crewMembers)
+        ? crewMembers.map(normalizeCrewMember)
+        : []
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { crewMembers: normalizedCrew }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_crew",
+        description: "Обновлён ростер экипажа ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил ростер экипажа ФАП ${passengerRequest.flightNumber} (${normalizedCrew.length} чел.)`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
     // общий статус заявки
     cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
@@ -785,6 +874,13 @@ const passengerRequestResolvers = {
       } else if (service === "TRANSFER") {
         const prev = existing.transferService || { drivers: [] }
         data.transferService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
+      } else if (service === "DEPARTURE_TRANSFER") {
+        const prev = existing.departureTransferService || { drivers: [] }
+        data.departureTransferService = {
           ...prev,
           status,
           times: updateTimes(prev.times, status)
@@ -1273,6 +1369,13 @@ const passengerRequestResolvers = {
         const previousPerson = newPeople[personIndex]
         newPeople[personIndex] = {
           ...person,
+          personType: normalizePersonType(
+            person?.personType ?? previousPerson?.personType
+          ),
+          airlinePersonalId:
+            normalizeOptionalString(person?.airlinePersonalId) ??
+            previousPerson?.airlinePersonalId ??
+            null,
           accommodationChesses: ensureAccommodationChesses(
             previousPerson,
             i,
@@ -1381,7 +1484,11 @@ const passengerRequestResolvers = {
     },
 
     // добавить водителя (для варианта проживание+трансфер)
-    addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
+    addPassengerRequestDriver: async (
+      _,
+      { requestId, driver, direction = "ARRIVAL" },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await prisma.passengerRequest.findUnique({
         where: { id: requestId }
@@ -1391,7 +1498,8 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Driver fullName is required")
       }
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -1408,7 +1516,8 @@ const passengerRequestResolvers = {
           requestId,
           driverIndex,
           adminId,
-          serviceKind: "transfer"
+          serviceKind:
+            direction === "DEPARTURE" ? "transfer_departure" : "transfer"
         })
         normalizedDriver.linkPWA = linkPWA
       } catch (e) {
@@ -1423,7 +1532,7 @@ const passengerRequestResolvers = {
         : prev.times
 
       const data = {
-        transferService: {
+        [transferField]: {
           ...prev,
           drivers,
           status: nextStatus,
@@ -1455,7 +1564,7 @@ const passengerRequestResolvers = {
 
     removePassengerRequestDriver: async (
       _,
-      { requestId, driverIndex },
+      { requestId, driverIndex, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
@@ -1464,7 +1573,8 @@ const passengerRequestResolvers = {
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -1486,7 +1596,7 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
             status: nextStatus,
             drivers: nextDrivers
@@ -1758,7 +1868,7 @@ const passengerRequestResolvers = {
 
     addPassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, person },
+      { requestId, driverIndex, person, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
@@ -1767,7 +1877,8 @@ const passengerRequestResolvers = {
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -1811,7 +1922,7 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
             drivers: driversClone,
             status: nextStatus,
@@ -1839,7 +1950,7 @@ const passengerRequestResolvers = {
 
     updatePassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, personIndex, person },
+      { requestId, driverIndex, personIndex, person, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
@@ -1848,7 +1959,8 @@ const passengerRequestResolvers = {
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -1874,7 +1986,7 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: { ...prev, drivers: driversClone }
+          [transferField]: { ...prev, drivers: driversClone }
         }
       })
       await logPassengerRequestAction({
@@ -1897,7 +2009,7 @@ const passengerRequestResolvers = {
 
     removePassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, personIndex },
+      { requestId, driverIndex, personIndex, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
@@ -1906,7 +2018,8 @@ const passengerRequestResolvers = {
       })
       if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -1932,7 +2045,7 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: { ...prev, drivers: driversClone }
+          [transferField]: { ...prev, drivers: driversClone }
         }
       })
       await logPassengerRequestAction({
@@ -2114,7 +2227,7 @@ const passengerRequestResolvers = {
 
     completePassengerRequestTransferEarly: async (
       _,
-      { requestId, reason },
+      { requestId, reason, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
@@ -2126,7 +2239,8 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Reason is required")
       }
 
-      const prev = existing.transferService || {
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || {
         plan: null,
         status: "NEW",
         times: null,
@@ -2136,7 +2250,7 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),

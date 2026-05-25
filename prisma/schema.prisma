@@ -986,6 +986,16 @@ enum PassengerServiceStatus {
   CANCELLED
 }
 
+enum PassengerPersonType {
+  PASSENGER
+  CREW
+}
+
+enum TransferDirection {
+  ARRIVAL // аэропорт → гостиница
+  DEPARTURE // гостиница → аэропорт
+}
+
 type PassengerLivingService {
   plan                  PassengerServicePlan? // план по людям/времени заселения
   status                PassengerServiceStatus           @default(NEW)
@@ -997,8 +1007,10 @@ type PassengerLivingService {
 }
 
 type PassengerServiceDriverPerson {
-  fullName String
-  phone    String?
+  fullName         String
+  phone            String?
+  personType       PassengerPersonType @default(PASSENGER)
+  airlinePersonalId String?            @db.ObjectId // ссылка на сотрудника, если экипаж
 }
 
 type PassengerServiceDriver {
@@ -1035,6 +1047,8 @@ type PassengerServiceHotelPerson {
   departure            DateTime?
   roomCategory         String?
   roomKind             String?
+  personType           PassengerPersonType @default(PASSENGER)
+  airlinePersonalId    String?             @db.ObjectId // ссылка на сотрудника, если экипаж
   accommodationChesses PassengerAccommodationChess[]
 }
 
@@ -1059,6 +1073,14 @@ type PassengerRepresentativeLink {
   representativeDepartmentName String?
   linkCRM                      String?
   linkPWA                      String?
+}
+
+type PassengerRequestCrewMember {
+  airlinePersonalId String? @db.ObjectId // ссылка на AirlinePersonal
+  fullName          String // снэпшот ФИО
+  position          String? // снэпшот должности
+  gender            String?
+  phone             String?
 }
 
 type PassengerServicePerson {
@@ -1135,12 +1157,18 @@ model PassengerRequest {
 
   plannedPassengersCount Int?
 
+  // состав заявки: экипаж и/или пассажиры
+  includesCrew       Boolean                      @default(false)
+  includesPassengers Boolean                      @default(true)
+  crewMembers        PassengerRequestCrewMember[] // ростер экипажа (выбранные сотрудники)
+
   // сервисы
-  waterService           PassengerWaterFoodService?
-  mealService            PassengerWaterFoodService?
-  livingService          PassengerLivingService?
-  transferService        PassengerTransferService?
-  baggageDeliveryService PassengerTransferService?
+  waterService             PassengerWaterFoodService?
+  mealService              PassengerWaterFoodService?
+  livingService            PassengerLivingService?
+  transferService          PassengerTransferService? // трансфер: аэропорт → гостиница (ARRIVAL)
+  departureTransferService PassengerTransferService? // трансфер: гостиница → аэропорт (DEPARTURE)
+  baggageDeliveryService   PassengerTransferService?
 
   // общий статус заявки
   status                PassengerRequestStatus @default(CREATED)
