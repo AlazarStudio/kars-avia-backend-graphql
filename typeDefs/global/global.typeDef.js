@@ -50,6 +50,7 @@ const globalTypeDef = /* GraphQL */ `
     index: String
     email: String
     number: String
+    additionalNumbers: [String]
     inn: String
     ogrn: String
     rs: String
@@ -66,6 +67,7 @@ const globalTypeDef = /* GraphQL */ `
     index: String
     email: String
     number: String
+    additionalNumbers: [String]
     inn: String
     ogrn: String
     rs: String

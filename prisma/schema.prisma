@@ -132,8 +132,9 @@ type Information {
   address     String? @default("")
   index       String? @default("")
   email       String? @default("")
-  number      String? @default("")
-  inn         String? @default("")
+  number             String?   @default("")
+  additionalNumbers  String[]?
+  inn                String?   @default("")
   ogrn        String? @default("")
   rs          String? @default("")
   bank        String? @default("")

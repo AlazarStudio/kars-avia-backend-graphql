@@ -25,6 +25,10 @@ const siteTypeDef = /* GraphQL */ `
       input: UpdateMaintenanceBannerInput!
     ): MaintenanceBanner!
   }
+
+  type Subscription {
+    maintenanceBannerUpdated: MaintenanceBanner!
+  }
 `
 
 export default siteTypeDef
