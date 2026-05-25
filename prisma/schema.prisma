@@ -127,20 +127,20 @@ type PriceGeography {
 }
 
 type Information {
-  country     String? @default("")
-  city        String? @default("")
-  address     String? @default("")
-  index       String? @default("")
-  email       String? @default("")
-  number             String?   @default("")
-  additionalNumbers  String[]?
-  inn                String?   @default("")
-  ogrn        String? @default("")
-  rs          String? @default("")
-  bank        String? @default("")
-  bik         String? @default("")
-  link        String? @default("")
-  description String? @default("")
+  country           String?  @default("")
+  city              String?  @default("")
+  address           String?  @default("")
+  index             String?  @default("")
+  email             String?  @default("")
+  number            String?  @default("")
+  additionalNumbers String[]
+  inn               String?  @default("")
+  ogrn              String?  @default("")
+  rs                String?  @default("")
+  bank              String?  @default("")
+  bik               String?  @default("")
+  link              String?  @default("")
+  description       String?  @default("")
   // airport String?
 }
 
@@ -1008,10 +1008,10 @@ type PassengerLivingService {
 }
 
 type PassengerServiceDriverPerson {
-  fullName         String
-  phone            String?
-  personType       PassengerPersonType @default(PASSENGER)
-  airlinePersonalId String?            @db.ObjectId // ссылка на сотрудника, если экипаж
+  fullName          String
+  phone             String?
+  personType        PassengerPersonType @default(PASSENGER)
+  airlinePersonalId String?             @db.ObjectId // ссылка на сотрудника, если экипаж
 }
 
 type PassengerServiceDriver {
@@ -1048,8 +1048,8 @@ type PassengerServiceHotelPerson {
   departure            DateTime?
   roomCategory         String?
   roomKind             String?
-  personType           PassengerPersonType @default(PASSENGER)
-  airlinePersonalId    String?             @db.ObjectId // ссылка на сотрудника, если экипаж
+  personType           PassengerPersonType           @default(PASSENGER)
+  airlinePersonalId    String?                       @db.ObjectId // ссылка на сотрудника, если экипаж
   accommodationChesses PassengerAccommodationChess[]
 }
 
@@ -1234,39 +1234,39 @@ model SavedReport {
 // Request ---------------- ↓↓↓↓ 
 
 model Request {
-  id                    String           @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt             DateTime         @default(now()) @map("created_at")
-  updatedAt             DateTime         @updatedAt @map("updated_at")
-  placementAt           DateTime?        @map("placement_at")
-  actualCheckInAt       DateTime?        @map("actual_check_in_at")
-  sender                User             @relation(name: "sender", fields: [senderId], references: [id])
-  senderId              String           @db.ObjectId
-  airport               Airport?         @relation(fields: [airportId], references: [id])
-  airportId             String?          @db.ObjectId
-  airline               Airline          @relation(fields: [airlineId], references: [id], onDelete: NoAction)
-  airlineId             String           @db.ObjectId
-  person                AirlinePersonal? @relation(fields: [personId], references: [id], onDelete: NoAction)
-  personId              String?          @db.ObjectId
+  id                    String             @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  placementAt           DateTime?          @map("placement_at")
+  actualCheckInAt       DateTime?          @map("actual_check_in_at")
+  sender                User               @relation(name: "sender", fields: [senderId], references: [id])
+  senderId              String             @db.ObjectId
+  airport               Airport?           @relation(fields: [airportId], references: [id])
+  airportId             String?            @db.ObjectId
+  airline               Airline            @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId             String             @db.ObjectId
+  person                AirlinePersonal?   @relation(fields: [personId], references: [id], onDelete: NoAction)
+  personId              String?            @db.ObjectId
   arrival               DateTime
   departure             DateTime
-  requestNumber         String           @unique
+  requestNumber         String             @unique
   roomCategory          String?
   roomNumber            String?
   mealPlan              MealPlan?
-  hotel                 Hotel?           @relation(fields: [hotelId], references: [id])
-  hotelId               String?          @db.ObjectId
-  receiver              User?            @relation(name: "receiver", fields: [receiverId], references: [id])
-  receiverId            String?          @db.ObjectId
-  posted                User?            @relation(name: "posted", fields: [postedId], references: [id])
-  postedId              String?          @db.ObjectId
+  hotel                 Hotel?             @relation(fields: [hotelId], references: [id])
+  hotelId               String?            @db.ObjectId
+  receiver              User?              @relation(name: "receiver", fields: [receiverId], references: [id])
+  receiverId            String?            @db.ObjectId
+  posted                User?              @relation(name: "posted", fields: [postedId], references: [id])
+  postedId              String?            @db.ObjectId
   chat                  Chat[]
-  status                String           @default("created")
+  status                String             @default("created")
   hotelChess            HotelChess[]
   logs                  Log[]
-  archive               Boolean          @default(false)
+  archive               Boolean            @default(false)
   files                 String[]
-  reserve               Boolean          @default(false)
-  defaultTimesUsed      Boolean          @default(false)
+  reserve               Boolean            @default(false)
+  defaultTimesUsed      Boolean            @default(false)
   note                  String?
   externalBookingNumber String?
   externalSource        String?
@@ -1289,28 +1289,28 @@ type requestPrice {
 // Reserve ---------------- ↓↓↓↓ 
 
 model Reserve {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  sender         User           @relation(fields: [senderId], references: [id])
-  senderId       String         @db.ObjectId
-  airport        Airport?       @relation(fields: [airportId], references: [id])
-  airportId      String?        @db.ObjectId
-  airline        Airline        @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId      String         @db.ObjectId
-  arrival        DateTime
-  departure      DateTime
-  reserveNumber  String         @unique
-  passengerCount Int?
-  mealPlan       MealPlan?
-  status         String         @default("created")
-  hotel          ReserveHotel[]
-  passengers     Passenger[]
-  chat           Chat[]
-  logs           Log[]
-  archive        Boolean        @default(false)
-  hotelChess     HotelChess[]
-  files          String[]
+  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  sender              User               @relation(fields: [senderId], references: [id])
+  senderId            String             @db.ObjectId
+  airport             Airport?           @relation(fields: [airportId], references: [id])
+  airportId           String?            @db.ObjectId
+  airline             Airline            @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId           String             @db.ObjectId
+  arrival             DateTime
+  departure           DateTime
+  reserveNumber       String             @unique
+  passengerCount      Int?
+  mealPlan            MealPlan?
+  status              String             @default("created")
+  hotel               ReserveHotel[]
+  passengers          Passenger[]
+  chat                Chat[]
+  logs                Log[]
+  archive             Boolean            @default(false)
+  hotelChess          HotelChess[]
+  files               String[]
   passengerList       String[]
   Notifications       Notification[]
   airlineDepartment   AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
