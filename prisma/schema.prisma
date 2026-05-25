@@ -1799,9 +1799,11 @@ type TransferRoutePrices {
 }
 
 type TransferPrices {
-  threeSeater TransferRoutePrices? // 3-местный
-  fiveSeater  TransferRoutePrices? // 5-местный
-  sevenSeater TransferRoutePrices? // 7-местный
+  threeSeater  TransferRoutePrices? // 3-местный
+  fiveSeater   TransferRoutePrices? // 5-местный
+  sevenSeater  TransferRoutePrices? // 7-местный
+  twentySeater TransferRoutePrices? // 20-местный
+  fiftySeater  TransferRoutePrices? // 50-местный
 }
 
 model TransferPrice {

@@ -103,7 +103,7 @@ const hotelResolver = {
       const baseWhere = isSuper
         ? { active: true }
         : { active: true, show: true }
-      const filterWhere = buildHotelWhere(filter)
+      const filterWhere = await buildHotelWhere(filter)
       const where =
         Object.keys(filterWhere).length > 0
           ? { AND: [baseWhere, ...filterWhere.AND] }

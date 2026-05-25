@@ -264,6 +264,8 @@ const globalTypeDef = /* GraphQL */ `
     threeSeater: TransferRoutePrices
     fiveSeater: TransferRoutePrices
     sevenSeater: TransferRoutePrices
+    twentySeater: TransferRoutePrices
+    fiftySeater: TransferRoutePrices
   }
 
   type TransferPrice {
@@ -288,6 +290,8 @@ const globalTypeDef = /* GraphQL */ `
     threeSeater: TransferRoutePricesInput
     fiveSeater: TransferRoutePricesInput
     sevenSeater: TransferRoutePricesInput
+    twentySeater: TransferRoutePricesInput
+    fiftySeater: TransferRoutePricesInput
   }
 
   input TransferPriceInput {

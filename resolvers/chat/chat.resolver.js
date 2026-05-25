@@ -37,6 +37,7 @@ const chatResolver = {
         where: { id: chatId },
         include: {
           messages: {
+            orderBy: { createdAt: "desc" },
             include: {
               sender: {
                 select: {
@@ -136,6 +137,7 @@ const chatResolver = {
             }
           }
         },
+        orderBy: { createdAt: "desc" },
         include: {
           sender: {
             select: {
@@ -185,6 +187,7 @@ const chatResolver = {
       }
       return await prisma.message.findMany({
         where: { chatId },
+        orderBy: { createdAt: "desc" },
         include: {
           sender: {
             select: {
@@ -1114,6 +1117,7 @@ const chatResolver = {
     messages: async (parent) => {
       const msgs = await prisma.message.findMany({
         where: { chatId: parent.id },
+        orderBy: { createdAt: "desc" },
         include: {
           sender: {
             select: {

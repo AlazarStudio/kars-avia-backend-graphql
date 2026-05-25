@@ -118,11 +118,15 @@ const supportResolver = {
               }
             }
           },
-          messages: true,
+          messages: {
+            orderBy: { createdAt: "desc" }
+          },
           tickets: {
             orderBy: { ticketNumber: "asc" },
             include: {
-              messages: true,
+              messages: {
+                orderBy: { createdAt: "desc" }
+              },
               assignedTo: {
                 select: {
                   id: true,
@@ -204,7 +208,9 @@ const supportResolver = {
               }
             }
           },
-          messages: true,
+          messages: {
+            orderBy: { createdAt: "desc" }
+          },
           assignedTo: {
             select: {
               id: true,
@@ -269,7 +275,9 @@ const supportResolver = {
                 }
               }
             },
-            messages: true,
+            messages: {
+              orderBy: { createdAt: "desc" }
+            },
             tickets: true
           }
         })
@@ -708,7 +716,9 @@ const supportResolver = {
           where: { id: chatId },
           include: {
             participants: { include: { user: true } },
-            messages: true,
+            messages: {
+              orderBy: { createdAt: "desc" }
+            },
             tickets: { orderBy: { ticketNumber: "asc" } },
             assignedTo: true,
             resolvedBy: true
@@ -741,11 +751,15 @@ const supportResolver = {
         },
         include: {
           participants: { include: { user: true } },
-          messages: true,
+          messages: {
+            orderBy: { createdAt: "desc" }
+          },
           tickets: {
             orderBy: { ticketNumber: "asc" },
             include: {
-              messages: true,
+              messages: {
+                orderBy: { createdAt: "desc" }
+              },
               assignedTo: true,
               resolvedBy: true
             }
@@ -822,11 +836,15 @@ const supportResolver = {
         },
         include: {
           participants: { include: { user: true } },
-          messages: true,
+          messages: {
+            orderBy: { createdAt: "desc" }
+          },
           tickets: {
             orderBy: { ticketNumber: "asc" },
             include: {
-              messages: true,
+              messages: {
+                orderBy: { createdAt: "desc" }
+              },
               assignedTo: true,
               resolvedBy: true
             }
@@ -920,6 +938,7 @@ const supportResolver = {
     messages: async (parent) => {
       return await prisma.message.findMany({
         where: { chatId: parent.id },
+        orderBy: { createdAt: "desc" },
         include: {
           sender: {
             select: {

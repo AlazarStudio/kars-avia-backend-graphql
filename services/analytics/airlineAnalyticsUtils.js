@@ -120,7 +120,9 @@ export const TRANSFER_INCLUDE = {
 function getVehicleType(passengersCount) {
   if (passengersCount <= 3) return "threeSeater"
   if (passengersCount <= 5) return "fiveSeater"
-  return "sevenSeater"
+  if (passengersCount <= 7) return "sevenSeater"
+  if (passengersCount <= 20) return "twentySeater"
+  return "fiftySeater"
 }
 
 export async function computeTransferSpend(transfers, airlineId) {
