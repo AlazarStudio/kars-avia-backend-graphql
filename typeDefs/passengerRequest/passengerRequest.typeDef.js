@@ -26,6 +26,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     MEAL
     LIVING
     TRANSFER
+    DEPARTURE_TRANSFER
     BAGGAGE_DELIVERY
   }
 
@@ -35,6 +36,22 @@ const passengerRequestTypeDef = /* GraphQL */ `
   enum PassengerWaterFoodKind {
     WATER
     MEAL
+  }
+
+  """
+  Тип персоны: пассажир или член экипажа
+  """
+  enum PassengerPersonType {
+    PASSENGER
+    CREW
+  }
+
+  """
+  Направление трансфера
+  """
+  enum TransferDirection {
+    ARRIVAL
+    DEPARTURE
   }
 
   type PassengerStatusTimes {
@@ -76,6 +93,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     departure: Date
     roomCategory: String
     roomKind: String
+    personType: PassengerPersonType!
+    airlinePersonalId: ID
     accommodationChesses: [PassengerAccommodationChess!]!
   }
 
@@ -110,6 +129,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type PassengerServiceDriverPerson {
     fullName: String!
     phone: String
+    personType: PassengerPersonType!
+    airlinePersonalId: ID
   }
 
   type PassengerServiceDriver {
@@ -152,6 +173,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     linkPWA: String
   }
 
+  type PassengerRequestCrewMember {
+    airlinePersonalId: ID
+    fullName: String!
+    position: String
+    gender: String
+    phone: String
+  }
+
   type PassengerRequest {
     id: ID!
     createdAt: Date!
@@ -170,10 +199,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     plannedPassengersCount: Int
 
+    includesCrew: Boolean!
+    includesPassengers: Boolean!
+    crewMembers: [PassengerRequestCrewMember!]!
+
     waterService: PassengerWaterFoodService
     mealService: PassengerWaterFoodService
     livingService: PassengerLivingService
     transferService: PassengerTransferService
+    departureTransferService: PassengerTransferService
     baggageDeliveryService: PassengerTransferService
 
     status: PassengerRequestStatus!
@@ -278,6 +312,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     departure: Date
     roomCategory: String
     roomKind: String
+    personType: PassengerPersonType
+    airlinePersonalId: ID
   }
 
   input PassengerServiceHotelInput {
@@ -291,6 +327,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerServiceDriverPersonInput {
     fullName: String!
+    phone: String
+    personType: PassengerPersonType
+    airlinePersonalId: ID
+  }
+
+  input PassengerRequestCrewMemberInput {
+    airlinePersonalId: ID
+    fullName: String!
+    position: String
+    gender: String
     phone: String
   }
 
@@ -327,10 +373,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
     routeTo: String
     plannedPassengersCount: Int
 
+    includesCrew: Boolean
+    includesPassengers: Boolean
+    crewMembers: [PassengerRequestCrewMemberInput!]
+
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    departureTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
 
     status: PassengerRequestStatus
@@ -351,10 +402,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plannedPassengersCount: Int
     status: PassengerRequestStatus
 
+    includesCrew: Boolean
+    includesPassengers: Boolean
+    crewMembers: [PassengerRequestCrewMemberInput!]
+
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    departureTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
   }
 
@@ -381,6 +437,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     setPassengerRequestStatus(
       id: ID!
       status: PassengerRequestStatus!
+    ): PassengerRequest!
+
+    """
+    Заменить ростер экипажа заявки (выбранные сотрудники).
+    """
+    updatePassengerRequestCrew(
+      requestId: ID!
+      crewMembers: [PassengerRequestCrewMemberInput!]!
     ): PassengerRequest!
 
     cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
@@ -429,6 +493,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     addPassengerRequestBaggageDriver(
@@ -439,6 +504,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     removePassengerRequestDriver(
       requestId: ID!
       driverIndex: Int!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     removePassengerRequestBaggageDriver(
@@ -466,6 +532,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driverIndex: Int!
       person: PassengerServiceDriverPersonInput!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     updatePassengerRequestDriverPerson(
@@ -473,12 +540,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driverIndex: Int!
       personIndex: Int!
       person: PassengerServiceDriverPersonInput!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     removePassengerRequestDriverPerson(
       requestId: ID!
       driverIndex: Int!
       personIndex: Int!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     completePassengerRequestWaterEarly(
@@ -499,6 +568,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     completePassengerRequestTransferEarly(
       requestId: ID!
       reason: String!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     completePassengerRequestLivingEarly(
