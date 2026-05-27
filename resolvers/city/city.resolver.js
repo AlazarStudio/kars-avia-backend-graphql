@@ -23,6 +23,13 @@ const cityResolver = {
         .map((r) => r.region)
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, "ru"))
+    },
+    citiesByRegion: async (_, { region }, context) => {
+      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      return prisma.city.findMany({
+        where: { region: region.trim() },
+        orderBy: { city: "asc" }
+      })
     }
   }
   // Mutation: {

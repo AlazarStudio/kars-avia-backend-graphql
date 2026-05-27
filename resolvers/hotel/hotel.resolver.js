@@ -40,6 +40,7 @@ import {
   updateRoomKindCounts
 } from "../../services/hotel/roomUtils.js"
 import { buildHotelWhere } from "../../services/hotel/hotelFilters.js"
+import { normalizeHotelLocation } from "../../services/geo/normalizeGeography.js"
 import {
   issueExternalLinksForUser,
   upsertHotelExternalUser
@@ -220,6 +221,10 @@ const hotelResolver = {
         gallery: galleryPaths
       }
 
+      if (input.location) {
+        data.location = await normalizeHotelLocation(input.location)
+      }
+
       // Создаем новый отель с включением связанных комнат
       let createdHotel = await prisma.hotel.create({
         data,
@@ -340,6 +345,10 @@ const hotelResolver = {
         ...restInput
       } = input
       // Формируем объект данных для логирования обновлений
+      if (restInput.location) {
+        restInput.location = await normalizeHotelLocation(restInput.location)
+      }
+
       const updatedData = {
         tariffs,
         rooms,
@@ -1532,6 +1541,13 @@ const hotelResolver = {
         where: { id: parent.roomId },
         include: { roomKind: true }
       })
+    }
+  },
+
+  HotelLocation: {
+    cityRef: async (parent) => {
+      if (!parent?.cityId) return null
+      return prisma.city.findUnique({ where: { id: parent.cityId } })
     }
   }
 }

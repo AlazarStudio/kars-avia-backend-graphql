@@ -217,17 +217,15 @@ const globalTypeDef = /* GraphQL */ `
   type PriceGeography {
     country: String
     region: String
-    republic: String
-    district: String
     city: String
+    cityId: ID
+    cityRef: City
   }
 
   input PriceGeographyInput {
     country: String
     region: String
-    republic: String
-    district: String
-    city: String
+    cityId: ID
   }
 
   # Новый тип тарифного договора для авиакомпании

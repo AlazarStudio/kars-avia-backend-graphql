@@ -10,6 +10,7 @@ const cityTypeDef = /* GraphQL */ `
     citys: [City!]!
     city(city: String): [City!]!
     cityRegions: [String!]!
+    citiesByRegion(region: String!): [City!]!
   }
 
   # type Mutation {

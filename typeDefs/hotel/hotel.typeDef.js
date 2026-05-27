@@ -45,18 +45,15 @@ const hotelTypeDef = /* GraphQL */ `
   type HotelLocation {
     country: String
     region: String
-    republic: String
-    district: String
     city: String
+    cityId: ID
+    cityRef: City
     address: String
   }
 
   input HotelLocationInput {
     country: String
-    region: String
-    republic: String
-    district: String
-    city: String
+    cityId: ID
     address: String
   }
 

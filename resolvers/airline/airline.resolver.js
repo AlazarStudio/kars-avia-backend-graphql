@@ -16,6 +16,7 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
+import { normalizePriceGeography } from "../../services/geo/normalizeGeography.js"
 
 const hasOwn = (obj, key) =>
   Object.prototype.hasOwnProperty.call(obj || {}, key)
@@ -195,25 +196,31 @@ const airlineResolver = {
         ...airlineInput
       } = input
 
+      const priceCreates = await Promise.all(
+        airlinePriceData.map(async (priceInput) => ({
+          name: priceInput.name ?? "",
+          prices: priceInput.prices,
+          mealPrice: priceInput.mealPrice,
+          ...(priceInput.geography && {
+            geography: await normalizePriceGeography(priceInput.geography)
+          }),
+          airports: {
+            create: priceInput.airportIds
+              ? priceInput.airportIds.map((airportId) => ({
+                  airport: { connect: { id: airportId } }
+                }))
+              : []
+          }
+        }))
+      )
+
       // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
         data: {
           ...airlineInput,
           images: [],
           prices: {
-            create: airlinePriceData.map((priceInput) => ({
-              name: priceInput.name ?? "",
-              prices: priceInput.prices,
-              mealPrice: priceInput.mealPrice,
-              ...(priceInput.geography && { geography: priceInput.geography }),
-              airports: {
-                create: priceInput.airportIds
-                  ? priceInput.airportIds.map((airportId) => ({
-                      airport: { connect: { id: airportId } }
-                    }))
-                  : []
-              }
-            }))
+            create: priceCreates
           },
           transferPrices: {
             create: transferPricesData.map((tp) => ({
@@ -334,6 +341,11 @@ const airlineResolver = {
 
         if (prices) {
           for (const priceInput of prices) {
+            const normalizedGeography =
+              priceInput.geography !== undefined
+                ? await normalizePriceGeography(priceInput.geography)
+                : undefined
+
             if (priceInput.id) {
               // Обновляем существующий тариф
               await prisma.airlinePrice.update({
@@ -342,8 +354,8 @@ const airlineResolver = {
                   name: priceInput.name,
                   prices: priceInput.prices,
                   mealPrice: priceInput.mealPrice,
-                  ...(priceInput.geography !== undefined && {
-                    geography: priceInput.geography
+                  ...(normalizedGeography !== undefined && {
+                    geography: normalizedGeography
                   })
                 }
               })
@@ -373,8 +385,8 @@ const airlineResolver = {
                   name: priceInput.name,
                   prices: priceInput.prices,
                   mealPrice: priceInput.mealPrice,
-                  ...(priceInput.geography && {
-                    geography: priceInput.geography
+                  ...(normalizedGeography !== undefined && {
+                    geography: normalizedGeography
                   })
                 }
               })
@@ -1045,6 +1057,13 @@ const airlineResolver = {
         })
       }
       return null
+    }
+  },
+
+  PriceGeography: {
+    cityRef: async (parent) => {
+      if (!parent?.cityId) return null
+      return prisma.city.findUnique({ where: { id: parent.cityId } })
     }
   }
 }

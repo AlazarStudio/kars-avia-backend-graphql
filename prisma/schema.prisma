@@ -110,20 +110,18 @@ type DailyMeal {
 }
 
 type HotelLocation {
-  country  String? @default("")
-  region   String? @default("")
-  republic String? @default("")
-  district String? @default("")
-  city     String? @default("")
-  address  String? @default("")
+  country String? @default("")
+  region  String? @default("")
+  city    String? @default("")
+  cityId  String? @db.ObjectId
+  address String? @default("")
 }
 
 type PriceGeography {
-  country  String? @default("")
-  region   String? @default("")
-  republic String? @default("")
-  district String? @default("")
-  city     String? @default("")
+  country String? @default("")
+  region  String? @default("")
+  city    String? @default("")
+  cityId  String? @db.ObjectId
 }
 
 type Information {

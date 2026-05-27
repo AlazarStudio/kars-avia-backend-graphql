@@ -1,4 +1,4 @@
-const GEO_LEVELS = ["city", "district", "republic", "region", "country"]
+const GEO_LEVELS = ["city", "region", "country"]
 
 export const normalizeGeoValue = (value) =>
   String(value ?? "")
@@ -13,8 +13,6 @@ export const getHotelLocation = (hotel, airport) => {
     return {
       country: "",
       region: "",
-      republic: "",
-      district: "",
       city: "",
       address: ""
     }
@@ -28,8 +26,6 @@ export const getHotelLocation = (hotel, airport) => {
   return {
     country: loc.country || info.country || "",
     region: loc.region || "",
-    republic: loc.republic || "",
-    district: loc.district || "",
     city,
     address: loc.address || info.address || ""
   }
