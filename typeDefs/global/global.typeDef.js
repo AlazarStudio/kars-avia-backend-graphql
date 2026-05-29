@@ -158,6 +158,16 @@ const globalTypeDef = /* GraphQL */ `
     dinner: Float
   }
 
+  type HotelTransferPrice {
+    arrival: Float
+    departure: Float
+  }
+
+  input HotelTransferPriceInput {
+    arrival: Float
+    departure: Float
+  }
+
   # Тип прайс-листа (ценовой набор)
   type Price {
     priceApartment: Float

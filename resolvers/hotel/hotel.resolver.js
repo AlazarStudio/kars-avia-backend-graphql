@@ -169,6 +169,11 @@ const hotelResolver = {
         dinner: 0
       }
 
+      const defaultTransferPrice = {
+        arrival: 0,
+        departure: 0
+      }
+
       // Значения по умолчанию для различных категорий цен
       const defaultPrices = {
         priceOneCategory: 0,
@@ -213,6 +218,8 @@ const hotelResolver = {
         airportId,
         mealPrice: input.mealPrice || defaultMealPrice,
         mealPriceForAir: input.mealPriceForAir || defaultMealPrice,
+        transferPrice: input.transferPrice || defaultTransferPrice,
+        transferPriceForAir: input.transferPriceForAir || defaultTransferPrice,
         prices: input.prices || defaultPrices,
         breakfast: input.breakfast || defaultMealTime.breakfast,
         lunch: input.lunch || defaultMealTime.lunch,
@@ -308,6 +315,8 @@ const hotelResolver = {
           prices: true,
           mealPrice: true,
           mealPriceForAir: true,
+          transferPrice: true,
+          transferPriceForAir: true,
           breakfastIncluded: true,
           gallery: true
         }
@@ -374,6 +383,14 @@ const hotelResolver = {
             mealPriceForAir: {
               ...previousHotelData.mealPriceForAir, // Оставляем старые значения
               ...input.mealPriceForAir // Обновляем только переданные поля
+            },
+            transferPrice: {
+              ...previousHotelData.transferPrice,
+              ...input.transferPrice
+            },
+            transferPriceForAir: {
+              ...previousHotelData.transferPriceForAir,
+              ...input.transferPriceForAir
             },
             ...(imagePaths.length > 0 && { images: { set: imagePaths } }),
             ...(galleryPaths.length > 0 && { gallery: { set: galleryPaths } })

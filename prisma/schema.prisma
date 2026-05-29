@@ -159,6 +159,11 @@ type MealPrice {
   dinner    Float?
 }
 
+type HotelTransferPrice {
+  arrival   Float? @default(0) // аэропорт → отель
+  departure Float? @default(0) // отель → аэропорт
+}
+
 type MealTime {
   start String
   end   String
@@ -810,61 +815,63 @@ model AdditionalServices {
 }
 
 model Hotel {
-  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @updatedAt @map("updated_at")
-  name               String
-  nameFull           String?
-  provision          Int?
-  quote              Int?
-  capacity           Int?
-  location           HotelLocation?
-  information        Information?
-  breakfast          MealTime?
-  lunch              MealTime?
-  dinner             MealTime?
-  images             String[]
-  mealPrice          MealPrice?
-  mealPriceForAir    MealPrice?
-  reserveHotel       ReserveHotel[]
-  hotelChesses       HotelChess[]
-  request            Request[]
-  rooms              Room[]
-  roomKind           RoomKind[]
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  name                String
+  nameFull            String?
+  provision           Int?
+  quote               Int?
+  capacity            Int?
+  location            HotelLocation?
+  information         Information?
+  breakfast           MealTime?
+  lunch               MealTime?
+  dinner              MealTime?
+  images              String[]
+  mealPrice           MealPrice?
+  mealPriceForAir     MealPrice?
+  transferPrice       HotelTransferPrice?
+  transferPriceForAir HotelTransferPrice?
+  reserveHotel        ReserveHotel[]
+  hotelChesses        HotelChess[]
+  request             Request[]
+  rooms               Room[]
+  roomKind            RoomKind[]
   // Общая инеформация по номерам
-  user               User[]
-  logs               Log[]
-  stars              String?
-  usStars            String?
-  airportDistance    String?
-  discount           String?
-  externalLinkCRM    String?
-  externalLinkPWA    String?
-  savedReport        SavedReport[]
-  chat               Chat[]
-  prices             Price?
+  user                User[]
+  logs                Log[]
+  stars               String?
+  usStars             String?
+  airportDistance     String?
+  discount            String?
+  externalLinkCRM     String?
+  externalLinkPWA     String?
+  savedReport         SavedReport[]
+  chat                Chat[]
+  prices              Price?
   // position        Position[]
-  Notification       Notification[]
-  active             Boolean              @default(true)
-  show               Boolean              @default(true)
-  meal               Boolean              @default(true)
-  breakfastIncluded  Boolean              @default(false)
-  access             Boolean              @default(false)
-  type               HotelType            @default(hotel)
-  gallery            String[]
-  airport            Airport?             @relation(fields: [airportId], references: [id])
-  airportId          String?              @db.ObjectId
-  priceCategory      PriceCategory[]
+  Notification        Notification[]
+  active              Boolean              @default(true)
+  show                Boolean              @default(true)
+  meal                Boolean              @default(true)
+  breakfastIncluded   Boolean              @default(false)
+  access              Boolean              @default(false)
+  type                HotelType            @default(hotel)
+  gallery             String[]
+  airport             Airport?             @relation(fields: [airportId], references: [id])
+  airportId           String?              @db.ObjectId
+  priceCategory       PriceCategory[]
   // tariff          Tariff[]
-  AirlinePrice       AirlinePrice[]
-  hotelContract      hotelContract[]
-  additionalServices AdditionalServices[]
-  externalUsers      ExternalUser[]
-  external           Boolean              @default(false)
-  externalSource     String?
-  externalId         String?
-  externalRaw        String?
-  externalSyncedAt   DateTime?
+  AirlinePrice        AirlinePrice[]
+  hotelContract       hotelContract[]
+  additionalServices  AdditionalServices[]
+  externalUsers       ExternalUser[]
+  external            Boolean              @default(false)
+  externalSource      String?
+  externalId          String?
+  externalRaw         String?
+  externalSyncedAt    DateTime?
 
   @@index([externalSource, externalId])
 }

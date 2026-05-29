@@ -77,6 +77,8 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTime
     mealPrice: MealPrice
     mealPriceForAir: MealPrice
+    transferPrice: HotelTransferPrice
+    transferPriceForAir: HotelTransferPrice
     stars: String
     usStars: String
     airportDistance: String
@@ -203,6 +205,8 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    transferPrice: HotelTransferPriceInput
+    transferPriceForAir: HotelTransferPriceInput
     stars: String
     usStars: String
     airportDistance: String
@@ -232,6 +236,8 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    transferPrice: HotelTransferPriceInput
+    transferPriceForAir: HotelTransferPriceInput
     stars: String
     usStars: String
     airportDistance: String
