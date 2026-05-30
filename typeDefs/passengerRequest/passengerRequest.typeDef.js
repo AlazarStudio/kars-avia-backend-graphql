@@ -186,6 +186,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     createdAt: Date!
     updatedAt: Date!
 
+    "Уникальный человекочитаемый номер заявки ФАП, формата {seq4}{airportCode}{MM}{YY}f"
+    requestNumber: String
+
     airlineId: ID!
     airline: Airline!
 

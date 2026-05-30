@@ -387,6 +387,7 @@ const passengerRequestResolvers = {
         const search = filter.search.trim()
         if (search) {
           where.OR = [
+            { requestNumber: { contains: search, mode: "insensitive" } },
             { flightNumber: { contains: search, mode: "insensitive" } },
             { routeFrom: { contains: search, mode: "insensitive" } },
             { routeTo: { contains: search, mode: "insensitive" } }
@@ -507,6 +508,29 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
+      // Формирование уникального requestNumber: {seq4}{airportCode}{MM}{YY}f
+      const now = new Date()
+      const month = String(now.getMonth() + 1).padStart(2, "0")
+      const year = String(now.getFullYear()).slice(-2)
+      const lastRequest = await prisma.passengerRequest.findFirst({
+        where: { requestNumber: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { requestNumber: true }
+      })
+      let sequenceNumber = "0001"
+      if (lastRequest?.requestNumber) {
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        if (Number.isFinite(lastNumber)) {
+          sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+        }
+      }
+      const airportForNumber = await prisma.airport.findUnique({
+        where: { id: airportId },
+        select: { code: true }
+      })
+      const airportCode = airportForNumber?.code || "XXX"
+      data.requestNumber = `${sequenceNumber}${airportCode}${month}${year}f`
+
       let passengerRequest = await prisma.passengerRequest.create({ data })
       const adminId =
         context.subjectType === "USER" ? context.subject?.id : null
@@ -525,7 +549,7 @@ const passengerRequestResolvers = {
         context,
         action: "create_passenger_request",
         description: "ФАП создан",
-        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.requestNumber || passengerRequest.flightNumber}`,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
