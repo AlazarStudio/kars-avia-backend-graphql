@@ -602,19 +602,52 @@ const passengerRequestResolvers = {
         else data.airport = { connect: { id: airportId } }
       }
 
+      // Пересчёт статуса water/meal/transfer-like сервиса при изменении плана.
+      // current — длина списка people / drivers'-people (для трансфера/багажа).
+      const recalcServiceStatus = (prev, mergedPlan, current) => {
+        const planCount = mergedPlan?.peopleCount
+        let nextStatus = prev.status
+        let nextTimes = prev.times
+        if (
+          planCount != null &&
+          prev.status === "COMPLETED" &&
+          current < planCount
+        ) {
+          nextStatus = "IN_PROGRESS"
+          nextTimes = { ...(prev.times || {}), finishedAt: null }
+        } else if (
+          planCount != null &&
+          prev.status !== "COMPLETED" &&
+          prev.status !== "CANCELLED" &&
+          current >= planCount
+        ) {
+          nextStatus = "COMPLETED"
+          nextTimes = updateTimes(prev.times, "COMPLETED")
+        }
+        return { status: nextStatus, times: nextTimes }
+      }
+
       if (waterService) {
         const prev = existing.waterService || {}
+        const mergedPlan = waterService.plan !== undefined ? waterService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
         data.waterService = {
           ...prev,
-          ...(waterService.plan !== undefined && { plan: waterService.plan })
+          ...(waterService.plan !== undefined && { plan: waterService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (mealService) {
         const prev = existing.mealService || {}
+        const mergedPlan = mealService.plan !== undefined ? mealService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
         data.mealService = {
           ...prev,
-          ...(mealService.plan !== undefined && { plan: mealService.plan })
+          ...(mealService.plan !== undefined && { plan: mealService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
@@ -626,23 +659,30 @@ const passengerRequestResolvers = {
         }
       }
 
+      const totalDriverPeople = (drivers) =>
+        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
+
       if (transferService) {
         const prev = existing.transferService || {}
+        const mergedPlan = transferService.plan !== undefined ? transferService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
         data.transferService = {
           ...prev,
-          ...(transferService.plan !== undefined && {
-            plan: transferService.plan
-          })
+          ...(transferService.plan !== undefined && { plan: transferService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (departureTransferService) {
         const prev = existing.departureTransferService || {}
+        const mergedPlan = departureTransferService.plan !== undefined ? departureTransferService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
         data.departureTransferService = {
           ...prev,
-          ...(departureTransferService.plan !== undefined && {
-            plan: departureTransferService.plan
-          })
+          ...(departureTransferService.plan !== undefined && { plan: departureTransferService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
