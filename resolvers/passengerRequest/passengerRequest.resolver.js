@@ -1010,6 +1010,130 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    // обновление получателя воды/питания
+    updatePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex, person },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+      const people = [...(prev.people || [])]
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+      // keep existing issuedAt unless explicitly provided
+      people[personIndex] = {
+        ...people[personIndex],
+        ...person,
+        issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
+      }
+      data[serviceField] = { ...prev, people }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_person",
+        description: `Получатель обновлён в сервисе: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    // удаление получателя воды/питания
+    removePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+      const people = [...(prev.people || [])]
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+      people.splice(personIndex, 1)
+
+      // если удалили последнего и статус был COMPLETED — откатить на IN_PROGRESS
+      let nextStatus = prev.status
+      let nextTimes = prev.times
+      const planCount = prev.plan?.peopleCount
+      if (nextStatus === "COMPLETED" && planCount != null && people.length < planCount) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = { ...(prev.times || {}), finishedAt: null }
+      }
+      data[serviceField] = { ...prev, people, status: nextStatus, times: nextTimes }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_person",
+        description: `Получатель удалён из сервиса: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
