@@ -2814,6 +2814,15 @@ const passengerRequestResolvers = {
       const relocationDate = movedAt ? new Date(movedAt) : new Date()
       const sourceHotel = hotels[fromHotelIndex]
       const targetHotel = hotels[toHotelIndex]
+
+      // Проверка вместимости целевого отеля
+      const targetCapacity = Number(targetHotel?.peopleCount) || 0
+      const targetPlaced = (targetHotel?.people || []).length
+      if (targetCapacity > 0 && targetPlaced >= targetCapacity) {
+        throw new GraphQLError(
+          `В отеле «${targetHotel?.name || `#${toHotelIndex}`}» нет свободных мест (${targetPlaced}/${targetCapacity})`
+        )
+      }
       const person = ensureHotelPerson(
         sourcePeople[personIndex],
         fromHotelIndex,
