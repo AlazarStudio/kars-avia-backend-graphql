@@ -554,15 +554,22 @@ const chatResolver = {
         await publishReserveUpdated(message.chat.reserveId)
       }
 
-      if (message.chat.requestId || message.chat.reserveId) {
+      if (
+        message.chat.requestId ||
+        message.chat.reserveId ||
+        message.chat.passengerRequestId
+      ) {
         const actor = message.sender ?? { dispatcher: false }
         let requestNumber
         let reserveNumber
+        let passengerRequestNumber
+        let flightNumber
         let airlineId = message.chat.airlineId
         let entityId
         let entityType
         let requestId
         let reserveId
+        let passengerRequestId
 
         if (message.chat.requestId) {
           const req = await prisma.request.findUnique({
@@ -574,7 +581,7 @@ const chatResolver = {
           entityId = message.chat.requestId
           entityType = "request"
           requestId = message.chat.requestId
-        } else {
+        } else if (message.chat.reserveId) {
           const res = await prisma.reserve.findUnique({
             where: { id: message.chat.reserveId },
             select: { reserveNumber: true, airlineId: true }
@@ -584,6 +591,21 @@ const chatResolver = {
           entityId = message.chat.reserveId
           entityType = "reserve"
           reserveId = message.chat.reserveId
+        } else {
+          const pr = await prisma.passengerRequest.findUnique({
+            where: { id: message.chat.passengerRequestId },
+            select: {
+              requestNumber: true,
+              flightNumber: true,
+              airlineId: true
+            }
+          })
+          passengerRequestNumber = pr?.requestNumber ?? undefined
+          flightNumber = pr?.flightNumber ?? undefined
+          airlineId = pr?.airlineId ?? airlineId
+          entityId = message.chat.passengerRequestId
+          entityType = "passenger_request"
+          passengerRequestId = message.chat.passengerRequestId
         }
 
         const senderName =
@@ -591,10 +613,13 @@ const chatResolver = {
         const newMessageEmail = buildNewMessageEmail({
           requestNumber,
           reserveNumber,
+          passengerRequestNumber,
+          flightNumber,
           senderName,
           textPreview: message.text,
           requestId,
-          reserveId
+          reserveId,
+          passengerRequestId
         })
 
         await sendRequestPartyEmail({

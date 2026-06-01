@@ -182,25 +182,45 @@ export function buildHotelChessPlacementEmail({
 export function buildNewMessageEmail({
   requestNumber,
   reserveNumber,
+  passengerRequestNumber,
+  flightNumber,
   senderName,
   textPreview,
   requestId,
-  reserveId
+  reserveId,
+  passengerRequestId
 }) {
+  const fapLabel =
+    passengerRequestNumber || flightNumber
+      ? passengerRequestNumber
+        ? `ФАП ${spanNo(passengerRequestNumber)}`
+        : `ФАП ${span(flightNumber)}`
+      : null
+
   const entityLabel = requestNumber
     ? `заявке ${spanNo(requestNumber)}`
     : reserveNumber
       ? `брони ${spanNo(reserveNumber)}`
-      : "чате"
+      : fapLabel
+        ? fapLabel
+        : "чате"
+
   const subject = requestNumber
     ? `Новое сообщение по заявке №${requestNumber}`
     : reserveNumber
       ? `Новое сообщение по брони №${reserveNumber}`
-      : "Новое сообщение в чате"
+      : passengerRequestNumber
+        ? `Новое сообщение по ФАП №${passengerRequestNumber}`
+        : flightNumber
+          ? `Новое сообщение по ФАП ${flightNumber}`
+          : "Новое сообщение в чате"
+
   const preview = span(
     textPreview?.length > 200 ? `${textPreview.slice(0, 200)}…` : textPreview
   )
-  const link = requestRelayLinkHtml(requestId || reserveId)
+  const link = requestRelayLinkHtml(
+    requestId || reserveId || passengerRequestId
+  )
   const html = `Новое сообщение от ${span(senderName)} в ${entityLabel}:<br>${preview}<br>${link}`
   return { subject, html }
 }
