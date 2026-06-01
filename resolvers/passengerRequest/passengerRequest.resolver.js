@@ -2820,7 +2820,7 @@ const passengerRequestResolvers = {
       const targetPlaced = (targetHotel?.people || []).length
       if (targetCapacity > 0 && targetPlaced >= targetCapacity) {
         throw new GraphQLError(
-          `В отеле «${targetHotel?.name || `#${toHotelIndex}`}» нет свободных мест (${targetPlaced}/${targetCapacity})`
+          `В гостинице «${targetHotel?.name || `#${toHotelIndex}`}» нет свободных мест (${targetPlaced}/${targetCapacity})`
         )
       }
       const person = ensureHotelPerson(
