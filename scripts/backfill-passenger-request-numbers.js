@@ -7,8 +7,15 @@
 import { prisma } from "../prisma.js"
 
 async function main() {
+  // В Prisma MongoDB `{ requestNumber: null }` ловит только явные null,
+  // а старые документы без поля надо ловить через `isSet: false`.
   const nullRequests = await prisma.passengerRequest.findMany({
-    where: { requestNumber: null },
+    where: {
+      OR: [
+        { requestNumber: null },
+        { requestNumber: { isSet: false } }
+      ]
+    },
     orderBy: { createdAt: "asc" },
     select: { id: true, airportId: true, createdAt: true }
   })
