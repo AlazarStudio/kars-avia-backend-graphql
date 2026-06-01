@@ -55,7 +55,9 @@ export async function sendRequestPartyEmail({
   let airlineDepartmentId = null
   if (
     entityId &&
-    (entityType === "request" || entityType === "reserve")
+    (entityType === "request" ||
+      entityType === "reserve" ||
+      entityType === "passenger_request")
   ) {
     airlineDepartmentId = await resolveCreatorAirlineDepartment(
       entityType,

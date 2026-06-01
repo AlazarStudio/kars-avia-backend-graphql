@@ -71,5 +71,19 @@ export async function resolveCreatorAirlineDepartment(entityType, entityId) {
     return reserve.sender?.airlineDepartmentId ?? null
   }
 
+  if (entityType === "passenger_request") {
+    const passengerRequest = await prisma.passengerRequest.findUnique({
+      where: { id: entityId },
+      select: {
+        createdBy: {
+          select: { dispatcher: true, airlineDepartmentId: true }
+        }
+      }
+    })
+    if (!passengerRequest) return null
+    if (passengerRequest.createdBy?.dispatcher === true) return null
+    return passengerRequest.createdBy?.airlineDepartmentId ?? null
+  }
+
   return null
 }

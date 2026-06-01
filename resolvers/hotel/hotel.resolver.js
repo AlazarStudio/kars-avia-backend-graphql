@@ -64,10 +64,7 @@ function hotelChessRoomOrPlaceChanged(previous, input) {
   ) {
     return true
   }
-  if (
-    input.place != null &&
-    Number(input.place) !== Number(previous.place)
-  ) {
+  if (input.place != null && Number(input.place) !== Number(previous.place)) {
     return true
   }
   return false
@@ -675,7 +672,13 @@ const hotelResolver = {
 
               const roomForPlace = await prisma.room.findUnique({
                 where: { id: hotelChess.roomId },
-                select: { id: true, places: true, hotelId: true, name: true, category: true }
+                select: {
+                  id: true,
+                  places: true,
+                  hotelId: true,
+                  name: true,
+                  category: true
+                }
               })
               if (!roomForPlace || roomForPlace.hotelId !== id) {
                 throw new Error("Номер не относится к указанному отелю")

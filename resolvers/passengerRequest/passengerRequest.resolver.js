@@ -17,6 +17,13 @@ import {
   NOTIFICATION
 } from "../../services/infra/pubsub.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { buildPassengerRequestEmail } from "../../services/notification/buildPassengerRequestEmail.js"
+import {
+  getDispatcherFallbackForPassengerEmail,
+  resolveEmailActionForLog
+} from "../../services/notification/passengerRequestEmailActions.js"
+import { formatDate } from "../../services/format/dateTimeFormater.js"
 import logAction from "../../services/infra/logaction.js"
 import {
   buildRepresentativeExternalKey,
@@ -173,8 +180,7 @@ const normalizeOptionalString = (value) => {
   return trimmed || null
 }
 
-const normalizePersonType = (value) =>
-  value === "CREW" ? "CREW" : "PASSENGER"
+const normalizePersonType = (value) => (value === "CREW" ? "CREW" : "PASSENGER")
 
 const normalizeCrewMember = (member = {}) => ({
   airlinePersonalId: normalizeOptionalString(member?.airlinePersonalId),
@@ -217,7 +223,11 @@ const logPassengerRequestAction = async ({
   oldData = null,
   newData = null,
   airlineId = null,
-  passengerRequestId = null
+  passengerRequestId = null,
+  emailAction = null,
+  skipEmail = false,
+  emailExtras = {},
+  cancelReason = null
 }) => {
   try {
     await logAction({
@@ -233,6 +243,37 @@ const logPassengerRequestAction = async ({
     })
   } catch (error) {
     console.error("Ошибка логирования действия ФАП:", error)
+  }
+
+  if (skipEmail) return
+
+  const passengerRequest = newData ?? oldData
+  const resolvedAirlineId = airlineId ?? passengerRequest?.airlineId
+  if (!passengerRequest?.id || !resolvedAirlineId) return
+
+  try {
+    const menuAction = emailAction ?? resolveEmailActionForLog(action)
+    const { subject, html } = await buildPassengerRequestEmail({
+      emailAction: menuAction,
+      passengerRequest,
+      description,
+      fulldescription,
+      cancelReason: cancelReason ?? reason,
+      emailExtras
+    })
+
+    await sendRequestPartyEmail({
+      actor: context.user ?? context.subject,
+      airlineId: resolvedAirlineId,
+      action: menuAction,
+      subject,
+      html,
+      entityType: "passenger_request",
+      entityId: passengerRequest.id,
+      dispatcherFallbackTo: getDispatcherFallbackForPassengerEmail(menuAction)
+    })
+  } catch (error) {
+    console.error("Ошибка отправки email по ФАП:", error)
   }
 }
 
@@ -653,8 +694,13 @@ const passengerRequestResolvers = {
 
       if (waterService) {
         const prev = existing.waterService || {}
-        const mergedPlan = waterService.plan !== undefined ? waterService.plan : prev.plan
-        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
+        const mergedPlan =
+          waterService.plan !== undefined ? waterService.plan : prev.plan
+        const recalc = recalcServiceStatus(
+          prev,
+          mergedPlan,
+          (prev.people || []).length
+        )
         data.waterService = {
           ...prev,
           ...(waterService.plan !== undefined && { plan: waterService.plan }),
@@ -665,8 +711,13 @@ const passengerRequestResolvers = {
 
       if (mealService) {
         const prev = existing.mealService || {}
-        const mergedPlan = mealService.plan !== undefined ? mealService.plan : prev.plan
-        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
+        const mergedPlan =
+          mealService.plan !== undefined ? mealService.plan : prev.plan
+        const recalc = recalcServiceStatus(
+          prev,
+          mergedPlan,
+          (prev.people || []).length
+        )
         data.mealService = {
           ...prev,
           ...(mealService.plan !== undefined && { plan: mealService.plan }),
@@ -688,11 +739,18 @@ const passengerRequestResolvers = {
 
       if (transferService) {
         const prev = existing.transferService || {}
-        const mergedPlan = transferService.plan !== undefined ? transferService.plan : prev.plan
-        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
+        const mergedPlan =
+          transferService.plan !== undefined ? transferService.plan : prev.plan
+        const recalc = recalcServiceStatus(
+          prev,
+          mergedPlan,
+          totalDriverPeople(prev.drivers)
+        )
         data.transferService = {
           ...prev,
-          ...(transferService.plan !== undefined && { plan: transferService.plan }),
+          ...(transferService.plan !== undefined && {
+            plan: transferService.plan
+          }),
           status: recalc.status,
           times: recalc.times
         }
@@ -700,11 +758,20 @@ const passengerRequestResolvers = {
 
       if (departureTransferService) {
         const prev = existing.departureTransferService || {}
-        const mergedPlan = departureTransferService.plan !== undefined ? departureTransferService.plan : prev.plan
-        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
+        const mergedPlan =
+          departureTransferService.plan !== undefined
+            ? departureTransferService.plan
+            : prev.plan
+        const recalc = recalcServiceStatus(
+          prev,
+          mergedPlan,
+          totalDriverPeople(prev.drivers)
+        )
         data.departureTransferService = {
           ...prev,
-          ...(departureTransferService.plan !== undefined && { plan: departureTransferService.plan }),
+          ...(departureTransferService.plan !== undefined && {
+            plan: departureTransferService.plan
+          }),
           status: recalc.status,
           times: recalc.times
         }
@@ -723,6 +790,28 @@ const passengerRequestResolvers = {
         where: { id },
         data
       })
+
+      const isDateChange = passengerRequestFlightDateChanged(
+        existing.flightDate,
+        rest.flightDate
+      )
+      let emailExtras = {}
+      let emailAction = "update_passenger_request"
+      if (isDateChange) {
+        emailAction = "passenger_request_dates_change"
+        const airline = passengerRequest.airlineId
+          ? await prisma.airline.findUnique({
+              where: { id: passengerRequest.airlineId },
+              select: { name: true }
+            })
+          : null
+        emailExtras = {
+          oldFlightDate: formatDate(existing.flightDate),
+          newFlightDate: formatDate(passengerRequest.flightDate),
+          airlineName: airline?.name
+        }
+      }
+
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request",
@@ -731,14 +820,12 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailAction,
+        emailExtras
       })
 
       if (Object.keys(data).length > 0) {
-        const isDateChange = passengerRequestFlightDateChanged(
-          existing.flightDate,
-          rest.flightDate
-        )
         await notifyPassengerRequestSite({
           action: isDateChange
             ? "passenger_request_dates_change"
@@ -878,10 +965,12 @@ const passengerRequestResolvers = {
         description: "Заявка по ФАП отменена",
         fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
         reason: cancelReason,
+        cancelReason,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailAction: "cancel_passenger_request"
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1170,11 +1259,20 @@ const passengerRequestResolvers = {
       let nextStatus = prev.status
       let nextTimes = prev.times
       const planCount = prev.plan?.peopleCount
-      if (nextStatus === "COMPLETED" && planCount != null && people.length < planCount) {
+      if (
+        nextStatus === "COMPLETED" &&
+        planCount != null &&
+        people.length < planCount
+      ) {
         nextStatus = "IN_PROGRESS"
         nextTimes = { ...(prev.times || {}), finishedAt: null }
       }
-      data[serviceField] = { ...prev, people, status: nextStatus, times: nextTimes }
+      data[serviceField] = {
+        ...prev,
+        people,
+        status: nextStatus,
+        times: nextTimes
+      }
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -1259,7 +1357,8 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: hotelWithItemId.name }
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1393,7 +1492,8 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: removedHotel?.name }
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -1488,6 +1588,7 @@ const passengerRequestResolvers = {
         nextTimes = updateTimes(nextTimes, "COMPLETED")
       }
 
+      const targetHotelForPerson = hotels[hotelIndex]
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
@@ -1507,7 +1608,15 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: targetHotelForPerson?.name,
+          personName: person?.fullName,
+          roomName: makeRoomCategoryLabel(
+            person?.roomCategory,
+            person?.roomKind
+          )
+        }
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -2671,7 +2780,11 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: targetHotel?.name,
+          personName: person?.fullName
+        }
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
@@ -2797,7 +2910,11 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: hotel?.name,
+          personName: person?.fullName
+        }
       })
 
       pubsub.publish(PASSENGER_REQUEST_UPDATED, {
