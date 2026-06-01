@@ -387,6 +387,7 @@ const passengerRequestResolvers = {
         const search = filter.search.trim()
         if (search) {
           where.OR = [
+            { requestNumber: { contains: search, mode: "insensitive" } },
             { flightNumber: { contains: search, mode: "insensitive" } },
             { routeFrom: { contains: search, mode: "insensitive" } },
             { routeTo: { contains: search, mode: "insensitive" } }
@@ -507,6 +508,29 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
+      // Формирование уникального requestNumber: {seq4}{airportCode}{MM}{YY}f
+      const now = new Date()
+      const month = String(now.getMonth() + 1).padStart(2, "0")
+      const year = String(now.getFullYear()).slice(-2)
+      const lastRequest = await prisma.passengerRequest.findFirst({
+        where: { requestNumber: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { requestNumber: true }
+      })
+      let sequenceNumber = "0001"
+      if (lastRequest?.requestNumber) {
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        if (Number.isFinite(lastNumber)) {
+          sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+        }
+      }
+      const airportForNumber = await prisma.airport.findUnique({
+        where: { id: airportId },
+        select: { code: true }
+      })
+      const airportCode = airportForNumber?.code || "XXX"
+      data.requestNumber = `${sequenceNumber}${airportCode}${month}${year}f`
+
       let passengerRequest = await prisma.passengerRequest.create({ data })
       const adminId =
         context.subjectType === "USER" ? context.subject?.id : null
@@ -525,7 +549,7 @@ const passengerRequestResolvers = {
         context,
         action: "create_passenger_request",
         description: "ФАП создан",
-        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.requestNumber || passengerRequest.flightNumber}`,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
@@ -602,19 +626,52 @@ const passengerRequestResolvers = {
         else data.airport = { connect: { id: airportId } }
       }
 
+      // Пересчёт статуса water/meal/transfer-like сервиса при изменении плана.
+      // current — длина списка people / drivers'-people (для трансфера/багажа).
+      const recalcServiceStatus = (prev, mergedPlan, current) => {
+        const planCount = mergedPlan?.peopleCount
+        let nextStatus = prev.status
+        let nextTimes = prev.times
+        if (
+          planCount != null &&
+          prev.status === "COMPLETED" &&
+          current < planCount
+        ) {
+          nextStatus = "IN_PROGRESS"
+          nextTimes = { ...(prev.times || {}), finishedAt: null }
+        } else if (
+          planCount != null &&
+          prev.status !== "COMPLETED" &&
+          prev.status !== "CANCELLED" &&
+          current >= planCount
+        ) {
+          nextStatus = "COMPLETED"
+          nextTimes = updateTimes(prev.times, "COMPLETED")
+        }
+        return { status: nextStatus, times: nextTimes }
+      }
+
       if (waterService) {
         const prev = existing.waterService || {}
+        const mergedPlan = waterService.plan !== undefined ? waterService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
         data.waterService = {
           ...prev,
-          ...(waterService.plan !== undefined && { plan: waterService.plan })
+          ...(waterService.plan !== undefined && { plan: waterService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (mealService) {
         const prev = existing.mealService || {}
+        const mergedPlan = mealService.plan !== undefined ? mealService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, (prev.people || []).length)
         data.mealService = {
           ...prev,
-          ...(mealService.plan !== undefined && { plan: mealService.plan })
+          ...(mealService.plan !== undefined && { plan: mealService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
@@ -626,23 +683,30 @@ const passengerRequestResolvers = {
         }
       }
 
+      const totalDriverPeople = (drivers) =>
+        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
+
       if (transferService) {
         const prev = existing.transferService || {}
+        const mergedPlan = transferService.plan !== undefined ? transferService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
         data.transferService = {
           ...prev,
-          ...(transferService.plan !== undefined && {
-            plan: transferService.plan
-          })
+          ...(transferService.plan !== undefined && { plan: transferService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (departureTransferService) {
         const prev = existing.departureTransferService || {}
+        const mergedPlan = departureTransferService.plan !== undefined ? departureTransferService.plan : prev.plan
+        const recalc = recalcServiceStatus(prev, mergedPlan, totalDriverPeople(prev.drivers))
         data.departureTransferService = {
           ...prev,
-          ...(departureTransferService.plan !== undefined && {
-            plan: departureTransferService.plan
-          })
+          ...(departureTransferService.plan !== undefined && { plan: departureTransferService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
@@ -997,6 +1061,130 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_person",
         description: `Пассажир добавлен в сервис: ${service}`,
         fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    // обновление получателя воды/питания
+    updatePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex, person },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+      const people = [...(prev.people || [])]
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+      // keep existing issuedAt unless explicitly provided
+      people[personIndex] = {
+        ...people[personIndex],
+        ...person,
+        issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
+      }
+      data[serviceField] = { ...prev, people }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_person",
+        description: `Получатель обновлён в сервисе: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    // удаление получателя воды/питания
+    removePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        earlyCompletionReason: null,
+        earlyCompletedAt: null,
+        people: []
+      }
+      const people = [...(prev.people || [])]
+      if (personIndex < 0 || personIndex >= people.length) {
+        throw new GraphQLError("Invalid personIndex")
+      }
+      people.splice(personIndex, 1)
+
+      // если удалили последнего и статус был COMPLETED — откатить на IN_PROGRESS
+      let nextStatus = prev.status
+      let nextTimes = prev.times
+      const planCount = prev.plan?.peopleCount
+      if (nextStatus === "COMPLETED" && planCount != null && people.length < planCount) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = { ...(prev.times || {}), finishedAt: null }
+      }
+      data[serviceField] = { ...prev, people, status: nextStatus, times: nextTimes }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_person",
+        description: `Получатель удалён из сервиса: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

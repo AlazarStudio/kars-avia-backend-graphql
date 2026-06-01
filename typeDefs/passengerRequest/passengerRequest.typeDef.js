@@ -186,6 +186,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     createdAt: Date!
     updatedAt: Date!
 
+    "Уникальный человекочитаемый номер заявки ФАП, формата {seq4}{airportCode}{MM}{YY}f"
+    requestNumber: String
+
     airlineId: ID!
     airline: Airline!
 
@@ -459,6 +462,19 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       service: PassengerWaterFoodKind!
       person: PassengerServicePersonInput!
+    ): PassengerRequest!
+
+    updatePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
+      person: PassengerServicePersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
     ): PassengerRequest!
 
     addPassengerRequestHotel(

@@ -1167,6 +1167,10 @@ model PassengerRequest {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Уникальный человекочитаемый номер заявки ФАП, формата {seq4}{airportCode}{MM}{YY}f, напр. 0001SVO0526f
+  // Nullable для совместимости с существующими записями без номера.
+  requestNumber String? @unique
+
   airline   Airline @relation(fields: [airlineId], references: [id], onDelete: NoAction)
   airlineId String  @db.ObjectId
 
