@@ -24,6 +24,28 @@ export const formatOverlapErrorMessage = (overlap) => {
   )
 }
 
+const overlapInclude = {
+  request: { select: { requestNumber: true } },
+  room: { select: { name: true } }
+}
+
+export const findHotelChessOverlap = async (
+  db,
+  { roomId, place, start, end, excludeId }
+) => {
+  const normalizedPlace = normalizePlace(place)
+  return db.hotelChess.findFirst({
+    where: buildHotelChessOverlapWhere({
+      roomId,
+      start,
+      end,
+      place: normalizedPlace,
+      excludeId
+    }),
+    include: overlapInclude
+  })
+}
+
 export const ensureNoOverlap = async (
   roomId,
   place,
@@ -31,20 +53,12 @@ export const ensureNoOverlap = async (
   newEnd,
   excludeId
 ) => {
-  const normalizedPlace = normalizePlace(place)
-
-  const overlap = await prisma.hotelChess.findFirst({
-    where: buildHotelChessOverlapWhere({
-      roomId,
-      start: newStart,
-      end: newEnd,
-      place: normalizedPlace,
-      excludeId
-    }),
-    include: {
-      request: { select: { requestNumber: true } },
-      room: { select: { name: true } }
-    }
+  const overlap = await findHotelChessOverlap(prisma, {
+    roomId,
+    place,
+    start: newStart,
+    end: newEnd,
+    excludeId
   })
 
   if (overlap) {

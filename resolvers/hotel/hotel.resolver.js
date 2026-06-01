@@ -31,7 +31,11 @@ import {
   buildHotelChessPlacementEmail,
   buildHotelChessTransferEmail
 } from "../../services/email/requestEmailTemplates.js"
-import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
+import {
+  ensureNoOverlap,
+  findHotelChessOverlap,
+  formatOverlapErrorMessage
+} from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
@@ -52,7 +56,7 @@ import {
   recalculateAffectedByRoomChange
 } from "../../services/request/requestPricing.js"
 
-function hotelChessPlacementChanged(previous, input) {
+function hotelChessRoomOrPlaceChanged(previous, input) {
   if (!previous) return true
   if (
     input.roomId != null &&
@@ -60,7 +64,17 @@ function hotelChessPlacementChanged(previous, input) {
   ) {
     return true
   }
-  if (input.place != null && input.place !== previous.place) return true
+  if (
+    input.place != null &&
+    Number(input.place) !== Number(previous.place)
+  ) {
+    return true
+  }
+  return false
+}
+
+function hotelChessDatesChanged(previous, input) {
+  if (!previous) return false
   if (
     input.start != null &&
     new Date(input.start).getTime() !== new Date(previous.start).getTime()
@@ -454,6 +468,9 @@ const hotelResolver = {
               const previousHotelChessData = await prisma.hotelChess.findUnique(
                 { where: { id: hotelChess.id } }
               )
+              if (!previousHotelChessData) {
+                throw new Error(`HotelChess ${hotelChess.id} не найден`)
+              }
 
               let clientConnectData = undefined
               // Если задан clientId, подготавливаем данные для связи
@@ -505,10 +522,12 @@ const hotelResolver = {
                 where: { id: hotelChess.id },
                 data: {
                   public: hotelChess.public,
-                  room: { connect: { id: hotelChess.roomId } },
-                  place: hotelChess.place,
-                  start: hotelChess.start,
-                  end: hotelChess.end,
+                  ...(hotelChess.roomId != null && {
+                    room: { connect: { id: hotelChess.roomId } }
+                  }),
+                  ...(hotelChess.place != null && { place: hotelChess.place }),
+                  ...(hotelChess.start != null && { start: hotelChess.start }),
+                  ...(hotelChess.end != null && { end: hotelChess.end }),
                   client: clientConnectData,
                   passenger: hotelChess.passengerId
                     ? { connect: { id: hotelChess.passengerId } }
@@ -522,10 +541,10 @@ const hotelResolver = {
 
               if (
                 hotelChess.requestId &&
-                hotelChessPlacementChanged(previousHotelChessData, hotelChess)
+                hotelChessRoomOrPlaceChanged(previousHotelChessData, hotelChess)
               ) {
                 const room = await prisma.room.findUnique({
-                  where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
+                  where: { id: effectiveRoomId }
                 })
 
                 const updatedRequest = await prisma.request.update({
@@ -542,8 +561,8 @@ const hotelResolver = {
                 await logAction({
                   context,
                   action: "update_hotel_chess",
-                  description: `Заявка перенесена в номер ${room.name}`,
-                  fulldescription: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
+                  description: `Заявка перенесена в номер ${room?.name ?? ""}`,
+                  fulldescription: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room?.name ?? ""} пользователем ${user.name}`,
                   oldData: previousHotelChessData,
                   newData: { ...previousHotelChessData, ...hotelChess },
                   hotelId: hotelChess.hotelId,
@@ -552,7 +571,7 @@ const hotelResolver = {
 
                 const transferEmail = buildHotelChessTransferEmail({
                   requestNumber: updatedRequest.requestNumber,
-                  roomName: room.name,
+                  roomName: room?.name ?? "",
                   requestId: updatedRequest.id
                 })
                 if (!placementEmailSentForRequest.has(updatedRequest.id)) {
@@ -587,7 +606,7 @@ const hotelResolver = {
                         : undefined,
                       description: {
                         action: "update_hotel_chess_request",
-                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room?.name ?? ""}</span>`
                       }
                     }
                   })
@@ -607,46 +626,68 @@ const hotelResolver = {
                   previousHotelChessData.roomId,
                   previousHotelChessData.start,
                   previousHotelChessData.end,
-                  hotelChess.roomId,
-                  hotelChess.start || previousHotelChessData.start,
-                  hotelChess.end || previousHotelChessData.end,
+                  effectiveRoomId,
+                  effectiveStart,
+                  effectiveEnd,
                   hotelChess.requestId
                 )
 
                 affectedRequestIds.add(hotelChess.requestId)
+              } else if (
+                hotelChess.requestId &&
+                hotelChessDatesChanged(previousHotelChessData, hotelChess)
+              ) {
+                await recalculateRequestPricing(hotelChess.requestId)
+                await recalculateOverlappingRequests(
+                  effectiveRoomId,
+                  effectiveStart,
+                  effectiveEnd,
+                  hotelChess.requestId
+                )
+                affectedRequestIds.add(hotelChess.requestId)
               }
             } else {
-              // Создание новой записи hotelChess
-
-              let existingByRequest = null
-              if (hotelChess.requestId) {
-                const requestForChess = await prisma.request.findUnique({
-                  where: { id: hotelChess.requestId },
-                  include: { hotelChess: true }
-                })
-                existingByRequest = requestForChess?.hotelChess?.[0] ?? null
+              // Создание размещения (шахматка только для заявок)
+              if (!hotelChess.requestId) {
+                throw new Error(
+                  "Размещение на шахматке возможно только для заявки (requestId обязателен)"
+                )
+              }
+              if (!hotelChess.roomId || !hotelChess.start || !hotelChess.end) {
+                throw new Error(
+                  "Для размещения на шахматке нужны roomId, start и end"
+                )
               }
 
+              const requestForChess = await prisma.request.findUnique({
+                where: { id: hotelChess.requestId },
+                include: { hotelChess: true }
+              })
+              if (!requestForChess) {
+                throw new Error("Request not found")
+              }
+
+              const existingByRequest = requestForChess.hotelChess?.[0] ?? null
               const effectivePlace =
                 hotelChess.place != null
                   ? hotelChess.place
                   : existingByRequest?.place
 
-              if (hotelChess.roomId) {
-                const roomForPlace = await prisma.room.findUnique({
-                  where: { id: hotelChess.roomId },
-                  select: { id: true, places: true }
-                })
-                if (roomForPlace) {
-                  await resolveAvailablePlace(
-                    roomForPlace,
-                    hotelChess.start,
-                    hotelChess.end,
-                    effectivePlace,
-                    existingByRequest?.id
-                  )
-                }
+              const roomForPlace = await prisma.room.findUnique({
+                where: { id: hotelChess.roomId },
+                select: { id: true, places: true, hotelId: true, name: true, category: true }
+              })
+              if (!roomForPlace || roomForPlace.hotelId !== id) {
+                throw new Error("Номер не относится к указанному отелю")
               }
+
+              await resolveAvailablePlace(
+                roomForPlace,
+                hotelChess.start,
+                hotelChess.end,
+                effectivePlace,
+                existingByRequest?.id
+              )
 
               await ensureNoOverlap(
                 hotelChess.roomId,
@@ -656,261 +697,327 @@ const hotelResolver = {
                 existingByRequest?.id
               )
 
-              if (hotelChess.requestId) {
-                const hotel = await getHotelMealInfo()
-                const room = await prisma.room.findUnique({
-                  where: { hotelId: hotelChess.hotelId, id: hotelChess.roomId }
-                })
-                const arrival = hotelChess.start.toString()
-                const departure = hotelChess.end.toString()
-                const mealTimes = {
-                  breakfast: hotel.breakfast,
-                  lunch: hotel.lunch,
-                  dinner: hotel.dinner
+              const hotel = await getHotelMealInfo()
+              const room = roomForPlace
+              const arrival = hotelChess.start.toString()
+              const departure = hotelChess.end.toString()
+              const mealTimes = {
+                breakfast: hotel.breakfast,
+                lunch: hotel.lunch,
+                dinner: hotel.dinner
+              }
+
+              const enabledMeals = {
+                breakfast: requestForChess.mealPlan?.breakfastEnabled,
+                lunch: requestForChess.mealPlan?.lunchEnabled,
+                dinner: requestForChess.mealPlan?.dinnerEnabled
+              }
+              const calculatedMealPlan = calculateMeal(
+                arrival,
+                departure,
+                mealTimes,
+                enabledMeals
+              )
+              const mealPlanData = {
+                included: requestForChess.mealPlan.included,
+                breakfast: calculatedMealPlan.totalBreakfast,
+                breakfastEnabled: requestForChess.mealPlan.breakfastEnabled,
+                lunch: calculatedMealPlan.totalLunch,
+                lunchEnabled: requestForChess.mealPlan.lunchEnabled,
+                dinner: calculatedMealPlan.totalDinner,
+                dinnerEnabled: requestForChess.mealPlan.dinnerEnabled,
+                dailyMeals: calculatedMealPlan.dailyMeals
+              }
+
+              const placementResult = await prisma.$transaction(async (tx) => {
+                if (existingByRequest) {
+                  const placeToSave =
+                    hotelChess.place != null
+                      ? hotelChess.place
+                      : existingByRequest.place
+                  const updatedChess = await tx.hotelChess.update({
+                    where: { id: existingByRequest.id },
+                    data: {
+                      public: hotelChess.public,
+                      room: { connect: { id: hotelChess.roomId } },
+                      place: placeToSave,
+                      start: hotelChess.start,
+                      end: hotelChess.end,
+                      status: hotelChess.status,
+                      mealPlan: mealPlanData
+                    }
+                  })
+                  const requestData = {
+                    hotel: { connect: { id } },
+                    mealPlan: mealPlanData,
+                    roomCategory: room.category,
+                    roomNumber: room.name,
+                    hotelChess: { connect: { id: existingByRequest.id } }
+                  }
+                  if (requestForChess.status !== "done") {
+                    requestData.status = "done"
+                    requestData.posted = { connect: { id: user.id } }
+                    requestData.placementAt = new Date().toISOString()
+                  }
+                  const updatedRequest = await tx.request.update({
+                    where: { id: hotelChess.requestId },
+                    data: requestData,
+                    include: {
+                      hotel: true,
+                      person: true,
+                      hotelChess: true
+                    }
+                  })
+                  return {
+                    placementKind: "updated",
+                    newHotelChess: updatedChess,
+                    updatedRequest,
+                    previousChess: existingByRequest
+                  }
                 }
 
-                const placementResult = await prisma.$transaction(
-                  async (tx) => {
-                    const request = await tx.request.findUnique({
-                      where: { id: hotelChess.requestId },
-                      include: { hotelChess: true }
-                    })
-                    if (!request) {
-                      throw new Error("Request not found")
-                    }
+                const raceOverlap = await findHotelChessOverlap(tx, {
+                  roomId: hotelChess.roomId,
+                  place: effectivePlace,
+                  start: hotelChess.start,
+                  end: hotelChess.end
+                })
+                if (raceOverlap) {
+                  throw new Error(formatOverlapErrorMessage(raceOverlap))
+                }
 
-                    const enabledMeals = {
-                      breakfast: request.mealPlan?.breakfastEnabled,
-                      lunch: request.mealPlan?.lunchEnabled,
-                      dinner: request.mealPlan?.dinnerEnabled
-                    }
-                    const calculatedMealPlan = calculateMeal(
-                      arrival,
-                      departure,
-                      mealTimes,
-                      enabledMeals
-                    )
-                    const mealPlanData = {
-                      included: request.mealPlan.included,
-                      breakfast: calculatedMealPlan.totalBreakfast,
-                      breakfastEnabled: request.mealPlan.breakfastEnabled,
-                      lunch: calculatedMealPlan.totalLunch,
-                      lunchEnabled: request.mealPlan.lunchEnabled,
-                      dinner: calculatedMealPlan.totalDinner,
-                      dinnerEnabled: request.mealPlan.dinnerEnabled,
-                      dailyMeals: calculatedMealPlan.dailyMeals
-                    }
-
-                    const existingByRequest = request.hotelChess?.[0]
-                    if (existingByRequest) {
-                      const updatedChess = await tx.hotelChess.update({
-                        where: { id: existingByRequest.id },
-                        data: {
-                          public: hotelChess.public,
-                          room: { connect: { id: hotelChess.roomId } },
-                          place: hotelChess.place,
-                          start: hotelChess.start,
-                          end: hotelChess.end,
-                          status: hotelChess.status,
-                          mealPlan: mealPlanData
-                        }
-                      })
-                      const requestData = {
-                        hotel: { connect: { id } },
-                        mealPlan: mealPlanData,
-                        roomCategory: room?.category,
-                        roomNumber: room?.name,
-                        hotelChess: { connect: { id: existingByRequest.id } }
-                      }
-                      if (request.status !== "done") {
-                        requestData.status = "done"
-                        requestData.posted = { connect: { id: user.id } }
-                        requestData.placementAt = new Date().toISOString()
-                      }
-                      const updatedRequest = await tx.request.update({
-                        where: { id: hotelChess.requestId },
-                        data: requestData,
-                        include: {
-                          hotel: true,
-                          person: true,
-                          hotelChess: true
-                        }
-                      })
-                      return {
-                        skippedDuplicate: true,
-                        newHotelChess: updatedChess,
-                        updatedRequest,
-                        mealPlanData
-                      }
-                    }
-
-                    const existHotelChess = await tx.hotelChess.findFirst({
-                      where: {
-                        roomId: hotelChess.roomId,
-                        start: { lt: new Date(hotelChess.end) },
-                        end: { gt: new Date(hotelChess.start) }
-                      }
-                    })
-                    if (existHotelChess) {
-                      return {
-                        skippedDuplicate: true,
-                        newHotelChess: existHotelChess,
-                        updatedRequest: request,
-                        mealPlanData
-                      }
-                    }
-
-                    const newHotelChess = await tx.hotelChess.create({
-                      data: {
-                        ...(hotelChess.clientId
-                          ? { client: { connect: { id: hotelChess.clientId } } }
-                          : {}),
-                        hotel: { connect: { id } },
-                        public: hotelChess.public,
-                        room: { connect: { id: hotelChess.roomId } },
-                        place: hotelChess.place,
-                        start: hotelChess.start,
-                        end: hotelChess.end,
-                        request: { connect: { id: hotelChess.requestId } },
-                        status: hotelChess.status,
-                        mealPlan: mealPlanData
-                      }
-                    })
-
-                    const formattedTime = new Date().toISOString()
-                    const updatedRequest = await tx.request.update({
-                      where: { id: hotelChess.requestId },
-                      data: {
-                        status: "done",
-                        hotel: { connect: { id } },
-                        posted: { connect: { id: user.id } },
-                        mealPlan: mealPlanData,
-                        placementAt: formattedTime,
-                        roomCategory: room?.category,
-                        roomNumber: room?.name,
-                        hotelChess: { connect: { id: newHotelChess.id } }
-                      },
-                      include: {
-                        hotel: true,
-                        person: true,
-                        hotelChess: true
-                      }
-                    })
-
-                    return {
-                      skippedDuplicate: false,
-                      newHotelChess,
-                      updatedRequest,
-                      mealPlanData
-                    }
+                const newHotelChess = await tx.hotelChess.create({
+                  data: {
+                    ...(hotelChess.clientId
+                      ? { client: { connect: { id: hotelChess.clientId } } }
+                      : {}),
+                    hotel: { connect: { id } },
+                    public: hotelChess.public,
+                    room: { connect: { id: hotelChess.roomId } },
+                    place: effectivePlace,
+                    start: hotelChess.start,
+                    end: hotelChess.end,
+                    request: { connect: { id: hotelChess.requestId } },
+                    status: hotelChess.status,
+                    mealPlan: mealPlanData
                   }
+                })
+
+                const formattedTime = new Date().toISOString()
+                const updatedRequest = await tx.request.update({
+                  where: { id: hotelChess.requestId },
+                  data: {
+                    status: "done",
+                    hotel: { connect: { id } },
+                    posted: { connect: { id: user.id } },
+                    mealPlan: mealPlanData,
+                    placementAt: formattedTime,
+                    roomCategory: room.category,
+                    roomNumber: room.name,
+                    hotelChess: { connect: { id: newHotelChess.id } }
+                  },
+                  include: {
+                    hotel: true,
+                    person: true,
+                    hotelChess: true
+                  }
+                })
+
+                return {
+                  placementKind: "created",
+                  newHotelChess,
+                  updatedRequest,
+                  previousChess: null
+                }
+              })
+
+              const {
+                placementKind,
+                newHotelChess,
+                updatedRequest,
+                previousChess
+              } = placementResult
+
+              await recalculateRequestPricing(hotelChess.requestId)
+              await recalculateOverlappingRequests(
+                hotelChess.roomId,
+                hotelChess.start,
+                hotelChess.end,
+                hotelChess.requestId
+              )
+
+              if (
+                placementKind === "updated" &&
+                hotelChessRoomOrPlaceChanged(previousChess, hotelChess)
+              ) {
+                await logAction({
+                  context,
+                  action: "update_hotel_chess",
+                  description: `Заявка перенесена в номер ${room.name}`,
+                  fulldescription: `Заявка № ${updatedRequest.requestNumber} была перенесена в номер ${room.name} пользователем ${user.name}`,
+                  oldData: previousChess,
+                  newData: { ...previousChess, ...hotelChess },
+                  hotelId: id,
+                  requestId: updatedRequest.id
+                })
+
+                const transferEmail = buildHotelChessTransferEmail({
+                  requestNumber: updatedRequest.requestNumber,
+                  roomName: room.name,
+                  requestId: updatedRequest.id
+                })
+                if (!placementEmailSentForRequest.has(updatedRequest.id)) {
+                  placementEmailSentForRequest.add(updatedRequest.id)
+                  await sendRequestPartyEmail({
+                    actor: user,
+                    airlineId: updatedRequest.airlineId,
+                    action: "update_hotel_chess_request",
+                    subject: transferEmail.subject,
+                    html: transferEmail.html,
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    dispatcherFallbackTo: "EMAIL_KARS",
+                    alsoNotifyAirline: true
+                  })
+                }
+
+                const transferSiteAllowed = shouldSendNotification({
+                  channel: "site",
+                  action: "update_hotel_chess_request",
+                  entityType: "request",
+                  entityId: updatedRequest.id
+                }).allowed
+
+                if (transferSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> перенесена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
+                    }
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
+
+                await recalculateAffectedByRoomChange(
+                  previousChess.roomId,
+                  previousChess.start,
+                  previousChess.end,
+                  hotelChess.roomId,
+                  hotelChess.start,
+                  hotelChess.end,
+                  hotelChess.requestId
                 )
+              }
 
-                const { skippedDuplicate, newHotelChess, updatedRequest } =
-                  placementResult
+              if (placementKind === "created") {
+                const oldChat = await prisma.chat.findFirst({
+                  where: {
+                    request: { id: updatedRequest.id },
+                    separator: "hotel"
+                  }
+                })
 
-                if (!skippedDuplicate) {
-                  const oldChat = await prisma.chat.findFirst({
-                    where: {
-                      request: { id: updatedRequest.id },
+                if (!oldChat) {
+                  const newChat = await prisma.chat.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
                       separator: "hotel"
                     }
                   })
-
-                  if (!oldChat) {
-                    const newChat = await prisma.chat.create({
-                      data: {
-                        request: { connect: { id: updatedRequest.id } },
-                        hotel: { connect: { id: hotelChess.hotelId } },
-                        separator: "hotel"
-                      }
-                    })
-                    await prisma.chatUser.create({
-                      data: {
-                        chat: { connect: { id: newChat.id } },
-                        user: { connect: { id: user.id } }
-                      }
-                    })
-                  }
-
-                  const placementEmail = buildHotelChessPlacementEmail({
-                    requestNumber: updatedRequest.requestNumber,
-                    hotelName: hotel?.name,
-                    roomName: room.name,
-                    personName: updatedRequest.person?.name,
-                    requestId: updatedRequest.id
+                  await prisma.chatUser.create({
+                    data: {
+                      chat: { connect: { id: newChat.id } },
+                      user: { connect: { id: user.id } }
+                    }
                   })
-                  if (!placementEmailSentForRequest.has(updatedRequest.id)) {
-                    placementEmailSentForRequest.add(updatedRequest.id)
-                    await sendRequestPartyEmail({
-                      actor: user,
-                      airlineId: updatedRequest.airlineId,
-                      action: "update_hotel_chess_request",
-                      subject: placementEmail.subject,
-                      html: placementEmail.html,
-                      entityType: "request",
-                      entityId: updatedRequest.id,
-                      dispatcherFallbackTo: "EMAIL_KARS",
-                      alsoNotifyAirline: true
-                    })
-                  }
-
-                  await logAction({
-                    context,
-                    action: "create_hotel_chess",
-                    description: `Размещение создано в номере ${room.name}`,
-                    fulldescription: `Размещение по заявке № ${updatedRequest.requestNumber} создано в отеле ${hotel?.name} в номере ${room.name} пользователем ${user.name}`,
-                    oldData: null,
-                    newData: newHotelChess,
-                    hotelId: hotelChess.hotelId,
-                    requestId: hotelChess.requestId
-                  })
-
-                  const createHotelChessRequestSiteAllowed =
-                    shouldSendNotification({
-                      channel: "site",
-                      action: "update_hotel_chess_request",
-                      entityType: "request",
-                      entityId: updatedRequest.id
-                    }).allowed
-
-                  if (createHotelChessRequestSiteAllowed) {
-                    await prisma.notification.create({
-                      data: {
-                        request: { connect: { id: updatedRequest.id } },
-                        hotel: { connect: { id } },
-                        airline: updatedRequest.airlineId
-                          ? { connect: { id: updatedRequest.airlineId } }
-                          : undefined,
-                        description: {
-                          action: "update_hotel_chess_request",
-                          description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
-                        }
-                      }
-                    })
-                    pubsub.publish(NOTIFICATION, {
-                      notification: {
-                        __typename: "RequestUpdatedNotification",
-                        action: "update_hotel_chess_request",
-                        requestId: updatedRequest.id,
-                        arrival: updatedRequest.arrival,
-                        departure: updatedRequest.departure,
-                        airline: updatedRequest.airline || null
-                      }
-                    })
-                  }
-
-                  await recalculateRequestPricing(hotelChess.requestId)
-                  await recalculateOverlappingRequests(
-                    hotelChess.roomId,
-                    hotelChess.start,
-                    hotelChess.end,
-                    hotelChess.requestId
-                  )
                 }
 
-                affectedRequestIds.add(hotelChess.requestId)
+                const placementEmail = buildHotelChessPlacementEmail({
+                  requestNumber: updatedRequest.requestNumber,
+                  hotelName: hotel?.name,
+                  roomName: room.name,
+                  personName: updatedRequest.person?.name,
+                  requestId: updatedRequest.id
+                })
+                if (!placementEmailSentForRequest.has(updatedRequest.id)) {
+                  placementEmailSentForRequest.add(updatedRequest.id)
+                  await sendRequestPartyEmail({
+                    actor: user,
+                    airlineId: updatedRequest.airlineId,
+                    action: "update_hotel_chess_request",
+                    subject: placementEmail.subject,
+                    html: placementEmail.html,
+                    entityType: "request",
+                    entityId: updatedRequest.id,
+                    dispatcherFallbackTo: "EMAIL_KARS",
+                    alsoNotifyAirline: true
+                  })
+                }
+
+                await logAction({
+                  context,
+                  action: "create_hotel_chess",
+                  description: `Размещение создано в номере ${room.name}`,
+                  fulldescription: `Размещение по заявке № ${updatedRequest.requestNumber} создано в отеле ${hotel?.name} в номере ${room.name} пользователем ${user.name}`,
+                  oldData: null,
+                  newData: newHotelChess,
+                  hotelId: id,
+                  requestId: hotelChess.requestId
+                })
+
+                const createHotelChessRequestSiteAllowed =
+                  shouldSendNotification({
+                    channel: "site",
+                    action: "update_hotel_chess_request",
+                    entityType: "request",
+                    entityId: updatedRequest.id
+                  }).allowed
+
+                if (createHotelChessRequestSiteAllowed) {
+                  await prisma.notification.create({
+                    data: {
+                      request: { connect: { id: updatedRequest.id } },
+                      hotel: { connect: { id } },
+                      airline: updatedRequest.airlineId
+                        ? { connect: { id: updatedRequest.airlineId } }
+                        : undefined,
+                      description: {
+                        action: "update_hotel_chess_request",
+                        description: `Заявка № <span style='color:#545873'>${updatedRequest.requestNumber}</span> размещена в номер <span style='color:#545873'>${room.name}</span>`
+                      }
+                    }
+                  })
+                  pubsub.publish(NOTIFICATION, {
+                    notification: {
+                      __typename: "RequestUpdatedNotification",
+                      action: "update_hotel_chess_request",
+                      requestId: updatedRequest.id,
+                      arrival: updatedRequest.arrival,
+                      departure: updatedRequest.departure,
+                      airline: updatedRequest.airline || null
+                    }
+                  })
+                }
               }
+
+              affectedRequestIds.add(hotelChess.requestId)
             }
           }
 
