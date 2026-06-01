@@ -307,6 +307,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     getAirlineUserPositions(airlineId: ID!): [Position!]!
     getHotelPositions: [Position]
     getDispatcherPositions: [Position]
+    getRepresentativePositions: [Position]
     getTransferDispatcherPositions: [Position]
     getAllNotifications(
       pagination: NotificationPaginationInput

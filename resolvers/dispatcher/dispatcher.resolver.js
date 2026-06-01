@@ -35,6 +35,9 @@ const TRANSFER_NOTIFICATION_ACTIONS = [
   "update_transfer"
 ]
 
+const hasOwn = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj || {}, key)
+
 const dispatcherResolver = {
   Query: {
     getAllCompany: async (_, {}, context) => {
@@ -254,7 +257,14 @@ const dispatcherResolver = {
         where: { separator: "dispatcher" }
       })
     },
-    getTransferDispatcherPositions: async (_, {}, context) => {
+    getRepresentativePositions: async (_, {}, context) => {
+      await allMiddleware(context)
+      return await prisma.position.findMany({
+        where: { separator: "representative" },
+        orderBy: { name: "asc" }
+      })
+    },
+        getTransferDispatcherPositions: async (_, {}, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "dispatcher", category: "transfer" }
@@ -444,7 +454,7 @@ const dispatcherResolver = {
       return true
     },
     createPosition: async (_, { input }, context) => {
-      const { name, separator, category, airlineId } = input
+      const { name, separator, category, airlineId, accessMenu } = input
 
       if (!separator) {
         throw new GraphQLError("separator обязателен", {
@@ -462,7 +472,8 @@ const dispatcherResolver = {
             name,
             separator,
             category,
-            airlineId: resolvedAirlineId
+            airlineId: resolvedAirlineId,
+            ...(accessMenu !== undefined ? { accessMenu } : {})
           }
         })
       }
@@ -472,12 +483,13 @@ const dispatcherResolver = {
         data: {
           name,
           separator,
-          category
+          category,
+          ...(accessMenu !== undefined ? { accessMenu } : {})
         }
       })
     },
     updatePosition: async (_, { input }, context) => {
-      const { id, name, category } = input
+      const { id, name, category, accessMenu } = input
       if (!id) {
         throw new GraphQLError("id обязателен для обновления должности", {
           extensions: { code: "BAD_USER_INPUT" }
@@ -501,6 +513,9 @@ const dispatcherResolver = {
       const data = {}
       if (name !== undefined) data.name = name
       if (category !== undefined) data.category = category
+      if (hasOwn(input, "accessMenu")) {
+        data.accessMenu = accessMenu ?? null
+      }
 
       return await prisma.position.update({
         where: { id },
@@ -852,7 +867,8 @@ const dispatcherResolver = {
         include: {
           airports: {
             include: { airport: true }
-          }
+          },
+          geography: true
         }
       })
     }

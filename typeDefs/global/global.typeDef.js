@@ -244,7 +244,8 @@ const globalTypeDef = /* GraphQL */ `
     prices: Price
     mealPrice: MealPrice
     name: String
-    geography: PriceGeography
+    geography: [PriceGeography!]!
+    individual: Boolean!
     airports: [AirportOnAirlinePrice]
     priceCategory: PriceCategory
   }
@@ -255,8 +256,9 @@ const globalTypeDef = /* GraphQL */ `
     prices: PriceInput
     mealPrice: MealPriceInput
     name: String
-    geography: PriceGeographyInput
-    airportIds: [ID!] # deprecated: используйте geography
+    geography: [PriceGeographyInput!]
+    individual: Boolean
+    airportIds: [ID!]
   }
 
   # Новый тип для связи аэропортов с тарифом авиакомпании

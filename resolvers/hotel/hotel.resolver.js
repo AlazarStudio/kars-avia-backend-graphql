@@ -32,6 +32,7 @@ import {
   buildHotelChessTransferEmail
 } from "../../services/email/requestEmailTemplates.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
+import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { request } from "express"
 import { logger } from "../../services/infra/logger.js"
 import {
@@ -465,13 +466,37 @@ const hotelResolver = {
                 }
               }
 
+              const effectiveRoomId =
+                hotelChess.roomId ?? previousHotelChessData?.roomId
+              const effectivePlace =
+                hotelChess.place != null
+                  ? hotelChess.place
+                  : previousHotelChessData?.place
+              const effectiveStart =
+                hotelChess.start ?? previousHotelChessData.start
+              const effectiveEnd = hotelChess.end ?? previousHotelChessData.end
+
+              if (effectiveRoomId) {
+                const roomForPlace = await prisma.room.findUnique({
+                  where: { id: effectiveRoomId },
+                  select: { id: true, places: true }
+                })
+                if (roomForPlace) {
+                  await resolveAvailablePlace(
+                    roomForPlace,
+                    effectiveStart,
+                    effectiveEnd,
+                    effectivePlace,
+                    hotelChess.id
+                  )
+                }
+              }
+
               await ensureNoOverlap(
-                hotelChess.roomId,
-                hotelChess.place,
-                hotelChess.start
-                  ? hotelChess.start
-                  : previousHotelChessData.start,
-                hotelChess.end ? hotelChess.end : previousHotelChessData.end,
+                effectiveRoomId,
+                effectivePlace,
+                effectiveStart,
+                effectiveEnd,
                 hotelChess.id
               )
 
@@ -593,11 +618,42 @@ const hotelResolver = {
             } else {
               // Создание новой записи hotelChess
 
+              let existingByRequest = null
+              if (hotelChess.requestId) {
+                const requestForChess = await prisma.request.findUnique({
+                  where: { id: hotelChess.requestId },
+                  include: { hotelChess: true }
+                })
+                existingByRequest = requestForChess?.hotelChess?.[0] ?? null
+              }
+
+              const effectivePlace =
+                hotelChess.place != null
+                  ? hotelChess.place
+                  : existingByRequest?.place
+
+              if (hotelChess.roomId) {
+                const roomForPlace = await prisma.room.findUnique({
+                  where: { id: hotelChess.roomId },
+                  select: { id: true, places: true }
+                })
+                if (roomForPlace) {
+                  await resolveAvailablePlace(
+                    roomForPlace,
+                    hotelChess.start,
+                    hotelChess.end,
+                    effectivePlace,
+                    existingByRequest?.id
+                  )
+                }
+              }
+
               await ensureNoOverlap(
                 hotelChess.roomId,
-                hotelChess.place,
+                effectivePlace,
                 hotelChess.start,
-                hotelChess.end
+                hotelChess.end,
+                existingByRequest?.id
               )
 
               if (hotelChess.requestId) {
@@ -647,13 +703,6 @@ const hotelResolver = {
 
                     const existingByRequest = request.hotelChess?.[0]
                     if (existingByRequest) {
-                      await ensureNoOverlap(
-                        hotelChess.roomId,
-                        hotelChess.place,
-                        hotelChess.start,
-                        hotelChess.end,
-                        existingByRequest.id
-                      )
                       const updatedChess = await tx.hotelChess.update({
                         where: { id: existingByRequest.id },
                         data: {
@@ -1340,6 +1389,34 @@ const hotelResolver = {
         where: { id }
       })
       return roomToDelete
+    },
+
+    deleteAdditionalService: async (_, { id }, context) => {
+      await hotelAdminMiddleware(context)
+      const serviceToDelete = await prisma.additionalServices.findUnique({
+        where: { id }
+      })
+      if (!serviceToDelete) {
+        throw new Error("Дополнительная услуга не найдена")
+      }
+      await logAction({
+        context,
+        action: "delete_additional_service",
+        description: "Дополнительная услуга удалена",
+        fulldescription: `Пользователь ${context.user.name} удалил дополнительную услугу ${serviceToDelete.name}`,
+        oldData: serviceToDelete,
+        newData: serviceToDelete,
+        hotelId: serviceToDelete.hotelId
+      })
+      if (serviceToDelete.images && serviceToDelete.images.length > 0) {
+        for (const imagePath of serviceToDelete.images) {
+          await deleteImage(imagePath)
+        }
+      }
+      await prisma.additionalServices.delete({
+        where: { id }
+      })
+      return serviceToDelete
     },
 
     updateAllRoomKindCount: async (_, { __ }, context) => {

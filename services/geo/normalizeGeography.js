@@ -70,6 +70,28 @@ export const normalizePriceGeography = async (input) => {
   }
 }
 
+const isEmptyGeo = (geo) =>
+  !geo.city?.trim() &&
+  !geo.region?.trim() &&
+  !geo.country?.trim() &&
+  !geo.cityId
+
+export const normalizePriceGeographyList = async (inputs) => {
+  if (!inputs?.length) return []
+
+  const normalized = await Promise.all(
+    inputs.map((item) => normalizePriceGeography(item))
+  )
+  return normalized.filter((geo) => !isEmptyGeo(geo))
+}
+
+export const toPriceGeoCreateData = (geo) => ({
+  country: geo.country ?? "",
+  region: geo.region ?? "",
+  city: geo.city ?? "",
+  cityId: geo.cityId ?? null
+})
+
 export const normalizeHotelLocation = async (input) => {
   if (!input) return emptyHotelLocation
 

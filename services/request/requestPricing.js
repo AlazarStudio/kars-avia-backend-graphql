@@ -52,7 +52,9 @@ const REQUEST_INCLUDE_FOR_PRICING = {
       airportId: true
     }
   },
-  airline: { include: { prices: { include: { airports: true } } } },
+  airline: {
+    include: { prices: { include: { airports: true, geography: true } } }
+  },
   airport: { select: { id: true, city: true } },
   person: { include: { position: true } }
 }

@@ -1,5 +1,3 @@
-const GEO_LEVELS = ["city", "region", "country"]
-
 export const normalizeGeoValue = (value) =>
   String(value ?? "")
     .trim()
@@ -31,44 +29,68 @@ export const getHotelLocation = (hotel, airport) => {
   }
 }
 
-const getPriceGeography = (contract) => contract?.geography || {}
-
-const geographyHasAnyField = (geography) =>
-  GEO_LEVELS.some((level) => hasGeoValue(geography?.[level]))
-
-const priceMatchesHotelLocation = (geography, hotelLocation) => {
-  if (!geographyHasAnyField(geography)) return false
-
-  for (const level of GEO_LEVELS) {
-    const priceValue = normalizeGeoValue(geography[level])
-    if (!priceValue) continue
-    if (priceValue !== normalizeGeoValue(hotelLocation[level])) {
-      return false
-    }
+const getPriceGeographies = (contract) => {
+  const geo = contract?.geography
+  if (Array.isArray(geo)) {
+    return geo.length ? geo : [{}]
   }
-  return true
+  if (geo && typeof geo === "object") {
+    return [geo]
+  }
+  return [{}]
 }
 
-const getMostSpecificLevelIndex = (geography) => {
-  for (let i = 0; i < GEO_LEVELS.length; i += 1) {
-    if (hasGeoValue(geography[GEO_LEVELS[i]])) {
-      return i
-    }
-  }
-  return GEO_LEVELS.length
+const sortByCreatedAtAsc = (contracts) =>
+  [...contracts].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return aTime - bTime
+  })
+
+const pickFirst = (candidates) => {
+  const sorted = sortByCreatedAtAsc(candidates)
+  return sorted[0] ?? null
 }
 
-const resolveByAirportFallback = (airlinePrices, airportId) => {
+const resolveByAirportContract = (airlinePrices, airportId) => {
   if (!airportId || !Array.isArray(airlinePrices)) return null
 
-  for (const contract of airlinePrices) {
-    if (!contract?.airports?.length) continue
-    const match = contract.airports.find(
+  const candidates = airlinePrices.filter((contract) =>
+    contract?.airports?.some(
       (item) => item.airportId && item.airportId === airportId
     )
-    if (match) return contract
-  }
-  return null
+  )
+  return pickFirst(candidates)
+}
+
+const matchesCityLevel = (geography, location) => {
+  const cityOnPrice = normalizeGeoValue(geography.city)
+  if (!cityOnPrice) return false
+  if (!hasGeoValue(location.city)) return false
+  return cityOnPrice === normalizeGeoValue(location.city)
+}
+
+const matchesRegionLevel = (geography, location) => {
+  const regionOnPrice = normalizeGeoValue(geography.region)
+  if (!regionOnPrice) return false
+  if (hasGeoValue(geography.city)) return false
+  if (!hasGeoValue(location.region)) return false
+  return regionOnPrice === normalizeGeoValue(location.region)
+}
+
+const matchesCountryLevel = (geography, location) => {
+  const countryOnPrice = normalizeGeoValue(geography.country)
+  if (!countryOnPrice) return false
+  if (hasGeoValue(geography.city) || hasGeoValue(geography.region)) return false
+  if (!hasGeoValue(location.country)) return false
+  return countryOnPrice === normalizeGeoValue(location.country)
+}
+
+const resolveGeographicLevel = (prices, location, matcher) => {
+  const candidates = prices.filter((contract) =>
+    getPriceGeographies(contract).some((geo) => matcher(geo, location))
+  )
+  return pickFirst(candidates)
 }
 
 export const resolvePriceByHotelLocation = ({
@@ -79,26 +101,37 @@ export const resolvePriceByHotelLocation = ({
   const prices = Array.isArray(airlinePrices) ? airlinePrices : []
   const location = hotelLocation || {}
 
-  const geographicCandidates = prices
-    .filter((contract) =>
-      priceMatchesHotelLocation(getPriceGeography(contract), location)
+  const airportContract = resolveByAirportContract(prices, airportId)
+  if (airportContract) return airportContract
+
+  if (hasGeoValue(location.city)) {
+    const cityContract = resolveGeographicLevel(
+      prices,
+      location,
+      matchesCityLevel
     )
-    .sort((a, b) => {
-      const tierDiff =
-        getMostSpecificLevelIndex(getPriceGeography(a)) -
-        getMostSpecificLevelIndex(getPriceGeography(b))
-      if (tierDiff !== 0) return tierDiff
-
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
-      return aTime - bTime
-    })
-
-  if (geographicCandidates.length > 0) {
-    return geographicCandidates[0]
+    if (cityContract) return cityContract
   }
 
-  return resolveByAirportFallback(prices, airportId)
+  if (hasGeoValue(location.region)) {
+    const regionContract = resolveGeographicLevel(
+      prices,
+      location,
+      matchesRegionLevel
+    )
+    if (regionContract) return regionContract
+  }
+
+  if (hasGeoValue(location.country)) {
+    const countryContract = resolveGeographicLevel(
+      prices,
+      location,
+      matchesCountryLevel
+    )
+    if (countryContract) return countryContract
+  }
+
+  return null
 }
 
 export const getCategoryPriceFromContract = (contract, category) => {

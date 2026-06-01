@@ -49,70 +49,7 @@ import {
   sendAccountCreatedByAdminEmail,
   sendPasswordChangedNotificationEmail
 } from "../../services/email/sendAuthEmails.js"
-
-const ACCESS_MENU_KEYS = [
-  "requestMenu",
-  "requestCreate",
-  "requestUpdate",
-  "requestChat",
-  "transferMenu",
-  "transferCreate",
-  "transferUpdate",
-  "transferChat",
-  "personalMenu",
-  "personalCreate",
-  "personalUpdate",
-  "reserveMenu",
-  "reserveCreate",
-  "reserveUpdate",
-  "analyticsMenu",
-  "analyticsUpload",
-  "reportMenu",
-  "reportCreate",
-  "userMenu",
-  "userCreate",
-  "userUpdate",
-  "airlineMenu",
-  "airlineUpdate",
-  "contracts",
-  "contractCreate",
-  "contractUpdate",
-  "organizationMenu",
-  "organizationCreate",
-  "organizationUpdate",
-  "organizationAddDrivers",
-  "organizationAcceptDrivers"
-]
-
-const hasOwn = (obj, key) =>
-  Object.prototype.hasOwnProperty.call(obj || {}, key)
-
-const resolveEffectiveAccessMenu = ({
-  departmentAccessMenu,
-  positionAccessMenu
-}) => {
-  if (!departmentAccessMenu && !positionAccessMenu) {
-    return null
-  }
-
-  const merged = {}
-
-  for (const key of ACCESS_MENU_KEYS) {
-    if (
-      hasOwn(positionAccessMenu, key) &&
-      positionAccessMenu[key] !== undefined
-    ) {
-      merged[key] = positionAccessMenu[key]
-      continue
-    }
-
-    if (hasOwn(departmentAccessMenu, key)) {
-      merged[key] = departmentAccessMenu[key]
-    }
-  }
-
-  return merged
-}
+import { loadEffectiveAccessMenuForUser } from "../../services/access/loadEffectiveAccessMenuForUser.js"
 
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
@@ -1128,31 +1065,31 @@ const userResolver = {
       return null
     },
     effectiveAccessMenu: async (parent) => {
-      if (!parent.airlineDepartmentId) {
+      const hasDepartment =
+        parent.airlineDepartmentId ||
+        parent.dispatcherDepartmentId ||
+        parent.representativeDepartmentId
+
+      if (!hasDepartment && !parent.positionId) {
         return null
       }
 
-      const department = await prisma.airlineDepartment.findUnique({
-        where: { id: parent.airlineDepartmentId },
-        select: { accessMenu: true }
-      })
-
-      let positionAccessMenu = null
-      if (parent.positionId) {
-        const positionOnDepartment =
-          await prisma.positionOnDepartment.findFirst({
-            where: {
-              airlineDepartmentId: parent.airlineDepartmentId,
-              positionId: parent.positionId
-            },
-            select: { accessMenu: true }
-          })
-        positionAccessMenu = positionOnDepartment?.accessMenu || null
+      let accessMenu = parent.accessMenu
+      if (accessMenu === undefined && parent.id) {
+        const row = await prisma.user.findUnique({
+          where: { id: parent.id },
+          select: { accessMenu: true }
+        })
+        accessMenu = row?.accessMenu
       }
 
-      return resolveEffectiveAccessMenu({
-        departmentAccessMenu: department?.accessMenu || null,
-        positionAccessMenu
+      return loadEffectiveAccessMenuForUser(prisma, {
+        id: parent.id,
+        airlineDepartmentId: parent.airlineDepartmentId,
+        dispatcherDepartmentId: parent.dispatcherDepartmentId,
+        representativeDepartmentId: parent.representativeDepartmentId,
+        positionId: parent.positionId,
+        accessMenu: accessMenu ?? null
       })
     }
   }

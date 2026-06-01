@@ -65,6 +65,7 @@ const userTypeDef = /* GraphQL */ `
     representativeDepartmentId: ID
     representativeDepartment: RepresentativeDepartment
     effectiveAccessMenu: AccessMenu
+    accessMenu: AccessMenu
     support: Boolean
     active: Boolean
     emailVerified: Boolean
@@ -84,6 +85,7 @@ const userTypeDef = /* GraphQL */ `
     name: String!
     separator: String!
     category: String
+    accessMenu: AccessMenu
     user: [User]
     airlinePersonal: [AirlinePersonal]
     airlineDepartment: [AirlineDepartment]

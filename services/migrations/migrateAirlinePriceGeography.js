@@ -1,4 +1,5 @@
 /**
+ * @deprecated Используйте migrateAirlinePriceGeographyToArray.js (embedded geography удалён).
  * One-off: копирует airport.city в geography.city для тарифов с привязкой к аэропортам.
  * Запуск: node services/migrations/migrateAirlinePriceGeography.js
  */

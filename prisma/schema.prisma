@@ -276,12 +276,13 @@ model Airport {
 }
 
 model City {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  city                  String
-  region                String
-  hotelContract         hotelContract[]
-  organizationContracts organizationContract[]
-  cityOnTransferPrice   CityOnTransferPrice[]
+  id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
+  city                   String
+  region                 String
+  hotelContract          hotelContract[]
+  organizationContracts  organizationContract[]
+  cityOnTransferPrice    CityOnTransferPrice[]
+  priceGeoOnAirlinePrice PriceGeoOnAirlinePrice[]
 }
 
 model Notification {
@@ -425,21 +426,38 @@ model AirlinePersonal {
 }
 
 model AirlinePrice {
-  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt              DateTime                @default(now()) @map("created_at")
-  updatedAt              DateTime                @updatedAt @map("updated_at")
-  airline                Airline?                @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  airlineId              String?                 @db.ObjectId
-  hotel                  Hotel?                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  hotelId                String?                 @db.ObjectId
-  airlinePriceCategory   PriceCategory?          @relation(fields: [airlinePriceCategoryId], references: [id])
-  airlinePriceCategoryId String?                 @db.ObjectId
+  id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  airline                Airline?                 @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  airlineId              String?                  @db.ObjectId
+  hotel                  Hotel?                   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId                String?                  @db.ObjectId
+  airlinePriceCategory   PriceCategory?           @relation(fields: [airlinePriceCategoryId], references: [id])
+  airlinePriceCategoryId String?                  @db.ObjectId
   airports               AirportOnAirlinePrice[]
-  geography              PriceGeography?
+  geography              PriceGeoOnAirlinePrice[]
   name                   String
   prices                 Price?
   mealPrice              MealPrice?
+  individual             Boolean                  @default(false)
   // files                  String[]
+}
+
+model PriceGeoOnAirlinePrice {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  airlinePrice   AirlinePrice @relation(fields: [airlinePriceId], references: [id], onDelete: Cascade)
+  airlinePriceId String       @db.ObjectId
+  country        String?      @default("")
+  region         String?      @default("")
+  city           String?      @default("")
+  cityId         String?      @db.ObjectId
+  cityRef        City?        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([airlinePriceId, cityId])
+  @@unique([airlinePriceId, region])
 }
 
 model AirportOnAirlinePrice {
@@ -1719,6 +1737,7 @@ model Position {
   name              String
   separator         String?
   category          String?
+  accessMenu        AccessMenu?
   user              User[]
   airlinePersonal   AirlinePersonal[]
   airlineDepartment PositionOnDepartment[]
@@ -1787,6 +1806,7 @@ model User {
   emailVerified                 Boolean                      @default(true)
   active                        Boolean                      @default(true)
   authTokens                    UserAuthToken[]
+  accessMenu                    AccessMenu?
   position                      Position?                    @relation(fields: [positionId], references: [id])
   positionId                    String?                      @db.ObjectId
   postedRequests                Request[]                    @relation(name: "posted")

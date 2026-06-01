@@ -188,7 +188,11 @@ const reportResolver = {
             person: { include: { position: true } },
             hotelChess: { include: { room: true } },
             hotel: true,
-            airline: { include: { prices: { include: { airports: true } } } },
+            airline: {
+              include: {
+                prices: { include: { airports: true, geography: true } }
+              }
+            },
             mealPlan: true,
             airport: true
           },
@@ -197,7 +201,7 @@ const reportResolver = {
 
         const company = await prisma.airline.findUnique({
           where: { id: filter.airlineId },
-          include: { prices: { include: { airports: true } } }
+          include: { prices: { include: { airports: true, geography: true } } }
         })
 
         const firstRequestWithHotel = requests.find((r) => r.hotel)
@@ -329,7 +333,11 @@ const reportResolver = {
             person: { include: { position: true } },
             hotelChess: { include: { room: { include: { roomKind: true } } } },
             hotel: true,
-            airline: { include: { prices: { include: { airports: true } } } },
+            airline: {
+              include: {
+                prices: { include: { airports: true, geography: true } }
+              }
+            },
             mealPlan: true,
             airport: true
           },
