@@ -1512,6 +1512,112 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    // обновить редактируемые поля отеля (name / peopleCount / address / link / hotelId)
+    // itemId, people, accommodationChesses, linkCRM/linkPWA не трогаем — сохраняем как есть
+    updatePassengerRequestHotel: async (
+      _,
+      { requestId, hotelIndex, hotel },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const living = existing.livingService || {
+        plan: null,
+        status: "NEW",
+        times: null,
+        hotels: [],
+        evictions: []
+      }
+      const hotels = living.hotels || []
+      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
+        throw new GraphQLError("Invalid hotelIndex")
+      }
+
+      const prevHotel = hotels[hotelIndex] || {}
+      const placedCount = (prevHotel.people || []).length
+
+      // Валидация: новое количество мест не может быть меньше уже размещённых
+      if (
+        typeof hotel.peopleCount === "number" &&
+        hotel.peopleCount < placedCount
+      ) {
+        throw new GraphQLError(
+          `Нельзя задать меньше количества уже размещённых гостей (${placedCount})`
+        )
+      }
+
+      // Валидация: сумма мест по всем отелям не должна превышать план услуги
+      const planCap = living?.plan?.peopleCount
+      if (typeof planCap === "number" && typeof hotel.peopleCount === "number") {
+        const sumOthers = hotels.reduce(
+          (s, h, i) => s + (i === hotelIndex ? 0 : Number(h?.peopleCount) || 0),
+          0
+        )
+        if (sumOthers + hotel.peopleCount > planCap) {
+          throw new GraphQLError(
+            `Превышен план услуги. Максимум для этого отеля: ${Math.max(0, planCap - sumOthers)}`
+          )
+        }
+      }
+
+      const updatedHotel = {
+        ...prevHotel,
+        name: hotel.name ?? prevHotel.name,
+        peopleCount:
+          typeof hotel.peopleCount === "number"
+            ? hotel.peopleCount
+            : prevHotel.peopleCount,
+        address: hotel.address ?? prevHotel.address ?? null,
+        link: hotel.link ?? prevHotel.link ?? null,
+        hotelId: hotel.hotelId ?? prevHotel.hotelId ?? null
+      }
+
+      const nextHotels = hotels.map((h, i) =>
+        i === hotelIndex ? updatedHotel : h
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: nextHotels
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_hotel",
+        description: `Отель обновлён в ФАП: ${updatedHotel.name || hotelIndex}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил отель ${updatedHotel.name || `#${hotelIndex}`} в ФАП ${passengerRequest.flightNumber} (мест: ${updatedHotel.peopleCount})`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: updatedHotel.name }
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: updatedHotel.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> обновлён отель <span style='color:#545873'>${updatedHotel.name || `#${hotelIndex}`}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
+      })
+
+      return passengerRequest
+    },
+
     addPassengerRequestHotelPerson: async (
       _,
       { requestId, hotelIndex, person },

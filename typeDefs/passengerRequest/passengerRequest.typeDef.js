@@ -487,6 +487,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
       hotelIndex: Int!
     ): PassengerRequest!
 
+    updatePassengerRequestHotel(
+      requestId: ID!
+      hotelIndex: Int!
+      hotel: PassengerServiceHotelInput!
+    ): PassengerRequest!
+
     addPassengerRequestHotelPerson(
       requestId: ID!
       hotelIndex: Int!
