@@ -25,7 +25,8 @@ function formatPassengerRequestLabel({ requestNumber, flightNumber }) {
 function buildPassengerRequestRelayUrl(passengerRequestId) {
   const base = getFrontendUrl()
   if (!base || !passengerRequestId) return ""
-  return `${base}/relay?id=${encodeURIComponent(passengerRequestId)}`
+  return `${base}/far/${encodeURIComponent(passengerRequestId)}`
+  // return `${base}/fapv2/${encodeURIComponent(passengerRequestId)}`
 }
 
 function passengerRequestRelayLinkHtml(passengerRequestId) {
