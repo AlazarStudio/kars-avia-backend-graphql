@@ -20,6 +20,7 @@ import {
   normalizePriceGeographyList,
   toPriceGeoCreateData
 } from "../../services/geo/normalizeGeography.js"
+import { buildAirlineWhere } from "../../services/airline/airlineFilters.js"
 
 const syncAirlinePriceGeography = async (airlinePriceId, geographyInput) => {
   await prisma.priceGeoOnAirlinePrice.deleteMany({
@@ -112,41 +113,38 @@ const airlineResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    airlines: async (_, { pagination }, context) => {
+    airlines: async (_, { pagination, filter }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
-      const totalCount = await prisma.airline.count({ where: { active: true } })
+      const baseWhere = { active: true }
+      const filterWhere = buildAirlineWhere(filter)
+      const where =
+        filterWhere.AND?.length > 0
+          ? { AND: [baseWhere, ...filterWhere.AND] }
+          : baseWhere
+      const include = {
+        staff: true,
+        department: true,
+        prices: true,
+        transferPrices: {
+          include: {
+            airportOnTransferPrice: { include: { airport: true } },
+            cityOnTransferPrice: { include: { city: true } }
+          }
+        }
+      }
+      const totalCount = await prisma.airline.count({ where })
       const airlines = all
         ? await prisma.airline.findMany({
-            where: { active: true },
-            include: {
-              staff: true,
-              department: true,
-              prices: true,
-              transferPrices: {
-                include: {
-                  airportOnTransferPrice: { include: { airport: true } },
-                  cityOnTransferPrice: { include: { city: true } }
-                }
-              }
-            },
+            where,
+            include,
             orderBy: { name: "asc" }
           })
         : await prisma.airline.findMany({
-            where: { active: true },
+            where,
             skip: skip ? skip * take : undefined,
             take: take || undefined,
-            include: {
-              staff: true,
-              department: true,
-              prices: true,
-              transferPrices: {
-                include: {
-                  airportOnTransferPrice: { include: { airport: true } },
-                  cityOnTransferPrice: { include: { city: true } }
-                }
-              }
-            },
+            include,
             orderBy: { name: "asc" }
           })
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1

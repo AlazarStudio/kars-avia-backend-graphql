@@ -2,7 +2,7 @@ import { prisma } from "../../prisma.js"
 
 export const buildHotelWhere = async (filter) => {
   if (!filter) return {}
-  const { cityId, stars, usStars } = filter
+  const { cityId, stars, usStars, search } = filter
 
   const AND = []
 
@@ -30,6 +30,19 @@ export const buildHotelWhere = async (filter) => {
   }
   if (usStars?.trim()) {
     AND.push({ usStars: usStars.trim() })
+  }
+  if (search?.trim()) {
+    const s = search.trim()
+    AND.push({
+      OR: [
+        { name: { contains: s, mode: "insensitive" } },
+        { nameFull: { contains: s, mode: "insensitive" } },
+        { information: { is: { city: { contains: s, mode: "insensitive" } } } },
+        { location: { is: { city: { contains: s, mode: "insensitive" } } } },
+        { location: { is: { region: { contains: s, mode: "insensitive" } } } },
+        { airport: { name: { contains: s, mode: "insensitive" } } }
+      ]
+    })
   }
 
   return AND.length ? { AND } : {}

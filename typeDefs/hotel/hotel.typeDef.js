@@ -319,6 +319,7 @@ const hotelTypeDef = /* GraphQL */ `
     cityId: ID
     stars: String
     usStars: String
+    search: String
   }
 
   input ManyRoomsInput {
