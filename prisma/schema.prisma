@@ -827,6 +827,7 @@ model AdditionalServices {
   description     String?
   price           Float
   priceForAirline Float?
+  priceForAirReq  Boolean  @default(false)
   images          String[]
   hotel           Hotel    @relation(fields: [hotelId], references: [id])
   hotelId         String   @db.ObjectId
@@ -849,8 +850,10 @@ model Hotel {
   images              String[]
   mealPrice           MealPrice?
   mealPriceForAir     MealPrice?
-  transferPrice       HotelTransferPrice?
-  transferPriceForAir HotelTransferPrice?
+  mealPriceForAirReq  Boolean              @default(false)
+  transferPrice          HotelTransferPrice?
+  transferPriceForAir    HotelTransferPrice?
+  transferPriceForAirReq Boolean              @default(false)
   reserveHotel        ReserveHotel[]
   hotelChesses        HotelChess[]
   request             Request[]

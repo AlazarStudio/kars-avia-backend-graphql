@@ -77,8 +77,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTime
     mealPrice: MealPrice
     mealPriceForAir: MealPrice
+    mealPriceForAirReq: Boolean
     transferPrice: HotelTransferPrice
     transferPriceForAir: HotelTransferPrice
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -169,6 +171,7 @@ const hotelTypeDef = /* GraphQL */ `
     description: String
     price: Float!
     priceForAirline: Float
+    priceForAirReq: Boolean
     images: [String]
     hotel: Hotel
   }
@@ -205,8 +208,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    mealPriceForAirReq: Boolean
     transferPrice: HotelTransferPriceInput
     transferPriceForAir: HotelTransferPriceInput
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -236,8 +241,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    mealPriceForAirReq: Boolean
     transferPrice: HotelTransferPriceInput
     transferPriceForAir: HotelTransferPriceInput
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -306,6 +313,7 @@ const hotelTypeDef = /* GraphQL */ `
     description: String
     price: Float
     priceForAirline: Float
+    priceForAirReq: Boolean
     images: [String]
   }
 
@@ -317,6 +325,7 @@ const hotelTypeDef = /* GraphQL */ `
 
   input HotelFilter {
     cityId: ID
+    airportId: ID
     stars: String
     usStars: String
     search: String

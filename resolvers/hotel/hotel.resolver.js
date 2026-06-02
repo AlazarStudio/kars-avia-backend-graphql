@@ -1252,6 +1252,7 @@ const hotelResolver = {
                 square: service.square,
                 price: service.price,
                 priceForAirline: service.priceForAirline,
+                priceForAirReq: service.priceForAirReq,
                 category: service.category,
                 ...(serviceImages && { images: imagePaths })
               }
@@ -1276,6 +1277,7 @@ const hotelResolver = {
                   square: service.square,
                   price: service.price,
                   priceForAirline: service.priceForAirline,
+                  priceForAirReq: service.priceForAirReq,
                   category: service.category,
                   images: imagePaths
                 }
