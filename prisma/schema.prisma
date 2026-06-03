@@ -1110,6 +1110,17 @@ type PassengerRequestCrewMember {
   phone             String?
 }
 
+/// Каталог пассажиров заявки (для повторного выбора после скана/добавления)
+type PassengerRequestSavedPerson {
+  personId          String // стабильный UUID
+  fullName          String
+  phone             String?
+  seat              String?
+  personType        PassengerPersonType @default(PASSENGER)
+  airlinePersonalId String?             @db.ObjectId
+  addedAt           DateTime            @default(now())
+}
+
 type PassengerServicePerson {
   fullName String
   issuedAt DateTime? // время выдачи (14:30 в таблице)
@@ -1192,6 +1203,7 @@ model PassengerRequest {
   includesCrew       Boolean                      @default(false)
   includesPassengers Boolean                      @default(true)
   crewMembers        PassengerRequestCrewMember[] // ростер экипажа (выбранные сотрудники)
+  savedPassengers    PassengerRequestSavedPerson[] // каталог пассажиров заявки (скан / выбор)
 
   // сервисы
   waterService             PassengerWaterFoodService?
@@ -1220,6 +1232,9 @@ model PassengerRequest {
 
   // сохранённые отчёты по отелям (таблица отчёта — данные строк)
   hotelReports PassengerRequestHotelReport[]
+
+  // вложения заявки ФАП
+  files String[]
 
   // история действий по заявке
   logs Log[]

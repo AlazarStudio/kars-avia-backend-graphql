@@ -1,6 +1,7 @@
 const passengerRequestTypeDef = /* GraphQL */ `
   #graphql
   scalar Date
+  scalar Upload
 
   enum PassengerRequestStatus {
     CREATED
@@ -181,6 +182,19 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
   }
 
+  """
+  Пассажир в каталоге заявки (для повторного выбора после скана/добавления)
+  """
+  type PassengerRequestSavedPerson {
+    personId: ID!
+    fullName: String!
+    phone: String
+    seat: String
+    personType: PassengerPersonType!
+    airlinePersonalId: ID
+    addedAt: Date!
+  }
+
   type PassengerRequest {
     id: ID!
     createdAt: Date!
@@ -205,6 +219,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     includesCrew: Boolean!
     includesPassengers: Boolean!
     crewMembers: [PassengerRequestCrewMember!]!
+    savedPassengers: [PassengerRequestSavedPerson!]!
+    files: [String]
 
     waterService: PassengerWaterFoodService
     mealService: PassengerWaterFoodService
@@ -343,6 +359,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
   }
 
+  input PassengerRequestSavedPersonInput {
+    fullName: String!
+    phone: String
+    seat: String
+    personType: PassengerPersonType
+    airlinePersonalId: ID
+  }
+
   input PassengerServiceDriverInput {
     fullName: String!
     phone: String
@@ -430,6 +454,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type Mutation {
     createPassengerRequest(
       input: PassengerRequestCreateInput!
+      files: [Upload!]
+    ): PassengerRequest!
+
+    addPassengerRequestFiles(
+      requestId: ID!
+      files: [Upload!]!
+    ): PassengerRequest!
+
+    removePassengerRequestFile(
+      requestId: ID!
+      filePath: String!
     ): PassengerRequest!
     updatePassengerRequest(
       id: ID!
@@ -448,6 +483,22 @@ const passengerRequestTypeDef = /* GraphQL */ `
     updatePassengerRequestCrew(
       requestId: ID!
       crewMembers: [PassengerRequestCrewMemberInput!]!
+    ): PassengerRequest!
+
+    addPassengerRequestSavedPerson(
+      requestId: ID!
+      person: PassengerRequestSavedPersonInput!
+    ): PassengerRequest!
+
+    updatePassengerRequestSavedPerson(
+      requestId: ID!
+      personId: ID!
+      person: PassengerRequestSavedPersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestSavedPerson(
+      requestId: ID!
+      personId: ID!
     ): PassengerRequest!
 
     cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!

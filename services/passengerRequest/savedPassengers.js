@@ -1,0 +1,145 @@
+import { v4 as uuidv4 } from "uuid"
+
+const normalizeOptionalString = (value) => {
+  if (value == null) return null
+  const trimmed = String(value).trim()
+  return trimmed === "" ? null : trimmed
+}
+
+export const normalizePersonType = (value) =>
+  value === "CREW" ? "CREW" : "PASSENGER"
+
+export const normalizeFullNameKey = (fullName) =>
+  String(fullName ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+
+export const rosterMatchKey = (person) => {
+  const nameKey = normalizeFullNameKey(person?.fullName)
+  if (!nameKey) return null
+  const seat = normalizeOptionalString(person?.seat)
+  return seat ? `${nameKey}::${seat.toLowerCase()}` : nameKey
+}
+
+export const ensurePersonId = (person) => ({
+  ...person,
+  personId: person?.personId || uuidv4()
+})
+
+export const snapshotFromServicePerson = (person) => ({
+  fullName: person?.fullName,
+  phone: person?.phone ?? null,
+  seat: person?.seat ?? null,
+  personType: "PASSENGER",
+  airlinePersonalId: null
+})
+
+export const snapshotFromHotelPerson = (person) => ({
+  fullName: person?.fullName,
+  phone: person?.phone ?? null,
+  seat: null,
+  personType: normalizePersonType(person?.personType),
+  airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId)
+})
+
+export const snapshotFromDriverPerson = (person) => ({
+  fullName: person?.fullName,
+  phone: person?.phone ?? null,
+  seat: null,
+  personType: normalizePersonType(person?.personType),
+  airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId)
+})
+
+export const normalizeSavedPerson = (person, { isNew = false } = {}) => {
+  const fullName = String(person?.fullName ?? "").trim()
+  if (!fullName) {
+    throw new Error("fullName is required")
+  }
+
+  const normalized = {
+    personId: person?.personId || uuidv4(),
+    fullName,
+    phone: normalizeOptionalString(person?.phone),
+    seat: normalizeOptionalString(person?.seat),
+    personType: normalizePersonType(person?.personType),
+    airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
+    addedAt: person?.addedAt ? new Date(person.addedAt) : new Date()
+  }
+
+  if (!isNew && !person?.personId) {
+    return normalized
+  }
+
+  return normalized
+}
+
+const mergeSavedPerson = (existing, incoming) => ({
+  ...existing,
+  fullName: incoming.fullName || existing.fullName,
+  phone: incoming.phone ?? existing.phone,
+  seat: incoming.seat ?? existing.seat,
+  personType: incoming.personType ?? existing.personType,
+  airlinePersonalId:
+    incoming.airlinePersonalId ?? existing.airlinePersonalId
+})
+
+/**
+ * Добавляет или обновляет запись в savedPassengers по ключу ФИО (+ seat).
+ */
+export const upsertSavedPassenger = (roster, snapshot) => {
+  const list = Array.isArray(roster) ? [...roster] : []
+  const incoming = normalizeSavedPerson(snapshot, { isNew: true })
+  const key = rosterMatchKey(incoming)
+  if (!key) return list
+
+  const index = list.findIndex((item) => rosterMatchKey(item) === key)
+  if (index === -1) {
+    return [...list, incoming]
+  }
+
+  const next = [...list]
+  next[index] = mergeSavedPerson(
+    ensurePersonId(list[index]),
+    incoming
+  )
+  return next
+}
+
+export const updateSavedPersonInRoster = (roster, personId, patch) => {
+  const list = Array.isArray(roster) ? [...roster] : []
+  const index = list.findIndex((item) => item?.personId === personId)
+  if (index === -1) {
+    throw new Error("Saved passenger not found")
+  }
+
+  const merged = normalizeSavedPerson(
+    {
+      ...list[index],
+      ...patch,
+      personId
+    },
+    { isNew: false }
+  )
+
+  const key = rosterMatchKey(merged)
+  const duplicateIndex = list.findIndex(
+    (item, i) => i !== index && rosterMatchKey(item) === key
+  )
+  if (duplicateIndex !== -1) {
+    throw new Error("Saved passenger with same identity already exists")
+  }
+
+  const next = [...list]
+  next[index] = merged
+  return next
+}
+
+export const removeSavedPersonFromRoster = (roster, personId) => {
+  const list = Array.isArray(roster) ? roster : []
+  const next = list.filter((item) => item?.personId !== personId)
+  if (next.length === list.length) {
+    throw new Error("Saved passenger not found")
+  }
+  return next
+}

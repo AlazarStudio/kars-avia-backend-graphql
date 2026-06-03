@@ -75,12 +75,36 @@ export const uploadFiles = async (file, options = {}) => {
 }
 
 /* =========================
+   📍 resolveAbsoluteFilePath
+========================= */
+
+export const resolveAbsoluteFilePath = (filePath) => {
+  if (!filePath) {
+    throw new Error("filePath is required")
+  }
+
+  let relative = String(filePath).trim().replace(/\\/g, "/")
+
+  if (relative.startsWith("/files/")) {
+    relative = relative.slice("/files/".length)
+  } else if (relative.startsWith("files/")) {
+    relative = relative.slice("files/".length)
+  }
+
+  if (relative.startsWith("/")) {
+    relative = relative.slice(1)
+  }
+
+  return path.join(process.cwd(), relative)
+}
+
+/* =========================
    🗑 deleteFiles
 ========================= */
 
 export const deleteFiles = async (filePath) => {
-  const absolutePath = path.join(process.cwd(), filePath)
   try {
+    const absolutePath = resolveAbsoluteFilePath(filePath)
     await fsPromises.unlink(absolutePath)
   } catch (error) {
     logger.error("[DELETE FILE ERROR]", error)

@@ -12,6 +12,10 @@ const filePathsResolver = {
     }
   },
 
+  PassengerRequest: {
+    files: (parent) => normalizeFilePaths(parent.files || [])
+  },
+
   // Reserve
   Reserve: {
     files: (parent) => {

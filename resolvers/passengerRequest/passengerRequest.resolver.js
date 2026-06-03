@@ -6,6 +6,21 @@ import {
 } from "../../services/passengerRequest/utils.js"
 import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
 import {
+  normalizeSavedPerson,
+  removeSavedPersonFromRoster,
+  snapshotFromDriverPerson,
+  snapshotFromHotelPerson,
+  snapshotFromServicePerson,
+  updateSavedPersonInRoster,
+  upsertSavedPassenger
+} from "../../services/passengerRequest/savedPassengers.js"
+import {
+  deleteAllPassengerRequestFilesFromDisk,
+  deletePassengerRequestFileFromDisk,
+  findPassengerRequestFileIndex,
+  uploadPassengerRequestFiles
+} from "../../services/passengerRequest/files.js"
+import {
   allMiddleware,
   representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -201,6 +216,9 @@ const ensureDriverPerson = (p) => ({
   airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId)
 })
 
+const mergeSavedPassengersForRequest = (existing, snapshot) =>
+  upsertSavedPassenger(existing?.savedPassengers, snapshot)
+
 const normalizePassengerServiceDriver = (driver = {}) => ({
   ...driver,
   fullName: driver?.fullName?.trim?.() || "",
@@ -336,6 +354,9 @@ async function notifyPassengerRequestSite({
 const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
+    savedPassengers: (parent) =>
+      Array.isArray(parent.savedPassengers) ? parent.savedPassengers : [],
+
     airline: async (parent) =>
       prisma.airline.findUnique({ where: { id: parent.airlineId } }),
 
@@ -453,7 +474,7 @@ const passengerRequestResolvers = {
   // --------- мутации ---------
   Mutation: {
     // создание
-    createPassengerRequest: async (_, { input }, context) => {
+    createPassengerRequest: async (_, { input, files }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         airlineId,
@@ -585,6 +606,19 @@ const passengerRequestResolvers = {
         where: { id: passengerRequest.id },
         data: { representativeLinks }
       })
+
+      if (files?.length > 0) {
+        const uploadedPaths = await uploadPassengerRequestFiles(
+          passengerRequest.id,
+          files
+        )
+        if (uploadedPaths.length > 0) {
+          passengerRequest = await prisma.passengerRequest.update({
+            where: { id: passengerRequest.id },
+            data: { files: uploadedPaths }
+          })
+        }
+      }
 
       await logPassengerRequestAction({
         context,
@@ -844,8 +878,98 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    addPassengerRequestFiles: async (_, { requestId, files }, context) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      if (!files?.length) {
+        throw new GraphQLError("At least one file is required")
+      }
+
+      const uploadedPaths = await uploadPassengerRequestFiles(requestId, files)
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          files: [...(existing.files || []), ...uploadedPaths]
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_files",
+        description: "Файлы добавлены в ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${uploadedPaths.length} файл(ов) в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    removePassengerRequestFile: async (
+      _,
+      { requestId, filePath },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      const fileIndex = findPassengerRequestFileIndex(
+        existing.files,
+        filePath
+      )
+      if (fileIndex < 0) {
+        throw new GraphQLError("File not found on this passenger request")
+      }
+
+      const removedPath = existing.files[fileIndex]
+      await deletePassengerRequestFileFromDisk(removedPath)
+
+      const nextFiles = (existing.files || []).filter(
+        (_, index) => index !== fileIndex
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { files: nextFiles }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_file",
+        description: "Файл удалён из ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил файл из ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     deletePassengerRequest: async (_, { id }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      await deleteAllPassengerRequestFilesFromDisk(existing.files)
+
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
       })
@@ -940,6 +1064,133 @@ const passengerRequestResolvers = {
 
       return passengerRequest
     },
+
+    addPassengerRequestSavedPerson: async (_, { requestId, person }, context) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      let savedPassengers
+      try {
+        savedPassengers = upsertSavedPassenger(
+          existing.savedPassengers,
+          person
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passenger")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_saved_person",
+        description: "Пассажир добавлен в каталог ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в каталог ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    updatePassengerRequestSavedPerson: async (
+      _,
+      { requestId, personId, person },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      let savedPassengers
+      try {
+        savedPassengers = updateSavedPersonInRoster(
+          existing.savedPassengers,
+          personId,
+          person
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passenger")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_saved_person",
+        description: "Пассажир обновлён в каталоге ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил пассажира в каталоге ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
+    removePassengerRequestSavedPerson: async (
+      _,
+      { requestId, personId },
+      context
+    ) => {
+      const existing = await prisma.passengerRequest.findUnique({
+        where: { id: requestId }
+      })
+      if (!existing) throw new GraphQLError("PassengerRequest not found")
+
+      let savedPassengers
+      try {
+        savedPassengers = removeSavedPersonFromRoster(
+          existing.savedPassengers,
+          personId
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Saved passenger not found")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_saved_person",
+        description: "Пассажир удалён из каталога ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из каталога ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+        passengerRequestUpdated: passengerRequest
+      })
+
+      return passengerRequest
+    },
+
     // общий статус заявки
     cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
@@ -1140,6 +1391,11 @@ const passengerRequestResolvers = {
       } else {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
+
+      data.savedPassengers = mergeSavedPassengersForRequest(
+        existing,
+        snapshotFromServicePerson(person)
+      )
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -1695,6 +1951,11 @@ const passengerRequestResolvers = {
       }
 
       const targetHotelForPerson = hotels[hotelIndex]
+      const normalizedHotelPerson = ensureHotelPerson(
+        person,
+        hotelIndex,
+        targetHotelForPerson?.name ?? ""
+      )
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
@@ -1703,7 +1964,11 @@ const passengerRequestResolvers = {
             hotels: hotelsClone,
             status: nextStatus,
             times: nextTimes
-          }
+          },
+          savedPassengers: mergeSavedPassengersForRequest(
+            existing,
+            snapshotFromHotelPerson(normalizedHotelPerson)
+          )
         }
       })
       await logPassengerRequestAction({
@@ -2322,6 +2587,7 @@ const passengerRequestResolvers = {
         nextTimes = updateTimes(nextTimes, "COMPLETED")
       }
 
+      const normalizedDriverPerson = ensureDriverPerson(person)
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
@@ -2330,7 +2596,11 @@ const passengerRequestResolvers = {
             drivers: driversClone,
             status: nextStatus,
             times: nextTimes
-          }
+          },
+          savedPassengers: mergeSavedPassengersForRequest(
+            existing,
+            snapshotFromDriverPerson(normalizedDriverPerson)
+          )
         }
       })
       await logPassengerRequestAction({
