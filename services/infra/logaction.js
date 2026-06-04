@@ -215,6 +215,8 @@ const summarizePassengerRequest = (data) => {
     livingStatus: data.livingService?.status ?? null,
     mealStatus: data.mealService?.status ?? null,
     transferStatus: data.transferService?.status ?? null,
+    departureTransferStatus: data.departureTransferService?.status ?? null,
+    intercityTransferStatus: data.intercityTransferService?.status ?? null,
     baggageStatus: data.baggageDeliveryService?.status ?? null,
     hotelsCount: Array.isArray(data.livingService?.hotels)
       ? data.livingService.hotels.length

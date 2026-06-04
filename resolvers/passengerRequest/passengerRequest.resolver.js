@@ -206,8 +206,17 @@ const normalizeCrewMember = (member = {}) => ({
 })
 
 // Имя embedded-поля трансфера по направлению (ARRIVAL = аэропорт→гостиница)
-const getTransferField = (direction) =>
-  direction === "DEPARTURE" ? "departureTransferService" : "transferService"
+const getTransferField = (direction) => {
+  if (direction === "DEPARTURE") return "departureTransferService"
+  if (direction === "INTERCITY") return "intercityTransferService"
+  return "transferService"
+}
+
+const getTransferServiceKind = (direction) => {
+  if (direction === "DEPARTURE") return "transfer_departure"
+  if (direction === "INTERCITY") return "transfer_intercity"
+  return "transfer"
+}
 
 const ensureDriverPerson = (p) => ({
   fullName: (p?.fullName?.trim?.() ?? "") || "",
@@ -484,6 +493,7 @@ const passengerRequestResolvers = {
         livingService,
         transferService,
         departureTransferService,
+        intercityTransferService,
         baggageDeliveryService,
         crewMembers,
         status,
@@ -556,6 +566,15 @@ const passengerRequestResolvers = {
       if (departureTransferService) {
         data.departureTransferService = {
           plan: departureTransferService.plan || null,
+          status: "NEW",
+          times: null,
+          drivers: []
+        }
+      }
+
+      if (intercityTransferService) {
+        data.intercityTransferService = {
+          plan: intercityTransferService.plan || null,
           status: "NEW",
           times: null,
           drivers: []
@@ -677,6 +696,7 @@ const passengerRequestResolvers = {
         livingService,
         transferService,
         departureTransferService,
+        intercityTransferService,
         baggageDeliveryService,
         crewMembers,
         ...rest
@@ -805,6 +825,27 @@ const passengerRequestResolvers = {
           ...prev,
           ...(departureTransferService.plan !== undefined && {
             plan: departureTransferService.plan
+          }),
+          status: recalc.status,
+          times: recalc.times
+        }
+      }
+
+      if (intercityTransferService) {
+        const prev = existing.intercityTransferService || {}
+        const mergedPlan =
+          intercityTransferService.plan !== undefined
+            ? intercityTransferService.plan
+            : prev.plan
+        const recalc = recalcServiceStatus(
+          prev,
+          mergedPlan,
+          totalDriverPeople(prev.drivers)
+        )
+        data.intercityTransferService = {
+          ...prev,
+          ...(intercityTransferService.plan !== undefined && {
+            plan: intercityTransferService.plan
           }),
           status: recalc.status,
           times: recalc.times
@@ -1285,6 +1326,13 @@ const passengerRequestResolvers = {
       } else if (service === "DEPARTURE_TRANSFER") {
         const prev = existing.departureTransferService || { drivers: [] }
         data.departureTransferService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
+      } else if (service === "INTERCITY_TRANSFER") {
+        const prev = existing.intercityTransferService || { drivers: [] }
+        data.intercityTransferService = {
           ...prev,
           status,
           times: updateTimes(prev.times, status)
@@ -2184,8 +2232,7 @@ const passengerRequestResolvers = {
           requestId,
           driverIndex,
           adminId,
-          serviceKind:
-            direction === "DEPARTURE" ? "transfer_departure" : "transfer"
+          serviceKind: getTransferServiceKind(direction)
         })
         normalizedDriver.linkPWA = linkPWA
       } catch (e) {
