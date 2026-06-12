@@ -28,6 +28,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     LIVING
     TRANSFER
     DEPARTURE_TRANSFER
+    INTERCITY_TRANSFER
     BAGGAGE_DELIVERY
   }
 
@@ -53,6 +54,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   enum TransferDirection {
     ARRIVAL
     DEPARTURE
+    INTERCITY
   }
 
   type PassengerStatusTimes {
@@ -227,6 +229,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     livingService: PassengerLivingService
     transferService: PassengerTransferService
     departureTransferService: PassengerTransferService
+    intercityTransferService: PassengerTransferService
     baggageDeliveryService: PassengerTransferService
 
     status: PassengerRequestStatus!
@@ -413,6 +416,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
     departureTransferService: PassengerTransferServiceInput
+    intercityTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
 
     status: PassengerRequestStatus
@@ -442,6 +446,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
     departureTransferService: PassengerTransferServiceInput
+    intercityTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
   }
 

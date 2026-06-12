@@ -1021,6 +1021,7 @@ enum PassengerPersonType {
 enum TransferDirection {
   ARRIVAL // аэропорт → гостиница
   DEPARTURE // гостиница → аэропорт
+  INTERCITY // межгородний трансфер
 }
 
 type PassengerLivingService {
@@ -1211,6 +1212,7 @@ model PassengerRequest {
   livingService            PassengerLivingService?
   transferService          PassengerTransferService? // трансфер: аэропорт → гостиница (ARRIVAL)
   departureTransferService PassengerTransferService? // трансфер: гостиница → аэропорт (DEPARTURE)
+  intercityTransferService PassengerTransferService? // трансфер: межгородний (INTERCITY)
   baggageDeliveryService   PassengerTransferService?
 
   // общий статус заявки
