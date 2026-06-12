@@ -295,6 +295,33 @@ const logPassengerRequestAction = async ({
   }
 }
 
+function fmtPickupForLog(iso) {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+}
+
+function buildDriverPatchDescription(before, applied, driverIndex, direction) {
+  const dirLabel = direction === "DEPARTURE" ? "вылет" : "прилёт"
+  const driverLabel = before?.fullName ? `«${before.fullName}»` : `#${driverIndex + 1}`
+  const diffs = []
+  if ("pickupAt" in applied) {
+    diffs.push(`подача: ${fmtPickupForLog(before?.pickupAt)} → ${fmtPickupForLog(applied.pickupAt)}`)
+  }
+  if (!diffs.length) {
+    return {
+      short: `Заявка ${driverLabel} (${dirLabel}): изменения сохранены`,
+      full: `Заявка ${driverLabel} в трансфере (${dirLabel}): изменения сохранены`,
+    }
+  }
+  return {
+    short: `Заявка ${driverLabel} (${dirLabel}): ${diffs.join(", ")}`,
+    full: `Заявка ${driverLabel} в трансфере (${dirLabel}). Изменения: ${diffs.join("; ")}.`,
+  }
+}
+
 function flightDateTimeMs(value) {
   if (value == null) return null
   const t = new Date(value).getTime()
@@ -2228,6 +2255,59 @@ const passengerRequestResolvers = {
       })
 
       return passengerRequest
+    },
+
+    updatePassengerRequestDriver: async (
+      _,
+      { requestId, driverIndex, patch, direction },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const req = await prisma.passengerRequest.findUnique({ where: { id: requestId } })
+      if (!req) throw new GraphQLError("PassengerRequest not found")
+
+      const field = getTransferField(direction)
+      const service = req[field]
+      if (!service?.plan?.enabled) throw new GraphQLError("Service is not enabled")
+      if (service.status === "COMPLETED" || service.status === "CANCELLED") {
+        throw new GraphQLError("Service is completed, no updates allowed")
+      }
+
+      const drivers = [...(service.drivers ?? [])]
+      if (driverIndex < 0 || driverIndex >= drivers.length) {
+        throw new GraphQLError("Invalid driverIndex")
+      }
+      const before = drivers[driverIndex]
+
+      const applied = {}
+      if (Object.prototype.hasOwnProperty.call(patch, "pickupAt")) {
+        applied.pickupAt = patch.pickupAt
+      }
+      if (Object.keys(applied).length === 0) return req
+
+      drivers[driverIndex] = { ...before, ...applied }
+
+      const updated = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { [field]: { ...service, drivers } },
+      })
+
+      const log = buildDriverPatchDescription(before, applied, driverIndex, direction)
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_driver",
+        description: log.short,
+        fulldescription: log.full,
+        oldData: req,
+        newData: updated,
+        airlineId: updated.airlineId,
+        passengerRequestId: requestId,
+        skipEmail: true
+      })
+
+      pubsub.publish(PASSENGER_REQUEST_UPDATED, { passengerRequestUpdated: updated })
+
+      return updated
     },
 
     removePassengerRequestDriver: async (

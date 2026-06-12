@@ -378,6 +378,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     description: String
   }
 
+  input PassengerServiceDriverPatchInput {
+    pickupAt: Date
+  }
+
   input PassengerRequestHotelReportRowInput {
     fullName: String!
     roomNumber: String
@@ -566,6 +570,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+      direction: TransferDirection = ARRIVAL
+    ): PassengerRequest!
+
+    """
+    Партиал-обновление полей заявки (водителя) в услуге трансфера.
+    Сейчас покрывает только pickupAt. Другие поля добавятся вместе с UI.
+    Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
+    """
+    updatePassengerRequestDriver(
+      requestId: ID!
+      driverIndex: Int!
+      patch: PassengerServiceDriverPatchInput!
       direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
