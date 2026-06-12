@@ -319,6 +319,12 @@ function buildDriverPatchDescription(before, applied, driverIndex, direction) {
   if ("pickupAt" in applied) {
     diffs.push(`подача: ${fmtPickupForLog(before?.pickupAt)} → ${fmtPickupForLog(applied.pickupAt)}`)
   }
+  if ("vehicleType" in applied) {
+    diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
+  }
+  if ("reportCost" in applied) {
+    diffs.push(`сумма: ${before?.reportCost ?? 0} → ${applied.reportCost ?? 0}`)
+  }
   if (!diffs.length) {
     return {
       short: `Заявка ${driverLabel} (${dirLabel}): изменения сохранены`,
@@ -2329,6 +2335,12 @@ const passengerRequestResolvers = {
       const applied = {}
       if (Object.prototype.hasOwnProperty.call(patch, "pickupAt")) {
         applied.pickupAt = patch.pickupAt
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "vehicleType")) {
+        applied.vehicleType = patch.vehicleType
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "reportCost")) {
+        applied.reportCost = patch.reportCost
       }
       if (Object.keys(applied).length === 0) return req
 

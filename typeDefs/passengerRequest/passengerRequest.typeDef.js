@@ -147,6 +147,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressTo: String
     description: String
     deliveryCompletedAt: Date
+    vehicleType: String
+    reportCost: Float
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -383,6 +385,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerServiceDriverPatchInput {
     pickupAt: Date
+    vehicleType: String
+    reportCost: Float
   }
 
   input PassengerRequestHotelReportRowInput {

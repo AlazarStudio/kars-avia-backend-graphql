@@ -1052,6 +1052,8 @@ type PassengerServiceDriver {
   addressTo           String?
   description         String? // описание заявки (для трансфера багажа)
   deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
+  vehicleType         String?
+  reportCost          Float?
   people              PassengerServiceDriverPerson[]
 }
 
