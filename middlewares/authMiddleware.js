@@ -211,6 +211,14 @@ export const allMiddleware = async (context) => {
   ])
 }
 
+export const hotelPreviewMiddleware = async (context) => {
+  if (context.subjectType !== "HOTEL_PREVIEW" || !context.subject?.hotelId) {
+    throw new GraphQLError("Access forbidden: Hotel preview access required.", {
+      extensions: { code: "FORBIDDEN" }
+    })
+  }
+}
+
 // Middleware для проверки прав диспетчеров и суперадминов
 export const dispatcherOrSuperAdminMiddleware = async (context) => {
   const { subject, subjectType } = context

@@ -12,6 +12,7 @@ export const AUTH_ERROR_CODES = {
   MISSING_SESSION_TOKEN: "MISSING_SESSION_TOKEN",
   SESSION_MISMATCH: "SESSION_MISMATCH",
   EXTERNAL_SESSION_EXPIRED: "EXTERNAL_SESSION_EXPIRED",
+  HOTEL_PREVIEW_EXPIRED: "HOTEL_PREVIEW_EXPIRED",
   INVALID_TOKEN: "INVALID_TOKEN"
 }
 
@@ -122,8 +123,66 @@ export async function buildAuthContext(authHeader) {
     userId,
     driverId,
     airlinePersonalId,
-    externalUserId
+    externalUserId,
+    hotelId: previewHotelId,
+    previewTokenHash
   } = decoded
+
+  if (subjectType === "HOTEL_PREVIEW") {
+    if (!previewHotelId || !previewTokenHash) {
+      raiseAuthError(
+        AUTH_ERROR_CODES.MALFORMED_TOKEN,
+        "Hotel preview token is malformed"
+      )
+    }
+
+    const previewLink = await prisma.hotelPreviewLink.findUnique({
+      where: { tokenHash: previewTokenHash },
+      select: {
+        hotelId: true,
+        expiresAt: true,
+        hotel: { select: { active: true } }
+      }
+    })
+
+    const now = new Date()
+    if (
+      !previewLink ||
+      previewLink.hotelId !== previewHotelId ||
+      !previewLink.hotel?.active ||
+      previewLink.expiresAt.getTime() <= now.getTime()
+    ) {
+      raiseAuthError(
+        AUTH_ERROR_CODES.HOTEL_PREVIEW_EXPIRED,
+        "Hotel preview link expired or invalid"
+      )
+    }
+
+    const sessionToken = decoded?.sessionToken
+    if (!sessionToken || sessionToken !== previewTokenHash) {
+      raiseAuthError(
+        AUTH_ERROR_CODES.SESSION_MISMATCH,
+        "Session token does not match preview link"
+      )
+    }
+
+    const subject = {
+      hotelId: previewHotelId,
+      previewTokenHash
+    }
+
+    return {
+      authHeader,
+      token,
+      decoded,
+      subjectType,
+      subject,
+      user: null,
+      driver: null,
+      personal: null,
+      externalUser: null
+    }
+  }
 
   let user = null
   let driver = null

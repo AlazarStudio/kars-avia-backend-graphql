@@ -191,6 +191,41 @@ const hotelTypeDef = /* GraphQL */ `
     hotels: [Hotel!]!
   }
 
+  type HotelPreviewLinkResult {
+    link: String!
+    expiresAt: Date!
+    hotelId: ID!
+  }
+
+  type HotelPreviewAuthPayload {
+    token: String!
+    expiresAt: Date!
+    hotelId: ID!
+  }
+
+  type HotelPreview {
+    id: ID!
+    name: String!
+    nameFull: String
+    airport: Airport
+    location: HotelLocation
+    information: Information
+    images: [String!]!
+    gallery: [String!]
+    rooms: [Room!]!
+    roomKind: [RoomKind]
+    additionalServices: [AdditionalServices]
+    breakfast: MealTime
+    lunch: MealTime
+    dinner: MealTime
+    stars: String
+    usStars: String
+    airportDistance: String
+    type: HotelType
+    meal: Boolean
+    breakfastIncluded: Boolean
+  }
+
   # Входные типы для создания/обновления отеля
   input CreateHotelInput {
     name: String!
@@ -348,6 +383,7 @@ const hotelTypeDef = /* GraphQL */ `
       filter: HotelFilter
     ): HotelConnection!
     hotel(id: ID!): Hotel
+    hotelPreview: HotelPreview
   }
 
   type Mutation {
@@ -383,6 +419,8 @@ const hotelTypeDef = /* GraphQL */ `
     deleteRoomKind(id: ID!): RoomKind!
     deleteAdditionalService(id: ID!): AdditionalServices!
     updateAllRoomKindCount: [Hotel]
+    createHotelPreviewLink(hotelId: ID!, hours: Int!): HotelPreviewLinkResult!
+    authorizeHotelPreview(token: String!): HotelPreviewAuthPayload!
   }
 
   type Subscription {

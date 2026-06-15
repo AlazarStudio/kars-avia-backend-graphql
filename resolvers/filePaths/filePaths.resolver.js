@@ -95,6 +95,11 @@ const filePathsResolver = {
     }
   },
 
+  HotelPreview: {
+    images: (parent) => normalizeFilePaths(parent.images || []),
+    gallery: (parent) => normalizeFilePaths(parent.gallery || [])
+  },
+
   // Hotel nested entities
   Room: {
     images: (parent) => {

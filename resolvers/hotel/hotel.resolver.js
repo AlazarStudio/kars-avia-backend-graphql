@@ -9,6 +9,7 @@ import {
   hotelAdminMiddleware,
   hotelModerMiddleware,
   hotelMiddleware,
+  hotelPreviewMiddleware,
   allMiddleware
 } from "../../middlewares/authMiddleware.js"
 import nodemailer from "nodemailer"
@@ -55,6 +56,12 @@ import {
   recalculateOverlappingRequests,
   recalculateAffectedByRoomChange
 } from "../../services/request/requestPricing.js"
+import {
+  buildHotelPreviewAuthPayload,
+  createHotelPreviewLinkRecord,
+  findValidHotelPreviewLink,
+  loadHotelPreviewData
+} from "../../services/hotel/hotelPreviewLink.js"
 
 function hotelChessRoomOrPlaceChanged(previous, input) {
   if (!previous) return true
@@ -162,6 +169,15 @@ const hotelResolver = {
           airport: true
         }
       })
+    },
+
+    hotelPreview: async (_, __, context) => {
+      await hotelPreviewMiddleware(context)
+      const hotel = await loadHotelPreviewData(context.subject.hotelId)
+      if (!hotel) {
+        throw new Error("Hotel not found")
+      }
+      return hotel
     }
   },
 
@@ -1541,6 +1557,50 @@ const hotelResolver = {
           updateRoomKindCounts(roomKind.id)
         }
       }
+    },
+
+    createHotelPreviewLink: async (_, { hotelId, hours }, context) => {
+      await adminMiddleware(context)
+      const adminId =
+        context.subjectType === "USER" ? context.subject?.id : null
+
+      const result = await createHotelPreviewLinkRecord({
+        hotelId,
+        hours,
+        createdByAdminId: adminId
+      })
+
+      await logAction({
+        context,
+        action: "create_hotel_preview_link",
+        description: "Создана временная ссылка на просмотр отеля",
+        fulldescription: `Создана ссылка на просмотр отеля ${result.hotelName} до ${result.expiresAt.toISOString()}`,
+        newData: {
+          hotelId: result.hotelId,
+          expiresAt: result.expiresAt
+        },
+        hotelId: result.hotelId,
+        hotelName: result.hotelName
+      })
+
+      return {
+        link: result.link,
+        expiresAt: result.expiresAt,
+        hotelId: result.hotelId
+      }
+    },
+
+    authorizeHotelPreview: async (_, { token }) => {
+      if (!token) {
+        throw new Error("Invalid or expired hotel preview link")
+      }
+
+      const link = await findValidHotelPreviewLink(token)
+      if (!link) {
+        throw new Error("Invalid or expired hotel preview link")
+      }
+
+      return buildHotelPreviewAuthPayload(link)
     }
   },
 

@@ -888,6 +888,7 @@ model Hotel {
   hotelContract       hotelContract[]
   additionalServices  AdditionalServices[]
   externalUsers       ExternalUser[]
+  previewLinks        HotelPreviewLink[]
   external            Boolean              @default(false)
   externalSource      String?
   externalId          String?
@@ -1707,6 +1708,20 @@ model ExternalUserMagicLinkToken {
   @@index([usedAt])
 }
 
+model HotelPreviewLink {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt        DateTime @default(now()) @map("created_at")
+  hotel            Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId          String   @db.ObjectId
+  tokenHash        String   @unique
+  expiresAt        DateTime
+  createdByAdmin   User?    @relation("HotelPreviewLinkCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByAdminId String?  @db.ObjectId
+
+  @@index([hotelId, createdAt])
+  @@index([expiresAt])
+}
+
 model DispatcherDepartment {
   id               String            @id @default(auto()) @map("_id") @db.ObjectId
   createdAt        DateTime          @default(now()) @map("created_at")
@@ -1853,6 +1868,7 @@ model User {
   assignedTickets               SupportTicket[]              @relation("AssignedTickets")
   resolvedTickets               SupportTicket[]              @relation("ResolvedTickets")
   createdExternalUserMagicLinks ExternalUserMagicLinkToken[] @relation("ExternalUserMagicLinkTokenCreatedByAdmin")
+  createdHotelPreviewLinks      HotelPreviewLink[]           @relation("HotelPreviewLinkCreatedByAdmin")
 }
 
 model UserAuthToken {
