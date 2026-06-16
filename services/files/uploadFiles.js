@@ -33,6 +33,27 @@ const buildUploadPath = ({ bucket, entityId }) => {
   return parts
 }
 
+export const uploadBuffer = async (buffer, filename, options = {}) => {
+  const { bucket = "misc", entityId = null } = options
+
+  const { name, ext } = path.parse(filename || "file")
+  const safeName = safeSlug(name)
+  const timestamp = Date.now()
+
+  const relParts = buildUploadPath({ bucket, entityId })
+  const absDir = path.join(process.cwd(), ...relParts)
+
+  ensureDir(absDir)
+
+  const finalName = `${timestamp}-${safeName}${ext}`
+  const absPath = path.join(absDir, finalName)
+
+  await fsPromises.writeFile(absPath, buffer)
+
+  const relativePath = path.posix.join(...relParts, finalName)
+  return "/files/" + relativePath
+}
+
 /* =========================
    📁 uploadFiles
 ========================= */

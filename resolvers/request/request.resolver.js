@@ -48,6 +48,8 @@ import {
   recalculateOverlappingRequests,
   recalculateAffectedByRoomChange
 } from "../../services/request/requestPricing.js"
+import { generateNextRequestNumber } from "../../services/request/generateRequestNumber.js"
+import { importBulkRequestsFromFile } from "../../services/request/bulkImport/createBulkRequests.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -85,7 +87,9 @@ const requestResolver = {
         hotelId,
         arrival,
         departure,
-        search
+        search,
+        bulkGroupId,
+        linkNumber
       } = pagination
 
       const statusFilter =
@@ -113,7 +117,9 @@ const requestResolver = {
             gte: new Date(arrival),
             lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
           }
-        })
+        }),
+        ...(bulkGroupId && { bulkGroupId }),
+        ...(linkNumber && { linkNumber })
       }
 
       const searchFilter = search
@@ -180,7 +186,9 @@ const requestResolver = {
         hotelId,
         arrival,
         departure,
-        search
+        search,
+        bulkGroupId,
+        linkNumber
       } = pagination
 
       const statusFilter =
@@ -208,7 +216,9 @@ const requestResolver = {
             gte: new Date(arrival),
             lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
           }
-        })
+        }),
+        ...(bulkGroupId && { bulkGroupId }),
+        ...(linkNumber && { linkNumber })
       }
 
       const searchFilter = search
@@ -400,46 +410,11 @@ const requestResolver = {
       //     `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
       //   )
       // }
-      // Определение текущего месяца и года для формирования номера заявки
-      const currentDate = new Date()
-      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
-      const year = String(currentDate.getFullYear()).slice(-2)
-      // Определение границ месяца для поиска последней заявки
-      const startOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1
+      // Формирование номера заявки
+      const { requestNumber } = await generateNextRequestNumber(
+        prisma,
+        airportId
       )
-      const endOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      )
-      // Поиск последней созданной заявки в текущем месяце
-      const lastRequest = await prisma.request.findFirst({
-        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
-        orderBy: { createdAt: "desc" }
-      })
-      // Формирование последовательного номера заявки
-      let sequenceNumber
-      if (lastRequest) {
-        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
-        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
-      } else {
-        sequenceNumber = "0001"
-      }
-      // Получение данных об аэропорте для формирования кода заявки
-      const airport = await prisma.airport.findUnique({
-        where: { id: airportId }
-      })
-      if (!airport) {
-        throw new Error("Airport not found")
-      }
-      // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
-      const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
       // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {
@@ -599,6 +574,26 @@ const requestResolver = {
 
       pubsub.publish(REQUEST_CREATED, { requestCreated: newRequest })
       return newRequest
+    },
+
+    importBulkRequests: async (_, { file, input }, context) => {
+      await airlineModerMiddleware(context)
+
+      const result = await importBulkRequestsFromFile({ file, input, context })
+
+      if (result.firstRequest) {
+        pubsub.publish(REQUEST_CREATED, {
+          requestCreated: result.firstRequest
+        })
+      }
+
+      return {
+        bulkGroupId: result.bulkGroupId || "",
+        createdCount: result.createdCount,
+        linkNumbers: result.linkNumbers,
+        errors: result.errors,
+        sourceFile: result.sourceFile
+      }
     },
 
     // Обновление существующей заявки.

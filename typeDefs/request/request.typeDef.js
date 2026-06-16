@@ -41,6 +41,16 @@ const requestTypeDef = /* GraphQL */ `
     requestHotelPrice: RequestPrice
     externalBookingNumber: String
     externalSource: String
+    bulkGroupId: String
+    linkNumber: String
+    arrivalFlightNumber: String
+    arrivalAircraftType: String
+    arrivalFlightStatus: String
+    departureFlightNumber: String
+    departureAircraftType: String
+    departureFlightStatus: String
+    singleRoomCount: Int
+    doubleRoomCount: Int
   }
 
   # type Log {
@@ -129,6 +139,31 @@ const requestTypeDef = /* GraphQL */ `
     arrival: Date
     departure: Date
     search: String
+    bulkGroupId: String
+    linkNumber: String
+  }
+
+  input BulkRequestImportInput {
+    airportId: ID!
+    airlineId: ID!
+    senderId: ID!
+    mealPlan: MealPlanInput
+    reserve: Boolean
+    defaultTimesUsed: Boolean
+    bulkGroupId: String
+  }
+
+  type BulkRequestImportRowError {
+    row: Int!
+    message: String!
+  }
+
+  type BulkRequestImportResult {
+    bulkGroupId: String!
+    createdCount: Int!
+    linkNumbers: [String!]!
+    errors: [BulkRequestImportRowError!]!
+    sourceFile: String
   }
 
   input ExtendRequestDatesInput {
@@ -148,6 +183,10 @@ const requestTypeDef = /* GraphQL */ `
   # Мутации
   type Mutation {
     createRequest(input: CreateRequestInput!, files: [Upload!]): Request!
+    importBulkRequests(
+      file: Upload!
+      input: BulkRequestImportInput!
+    ): BulkRequestImportResult!
     updateRequest(id: ID!, input: UpdateRequestInput!): Request!
     modifyDailyMeals(input: ModifyDailyMealsInput!): MealPlan!
     cancelRequest(id: ID!): Request!

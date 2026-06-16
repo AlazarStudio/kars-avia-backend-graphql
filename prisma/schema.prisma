@@ -1325,6 +1325,20 @@ model Request {
   requestHotelPrice     requestPrice?
   airlineDepartment     AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
   airlineDepartmentId   String?            @db.ObjectId
+
+  bulkGroupId           String?            @map("bulk_group_id")
+  linkNumber            String?            @map("link_number")
+  arrivalFlightNumber   String?            @map("arrival_flight_number")
+  arrivalAircraftType   String?            @map("arrival_aircraft_type")
+  arrivalFlightStatus   String?            @map("arrival_flight_status")
+  departureFlightNumber String?            @map("departure_flight_number")
+  departureAircraftType String?            @map("departure_aircraft_type")
+  departureFlightStatus String?            @map("departure_flight_status")
+  singleRoomCount       Int?               @map("single_room_count")
+  doubleRoomCount       Int?               @map("double_room_count")
+
+  @@index([bulkGroupId])
+  @@index([airlineId, linkNumber])
 }
 
 type requestPrice {
