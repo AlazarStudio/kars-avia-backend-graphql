@@ -224,6 +224,11 @@ const hotelTypeDef = /* GraphQL */ `
     type: HotelType
     meal: Boolean
     breakfastIncluded: Boolean
+    discount: String
+    mealPriceForAir: MealPrice
+    mealPriceForAirReq: Boolean
+    transferPriceForAir: HotelTransferPrice
+    transferPriceForAirReq: Boolean
   }
 
   # Входные типы для создания/обновления отеля
