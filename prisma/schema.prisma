@@ -1036,6 +1036,7 @@ type PassengerLivingService {
 }
 
 type PassengerServiceDriverPerson {
+  personId          String?
   fullName          String
   phone             String?
   personType        PassengerPersonType @default(PASSENGER)
@@ -1071,6 +1072,7 @@ type PassengerServiceHotel {
 }
 
 type PassengerServiceHotelPerson {
+  personId             String?
   fullName             String // ФИО пассажира (обязательное)
   phone                String?
   roomNumber           String?
@@ -1126,6 +1128,7 @@ type PassengerRequestSavedPerson {
 }
 
 type PassengerServicePerson {
+  personId String?
   fullName String
   issuedAt DateTime? // время выдачи (14:30 в таблице)
   phone    String?

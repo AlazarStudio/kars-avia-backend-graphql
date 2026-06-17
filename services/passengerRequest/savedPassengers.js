@@ -15,11 +15,25 @@ export const normalizeFullNameKey = (fullName) =>
     .toLowerCase()
     .replace(/\s+/g, " ")
 
-export const rosterMatchKey = (person) => {
-  const nameKey = normalizeFullNameKey(person?.fullName)
-  if (!nameKey) return null
-  const seat = normalizeOptionalString(person?.seat)
-  return seat ? `${nameKey}::${seat.toLowerCase()}` : nameKey
+export const rosterMatchKey = (person) => person?.personId || null
+
+// Схлопывает каталог по personId, оставляя первое вхождение.
+// Подстраховка от дублей с одинаковым personId.
+export const dedupeSavedPassengers = (roster) => {
+  const list = Array.isArray(roster) ? roster : []
+  const seen = new Set()
+  const out = []
+  for (const person of list) {
+    const key = rosterMatchKey(person)
+    if (!key) {
+      out.push(person)
+      continue
+    }
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(person)
+  }
+  return out
 }
 
 export const ensurePersonId = (person) => ({
@@ -28,6 +42,7 @@ export const ensurePersonId = (person) => ({
 })
 
 export const snapshotFromServicePerson = (person) => ({
+  personId: person?.personId ?? null,
   fullName: person?.fullName,
   phone: person?.phone ?? null,
   seat: person?.seat ?? null,
@@ -36,6 +51,7 @@ export const snapshotFromServicePerson = (person) => ({
 })
 
 export const snapshotFromHotelPerson = (person) => ({
+  personId: person?.personId ?? null,
   fullName: person?.fullName,
   phone: person?.phone ?? null,
   seat: null,
@@ -44,6 +60,7 @@ export const snapshotFromHotelPerson = (person) => ({
 })
 
 export const snapshotFromDriverPerson = (person) => ({
+  personId: person?.personId ?? null,
   fullName: person?.fullName,
   phone: person?.phone ?? null,
   seat: null,
@@ -85,7 +102,7 @@ const mergeSavedPerson = (existing, incoming) => ({
 })
 
 /**
- * Добавляет или обновляет запись в savedPassengers по ключу ФИО (+ seat).
+ * Добавляет или обновляет запись в savedPassengers по personId.
  */
 export const upsertSavedPassenger = (roster, snapshot) => {
   const list = Array.isArray(roster) ? [...roster] : []

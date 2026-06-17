@@ -6,6 +6,8 @@ import {
 } from "../../services/passengerRequest/utils.js"
 import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
 import {
+  dedupeSavedPassengers,
+  ensurePersonId,
   normalizeSavedPerson,
   removeSavedPersonFromRoster,
   snapshotFromDriverPerson,
@@ -268,6 +270,7 @@ const emptyDriversService = () => ({
 })
 
 const ensureDriverPerson = (p) => ({
+  personId: p?.personId ?? null,
   fullName: (p?.fullName?.trim?.() ?? "") || "",
   phone: normalizeOptionalString(p?.phone),
   personType: normalizePersonType(p?.personType),
@@ -445,8 +448,7 @@ async function notifyPassengerRequestSite({
 const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
-    savedPassengers: (parent) =>
-      Array.isArray(parent.savedPassengers) ? parent.savedPassengers : [],
+    savedPassengers: (parent) => dedupeSavedPassengers(parent.savedPassengers),
 
     airline: async (parent) =>
       prisma.airline.findUnique({ where: { id: parent.airlineId } }),
@@ -1403,12 +1405,13 @@ const passengerRequestResolvers = {
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
+      const personWithId = ensurePersonId(person)
 
       const data = {}
 
       if (service === "WATER") {
         const prev = existing.waterService || emptyPeopleService()
-        const people = [...(prev.people || []), person]
+        const people = [...(prev.people || []), personWithId]
         let nextStatus = prev.status
         let nextTimes = prev.times
         if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
@@ -1428,7 +1431,7 @@ const passengerRequestResolvers = {
         }
       } else if (service === "MEAL") {
         const prev = existing.mealService || emptyPeopleService()
-        const people = [...(prev.people || []), person]
+        const people = [...(prev.people || []), personWithId]
         let nextStatus = prev.status
         let nextTimes = prev.times
         if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
@@ -1452,7 +1455,7 @@ const passengerRequestResolvers = {
 
       data.savedPassengers = mergeSavedPassengersForRequest(
         existing,
-        snapshotFromServicePerson(person)
+        snapshotFromServicePerson(personWithId)
       )
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -1488,10 +1491,11 @@ const passengerRequestResolvers = {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
       const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map(ensurePersonId)
 
       const serviceField = service === "WATER" ? "waterService" : "mealService"
       const prev = existing[serviceField] || emptyPeopleService()
-      const nextPeople = [...(prev.people || []), ...people]
+      const nextPeople = [...(prev.people || []), ...peopleWithId]
 
       let nextStatus = prev.status
       let nextTimes = prev.times
@@ -1506,7 +1510,7 @@ const passengerRequestResolvers = {
       }
 
       let savedPassengers = existing.savedPassengers
-      for (const p of people) {
+      for (const p of peopleWithId) {
         savedPassengers = upsertSavedPassenger(
           savedPassengers,
           snapshotFromServicePerson(p)
@@ -1938,6 +1942,7 @@ const passengerRequestResolvers = {
     ) => {
       // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
       const existing = await loadRequestOrThrow(requestId)
+      const personWithId = ensurePersonId(person)
 
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
@@ -1965,7 +1970,7 @@ const passengerRequestResolvers = {
                 ...((h && h.people) || []).map((item) =>
                   ensureHotelPerson(item, i, name)
                 ),
-                ensureHotelPerson(person, i, name)
+                ensureHotelPerson(personWithId, i, name)
               ]
             }
           : {
@@ -1998,7 +2003,7 @@ const passengerRequestResolvers = {
 
       const targetHotelForPerson = hotels[hotelIndex]
       const normalizedHotelPerson = ensureHotelPerson(
-        person,
+        personWithId,
         hotelIndex,
         targetHotelForPerson?.name ?? ""
       )
@@ -2051,6 +2056,7 @@ const passengerRequestResolvers = {
         throw new GraphQLError("people must be a non-empty array")
       }
       const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map(ensurePersonId)
 
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
@@ -2077,7 +2083,7 @@ const passengerRequestResolvers = {
         if (i !== hotelIndex) {
           return { ...h, people: existingPeople }
         }
-        const added = people.map((p) => ensureHotelPerson(p, i, name))
+        const added = peopleWithId.map((p) => ensureHotelPerson(p, i, name))
         return { ...h, people: [...existingPeople, ...added] }
       })
 
@@ -2102,7 +2108,7 @@ const passengerRequestResolvers = {
       }
 
       let savedPassengers = existing.savedPassengers
-      for (const p of people) {
+      for (const p of peopleWithId) {
         savedPassengers = upsertSavedPassenger(
           savedPassengers,
           snapshotFromHotelPerson(
@@ -2166,6 +2172,7 @@ const passengerRequestResolvers = {
         const previousPerson = newPeople[personIndex]
         newPeople[personIndex] = {
           ...person,
+          personId: person?.personId ?? previousPerson?.personId ?? null,
           personType: normalizePersonType(
             person?.personType ?? previousPerson?.personType
           ),
@@ -2654,6 +2661,7 @@ const passengerRequestResolvers = {
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
+      const personWithId = ensurePersonId(person)
 
       const transferField = getTransferField(direction)
       const prev = existing[transferField] || emptyDriversService()
@@ -2665,7 +2673,7 @@ const passengerRequestResolvers = {
         if (i !== driverIndex) return normalized
         return {
           ...normalized,
-          people: [...(normalized.people || []), ensureDriverPerson(person)]
+          people: [...(normalized.people || []), ensureDriverPerson(personWithId)]
         }
       })
 
@@ -2690,7 +2698,7 @@ const passengerRequestResolvers = {
         nextTimes = updateTimes(nextTimes, "COMPLETED")
       }
 
-      const normalizedDriverPerson = ensureDriverPerson(person)
+      const normalizedDriverPerson = ensureDriverPerson(personWithId)
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
@@ -2732,6 +2740,7 @@ const passengerRequestResolvers = {
         throw new GraphQLError("people must be a non-empty array")
       }
       const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map(ensurePersonId)
 
       const transferField = getTransferField(direction)
       const prev = existing[transferField] || emptyDriversService()
@@ -2741,7 +2750,7 @@ const passengerRequestResolvers = {
       const driversClone = drivers.map((d, i) => {
         const normalized = normalizePassengerServiceDriver(d)
         if (i !== driverIndex) return normalized
-        const added = people.map((p) => ensureDriverPerson(p))
+        const added = peopleWithId.map((p) => ensureDriverPerson(p))
         return {
           ...normalized,
           people: [...(normalized.people || []), ...added]
@@ -2769,7 +2778,7 @@ const passengerRequestResolvers = {
       }
 
       let savedPassengers = existing.savedPassengers
-      for (const p of people) {
+      for (const p of peopleWithId) {
         savedPassengers = upsertSavedPassenger(
           savedPassengers,
           snapshotFromDriverPerson(ensureDriverPerson(p))
@@ -2823,7 +2832,11 @@ const passengerRequestResolvers = {
         const normalized = normalizePassengerServiceDriver(d)
         if (i !== driverIndex) return normalized
         const newPeople = [...(normalized.people || [])]
-        newPeople[personIndex] = ensureDriverPerson(person)
+        const prevPerson = newPeople[personIndex]
+        newPeople[personIndex] = ensureDriverPerson({
+          ...person,
+          personId: person?.personId ?? prevPerson?.personId ?? null
+        })
         return { ...normalized, people: newPeople }
       })
 
