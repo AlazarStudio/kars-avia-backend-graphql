@@ -528,6 +528,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
       person: PassengerServicePersonInput!
     ): PassengerRequest!
 
+    """
+    Пакетное добавление пассажиров в воду/питание (выбор из каталога заявки).
+    """
+    addPassengerRequestPeople(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      people: [PassengerServicePersonInput!]!
+    ): PassengerRequest!
+
     updatePassengerRequestPerson(
       requestId: ID!
       service: PassengerWaterFoodKind!
@@ -561,6 +570,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       hotelIndex: Int!
       person: PassengerServiceHotelPersonInput!
+    ): PassengerRequest!
+
+    """
+    Пакетное добавление пассажиров в отель (выбор из каталога заявки).
+    """
+    addPassengerRequestHotelPeople(
+      requestId: ID!
+      hotelIndex: Int!
+      people: [PassengerServiceHotelPersonInput!]!
     ): PassengerRequest!
 
     removePassengerRequestHotelPerson(
@@ -630,6 +648,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driverIndex: Int!
       person: PassengerServiceDriverPersonInput!
+      direction: TransferDirection = ARRIVAL
+    ): PassengerRequest!
+
+    """
+    Пакетное добавление пассажиров к водителю трансфера (выбор из каталога заявки).
+    """
+    addPassengerRequestDriverPeople(
+      requestId: ID!
+      driverIndex: Int!
+      people: [PassengerServiceDriverPersonInput!]!
       direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 

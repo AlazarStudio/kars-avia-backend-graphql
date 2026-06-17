@@ -1475,6 +1475,72 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    addPassengerRequestPeople: async (
+      _,
+      { requestId, service, people },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      const prev = existing[serviceField] || emptyPeopleService()
+      const nextPeople = [...(prev.people || []), ...people]
+
+      let nextStatus = prev.status
+      let nextTimes = prev.times
+      if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = updateTimes(prev.times, "IN_PROGRESS")
+      }
+      const planCount = prev.plan?.peopleCount
+      if (planCount != null && nextPeople.length >= planCount) {
+        nextStatus = "COMPLETED"
+        nextTimes = updateTimes(nextTimes, "COMPLETED")
+      }
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of people) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromServicePerson(p)
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [serviceField]: {
+            ...prev,
+            people: nextPeople,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_people",
+        description: `Пакетно добавлены пассажиры в сервис ${service} (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
     // обновление получателя воды/питания
     updatePassengerRequestPerson: async (
       _,
@@ -1968,6 +2034,104 @@ const passengerRequestResolvers = {
             person?.roomKind
           )
         }
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestHotelPeople: async (
+      _,
+      { requestId, hotelIndex, people },
+      context
+    ) => {
+      // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+
+      const living = existing.livingService || emptyLivingService()
+      const hotels = living.hotels || []
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      if (
+        context.subjectType === "EXTERNAL_USER" &&
+        context.subject?.scope === "HOTEL" &&
+        context.subject?.hotelId
+      ) {
+        const targetHotel = hotels[hotelIndex]
+        if (!targetHotel || targetHotel.hotelId !== context.subject.hotelId) {
+          throw new GraphQLError(
+            "Access forbidden: you can only add bookings to your hotel.",
+            { extensions: { code: "FORBIDDEN" } }
+          )
+        }
+      }
+
+      const hotelsClone = hotels.map((h, i) => {
+        const name = h?.name ?? ""
+        const existingPeople = ((h && h.people) || []).map((item) =>
+          ensureHotelPerson(item, i, name)
+        )
+        if (i !== hotelIndex) {
+          return { ...h, people: existingPeople }
+        }
+        const added = people.map((p) => ensureHotelPerson(p, i, name))
+        return { ...h, people: [...existingPeople, ...added] }
+      })
+
+      const totalPeopleBefore = (living.hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const planCount = living.plan?.peopleCount ?? null
+      let nextStatus = living.status
+      let nextTimes = living.times || {}
+      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
+      }
+      if (planCount != null && totalPeopleAfter >= planCount) {
+        nextStatus = "COMPLETED"
+        nextTimes = updateTimes(nextTimes, "COMPLETED")
+      }
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of people) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromHotelPerson(
+            ensureHotelPerson(p, hotelIndex, hotels[hotelIndex]?.name ?? "")
+          )
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_hotel_people",
+        description: `Пакетно добавлены пассажиры в отель ФАП (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в отель ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
       })
 
       publishPassengerRequestUpdated(passengerRequest)
@@ -2547,6 +2711,88 @@ const passengerRequestResolvers = {
         action: "add_passenger_request_driver_person",
         description: "Пассажир добавлен к водителю трансфера ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира к водителю #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestDriverPeople: async (
+      _,
+      { requestId, driverIndex, people, direction = "ARRIVAL" },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
+      const drivers = prev.drivers || []
+      assertIndex(driverIndex, drivers.length, "driverIndex")
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        const added = people.map((p) => ensureDriverPerson(p))
+        return {
+          ...normalized,
+          people: [...(normalized.people || []), ...added]
+        }
+      })
+
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = driversClone.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const planCount = prev.plan?.peopleCount ?? null
+      let nextStatus = prev.status
+      let nextTimes = prev.times || {}
+      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
+        nextStatus = "IN_PROGRESS"
+        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
+      }
+      if (planCount != null && totalPeopleAfter >= planCount) {
+        nextStatus = "COMPLETED"
+        nextTimes = updateTimes(nextTimes, "COMPLETED")
+      }
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of people) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromDriverPerson(ensureDriverPerson(p))
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [transferField]: {
+            ...prev,
+            drivers: driversClone,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_driver_people",
+        description: `Пакетно добавлены пассажиры к водителю трансфера ФАП (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров к водителю #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
