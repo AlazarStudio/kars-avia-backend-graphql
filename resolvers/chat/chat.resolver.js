@@ -15,6 +15,7 @@ import { withFilter } from "graphql-subscriptions"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { sendSupportClientMessageEmail } from "../../services/notification/sendSupportEmail.js"
 import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"
 import {
   canReceiveChatReadSubscription,
@@ -358,6 +359,7 @@ const chatResolver = {
       if (!chat) throw new Error("Чат не найден")
 
       let currentTicketId = null
+      let currentTicketNumber = null
       if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
@@ -384,6 +386,7 @@ const chatResolver = {
               }
             })
             currentTicketId = newTicket.id
+            currentTicketNumber = newTicket.ticketNumber
             await prisma.chat.update({
               where: { id: chatId },
               data: {
@@ -401,6 +404,7 @@ const chatResolver = {
           )
           if (activeTicket) {
             currentTicketId = activeTicket.id
+            currentTicketNumber = activeTicket.ticketNumber
           } else if (chat.tickets?.length === 0) {
             const firstTicket = await prisma.supportTicket.create({
               data: {
@@ -410,6 +414,7 @@ const chatResolver = {
               }
             })
             currentTicketId = firstTicket.id
+            currentTicketNumber = firstTicket.ticketNumber
           }
         }
       }
@@ -466,7 +471,9 @@ const chatResolver = {
               airlineId: true,
               airlineDepartmentId: true,
               hotelId: true,
-              dispatcher: true
+              dispatcher: true,
+              support: true,
+              role: true
             }
           },
           chat: {
@@ -482,6 +489,15 @@ const chatResolver = {
           }
         }
       })
+
+      if (message.chat.isSupport && !isExternal && !isSupportAgent(message.sender)) {
+        await sendSupportClientMessageEmail({
+          chatId,
+          sender: message.sender,
+          text: message.text,
+          ticketNumber: currentTicketNumber
+        })
+      }
 
       const tasks = []
 
