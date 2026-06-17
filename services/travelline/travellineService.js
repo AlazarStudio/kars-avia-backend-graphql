@@ -5,6 +5,8 @@ import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
 import calculateMeal from "../meal/calculateMeal.js"
+import { buildStayDatesWithExtras, parseVerifyResponse } from "./travellineBooking.js"
+import { extractCancellationPolicy, pickRoomTypeName } from "./travellineMappers.js"
 
 const DEFAULT_BASE_URL = "https://partner.qatl.ru"
 const CLIENT_ID_KEY = "travelline.client_id"
@@ -774,6 +776,15 @@ class TravellineService {
     const roomStays = data?.roomStays ?? []
     logger.info(`searchAvailability(${input.propertyId}): ${roomStays.length} roomStays`)
 
+    let contentRoomTypes = []
+    try {
+      contentRoomTypes = await this.getRoomTypes(input.propertyId)
+    } catch (err) {
+      logger.warn(
+        `searchAvailability(${input.propertyId}): getRoomTypes failed: ${err?.message}`
+      )
+    }
+
     const seen = new Set()
     const rates = []
 
@@ -790,17 +801,8 @@ class TravellineService {
 
       const tz = stay.timeZone ?? stay.timezone ?? stay.propertyTimeZone ?? null
 
-      const cp = stay.cancellationPolicy
-      const cancellationPolicies =
-        cp && cp.penaltyAmount != null && cp.penaltyAmount > 0
-          ? [
-              {
-                amount: cp.penaltyAmount ?? 0,
-                deadline: cp.freeCancellationDeadlineLocal ?? cp.freeCancellationDeadlineUtc ?? "",
-                timezone: cp.timeZone ?? cp.timezone ?? tz ?? null
-              }
-            ]
-          : []
+      const cancPolicy = extractCancellationPolicy(stay.cancellationPolicy, tz)
+      const cancellationPolicies = cancPolicy ? [cancPolicy] : []
 
       const placements = stay.roomType?.placements ?? []
       const { earlyCheckInOptions, lateCheckOutOptions } = this._extractTimeServices(stay)
@@ -808,7 +810,8 @@ class TravellineService {
 
       rates.push({
         roomTypeId,
-        roomTypeName: stay.fullPlacementsName ?? stay.roomType?.name ?? roomTypeId,
+        roomTypeName: pickRoomTypeName(roomTypeId, contentRoomTypes, stay.roomType?.name),
+        placementName: stay.fullPlacementsName ?? null,
         maxOccupancy: stay.guestCount?.adults ?? null,
         ratePlanId,
         ratePlanName:
@@ -851,15 +854,14 @@ class TravellineService {
   // ─── Verify booking ──────────────────────────────────────────────────────
 
   buildRoomStay(opts) {
-    const timePart = (dt) => {
-      if (!dt) return "00:00"
-      const tIdx = dt.indexOf("T")
-      if (tIdx !== -1) return dt.slice(tIdx + 1, tIdx + 6)
-      if (/^\d{2}:\d{2}/.test(dt)) return dt.slice(0, 5)
-      return "00:00"
-    }
-    const arrivalDate = opts.arrival.slice(0, 10)
-    const departureDate = opts.departure.slice(0, 10)
+    const { stayDates, additionalServices } = buildStayDatesWithExtras({
+      arrival: opts.arrival,
+      departure: opts.departure,
+      checkInTime: opts.checkInTime,
+      checkOutTime: opts.checkOutTime,
+      earlyCheckInDateTime: opts.earlyCheckInDateTime,
+      lateCheckOutDateTime: opts.lateCheckOutDateTime
+    })
 
     const roomStay = {
       roomType: {
@@ -867,10 +869,7 @@ class TravellineService {
         placements: (opts.roomTypePlacements ?? []).map((code) => ({ code }))
       },
       ratePlan: { id: opts.ratePlanId },
-      stayDates: {
-        arrivalDateTime: `${arrivalDate}T${timePart(opts.checkInTime)}`,
-        departureDateTime: `${departureDate}T${timePart(opts.checkOutTime)}`
-      },
+      stayDates,
       guestCount: {
         adultCount: opts.adults,
         ...(opts.childAges.length > 0 ? { childAges: opts.childAges } : {})
@@ -879,13 +878,6 @@ class TravellineService {
       ...(opts.checksum ? { checksum: opts.checksum } : {})
     }
 
-    const additionalServices = []
-    if (opts.earlyCheckInDateTime) {
-      additionalServices.push({ type: "EarlyCheckIn", dateTimeLocal: opts.earlyCheckInDateTime })
-    }
-    if (opts.lateCheckOutDateTime) {
-      additionalServices.push({ type: "LateCheckOut", dateTimeLocal: opts.lateCheckOutDateTime })
-    }
     if (additionalServices.length > 0) {
       roomStay.additionalServices = additionalServices
     }
@@ -1255,10 +1247,29 @@ class TravellineService {
 
     logger.info(`verify response: ${JSON.stringify(verifyData)}`)
 
-    const createBookingToken =
-      verifyData?.createBookingToken ??
-      verifyData?.token ??
-      verifyData?.booking?.createBookingToken
+    const parsedVerify = parseVerifyResponse(verifyData)
+
+    // Цена/доступность изменились — бронь НЕ создаём, возвращаем альтернативу (№7)
+    if (parsedVerify.conditionChange) {
+      const alt = parsedVerify.alternative
+      return {
+        reservation: null,
+        conditionChange: true,
+        alternative: alt
+          ? {
+              newPriceBeforeTax: alt.newPriceBeforeTax,
+              newTax: alt.newTax,
+              newTotalPrice: alt.newTotalPrice,
+              newPenaltyAmount: alt.newPenaltyAmount,
+              newChecksum: alt.newChecksum,
+              message: alt.message,
+              cancellationPolicy: extractCancellationPolicy(alt.cancellationPolicy)
+            }
+          : null
+      }
+    }
+
+    const createBookingToken = parsedVerify.createBookingToken
 
     if (!createBookingToken) {
       throw new Error(
@@ -1415,7 +1426,7 @@ class TravellineService {
       }
     }
 
-    return reservation
+    return { reservation, conditionChange: false, alternative: null }
   }
 
   async getReservation(bookingNumber) {
@@ -1530,8 +1541,15 @@ class TravellineService {
       logger.warn(`amendReservation(${input.bookingId}): availability search failed (${searchErr?.message}), using existing checksum`)
     }
 
-    const arrivalDate = input.arrival.slice(0, 10)
-    const departureDate = input.departure.slice(0, 10)
+    const { stayDates: amendStayDates, additionalServices: amendServices } =
+      buildStayDatesWithExtras({
+        arrival: input.arrival,
+        departure: input.departure,
+        checkInTime,
+        checkOutTime,
+        earlyCheckInDateTime: input.earlyCheckInDateTime,
+        lateCheckOutDateTime: input.lateCheckOutDateTime
+      })
 
     const roomStayBody = {
       roomType: {
@@ -1539,24 +1557,14 @@ class TravellineService {
         placements: placements.map((code) => ({ code }))
       },
       ratePlan: { id: record.ratePlanId },
-      stayDates: {
-        arrivalDateTime: `${arrivalDate}T${checkInTime}`,
-        departureDateTime: `${departureDate}T${checkOutTime}`
-      },
+      stayDates: amendStayDates,
       guestCount: {
         adultCount: adults,
         ...(childAges.length > 0 ? { childAges } : {})
       },
       guests: existingGuests,
       checksum: newChecksum,
-      // РЗПВ via additionalServices (same format as createBooking / buildRoomStay)
-      // Date portion reconstructed from new dates + preserved time to guarantee match with stayDates
-      ...(() => {
-        const svc = []
-        if (input.earlyCheckInDateTime) svc.push({ type: "EarlyCheckIn", dateTimeLocal: `${arrivalDate}T${input.earlyCheckInDateTime.slice(11, 16)}` })
-        if (input.lateCheckOutDateTime) svc.push({ type: "LateCheckOut", dateTimeLocal: `${departureDate}T${input.lateCheckOutDateTime.slice(11, 16)}` })
-        return svc.length > 0 ? { additionalServices: svc } : {}
-      })()
+      ...(amendServices.length > 0 ? { additionalServices: amendServices } : {})
     }
 
     const amendBody = {
@@ -1567,7 +1575,10 @@ class TravellineService {
         customer: {
           firstName: record.guestFirst ?? "Guest",
           lastName: record.guestLast ?? "Guest",
-          contacts: { phones: [], emails: [] }
+          contacts: {
+            phones: record.guestPhone ? [{ phoneNumber: record.guestPhone }] : [],
+            emails: record.guestEmail ? [{ emailAddress: record.guestEmail }] : []
+          }
         },
         ...(input.corporateId ?? record.corporateId ? { corporateId: input.corporateId ?? record.corporateId } : {}),
         ...(input.comment ? { bookingComments: [input.comment] } : {})

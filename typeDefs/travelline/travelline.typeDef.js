@@ -88,6 +88,7 @@ const travellineTypeDef = /* GraphQL */ `
   type TlCancellationPolicy {
     amount: Float!
     deadline: String!
+    deadlineUtc: String
     timezone: String
   }
 
@@ -109,6 +110,7 @@ const travellineTypeDef = /* GraphQL */ `
   type TlRoomRate {
     roomTypeId: String!
     roomTypeName: String!
+    placementName: String
     maxOccupancy: Int
     ratePlanId: String!
     ratePlanName: String!
@@ -269,6 +271,22 @@ const travellineTypeDef = /* GraphQL */ `
     corporateId: String
     createdAt: String!
     raw: String!
+  }
+
+  type TlAlternative {
+    newPriceBeforeTax: Float
+    newTax: Float
+    newTotalPrice: Float
+    newPenaltyAmount: Float
+    newChecksum: String
+    message: String
+    cancellationPolicy: TlCancellationPolicy
+  }
+
+  type TlCreateReservationResult {
+    reservation: TlReservation
+    conditionChange: Boolean!
+    alternative: TlAlternative
   }
 
   input TlGuestInput {
@@ -441,7 +459,7 @@ const travellineTypeDef = /* GraphQL */ `
     tlSetConfig(input: TlSetConfigInput!): Boolean!
     tlSyncCatalog(countryCode: String): TlSyncStatus!
     tlSetAutoSyncHours(hours: Int!): Int!
-    tlCreateReservation(input: TlCreateReservationInput!): TlReservation!
+    tlCreateReservation(input: TlCreateReservationInput!): TlCreateReservationResult!
     tlCancelReservation(id: ID!): Boolean!
     tlVerifyBooking(input: TlVerifyInput!): TlVerifyResult!
     tlRawRequest(input: TlRawRequestInput!): TlRawResponse!
