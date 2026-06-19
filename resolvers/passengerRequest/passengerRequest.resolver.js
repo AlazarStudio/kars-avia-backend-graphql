@@ -176,6 +176,7 @@ const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   roomCategory: person.roomCategory ?? null,
   roomKind: person.roomKind ?? null,
   personType: normalizePersonType(person?.personType),
+  personCategory: normalizePersonCategory(person?.personCategory),
   airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
   accommodationChesses: ensureAccommodationChesses(
     person,
@@ -198,6 +199,9 @@ const normalizeOptionalString = (value) => {
 }
 
 const normalizePersonType = (value) => (value === "CREW" ? "CREW" : "PASSENGER")
+
+const normalizePersonCategory = (value) =>
+  value === "CHILD" || value === "INFANT" ? value : "ADULT"
 
 const normalizeCrewMember = (member = {}) => ({
   airlinePersonalId: normalizeOptionalString(member?.airlinePersonalId),
@@ -2175,6 +2179,9 @@ const passengerRequestResolvers = {
           personId: person?.personId ?? previousPerson?.personId ?? null,
           personType: normalizePersonType(
             person?.personType ?? previousPerson?.personType
+          ),
+          personCategory: normalizePersonCategory(
+            person?.personCategory ?? previousPerson?.personCategory
           ),
           airlinePersonalId:
             normalizeOptionalString(person?.airlinePersonalId) ??

@@ -48,6 +48,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     CREW
   }
 
+  enum PassengerPersonCategory {
+    ADULT
+    CHILD
+    INFANT
+  }
+
   """
   Направление трансфера
   """
@@ -99,6 +105,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     roomCategory: String
     roomKind: String
     personType: PassengerPersonType!
+    personCategory: PassengerPersonCategory
     airlinePersonalId: ID
     accommodationChesses: [PassengerAccommodationChess!]!
   }
@@ -342,6 +349,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     roomCategory: String
     roomKind: String
     personType: PassengerPersonType
+    personCategory: PassengerPersonCategory
     airlinePersonalId: ID
   }
 

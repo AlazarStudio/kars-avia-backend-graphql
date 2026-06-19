@@ -1019,6 +1019,12 @@ enum PassengerPersonType {
   CREW
 }
 
+enum PassengerPersonCategory {
+  ADULT
+  CHILD
+  INFANT
+}
+
 enum TransferDirection {
   ARRIVAL // аэропорт → гостиница
   DEPARTURE // гостиница → аэропорт
@@ -1081,6 +1087,7 @@ type PassengerServiceHotelPerson {
   roomCategory         String?
   roomKind             String?
   personType           PassengerPersonType           @default(PASSENGER)
+  personCategory       PassengerPersonCategory?      @default(ADULT) // optional: легаси-гости без поля читаются как null → фронт трактует как ADULT
   airlinePersonalId    String?                       @db.ObjectId // ссылка на сотрудника, если экипаж
   accommodationChesses PassengerAccommodationChess[]
 }
