@@ -50,6 +50,11 @@ import {
 } from "../../services/request/requestPricing.js"
 import { generateNextRequestNumber } from "../../services/request/generateRequestNumber.js"
 import { importBulkRequestsFromFile } from "../../services/request/bulkImport/createBulkRequests.js"
+import {
+  buildRequestListWhere,
+  REQUEST_LIST_INCLUDE
+} from "../../services/request/buildRequestListWhere.js"
+import { groupRequestsByAirlineAirportMonth } from "../../services/request/groupRequestsByAirlineAirportMonth.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -77,74 +82,13 @@ const requestResolver = {
     requests: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      const {
-        skip = 0,
-        take = 10,
-        status,
-        airportId,
-        airlineId,
-        personId,
-        hotelId,
-        arrival,
-        departure,
-        search,
-        bulkGroupId,
-        linkNumber
-      } = pagination
+      const { skip = 0, take = 10 } = pagination || {}
 
-      const statusFilter =
-        status && status.length > 0 && !status.includes("all")
-          ? { status: { in: status } }
-          : {}
-
-      const airlineAccessFilter = user.airlineId
-        ? { airlineId: user.airlineId }
-        : {}
-
-      const exactMatchFilters = {
-        ...(airportId && { airportId }),
-        ...(airlineId && { airlineId }),
-        ...(personId && { personId }),
-        ...(hotelId && { hotelId }),
-        ...(arrival && {
-          arrival: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(departure && {
-          departure: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(bulkGroupId && { bulkGroupId }),
-        ...(linkNumber && { linkNumber })
-      }
-
-      const searchFilter = search
-        ? {
-            OR: [
-              { airport: { name: { contains: search, mode: "insensitive" } } },
-              { airline: { name: { contains: search, mode: "insensitive" } } },
-              { hotel: { name: { contains: search, mode: "insensitive" } } },
-              { person: { name: { contains: search, mode: "insensitive" } } },
-              { requestNumber: { contains: search, mode: "insensitive" } }
-            ]
-          }
-        : null
-
-      const filters = [
-        { archive: { not: true } },
-        airlineAccessFilter,
-        statusFilter,
-        exactMatchFilters,
-        ...(searchFilter ? [searchFilter] : [])
-      ]
-
-      const where = {
-        AND: filters
-      }
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: false
+      })
 
       const totalCount = await prisma.request.count({ where })
 
@@ -154,13 +98,7 @@ const requestResolver = {
         where,
         skip: skip * take,
         take,
-        include: {
-          airline: { select: { name: true, images: true } },
-          airport: { select: { name: true, code: true } },
-          hotel: { select: { name: true } },
-          person: { select: { name: true } },
-          chat: true
-        },
+        include: REQUEST_LIST_INCLUDE,
         orderBy: { createdAt: "desc" }
       })
 
@@ -170,80 +108,35 @@ const requestResolver = {
         requests
       }
     },
+    requestsByGroup: async (_, { pagination }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: false
+      })
+
+      return groupRequestsByAirlineAirportMonth({
+        prisma,
+        where,
+        pagination
+      })
+    },
     // Получение архивных заявок.
     // Доступно только для администраторов авиалиний (airlineAdminMiddleware).
     requestArchive: async (_, { pagination }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)
 
-      const {
-        skip = 0,
-        take = 10,
-        status,
-        airportId,
-        airlineId,
-        personId,
-        hotelId,
-        arrival,
-        departure,
-        search,
-        bulkGroupId,
-        linkNumber
-      } = pagination
+      const { skip = 0, take = 10 } = pagination || {}
 
-      const statusFilter =
-        status && status.length > 0 && !status.includes("all")
-          ? { status: { in: status } }
-          : {}
-
-      const airlineAccessFilter = user.airlineId
-        ? { airlineId: user.airlineId }
-        : {}
-
-      const exactMatchFilters = {
-        ...(airportId && { airportId }),
-        ...(airlineId && { airlineId }),
-        ...(personId && { personId }),
-        ...(hotelId && { hotelId }),
-        ...(arrival && {
-          arrival: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(departure && {
-          departure: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(bulkGroupId && { bulkGroupId }),
-        ...(linkNumber && { linkNumber })
-      }
-
-      const searchFilter = search
-        ? {
-            OR: [
-              { airport: { name: { contains: search, mode: "insensitive" } } },
-              { airline: { name: { contains: search, mode: "insensitive" } } },
-              { hotel: { name: { contains: search, mode: "insensitive" } } },
-              { person: { name: { contains: search, mode: "insensitive" } } },
-              { requestNumber: { contains: search, mode: "insensitive" } }
-            ]
-          }
-        : null
-
-      const filters = [
-        { archive: true },
-        airlineAccessFilter,
-        statusFilter,
-        exactMatchFilters,
-        ...(searchFilter ? [searchFilter] : [])
-      ]
-
-      const where = {
-        AND: filters
-      }
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: true
+      })
 
       const totalCount = await prisma.request.count({ where })
 

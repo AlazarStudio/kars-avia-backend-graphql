@@ -71,6 +71,27 @@ const requestTypeDef = /* GraphQL */ `
     requests: [Request!]!
   }
 
+  type RequestGroup {
+    key: String!
+    label: String!
+    isBulk: Boolean!
+    bulkGroupId: String
+    airlineId: ID!
+    airline: Airline!
+    airportId: ID
+    airport: Airport
+    year: Int
+    month: Int
+    requestCount: Int!
+    requests: [Request!]!
+  }
+
+  type RequestGroupConnection {
+    totalGroups: Int!
+    totalPages: Int!
+    groups: [RequestGroup!]!
+  }
+
   # Входные типы
   input CreateRequestInput {
     personId: ID
@@ -143,6 +164,23 @@ const requestTypeDef = /* GraphQL */ `
     linkNumber: String
   }
 
+  input RequestGroupPaginationInput {
+    skip: Int
+    take: Int
+    status: [String]
+    airportId: ID
+    airlineId: ID
+    personId: ID
+    hotelId: ID
+    arrival: Date
+    departure: Date
+    search: String
+    bulkGroupId: String
+    linkNumber: String
+    groupYear: Int
+    groupMonth: Int
+  }
+
   input BulkRequestImportInput {
     airportId: ID!
     airlineId: ID!
@@ -176,6 +214,9 @@ const requestTypeDef = /* GraphQL */ `
   # Запросы
   type Query {
     requests(pagination: PaginationInput): RequestConnection!
+    requestsByGroup(
+      pagination: RequestGroupPaginationInput
+    ): RequestGroupConnection!
     request(id: ID): Request
     requestArchive(pagination: PaginationInput): RequestConnection!
   }
