@@ -1,6 +1,6 @@
 const EXPIRING_SOON_MONTHS = 3
 
-const startOfUtcDay = (value) => {
+export const startOfUtcDay = (value) => {
   const date = new Date(value)
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())

@@ -10,28 +10,56 @@ import {
 let intervalId = null
 let presenceIntervalId = null
 
+const ARCHIVE_GRACE_MS = 3 * 24 * 60 * 60 * 1000
+
+const moveExpiredToArchiving = async (now) => {
+  const requests = await prisma.request.findMany({
+    where: {
+      departure: { lt: now },
+      status: {
+        notIn: ["archived", "canceled", "created", "opened", "archiving"]
+      }
+    },
+    select: { id: true }
+  })
+
+  for (const request of requests) {
+    await prisma.request.update({
+      where: { id: request.id },
+      data: { status: "archiving", archivingAt: now }
+    })
+    await publishRequestUpdated(request.id)
+  }
+}
+
+const finalizeArchivingRequests = async (now) => {
+  const threshold = new Date(now.getTime() - ARCHIVE_GRACE_MS)
+
+  const requests = await prisma.request.findMany({
+    where: {
+      status: "archiving",
+      archive: { not: true }
+    },
+    select: { id: true, archivingAt: true, updatedAt: true }
+  })
+
+  for (const request of requests) {
+    const startedAt = request.archivingAt ?? request.updatedAt
+    if (startedAt > threshold) continue
+
+    await prisma.request.update({
+      where: { id: request.id },
+      data: { status: "archived", archive: true }
+    })
+    await publishRequestUpdated(request.id)
+  }
+}
+
 const checkAndArchiveRequests = async () => {
   try {
     const now = new Date()
-
-    const requests = await prisma.request.findMany({
-      where: {
-        status: { notIn: ["archived", "canceled", "created", "opened"] }
-      }
-    })
-
-    for (const request of requests) {
-      const departureDate = request.departure
-
-      if (departureDate < now) {
-        await prisma.request.update({
-          where: { id: request.id },
-          data: { status: "archiving" }
-        })
-
-        await publishRequestUpdated(request.id)
-      }
-    }
+    await moveExpiredToArchiving(now)
+    await finalizeArchivingRequests(now)
   } catch (e) {
     logger.error("[CRON] checkAndArchiveRequests failed", e)
   }
@@ -42,6 +70,7 @@ export const startArchivingJob = () => {
 
   logger.info("[CRON] Archiving job started")
 
+  void checkAndArchiveRequests()
   intervalId = setInterval(checkAndArchiveRequests, 6 * 60 * 60 * 1000)
 }
 

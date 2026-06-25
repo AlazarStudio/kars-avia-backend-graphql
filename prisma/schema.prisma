@@ -587,6 +587,9 @@ model additionalAgreement {
   itemAgreement          String?
   notes                  String?
   files                  String[]
+  isArchived             Boolean               @default(false)
+  archivedAt             DateTime?
+  archivedById           String?               @db.ObjectId
   organizationContract   organizationContract? @relation(fields: [organizationContractId], references: [id])
   organizationContractId String?               @db.ObjectId
 }
@@ -1324,6 +1327,7 @@ model Request {
   hotelChess            HotelChess[]
   logs                  Log[]
   archive               Boolean            @default(false)
+  archivingAt           DateTime?          @map("archiving_at")
   files                 String[]
   reserve               Boolean            @default(false)
   defaultTimesUsed      Boolean            @default(false)

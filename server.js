@@ -23,6 +23,10 @@ import {
   stopArchivingJob,
   stopPresenceCleanupJob
 } from "./services/cron/cronTasks.js"
+import {
+  startContractArchivingJob,
+  stopContractArchivingJob
+} from "./services/cron/contractArchiving.js"
 import { touchLastSeenForContext } from "./services/user/userPresence.js"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
@@ -237,6 +241,7 @@ const server = new ApolloServer({
 })
 
 startArchivingJob()
+startContractArchivingJob()
 startPresenceCleanupJob()
 await server.start()
 
@@ -326,6 +331,7 @@ const shutdown = async (signal) => {
   try {
     // 1. Останавливаем cron
     stopArchivingJob()
+    stopContractArchivingJob()
     stopPresenceCleanupJob()
     logger.info("[SHUTDOWN] Cron stopped")
 

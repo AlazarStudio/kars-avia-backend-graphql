@@ -30,6 +30,7 @@ const requestTypeDef = /* GraphQL */ `
     status: String
     requestNumber: String
     archive: Boolean
+    archivingAt: Date
     chat: [Chat]
     # logs: [Log]
     logs(pagination: LogPaginationInput): LogConnection!

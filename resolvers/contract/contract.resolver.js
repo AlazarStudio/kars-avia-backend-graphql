@@ -20,7 +20,10 @@ import {
 } from "../../services/contract/contractFilters.js"
 import {
   archiveContractRecord,
-  restoreContractRecord
+  restoreContractRecord,
+  archiveAgreementRecord,
+  restoreAgreementRecord,
+  buildAdditionalAgreementWhere
 } from "../../services/contract/contractArchive.js"
 import { getContractExpirationMeta } from "../../services/contract/contractExpiration.js"
 
@@ -33,6 +36,50 @@ const contractExpirationFields = {
     getContractExpirationMeta(parent.contractEndDate).isExpired,
   expirationPriority: (parent) =>
     getContractExpirationMeta(parent.contractEndDate).expirationPriority
+}
+
+const agreementExpirationFields = {
+  daysUntilEnd: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).daysUntilEnd,
+  isExpiringSoon: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).isExpiringSoon,
+  isExpired: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).isExpired,
+  expirationPriority: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).expirationPriority
+}
+
+const publishAgreementParentContract = async (agreement) => {
+  if (!agreement) return
+
+  if (agreement.airlineContractId) {
+    const contract = await prisma.airlineContract.findUnique({
+      where: { id: agreement.airlineContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+    }
+    return
+  }
+
+  if (agreement.hotelContractId) {
+    const contract = await prisma.hotelContract.findUnique({
+      where: { id: agreement.hotelContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+    }
+    return
+  }
+
+  if (agreement.organizationContractId) {
+    const contract = await prisma.organizationContract.findUnique({
+      where: { id: agreement.organizationContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_ORGANIZATION, { contractOrganization: contract })
+    }
+  }
 }
 
 const deleteContractAndAgreementFiles = async (contract) => {
@@ -146,12 +193,22 @@ const contractResolver = {
     },
 
     // ADDITIONAL AGREEMENTS
-    additionalAgreements: async (_, { airlineContractId }, context) => {
+    additionalAgreements: async (_, { airlineContractId, filter }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const resolvedFilter = {
+        ...(filter || {}),
+        ...(airlineContractId ? { airlineContractId } : {})
+      }
+      const where = buildAdditionalAgreementWhere(resolvedFilter)
+
       return await prisma.additionalAgreement.findMany({
-        where: airlineContractId ? { airlineContractId } : undefined,
+        where,
         orderBy: { date: "desc" },
-        include: { airlineContract: true }
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
       })
     }
   },
@@ -906,8 +963,62 @@ const contractResolver = {
         }
       }
       await prisma.additionalAgreement.delete({ where: { id } })
-      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      await publishAgreementParentContract(contract)
       return true
+    },
+
+    archiveAdditionalAgreement: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const userId = context.subject?.id ?? context.user?.id
+      const agreement = await archiveAgreementRecord({
+        prisma,
+        id,
+        userId,
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
+      })
+      await publishAgreementParentContract(agreement)
+      await logAction({
+        context,
+        action: "archive_additional_agreement",
+        description: "Дополнительное соглашение архивировано",
+        fulldescription:
+          `Архивировано дополнительное соглашение ${agreement.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: agreement.id,
+          contractNumber: agreement.contractNumber
+        }
+      })
+      return agreement
+    },
+
+    restoreAdditionalAgreement: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const agreement = await restoreAgreementRecord({
+        prisma,
+        id,
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
+      })
+      await publishAgreementParentContract(agreement)
+      await logAction({
+        context,
+        action: "restore_additional_agreement",
+        description: "Дополнительное соглашение восстановлено из архива",
+        fulldescription:
+          `Восстановлено дополнительное соглашение ${agreement.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: agreement.id,
+          contractNumber: agreement.contractNumber
+        }
+      })
+      return agreement
     }
   },
 
@@ -1021,7 +1132,10 @@ const contractResolver = {
     },
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
-        where: { airlineContractId: parent.id }
+        where: {
+          airlineContractId: parent.id,
+          isArchived: { not: true }
+        }
       })
     }
   },
@@ -1044,7 +1158,10 @@ const contractResolver = {
     },
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
-        where: { hotelContractId: parent.id }
+        where: {
+          hotelContractId: parent.id,
+          isArchived: { not: true }
+        }
       })
     }
     // region: (parent, _, __) =>
@@ -1069,12 +1186,16 @@ const contractResolver = {
 
     additionalAgreements: async (parent) => {
       return prisma.additionalAgreement.findMany({
-        where: { organizationContractId: parent.id }
+        where: {
+          organizationContractId: parent.id,
+          isArchived: { not: true }
+        }
       })
     }
   },
 
   AdditionalAgreement: {
+    ...agreementExpirationFields,
     airlineContract: async (parent) => {
       parent.airlineContract ??
         (parent.airlineContractId

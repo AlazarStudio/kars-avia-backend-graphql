@@ -65,6 +65,13 @@ const contractTypeDef = /* GraphQL */ `
     archived: Boolean
   }
 
+  input AdditionalAgreementFilter {
+    airlineContractId: ID
+    hotelContractId: ID
+    organizationContractId: ID
+    archived: Boolean
+  }
+
   type AirlineContractConnection {
     items: [AirlineContract!]!
     totalCount: Int!
@@ -96,6 +103,13 @@ const contractTypeDef = /* GraphQL */ `
     date: Date
     agreementEndDate: Date
     isProlongationEnabled: Boolean!
+    daysUntilEnd: Int
+    isExpiringSoon: Boolean!
+    isExpired: Boolean!
+    expirationPriority: Int!
+    isArchived: Boolean!
+    archivedAt: Date
+    archivedById: ID
     contractNumber: String
     itemAgreement: String
     notes: String
@@ -326,7 +340,10 @@ const contractTypeDef = /* GraphQL */ `
 
     organizationContract(id: ID!): OrganizationContract
 
-    additionalAgreements(airlineContractId: ID): [AdditionalAgreement!]!
+    additionalAgreements(
+      airlineContractId: ID
+      filter: AdditionalAgreementFilter
+    ): [AdditionalAgreement!]!
   }
 
   # Mutation
@@ -354,6 +371,8 @@ const contractTypeDef = /* GraphQL */ `
       files: [Upload!]
     ): AdditionalAgreement!
     deleteAdditionalAgreement(id: ID!): Boolean!
+    archiveAdditionalAgreement(id: ID!): AdditionalAgreement!
+    restoreAdditionalAgreement(id: ID!): AdditionalAgreement!
 
     createHotelContract(
       input: HotelContractCreateInput!
