@@ -1094,7 +1094,7 @@ const requestResolver = {
       ) {
         const archiveRequest = await prisma.request.update({
           where: { id: requestId },
-          data: { status: "archived", archive: true }
+          data: { status: "archived", archive: true, archivingAt: new Date() }
         })
         await logAction({
           context,

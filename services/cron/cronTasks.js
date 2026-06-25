@@ -26,30 +26,28 @@ const moveExpiredToArchiving = async (now) => {
   for (const request of requests) {
     await prisma.request.update({
       where: { id: request.id },
-      data: { status: "archiving", archivingAt: now }
+      data: { status: "archiving" }
     })
     await publishRequestUpdated(request.id)
   }
 }
 
 const finalizeArchivingRequests = async (now) => {
-  const threshold = new Date(now.getTime() - ARCHIVE_GRACE_MS)
+  const departureThreshold = new Date(now.getTime() - ARCHIVE_GRACE_MS)
 
   const requests = await prisma.request.findMany({
     where: {
       status: "archiving",
-      archive: { not: true }
+      archive: { not: true },
+      departure: { lte: departureThreshold }
     },
-    select: { id: true, archivingAt: true, updatedAt: true }
+    select: { id: true }
   })
 
   for (const request of requests) {
-    const startedAt = request.archivingAt ?? request.updatedAt
-    if (startedAt > threshold) continue
-
     await prisma.request.update({
       where: { id: request.id },
-      data: { status: "archived", archive: true }
+      data: { status: "archived", archive: true, archivingAt: now }
     })
     await publishRequestUpdated(request.id)
   }
