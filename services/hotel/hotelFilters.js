@@ -1,5 +1,12 @@
 import { prisma } from "../../prisma.js"
 
+// Рейтинг/звёздность в данных хранятся вперемешку — то с точкой ("4.9"),
+// то с запятой ("4,9"). Чтобы фильтр находил оба, сравниваем по обоим вариантам.
+const sepVariants = (value) => {
+  const t = String(value).trim()
+  return [...new Set([t, t.replace(",", "."), t.replace(".", ",")])]
+}
+
 export const buildHotelWhere = async (filter) => {
   if (!filter) return {}
   const { cityId, airportId, stars, usStars, search } = filter
@@ -29,10 +36,10 @@ export const buildHotelWhere = async (filter) => {
     AND.push({ airportId })
   }
   if (stars?.trim()) {
-    AND.push({ stars: stars.trim() })
+    AND.push({ stars: { in: sepVariants(stars) } })
   }
   if (usStars?.trim()) {
-    AND.push({ usStars: usStars.trim() })
+    AND.push({ usStars: { in: sepVariants(usStars) } })
   }
   if (search?.trim()) {
     const s = search.trim()
