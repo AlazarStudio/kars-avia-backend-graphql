@@ -60,12 +60,14 @@ const transferResolver = {
 
       const transfers = all
         ? await prisma.transfer.findMany({
-            where: whereInput
+            where: whereInput,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }]
           }) // добавить позже фильтрацию
         : await prisma.transfer.findMany({
             where: whereInput,
             skip: skip,
-            take: take
+            take: take,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }]
           })
 
       const totalCount = await prisma.transfer.count({ where: whereInput })
