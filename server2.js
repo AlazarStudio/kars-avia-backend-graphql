@@ -1,4 +1,5 @@
 import "./load-env.js"
+import { createRequire } from "module"
 import cors from "cors"
 import http from "http"
 import express from "express"
@@ -37,6 +38,8 @@ import {
 } from "./services/infra/pubsub.js"
 
 assertSubscriptionPubSubConfig()
+const require = createRequire(import.meta.url)
+const { version: appVersion } = require("./package.json")
 const app = express()
 
 /* =========================
@@ -49,6 +52,7 @@ app.get("/health", async (req, res) => {
 
     res.status(200).json({
       status: "ok",
+      version: appVersion,
       uptime: process.uptime(),
       timestamp: Date.now(),
       env: process.env.NODE_ENV || "development"

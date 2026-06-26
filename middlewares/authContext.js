@@ -206,7 +206,8 @@ export async function buildAuthContext(authHeader) {
         hotelId: true,
         dispatcher: true,
         support: true,
-        refreshToken: true
+        refreshToken: true,
+        lastSeenAppVersion: true
       }
     })
     subject = user
