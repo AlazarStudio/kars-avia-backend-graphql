@@ -217,6 +217,10 @@ const transferTypeDef = /* GraphQL */ `
     dispatcherId: ID
     organizationId: ID
     airlineId: ID
+    search: String
+    status: [TransferStatus!]
+    scheduledFrom: Date
+    scheduledTo: Date
     all: Boolean
     skip: Int
     take: Int

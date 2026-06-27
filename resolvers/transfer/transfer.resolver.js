@@ -8,6 +8,7 @@ import {
 } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { buildTransferListWhere } from "../../services/transfer/buildTransferListWhere.js"
 import { GraphQLError } from "graphql"
 import { withFilter } from "graphql-subscriptions"
 import logAction from "../../services/infra/logaction.js"
@@ -22,47 +23,15 @@ const transferResolver = {
     transfers: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      const {
-        skip,
-        take,
-        all,
-        driverId,
-        personId,
-        dispatcherId,
-        organizationId,
-        airlineId: inputAirlineId
-      } = pagination
+      const { skip, take, all } = pagination
 
-      let whereInput = {}
-
-      const ctxAirlineId = context.user?.airlineId || null
-      let finalAirlineId = ctxAirlineId || inputAirlineId || null
-
-      if (ctxAirlineId && inputAirlineId && ctxAirlineId !== inputAirlineId) {
-        throw new Error("Forbidden: airlineId mismatch with current user")
-      }
-
-      if (driverId != undefined) {
-        whereInput.driverId = driverId
-      }
-      if (personId != undefined) {
-        whereInput.personId = personId
-      }
-      if (dispatcherId != undefined) {
-        whereInput.dispatcherId = dispatcherId
-      }
-      if (organizationId != undefined) {
-        whereInput.organizationId = organizationId
-      }
-      if (finalAirlineId != undefined) {
-        whereInput.airlineId = finalAirlineId
-      }
+      const whereInput = buildTransferListWhere({ pagination, user })
 
       const transfers = all
         ? await prisma.transfer.findMany({
             where: whereInput,
             orderBy: [{ createdAt: "desc" }, { id: "desc" }]
-          }) // добавить позже фильтрацию
+          })
         : await prisma.transfer.findMany({
             where: whereInput,
             skip: skip,
