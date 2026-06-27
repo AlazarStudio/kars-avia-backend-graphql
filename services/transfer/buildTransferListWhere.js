@@ -28,7 +28,7 @@ export function buildTransferListWhere({ pagination = {}, user }) {
       persons: { some: { personalId: personId } }
     }),
     ...(dispatcherId != undefined && { dispatcherId }),
-    ...(organizationId != undefined && { organizationId }),
+    ...(organizationId != undefined && { driver: { organizationId } }),
     ...(finalAirlineId != undefined && { airlineId: finalAirlineId })
   }
 
