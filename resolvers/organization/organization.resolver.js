@@ -153,9 +153,13 @@ const organizationResolver = {
       const newData = {}
 
       if (restInput.information) {
+        // information — опциональный composite (Information?), на update Prisma
+        // требует явный оператор (set/upsert/unset), плоский объект запрещён
         newData.information = {
-          ...(currentOrganization.information || {}),
-          ...restInput.information
+          set: {
+            ...(currentOrganization.information || {}),
+            ...restInput.information
+          }
         }
       }
 
