@@ -155,12 +155,13 @@ const organizationResolver = {
       if (restInput.information) {
         // information — опциональный composite (Information?), на update Prisma
         // требует явный оператор (set/upsert/unset), плоский объект запрещён
-        newData.information = {
-          set: {
-            ...(currentOrganization.information || {}),
-            ...restInput.information
-          }
+        const mergedInfo = {
+          ...(currentOrganization.information || {}),
+          ...restInput.information
         }
+        // additionalNumbers — обязательный String[] в composite; на set null недопустим
+        mergedInfo.additionalNumbers = mergedInfo.additionalNumbers ?? []
+        newData.information = { set: mergedInfo }
       }
 
       if (typeof restInput.name === "string") {
