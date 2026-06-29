@@ -30,7 +30,7 @@ const organizationResolver = {
               take: typeof take === "number" ? take : undefined
             }),
 
-        orderBy: { information: { city: "asc" } },
+        orderBy: { name: "asc" },
         include: {
           transferPrices: {
             include: {
