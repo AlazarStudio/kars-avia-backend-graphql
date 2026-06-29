@@ -159,6 +159,7 @@ const userTypeDef = /* GraphQL */ `
     separator: String
     category: String
     airlineId: ID
+    accessMenu: AccessMenuInput
     # hotelId: ID
   }
 
