@@ -230,12 +230,15 @@ const globalTypeDef = /* GraphQL */ `
     city: String
     cityId: ID
     cityRef: City
+    regionId: ID
+    regionRef: Region
   }
 
   input PriceGeographyInput {
     country: String
     region: String
     cityId: ID
+    regionId: ID
   }
 
   # Новый тип тарифного договора для авиакомпании

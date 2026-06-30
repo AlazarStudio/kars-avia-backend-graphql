@@ -990,7 +990,9 @@ const airlineResolver = {
           airports: {
             include: { airport: true }
           },
-          geography: true
+          geography: {
+            include: { regionRef: true, cityRef: true }
+          }
         }
       })
     },
@@ -1096,7 +1098,8 @@ const airlineResolver = {
         country: row.country ?? "",
         region: row.region ?? "",
         city: row.city ?? "",
-        cityId: row.cityId
+        cityId: row.cityId,
+        regionId: row.regionId
       })),
     individual: (parent) => Boolean(parent.individual)
   },
@@ -1105,6 +1108,11 @@ const airlineResolver = {
     cityRef: async (parent) => {
       if (!parent?.cityId) return null
       return prisma.city.findUnique({ where: { id: parent.cityId } })
+    },
+    regionRef: async (parent) => {
+      if (parent?.regionRef) return parent.regionRef
+      if (!parent?.regionId) return null
+      return prisma.region.findUnique({ where: { id: parent.regionId } })
     }
   }
 }

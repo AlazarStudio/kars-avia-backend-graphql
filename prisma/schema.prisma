@@ -276,9 +276,10 @@ model Airport {
 }
 
 model Region {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  name   String @unique
-  cities City[]
+  id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
+  name                   String                   @unique
+  cities                 City[]
+  priceGeoOnAirlinePrice PriceGeoOnAirlinePrice[]
 }
 
 model City {
@@ -462,9 +463,11 @@ model PriceGeoOnAirlinePrice {
   city           String?      @default("")
   cityId         String?      @db.ObjectId
   cityRef        City?        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  regionId       String?      @db.ObjectId
+  regionRef      Region?      @relation(fields: [regionId], references: [id], onDelete: Cascade)
 
   @@unique([airlinePriceId, cityId])
-  @@unique([airlinePriceId, region])
+  @@unique([airlinePriceId, regionId])
 }
 
 model AirportOnAirlinePrice {

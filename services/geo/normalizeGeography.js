@@ -5,7 +5,8 @@ const emptyGeo = {
   country: "",
   region: "",
   city: "",
-  cityId: null
+  cityId: null,
+  regionId: null
 }
 
 const emptyHotelLocation = {
@@ -38,18 +39,29 @@ const loadCityById = async (cityId) => {
   }
 }
 
-const validateRegion = async (region) => {
-  const trimmed = String(region ?? "").trim()
-  if (!trimmed) return ""
-
-  const exists = await prisma.region.findFirst({
-    where: { name: trimmed },
-    select: { id: true }
+const loadRegionById = async (regionId) => {
+  const record = await prisma.region.findUnique({
+    where: { id: regionId },
+    select: { id: true, name: true }
   })
-  if (!exists) {
+  if (!record) {
     throwInvalid("Регион не найден в справочнике")
   }
-  return trimmed
+  return record
+}
+
+const resolveRegionByName = async (regionName) => {
+  const trimmed = String(regionName ?? "").trim()
+  if (!trimmed) return null
+
+  const record = await prisma.region.findFirst({
+    where: { name: trimmed },
+    select: { id: true, name: true }
+  })
+  if (!record) {
+    throwInvalid("Регион не найден в справочнике")
+  }
+  return record
 }
 
 export const normalizePriceGeography = async (input) => {
@@ -63,18 +75,34 @@ export const normalizePriceGeography = async (input) => {
       country: String(input.country ?? "").trim(),
       region: record.region,
       city: record.city,
-      cityId: record.id
+      cityId: record.id,
+      regionId: null
     }
   }
 
-  const region = await validateRegion(input.region)
-  if (!region) return emptyGeo
+  const regionId = input.regionId?.trim() || null
 
+  if (regionId) {
+    const record = await loadRegionById(regionId)
+    return {
+      country: String(input.country ?? "").trim(),
+      region: record.name,
+      city: "",
+      cityId: null,
+      regionId: record.id
+    }
+  }
+
+  const regionInput = String(input.region ?? "").trim()
+  if (!regionInput) return emptyGeo
+
+  const record = await resolveRegionByName(regionInput)
   return {
     country: String(input.country ?? "").trim(),
-    region,
+    region: record.name,
     city: "",
-    cityId: null
+    cityId: null,
+    regionId: record.id
   }
 }
 
@@ -82,7 +110,8 @@ const isEmptyGeo = (geo) =>
   !geo.city?.trim() &&
   !geo.region?.trim() &&
   !geo.country?.trim() &&
-  !geo.cityId
+  !geo.cityId &&
+  !geo.regionId
 
 export const normalizePriceGeographyList = async (inputs) => {
   if (!inputs?.length) return []
@@ -97,7 +126,8 @@ export const toPriceGeoCreateData = (geo) => ({
   country: geo.country ?? "",
   region: geo.region ?? "",
   city: geo.city ?? "",
-  cityId: geo.cityId ?? null
+  cityId: geo.cityId ?? null,
+  regionId: geo.regionId ?? null
 })
 
 export const normalizeHotelLocation = async (input) => {
