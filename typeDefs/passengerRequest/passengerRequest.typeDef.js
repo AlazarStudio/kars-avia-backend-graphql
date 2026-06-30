@@ -81,6 +81,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type PassengerServicePerson {
     personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     issuedAt: Date
     phone: String
     seat: String
@@ -141,6 +142,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type PassengerServiceDriverPerson {
     personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     phone: String
     personType: PassengerPersonType!
     airlinePersonalId: ID
@@ -334,6 +336,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerServicePersonInput {
     personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     issuedAt: Date
     phone: String
     seat: String
@@ -365,6 +368,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerServiceDriverPersonInput {
     personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     phone: String
     personType: PassengerPersonType
     airlinePersonalId: ID

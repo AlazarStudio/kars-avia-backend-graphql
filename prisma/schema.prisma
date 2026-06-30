@@ -1068,8 +1068,9 @@ type PassengerServiceDriverPerson {
   personId          String?
   fullName          String
   phone             String?
-  personType        PassengerPersonType @default(PASSENGER)
-  airlinePersonalId String?             @db.ObjectId // ссылка на сотрудника, если экипаж
+  personType        PassengerPersonType      @default(PASSENGER)
+  personCategory    PassengerPersonCategory? @default(ADULT)
+  airlinePersonalId String?                  @db.ObjectId // ссылка на сотрудника, если экипаж
 }
 
 type PassengerServiceDriver {
@@ -1158,9 +1159,10 @@ type PassengerRequestSavedPerson {
 }
 
 type PassengerServicePerson {
-  personId String?
-  fullName String
-  issuedAt DateTime? // время выдачи (14:30 в таблице)
+  personId       String?
+  fullName       String
+  personCategory PassengerPersonCategory? @default(ADULT)
+  issuedAt       DateTime? // время выдачи (14:30 в таблице)
   phone    String?
   seat     String? // если достанешь из скана
 }

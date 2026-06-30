@@ -278,6 +278,7 @@ const ensureDriverPerson = (p) => ({
   fullName: (p?.fullName?.trim?.() ?? "") || "",
   phone: normalizeOptionalString(p?.phone),
   personType: normalizePersonType(p?.personType),
+  personCategory: normalizePersonCategory(p?.personCategory),
   airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId)
 })
 
@@ -1409,7 +1410,10 @@ const passengerRequestResolvers = {
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
-      const personWithId = ensurePersonId(person)
+      const personWithId = {
+        ...ensurePersonId(person),
+        personCategory: normalizePersonCategory(person?.personCategory),
+      }
 
       const data = {}
 
@@ -1495,7 +1499,10 @@ const passengerRequestResolvers = {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
       const existing = await loadRequestOrThrow(requestId)
-      const peopleWithId = people.map(ensurePersonId)
+      const peopleWithId = people.map((p) => ({
+        ...ensurePersonId(p),
+        personCategory: normalizePersonCategory(p?.personCategory),
+      }))
 
       const serviceField = service === "WATER" ? "waterService" : "mealService"
       const prev = existing[serviceField] || emptyPeopleService()
@@ -1571,6 +1578,9 @@ const passengerRequestResolvers = {
       people[personIndex] = {
         ...people[personIndex],
         ...person,
+        personCategory: normalizePersonCategory(
+          person?.personCategory ?? people[personIndex]?.personCategory
+        ),
         issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
       }
       data[serviceField] = { ...prev, people }
