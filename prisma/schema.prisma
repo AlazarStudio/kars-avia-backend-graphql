@@ -764,15 +764,28 @@ model MaintenanceBanner {
   endsAt    DateTime? @map("ends_at")
 }
 
+type SystemUpdateChangeItem {
+  title       String
+  description String?
+}
+
+type SystemUpdateChangeSection {
+  new     SystemUpdateChangeItem[]
+  updates SystemUpdateChangeItem[]
+  fixes   SystemUpdateChangeItem[]
+}
+
 model SystemUpdate {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  version     String    @default("")
-  title       String    @default("")
-  message     String    @default("")
-  enabled     Boolean   @default(false)
-  publishedAt DateTime? @map("published_at")
+  id          String                     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime                   @default(now()) @map("created_at")
+  updatedAt   DateTime                   @updatedAt @map("updated_at")
+  version     String                     @default("")
+  title       String                     @default("")
+  enabled     Boolean                    @default(false)
+  publishedAt DateTime?                  @map("published_at")
+  airline     SystemUpdateChangeSection?
+  dispatcher  SystemUpdateChangeSection?
+  hotel       SystemUpdateChangeSection?
 }
 
 // Схемы для документации

@@ -1,6 +1,7 @@
 import { GraphQLError } from "graphql"
 import { prisma } from "../../prisma.js"
 import {
+  audiencesInputToRecordData,
   toSystemUpdateResponse,
   validateSystemUpdateInput
 } from "./systemUpdateUtils.js"
@@ -32,7 +33,12 @@ async function loadLastSeenAppVersion(context) {
 export async function getSystemUpdate(context) {
   const record = await prisma.systemUpdate.findFirst()
   const lastSeenAppVersion = await loadLastSeenAppVersion(context)
-  return toSystemUpdateResponse(record, lastSeenAppVersion)
+  return toSystemUpdateResponse(record, lastSeenAppVersion, context)
+}
+
+export async function resolveSystemUpdateFromRecord(record, context) {
+  const lastSeenAppVersion = await loadLastSeenAppVersion(context)
+  return toSystemUpdateResponse(record, lastSeenAppVersion, context)
 }
 
 export async function updateSystemUpdate(input, now = new Date()) {
@@ -46,8 +52,8 @@ export async function updateSystemUpdate(input, now = new Date()) {
 
   const version = typeof input.version === "string" ? input.version.trim() : ""
   const title = typeof input.title === "string" ? input.title.trim() : ""
-  const message = typeof input.message === "string" ? input.message.trim() : ""
   const enabled = Boolean(input.enabled)
+  const audienceSections = audiencesInputToRecordData(input.audiences)
 
   const existing = await prisma.systemUpdate.findFirst()
   const publishedAt = enabled
@@ -57,9 +63,9 @@ export async function updateSystemUpdate(input, now = new Date()) {
   const data = {
     version,
     title,
-    message,
     enabled,
-    publishedAt
+    publishedAt,
+    ...audienceSections
   }
 
   const record = existing
@@ -69,20 +75,24 @@ export async function updateSystemUpdate(input, now = new Date()) {
       })
     : await prisma.systemUpdate.create({ data })
 
-  return toSystemUpdateResponse(record, null)
+  return record
 }
 
 export async function markSystemUpdateSeen(context) {
   if (context?.subjectType !== "USER" || !context?.subject?.id) {
-    throw new GraphQLError("Только авторизованный пользователь может отметить обновление просмотренным", {
-      extensions: { code: "FORBIDDEN" }
-    })
+    throw new GraphQLError(
+      "Только авторизованный пользователь может отметить обновление просмотренным",
+      {
+        extensions: { code: "FORBIDDEN" }
+      }
+    )
   }
 
   const record = await prisma.systemUpdate.findFirst()
+  const lastSeenAppVersion = context.subject.lastSeenAppVersion ?? null
 
   if (!record?.enabled || !record.version) {
-    return toSystemUpdateResponse(record, context.subject.lastSeenAppVersion ?? null)
+    return toSystemUpdateResponse(record, lastSeenAppVersion, context)
   }
 
   await prisma.user.update({
@@ -90,5 +100,5 @@ export async function markSystemUpdateSeen(context) {
     data: { lastSeenAppVersion: record.version }
   })
 
-  return toSystemUpdateResponse(record, record.version)
+  return toSystemUpdateResponse(record, record.version, context)
 }
