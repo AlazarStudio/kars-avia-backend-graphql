@@ -147,6 +147,47 @@ test("normalizePriceGeographyList supports multiple cities and regions", async (
   )
 })
 
+test("normalizePriceGeographyList rejects duplicate cityId", async () => {
+  cityFindUnique.mock.mockImplementation(async () => ({
+    id: "city-1",
+    city: "Барнаул",
+    regionRef: { name: "Алтайский край" }
+  }))
+
+  await assert.rejects(
+    () =>
+      normalizePriceGeographyList([
+        { cityId: "city-1" },
+        { cityId: "city-1" }
+      ]),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Город уже добавлен/)
+      return true
+    }
+  )
+})
+
+test("normalizePriceGeographyList rejects duplicate regionId", async () => {
+  regionFindUnique.mock.mockImplementation(async () => ({
+    id: "reg-1",
+    name: "Алтайский край"
+  }))
+
+  await assert.rejects(
+    () =>
+      normalizePriceGeographyList([
+        { regionId: "reg-1" },
+        { regionId: "reg-1" }
+      ]),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Регион уже добавлен/)
+      return true
+    }
+  )
+})
+
 test("toPriceGeoCreateData includes regionId", () => {
   assert.deepEqual(
     toPriceGeoCreateData({

@@ -113,13 +113,35 @@ const isEmptyGeo = (geo) =>
   !geo.cityId &&
   !geo.regionId
 
+const assertNoDuplicateGeography = (list) => {
+  const cityIds = new Set()
+  const regionIds = new Set()
+
+  for (const geo of list) {
+    if (geo.cityId) {
+      if (cityIds.has(geo.cityId)) {
+        throwInvalid("Город уже добавлен в географию тарифа")
+      }
+      cityIds.add(geo.cityId)
+    }
+    if (geo.regionId) {
+      if (regionIds.has(geo.regionId)) {
+        throwInvalid("Регион уже добавлен в географию тарифа")
+      }
+      regionIds.add(geo.regionId)
+    }
+  }
+}
+
 export const normalizePriceGeographyList = async (inputs) => {
   if (!inputs?.length) return []
 
   const normalized = await Promise.all(
     inputs.map((item) => normalizePriceGeography(item))
   )
-  return normalized.filter((geo) => !isEmptyGeo(geo))
+  const list = normalized.filter((geo) => !isEmptyGeo(geo))
+  assertNoDuplicateGeography(list)
+  return list
 }
 
 export const toPriceGeoCreateData = (geo) => ({

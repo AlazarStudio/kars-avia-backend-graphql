@@ -466,8 +466,7 @@ model PriceGeoOnAirlinePrice {
   regionId       String?      @db.ObjectId
   regionRef      Region?      @relation(fields: [regionId], references: [id], onDelete: Cascade)
 
-  @@unique([airlinePriceId, cityId])
-  @@unique([airlinePriceId, regionId])
+  // Уникальность cityId/regionId в рамках тарифа — в normalizeGeography (MongoDB null в @@unique ломает мультивыбор)
 }
 
 model AirportOnAirlinePrice {
