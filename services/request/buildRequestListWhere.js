@@ -56,6 +56,7 @@ export function buildRequestListWhere({ pagination = {}, user, archive = false }
 
   const filters = [
     archive ? { archive: true } : { archive: { not: true } },
+    ...(!archive ? [{ status: { not: "canceled" } }] : []),
     airlineAccessFilter,
     statusFilter,
     exactMatchFilters,

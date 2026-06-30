@@ -78,7 +78,7 @@ const requestResolver = {
   Query: {
     // Получение списка заявок с пагинацией и фильтрацией по статусу.
     // Если у пользователя задан airlineId, добавляется фильтр по нему.
-    // Исключаются архивные заявки (archive: true).
+    // Исключаются архивные (archive: true) и отменённые (status: canceled) заявки.
     requests: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
