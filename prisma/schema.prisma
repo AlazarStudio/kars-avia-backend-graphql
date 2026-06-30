@@ -275,10 +275,17 @@ model Airport {
   airportOnTransferPrice        AirportOnTransferPrice[]
 }
 
+model Region {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  name   String @unique
+  cities City[]
+}
+
 model City {
   id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
   city                   String
-  region                 String
+  regionId               String                   @db.ObjectId
+  regionRef              Region                   @relation(fields: [regionId], references: [id])
   hotelContract          hotelContract[]
   organizationContracts  organizationContract[]
   cityOnTransferPrice    CityOnTransferPrice[]

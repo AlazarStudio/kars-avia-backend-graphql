@@ -22,20 +22,28 @@ const throwInvalid = (message) => {
 const loadCityById = async (cityId) => {
   const record = await prisma.city.findUnique({
     where: { id: cityId },
-    select: { id: true, city: true, region: true }
+    select: {
+      id: true,
+      city: true,
+      regionRef: { select: { name: true } }
+    }
   })
   if (!record) {
     throwInvalid("Город не найден в справочнике")
   }
-  return record
+  return {
+    id: record.id,
+    city: record.city,
+    region: record.regionRef?.name ?? ""
+  }
 }
 
 const validateRegion = async (region) => {
   const trimmed = String(region ?? "").trim()
   if (!trimmed) return ""
 
-  const exists = await prisma.city.findFirst({
-    where: { region: trimmed },
+  const exists = await prisma.region.findFirst({
+    where: { name: trimmed },
     select: { id: true }
   })
   if (!exists) {
