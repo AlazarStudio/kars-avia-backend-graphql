@@ -271,7 +271,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
@@ -464,7 +464,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
@@ -676,7 +676,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files?.length) {
-        updatedData.files = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
           updatedData.files.push(await uploadFiles(file))
         }
@@ -884,7 +884,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldAgreement.files ? oldAgreement.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
