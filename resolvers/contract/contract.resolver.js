@@ -678,8 +678,9 @@ const contractResolver = {
       if (files?.length) {
         let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
-          updatedData.files.push(await uploadFiles(file))
+          filesPath.push(await uploadFiles(file))
         }
+        updatedData.files = filesPath
       }
 
       if (input.companyId !== undefined) updatedData.companyId = input.companyId
