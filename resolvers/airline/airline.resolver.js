@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql"
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { uploadImage } from "../../services/files/uploadImage.js"
@@ -683,6 +684,12 @@ const airlineResolver = {
           "\nОшибка при обновлении авиакомпании:\n",
           error
         )
+        if (
+          error instanceof GraphQLError ||
+          error?.extensions?.code === "BAD_USER_INPUT"
+        ) {
+          throw error
+        }
         throw new Error("Не удалось обновить авиакомпанию")
       }
     },
