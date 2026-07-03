@@ -40,6 +40,20 @@ const applyRestoreData = () => ({
   archivedById: null
 })
 
+const performArchiveContract = ({ prismaModel, id, userId, include }) =>
+  prismaModel.update({
+    where: { id },
+    data: applyArchiveData(userId),
+    include
+  })
+
+const performArchiveAgreement = ({ prisma, id, userId, include }) =>
+  prisma.additionalAgreement.update({
+    where: { id },
+    data: applyArchiveData(userId),
+    include
+  })
+
 export const archiveContractRecordInternal = async ({
   prismaModel,
   id,
@@ -52,11 +66,7 @@ export const archiveContractRecordInternal = async ({
   const { isExpired } = getContractExpirationMeta(contract.contractEndDate)
   if (!isExpired) return null
 
-  return prismaModel.update({
-    where: { id },
-    data: applyArchiveData(userId),
-    include
-  })
+  return performArchiveContract({ prismaModel, id, userId, include })
 }
 
 export const restoreContractRecordInternal = async ({
@@ -92,14 +102,7 @@ export const archiveContractRecord = async ({
     })
   }
 
-  const { isExpired } = getContractExpirationMeta(contract.contractEndDate)
-  if (!isExpired) {
-    throw new GraphQLError("Only expired contracts can be archived", {
-      extensions: { code: "BAD_REQUEST" }
-    })
-  }
-
-  return archiveContractRecordInternal({ prismaModel, id, userId, include })
+  return performArchiveContract({ prismaModel, id, userId, include })
 }
 
 export const restoreContractRecord = async ({ prismaModel, id, include }) => {
@@ -124,17 +127,15 @@ export const archiveAgreementRecordInternal = async ({
   userId,
   include
 }) => {
-  const agreement = await prisma.additionalAgreement.findUnique({ where: { id } })
+  const agreement = await prisma.additionalAgreement.findUnique({
+    where: { id }
+  })
   if (!agreement || agreement.isArchived) return null
 
   const { isExpired } = getContractExpirationMeta(agreement.agreementEndDate)
   if (!isExpired) return null
 
-  return prisma.additionalAgreement.update({
-    where: { id },
-    data: applyArchiveData(userId),
-    include
-  })
+  return performArchiveAgreement({ prisma, id, userId, include })
 }
 
 export const restoreAgreementRecordInternal = async ({
@@ -142,7 +143,9 @@ export const restoreAgreementRecordInternal = async ({
   id,
   include
 }) => {
-  const agreement = await prisma.additionalAgreement.findUnique({ where: { id } })
+  const agreement = await prisma.additionalAgreement.findUnique({
+    where: { id }
+  })
   if (!agreement || !agreement.isArchived) return null
 
   return prisma.additionalAgreement.update({
@@ -152,8 +155,15 @@ export const restoreAgreementRecordInternal = async ({
   })
 }
 
-export const archiveAgreementRecord = async ({ prisma, id, userId, include }) => {
-  const agreement = await prisma.additionalAgreement.findUnique({ where: { id } })
+export const archiveAgreementRecord = async ({
+  prisma,
+  id,
+  userId,
+  include
+}) => {
+  const agreement = await prisma.additionalAgreement.findUnique({
+    where: { id }
+  })
   if (!agreement) {
     throw new GraphQLError("Additional agreement not found", {
       extensions: { code: "NOT_FOUND" }
@@ -165,18 +175,13 @@ export const archiveAgreementRecord = async ({ prisma, id, userId, include }) =>
     })
   }
 
-  const { isExpired } = getContractExpirationMeta(agreement.agreementEndDate)
-  if (!isExpired) {
-    throw new GraphQLError("Only expired additional agreements can be archived", {
-      extensions: { code: "BAD_REQUEST" }
-    })
-  }
-
-  return archiveAgreementRecordInternal({ prisma, id, userId, include })
+  return performArchiveAgreement({ prisma, id, userId, include })
 }
 
 export const restoreAgreementRecord = async ({ prisma, id, include }) => {
-  const agreement = await prisma.additionalAgreement.findUnique({ where: { id } })
+  const agreement = await prisma.additionalAgreement.findUnique({
+    where: { id }
+  })
   if (!agreement) {
     throw new GraphQLError("Additional agreement not found", {
       extensions: { code: "NOT_FOUND" }
@@ -192,11 +197,8 @@ export const restoreAgreementRecord = async ({ prisma, id, include }) => {
 }
 
 export const buildAdditionalAgreementWhere = (filter) => {
-  const {
-    airlineContractId,
-    hotelContractId,
-    organizationContractId
-  } = filter || {}
+  const { airlineContractId, hotelContractId, organizationContractId } =
+    filter || {}
 
   const AND = []
   appendArchiveFilter(filter, AND)
