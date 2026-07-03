@@ -23,7 +23,7 @@ import {
   aggregateRequestReports
 } from "../../services/report/reportUtils.js"
 import {
-  getHotelLocation,
+  buildPriceSearchLocation,
   resolvePriceByHotelLocation
 } from "../../services/airline/resolvePriceByHotelLocation.js"
 
@@ -207,19 +207,32 @@ const reportResolver = {
         const firstRequestWithHotel = requests.find((r) => r.hotel)
         const reportHotel = firstRequestWithHotel?.hotel
         let reportAirport = firstRequestWithHotel?.airport || null
-        if (!reportAirport && filter.airportId) {
+        if (filter.airportId) {
           reportAirport = await prisma.airport.findUnique({
             where: { id: filter.airportId }
           })
         }
 
-        const hotelLocation = getHotelLocation(reportHotel, reportAirport)
+        const hotelLocation = await buildPriceSearchLocation(
+          reportHotel,
+          reportAirport
+        )
+
+        for (const request of requests) {
+          if (request.hotel || request.airport || reportAirport) {
+            request._priceSearchLocation = await buildPriceSearchLocation(
+              request.hotel,
+              request.airport || reportAirport
+            )
+          }
+        }
+
         const contract = resolvePriceByHotelLocation({
           airlinePrices: company?.prices,
           hotelLocation,
           airportId:
-            firstRequestWithHotel?.airport?.id ||
             filter.airportId ||
+            firstRequestWithHotel?.airport?.id ||
             reportHotel?.airportId ||
             null
         })

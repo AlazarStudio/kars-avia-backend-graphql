@@ -179,3 +179,111 @@ test("supports legacy single geography object", () => {
 
   assert.equal(result?.id, "legacy")
 })
+
+test("region geography used when airportId has no airport contract but location has region", () => {
+  const regionPrice = {
+    id: "region",
+    name: "Altai region",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+
+  const result = resolvePriceByHotelLocation({
+    airlinePrices: [regionPrice],
+    hotelLocation: {
+      country: "",
+      region: "Алтайский край",
+      city: "Барнаул",
+      address: ""
+    },
+    airportId: "apt-barnaul"
+  })
+
+  assert.equal(result?.id, "region")
+})
+
+test("returns null when city is set but region is missing for regional tariff", () => {
+  const regionPrice = {
+    id: "region",
+    name: "Altai region",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+
+  const result = resolvePriceByHotelLocation({
+    airlinePrices: [regionPrice],
+    hotelLocation: {
+      country: "",
+      region: "",
+      city: "Барнаул",
+      address: ""
+    },
+    airportId: "apt-barnaul"
+  })
+
+  assert.equal(result, null)
+})
+
+test("matches region geography by regionId", () => {
+  const regionPrice = {
+    id: "region",
+    name: "Altai region",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [
+      {
+        region: "Алтайский край",
+        regionId: "reg-altai",
+        city: "",
+        country: ""
+      }
+    ]
+  }
+
+  const result = resolvePriceByHotelLocation({
+    airlinePrices: [regionPrice],
+    hotelLocation: {
+      country: "",
+      region: "",
+      city: "",
+      regionId: "reg-altai",
+      address: ""
+    },
+    airportId: "apt-barnaul"
+  })
+
+  assert.equal(result?.id, "region")
+})
+
+test("matches city geography by cityId", () => {
+  const cityPrice = {
+    id: "city",
+    name: "Barnaul",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [
+      {
+        city: "Барнаул",
+        cityId: "city-barnaul",
+        region: "Алтайский край",
+        country: ""
+      }
+    ]
+  }
+
+  const result = resolvePriceByHotelLocation({
+    airlinePrices: [cityPrice],
+    hotelLocation: {
+      country: "",
+      region: "",
+      city: "",
+      cityId: "city-barnaul",
+      address: ""
+    },
+    airportId: null
+  })
+
+  assert.equal(result?.id, "city")
+})

@@ -177,7 +177,9 @@ const resolveAirlineContractForRequest = (request) => {
   const airportId = request.airport?.id || request.hotel?.airportId || null
   return resolvePriceByHotelLocation({
     airlinePrices: request.airline?.prices,
-    hotelLocation: getHotelLocation(request.hotel, request.airport),
+    hotelLocation:
+      request._priceSearchLocation ??
+      getHotelLocation(request.hotel, request.airport),
     airportId
   })
 }

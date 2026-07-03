@@ -1,3 +1,5 @@
+import { prisma } from "../../prisma.js"
+
 export const normalizeGeoValue = (value) =>
   String(value ?? "")
     .trim()
@@ -12,6 +14,8 @@ export const getHotelLocation = (hotel, airport) => {
       country: "",
       region: "",
       city: "",
+      cityId: null,
+      regionId: null,
       address: ""
     }
   }
@@ -25,8 +29,44 @@ export const getHotelLocation = (hotel, airport) => {
     country: loc.country || info.country || "",
     region: loc.region || "",
     city,
+    cityId: loc.cityId || null,
+    regionId: null,
     address: loc.address || info.address || ""
   }
+}
+
+const applyCityRecord = (location, cityRecord) => {
+  if (!cityRecord) return
+  if (!hasGeoValue(location.city)) location.city = cityRecord.city
+  if (!hasGeoValue(location.region)) {
+    location.region = cityRecord.regionRef?.name ?? ""
+  }
+  if (!location.cityId) location.cityId = cityRecord.id
+  if (!location.regionId && cityRecord.regionId) {
+    location.regionId = cityRecord.regionId
+  }
+}
+
+export const buildPriceSearchLocation = async (hotel, airport) => {
+  const location = { ...getHotelLocation(hotel, airport) }
+
+  if (!hasGeoValue(location.region) && hotel?.location?.cityId) {
+    const cityRecord = await prisma.city.findUnique({
+      where: { id: hotel.location.cityId },
+      include: { regionRef: true }
+    })
+    applyCityRecord(location, cityRecord)
+  }
+
+  if (!hasGeoValue(location.region) && airport?.city) {
+    const cityRecord = await prisma.city.findFirst({
+      where: { city: { equals: airport.city, mode: "insensitive" } },
+      include: { regionRef: true }
+    })
+    applyCityRecord(location, cityRecord)
+  }
+
+  return location
 }
 
 const getPriceGeographies = (contract) => {
@@ -64,6 +104,9 @@ const resolveByAirportContract = (airlinePrices, airportId) => {
 }
 
 const matchesCityLevel = (geography, location) => {
+  if (geography.cityId && location.cityId && geography.cityId === location.cityId) {
+    return true
+  }
   const cityOnPrice = normalizeGeoValue(geography.city)
   if (!cityOnPrice) return false
   if (!hasGeoValue(location.city)) return false
@@ -71,6 +114,14 @@ const matchesCityLevel = (geography, location) => {
 }
 
 const matchesRegionLevel = (geography, location) => {
+  if (
+    geography.regionId &&
+    location.regionId &&
+    geography.regionId === location.regionId &&
+    !hasGeoValue(geography.city)
+  ) {
+    return true
+  }
   const regionOnPrice = normalizeGeoValue(geography.region)
   if (!regionOnPrice) return false
   if (hasGeoValue(geography.city)) return false
@@ -104,7 +155,7 @@ export const resolvePriceByHotelLocation = ({
   const airportContract = resolveByAirportContract(prices, airportId)
   if (airportContract) return airportContract
 
-  if (hasGeoValue(location.city)) {
+  if (hasGeoValue(location.city) || location.cityId) {
     const cityContract = resolveGeographicLevel(
       prices,
       location,
@@ -113,7 +164,7 @@ export const resolvePriceByHotelLocation = ({
     if (cityContract) return cityContract
   }
 
-  if (hasGeoValue(location.region)) {
+  if (hasGeoValue(location.region) || location.regionId) {
     const regionContract = resolveGeographicLevel(
       prices,
       location,
