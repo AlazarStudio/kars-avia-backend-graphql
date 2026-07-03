@@ -17,7 +17,7 @@ mock.module("../../prisma.js", {
   }
 })
 
-const { buildPriceSearchLocation } = await import(
+const { buildPriceSearchLocation, getHotelLocation } = await import(
   "../../services/airline/resolvePriceByHotelLocation.js"
 )
 
@@ -72,6 +72,40 @@ test("keeps hotel region without db lookup", async () => {
   )
 
   assert.equal(result.region, "Москва")
+  assert.equal(result.city, "Москва")
   assert.equal(cityFindUnique.mock.callCount(), 0)
   assert.equal(cityFindFirst.mock.callCount(), 0)
+})
+
+test("hotel city is preferred over airport city for geo lookup", () => {
+  const result = getHotelLocation(
+    { location: { city: "Москва", region: "Москва" } },
+    { city: "Барнаул" }
+  )
+
+  assert.equal(result.city, "Москва")
+  assert.equal(result.region, "Москва")
+})
+
+test("enriches region from hotel city name before airport", async () => {
+  cityFindFirst.mock.mockImplementation(async ({ where }) => {
+    if (where.city?.equals === "Москва") {
+      return {
+        id: "city-msk",
+        city: "Москва",
+        regionId: "reg-msk",
+        regionRef: { name: "Москва" }
+      }
+    }
+    return null
+  })
+
+  const result = await buildPriceSearchLocation(
+    { location: { city: "Москва", region: "" } },
+    { city: "Барнаул" }
+  )
+
+  assert.equal(result.city, "Москва")
+  assert.equal(result.region, "Москва")
+  assert.equal(cityFindFirst.mock.callCount(), 1)
 })

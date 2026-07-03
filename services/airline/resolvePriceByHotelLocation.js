@@ -58,7 +58,19 @@ export const buildPriceSearchLocation = async (hotel, airport) => {
     applyCityRecord(location, cityRecord)
   }
 
-  if (!hasGeoValue(location.region) && airport?.city) {
+  if (
+    !hasGeoValue(location.region) &&
+    hasGeoValue(location.city) &&
+    !location.cityId
+  ) {
+    const cityRecord = await prisma.city.findFirst({
+      where: { city: { equals: location.city, mode: "insensitive" } },
+      include: { regionRef: true }
+    })
+    applyCityRecord(location, cityRecord)
+  }
+
+  if (!hasGeoValue(location.region) && !hasGeoValue(location.city) && airport?.city) {
     const cityRecord = await prisma.city.findFirst({
       where: { city: { equals: airport.city, mode: "insensitive" } },
       include: { regionRef: true }
@@ -147,7 +159,8 @@ const resolveGeographicLevel = (prices, location, matcher) => {
 export const resolvePriceByHotelLocation = ({
   airlinePrices,
   hotelLocation,
-  airportId
+  airportId,
+  skipCountryLevel = false
 }) => {
   const prices = Array.isArray(airlinePrices) ? airlinePrices : []
   const location = hotelLocation || {}
@@ -173,7 +186,7 @@ export const resolvePriceByHotelLocation = ({
     if (regionContract) return regionContract
   }
 
-  if (hasGeoValue(location.country)) {
+  if (!skipCountryLevel && hasGeoValue(location.country)) {
     const countryContract = resolveGeographicLevel(
       prices,
       location,

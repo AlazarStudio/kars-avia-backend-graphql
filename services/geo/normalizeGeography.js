@@ -133,6 +133,71 @@ const assertNoDuplicateGeography = (list) => {
   }
 }
 
+export const emptyOccupiedLevels = () => ({
+  regionLevelIds: new Set(),
+  cityLevelIds: new Set()
+})
+
+export const collectOccupiedLevels = (geographies) => ({
+  regionLevelIds: new Set(
+    geographies.filter((g) => g.regionId && !g.cityId).map((g) => g.regionId)
+  ),
+  cityLevelIds: new Set(geographies.filter((g) => g.cityId).map((g) => g.cityId))
+})
+
+export const mergeOccupiedLevels = (occupied, geographies) => {
+  const merged = {
+    regionLevelIds: new Set(occupied.regionLevelIds),
+    cityLevelIds: new Set(occupied.cityLevelIds)
+  }
+  const fromList = collectOccupiedLevels(
+    Array.isArray(geographies) ? geographies : [geographies]
+  )
+  for (const regionId of fromList.regionLevelIds) {
+    merged.regionLevelIds.add(regionId)
+  }
+  for (const cityId of fromList.cityLevelIds) {
+    merged.cityLevelIds.add(cityId)
+  }
+  return merged
+}
+
+export const assertNoCrossPriceLevelConflict = (newList, occupied) => {
+  for (const geo of newList) {
+    if (
+      geo.regionId &&
+      !geo.cityId &&
+      occupied.regionLevelIds.has(geo.regionId)
+    ) {
+      throwInvalid(`Регион «${geo.region}» уже используется в другом тарифе`)
+    }
+    if (geo.cityId && occupied.cityLevelIds.has(geo.cityId)) {
+      throwInvalid(`Город «${geo.city}» уже используется в другом тарифе`)
+    }
+  }
+}
+
+export const loadOccupiedPriceGeography = async (
+  airlineId,
+  { excludePriceIds = [] } = {}
+) => {
+  const rows = await prisma.priceGeoOnAirlinePrice.findMany({
+    where: {
+      airlinePrice: {
+        airlineId,
+        ...(excludePriceIds.length > 0
+          ? { id: { notIn: excludePriceIds } }
+          : {})
+      }
+    },
+    select: {
+      cityId: true,
+      regionId: true
+    }
+  })
+  return collectOccupiedLevels(rows)
+}
+
 export const normalizePriceGeographyList = async (inputs) => {
   if (!inputs?.length) return []
 

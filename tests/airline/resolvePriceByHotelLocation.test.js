@@ -287,3 +287,58 @@ test("matches city geography by cityId", () => {
 
   assert.equal(result?.id, "city")
 })
+
+test("strict priority: airport then city then region", () => {
+  const airportPrice = {
+    id: "airport",
+    createdAt: "2024-03-01",
+    airports: [{ airportId: "apt-1" }],
+    geography: []
+  }
+  const cityPrice = {
+    id: "city",
+    createdAt: "2024-02-01",
+    airports: [],
+    geography: [{ city: "Барнаул", region: "", country: "" }]
+  }
+  const regionPrice = {
+    id: "region",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+  const prices = [regionPrice, cityPrice, airportPrice]
+  const hotelLocation = {
+    country: "",
+    region: "Алтайский край",
+    city: "Барнаул",
+    address: ""
+  }
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: prices,
+      hotelLocation,
+      airportId: "apt-1"
+    })?.id,
+    "airport"
+  )
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: prices,
+      hotelLocation,
+      airportId: "other-airport"
+    })?.id,
+    "city"
+  )
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: prices,
+      hotelLocation: { ...hotelLocation, city: "Новосибирск" },
+      airportId: null
+    })?.id,
+    "region"
+  )
+})

@@ -17,16 +17,25 @@ import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
 import {
+  assertNoCrossPriceLevelConflict,
+  emptyOccupiedLevels,
+  loadOccupiedPriceGeography,
+  mergeOccupiedLevels,
   normalizePriceGeographyList,
   toPriceGeoCreateData
 } from "../../services/geo/normalizeGeography.js"
 import { buildAirlineWhere } from "../../services/airline/airlineFilters.js"
 
-const syncAirlinePriceGeography = async (airlinePriceId, geographyInput) => {
+const syncAirlinePriceGeography = async (
+  airlinePriceId,
+  geographyInput,
+  occupied
+) => {
   await prisma.priceGeoOnAirlinePrice.deleteMany({
     where: { airlinePriceId }
   })
   const list = await normalizePriceGeographyList(geographyInput ?? [])
+  assertNoCrossPriceLevelConflict(list, occupied)
   for (const geo of list) {
     await prisma.priceGeoOnAirlinePrice.create({
       data: {
@@ -35,6 +44,7 @@ const syncAirlinePriceGeography = async (airlinePriceId, geographyInput) => {
       }
     })
   }
+  return mergeOccupiedLevels(occupied, list)
 }
 
 const hasOwn = (obj, key) =>
@@ -212,29 +222,31 @@ const airlineResolver = {
         ...airlineInput
       } = input
 
-      const priceCreates = await Promise.all(
-        airlinePriceData.map(async (priceInput) => {
-          const geoList = priceInput.geography
-            ? await normalizePriceGeographyList(priceInput.geography)
-            : []
-          return {
-            name: priceInput.name ?? "",
-            prices: priceInput.prices,
-            mealPrice: priceInput.mealPrice,
-            individual: priceInput.individual ?? false,
-            geography: {
-              create: geoList.map(toPriceGeoCreateData)
-            },
-            airports: {
-              create: priceInput.airportIds
-                ? priceInput.airportIds.map((airportId) => ({
-                    airport: { connect: { id: airportId } }
-                  }))
-                : []
-            }
+      const priceCreates = []
+      let occupied = emptyOccupiedLevels()
+      for (const priceInput of airlinePriceData) {
+        const geoList = priceInput.geography
+          ? await normalizePriceGeographyList(priceInput.geography)
+          : []
+        assertNoCrossPriceLevelConflict(geoList, occupied)
+        occupied = mergeOccupiedLevels(occupied, geoList)
+        priceCreates.push({
+          name: priceInput.name ?? "",
+          prices: priceInput.prices,
+          mealPrice: priceInput.mealPrice,
+          individual: priceInput.individual ?? false,
+          geography: {
+            create: geoList.map(toPriceGeoCreateData)
+          },
+          airports: {
+            create: priceInput.airportIds
+              ? priceInput.airportIds.map((airportId) => ({
+                  airport: { connect: { id: airportId } }
+                }))
+              : []
           }
         })
-      )
+      }
 
       // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
@@ -362,6 +374,14 @@ const airlineResolver = {
         })
 
         if (prices) {
+          const priceIdsBeingUpdated = prices
+            .filter((p) => p.id && p.geography !== undefined)
+            .map((p) => p.id)
+
+          let occupied = await loadOccupiedPriceGeography(id, {
+            excludePriceIds: priceIdsBeingUpdated
+          })
+
           for (const priceInput of prices) {
             if (priceInput.id) {
               await prisma.airlinePrice.update({
@@ -377,9 +397,10 @@ const airlineResolver = {
               })
 
               if (priceInput.geography !== undefined) {
-                await syncAirlinePriceGeography(
+                occupied = await syncAirlinePriceGeography(
                   priceInput.id,
-                  priceInput.geography
+                  priceInput.geography,
+                  occupied
                 )
               }
 
@@ -403,6 +424,9 @@ const airlineResolver = {
                 priceInput.geography !== undefined
                   ? await normalizePriceGeographyList(priceInput.geography)
                   : []
+
+              assertNoCrossPriceLevelConflict(geoList, occupied)
+              occupied = mergeOccupiedLevels(occupied, geoList)
 
               const createdPrice = await prisma.airlinePrice.create({
                 data: {

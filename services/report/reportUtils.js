@@ -174,13 +174,19 @@ export const calculateLivingCost = (request, type, days) => {
 }
 
 const resolveAirlineContractForRequest = (request) => {
-  const airportId = request.airport?.id || request.hotel?.airportId || null
+  const airportId =
+    request._reportAirportId ||
+    request.airport?.id ||
+    request.hotel?.airportId ||
+    null
+
   return resolvePriceByHotelLocation({
     airlinePrices: request.airline?.prices,
     hotelLocation:
       request._priceSearchLocation ??
       getHotelLocation(request.hotel, request.airport),
-    airportId
+    airportId,
+    skipCountryLevel: request._skipCountryLevel ?? false
   })
 }
 

@@ -6,6 +6,7 @@ import assert from "node:assert/strict"
 const cityFindUnique = mock.fn()
 const regionFindUnique = mock.fn()
 const regionFindFirst = mock.fn()
+const priceGeoFindMany = mock.fn()
 
 mock.module("../../prisma.js", {
   namedExports: {
@@ -14,12 +15,18 @@ mock.module("../../prisma.js", {
       region: {
         findUnique: regionFindUnique,
         findFirst: regionFindFirst
-      }
+      },
+      priceGeoOnAirlinePrice: { findMany: priceGeoFindMany }
     }
   }
 })
 
 const {
+  assertNoCrossPriceLevelConflict,
+  collectOccupiedLevels,
+  emptyOccupiedLevels,
+  loadOccupiedPriceGeography,
+  mergeOccupiedLevels,
   normalizePriceGeography,
   normalizePriceGeographyList,
   toPriceGeoCreateData
@@ -29,6 +36,7 @@ test.beforeEach(() => {
   cityFindUnique.mock.resetCalls()
   regionFindUnique.mock.resetCalls()
   regionFindFirst.mock.resetCalls()
+  priceGeoFindMany.mock.resetCalls()
 })
 
 test("regionId resolves to region name and empty city", async () => {
@@ -205,4 +213,138 @@ test("toPriceGeoCreateData includes regionId", () => {
       regionId: "reg-1"
     }
   )
+})
+
+test("collectOccupiedLevels separates region-level and city-level entries", () => {
+  const occupied = collectOccupiedLevels([
+    { regionId: "reg-1", cityId: null },
+    { regionId: "reg-2", cityId: "city-1" },
+    { cityId: "city-2", regionId: null }
+  ])
+
+  assert.deepEqual([...occupied.regionLevelIds], ["reg-1"])
+  assert.deepEqual([...occupied.cityLevelIds].sort(), ["city-1", "city-2"])
+})
+
+test("assertNoCrossPriceLevelConflict allows city when region occupied", () => {
+  const occupied = collectOccupiedLevels([
+    { regionId: "reg-1", cityId: null, region: "Алтайский край" }
+  ])
+
+  assert.doesNotThrow(() =>
+    assertNoCrossPriceLevelConflict(
+      [
+        {
+          cityId: "city-1",
+          city: "Барнаул",
+          region: "Алтайский край",
+          regionId: null
+        }
+      ],
+      occupied
+    )
+  )
+})
+
+test("assertNoCrossPriceLevelConflict allows region when city occupied", () => {
+  const occupied = collectOccupiedLevels([
+    { cityId: "city-1", regionId: null, city: "Барнаул" }
+  ])
+
+  assert.doesNotThrow(() =>
+    assertNoCrossPriceLevelConflict(
+      [
+        {
+          regionId: "reg-1",
+          region: "Алтайский край",
+          cityId: null,
+          city: ""
+        }
+      ],
+      occupied
+    )
+  )
+})
+
+test("assertNoCrossPriceLevelConflict rejects duplicate region-level", () => {
+  const occupied = collectOccupiedLevels([
+    { regionId: "reg-1", cityId: null, region: "Алтайский край" }
+  ])
+
+  assert.throws(
+    () =>
+      assertNoCrossPriceLevelConflict(
+        [
+          {
+            regionId: "reg-1",
+            region: "Алтайский край",
+            cityId: null,
+            city: ""
+          }
+        ],
+        occupied
+      ),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Регион «Алтайский край» уже используется/)
+      return true
+    }
+  )
+})
+
+test("assertNoCrossPriceLevelConflict rejects duplicate city-level", () => {
+  const occupied = collectOccupiedLevels([
+    { cityId: "city-1", regionId: null, city: "Барнаул" }
+  ])
+
+  assert.throws(
+    () =>
+      assertNoCrossPriceLevelConflict(
+        [
+          {
+            cityId: "city-1",
+            city: "Барнаул",
+            region: "Алтайский край",
+            regionId: null
+          }
+        ],
+        occupied
+      ),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Город «Барнаул» уже используется/)
+      return true
+    }
+  )
+})
+
+test("mergeOccupiedLevels accumulates geography across virtual tariffs", () => {
+  let occupied = emptyOccupiedLevels()
+  occupied = mergeOccupiedLevels(occupied, [
+    { regionId: "reg-1", cityId: null }
+  ])
+  occupied = mergeOccupiedLevels(occupied, [
+    { cityId: "city-1", regionId: null }
+  ])
+
+  assert.deepEqual([...occupied.regionLevelIds], ["reg-1"])
+  assert.deepEqual([...occupied.cityLevelIds], ["city-1"])
+})
+
+test("loadOccupiedPriceGeography loads from DB excluding price ids", async () => {
+  priceGeoFindMany.mock.mockImplementation(async ({ where }) => {
+    assert.equal(where.airlinePrice.airlineId, "airline-1")
+    assert.deepEqual(where.airlinePrice.id, { notIn: ["price-1"] })
+    return [
+      { regionId: "reg-1", cityId: null },
+      { cityId: "city-1", regionId: null }
+    ]
+  })
+
+  const occupied = await loadOccupiedPriceGeography("airline-1", {
+    excludePriceIds: ["price-1"]
+  })
+
+  assert.deepEqual([...occupied.regionLevelIds], ["reg-1"])
+  assert.deepEqual([...occupied.cityLevelIds], ["city-1"])
 })

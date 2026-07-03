@@ -219,6 +219,9 @@ const reportResolver = {
         )
 
         for (const request of requests) {
+          request._reportAirportId = filter.airportId || null
+          request._skipCountryLevel = true
+
           if (request.hotel || request.airport || reportAirport) {
             request._priceSearchLocation = await buildPriceSearchLocation(
               request.hotel,
@@ -234,7 +237,8 @@ const reportResolver = {
             filter.airportId ||
             firstRequestWithHotel?.airport?.id ||
             reportHotel?.airportId ||
-            null
+            null,
+          skipCountryLevel: true
         })
 
         if (!contract) {
