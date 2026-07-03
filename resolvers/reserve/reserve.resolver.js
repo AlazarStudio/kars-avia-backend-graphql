@@ -2,6 +2,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import logAction from "../../services/infra/logaction.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import {
   HOTEL_UPDATED,
   MESSAGE_SENT,
@@ -660,10 +661,7 @@ const reserveResolver = {
           error
         )
         // console.error("\n❌ Ошибка при обновлении резерва: \n", error)
-        throw new Error(
-          "Ошибка обновления резерва",
-          JSON.stringify(error, null, 2)
-        )
+        rethrowUnlessInternalError(error, "Ошибка обновления резерва")
       }
     },
 
@@ -737,6 +735,7 @@ const reserveResolver = {
         //   throw new Error("This reserve and hotel combination already exists.")
         // }
         // throw error
+        rethrowUnlessInternalError(error, "Не удалось добавить отель к резерву")
       }
     },
 

@@ -3,6 +3,7 @@ import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { deleteImage, uploadImage } from "../../services/files/uploadImage.js"
 import logAction from "../../services/infra/logaction.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import {
   superAdminMiddleware,
   adminMiddleware,
@@ -1328,7 +1329,7 @@ const hotelResolver = {
         const timestamp = new Date().toISOString()
         console.error(timestamp, " \n Ошибка при обновлении отеля: \n ", error)
         // console.error(" \n Ошибка при обновлении отеля: \n ", error)
-        throw new Error("Не удалось обновить отель")
+        rethrowUnlessInternalError(error, "Не удалось обновить отель")
       }
     },
 

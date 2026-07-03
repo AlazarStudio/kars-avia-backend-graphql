@@ -2,6 +2,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import logAction from "../../services/infra/logaction.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import {
   pubsub,
   REQUEST_CREATED,
@@ -1043,7 +1044,7 @@ const requestResolver = {
         return updatedRequest
       } catch (error) {
         logger.error("Ошибка при обновлении заявки. ", error)
-        throw new Error(error)
+        rethrowUnlessInternalError(error, "Не удалось обновить заявку")
       }
     },
 
