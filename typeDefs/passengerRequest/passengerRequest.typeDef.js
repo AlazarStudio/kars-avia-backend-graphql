@@ -207,6 +207,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     seat: String
     personType: PassengerPersonType!
+    personCategory: PassengerPersonCategory
     airlinePersonalId: ID
     addedAt: Date!
   }
@@ -387,6 +388,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     seat: String
     personType: PassengerPersonType
+    personCategory: PassengerPersonCategory
     airlinePersonalId: ID
   }
 

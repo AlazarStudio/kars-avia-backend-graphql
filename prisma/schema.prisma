@@ -1166,9 +1166,10 @@ type PassengerRequestSavedPerson {
   fullName          String
   phone             String?
   seat              String?
-  personType        PassengerPersonType @default(PASSENGER)
-  airlinePersonalId String?             @db.ObjectId
-  addedAt           DateTime            @default(now())
+  personType        PassengerPersonType      @default(PASSENGER)
+  personCategory    PassengerPersonCategory? @default(ADULT)
+  airlinePersonalId String?                  @db.ObjectId
+  addedAt           DateTime                 @default(now())
 }
 
 type PassengerServicePerson {

@@ -9,6 +9,10 @@ const normalizeOptionalString = (value) => {
 export const normalizePersonType = (value) =>
   value === "CREW" ? "CREW" : "PASSENGER"
 
+// всё, кроме CHILD/INFANT (в т.ч. undefined у легаси), считаем взрослым
+export const normalizePersonCategory = (value) =>
+  value === "CHILD" || value === "INFANT" ? value : "ADULT"
+
 export const normalizeFullNameKey = (fullName) =>
   String(fullName ?? "")
     .trim()
@@ -47,6 +51,7 @@ export const snapshotFromServicePerson = (person) => ({
   phone: person?.phone ?? null,
   seat: person?.seat ?? null,
   personType: "PASSENGER",
+  personCategory: normalizePersonCategory(person?.personCategory),
   airlinePersonalId: null
 })
 
@@ -56,6 +61,7 @@ export const snapshotFromHotelPerson = (person) => ({
   phone: person?.phone ?? null,
   seat: null,
   personType: normalizePersonType(person?.personType),
+  personCategory: normalizePersonCategory(person?.personCategory),
   airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId)
 })
 
@@ -65,6 +71,7 @@ export const snapshotFromDriverPerson = (person) => ({
   phone: person?.phone ?? null,
   seat: null,
   personType: normalizePersonType(person?.personType),
+  personCategory: normalizePersonCategory(person?.personCategory),
   airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId)
 })
 
@@ -80,6 +87,7 @@ export const normalizeSavedPerson = (person, { isNew = false } = {}) => {
     phone: normalizeOptionalString(person?.phone),
     seat: normalizeOptionalString(person?.seat),
     personType: normalizePersonType(person?.personType),
+    personCategory: normalizePersonCategory(person?.personCategory),
     airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
     addedAt: person?.addedAt ? new Date(person.addedAt) : new Date()
   }
@@ -97,6 +105,9 @@ const mergeSavedPerson = (existing, incoming) => ({
   phone: incoming.phone ?? existing.phone,
   seat: incoming.seat ?? existing.seat,
   personType: incoming.personType ?? existing.personType,
+  // первично захваченная категория не затирается дефолтным ADULT из повторного добавления;
+  // явные правки категории придут в Этапе 2 через мутацию ростера
+  personCategory: existing.personCategory ?? incoming.personCategory,
   airlinePersonalId:
     incoming.airlinePersonalId ?? existing.airlinePersonalId
 })
