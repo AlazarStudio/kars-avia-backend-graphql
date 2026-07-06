@@ -87,6 +87,7 @@ const chatTypeDef = /* GraphQL */ `
     createChat(requestId: ID!, userIds: [ID!]!): Chat!
     markMessageAsRead(messageId: ID!, userId: ID!): MessageRead!
     markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean!
+    enhancedSendMessage(chatId: ID!, senderId: ID!, text: String!): Message!
 
     # Добавление бота в БД
     registerBot(
