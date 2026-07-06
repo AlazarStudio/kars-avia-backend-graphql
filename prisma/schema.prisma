@@ -525,7 +525,7 @@ model Chat {
 
   // Поля для ботов из сторонних сервисов
   channelType    ChannelType @default(INTERNAL) // Канал коммуникации
-  externalChatId String?     @unique // ID чата в мессенджере  
+  externalChatId String? // ID чата в мессенджере  
   externalUserId String? // ID пользователя в мессенджере
   botMetadata    Json? // Доп. данные (имя пользователя и т.д.)
 }
@@ -533,7 +533,7 @@ model Chat {
 // Модель для хранения конфигурации ботов
 model BotConfig {
   id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  channelType ChannelType @unique
+  channelType ChannelType
   name        String
   token       String // Токен бота
   isActive    Boolean     @default(true)
