@@ -2,7 +2,7 @@
 
 import { prisma } from "./prisma.js"
 import { pubsub, MESSAGE_SENT } from "./services/infra/pubsub.js"
-import TelegramBot from "node-telegram-bot-api"
+// import TelegramBot from "node-telegram-bot-api"
 import { Bot } from "@maxhub/max-bot-api"
 
 class BotService {
