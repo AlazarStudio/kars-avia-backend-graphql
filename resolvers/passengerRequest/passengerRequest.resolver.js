@@ -16,6 +16,7 @@ import {
   updateSavedPersonInRoster,
   upsertSavedPassenger
 } from "../../services/passengerRequest/savedPassengers.js"
+import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
 import {
   deleteAllPassengerRequestFilesFromDisk,
   deletePassengerRequestFileFromDisk,
@@ -807,39 +808,20 @@ const passengerRequestResolvers = {
         else data.airport = { connect: { id: airportId } }
       }
 
-      // Пересчёт статуса water/meal/transfer-like сервиса при изменении плана.
-      // current — длина списка people / drivers'-people (для трансфера/багажа).
-      const recalcServiceStatus = (prev, mergedPlan, current) => {
-        const planCount = mergedPlan?.peopleCount
-        let nextStatus = prev.status
-        let nextTimes = prev.times
-        if (
-          planCount != null &&
-          prev.status === "COMPLETED" &&
-          current < planCount
-        ) {
-          nextStatus = "IN_PROGRESS"
-          nextTimes = { ...(prev.times || {}), finishedAt: null }
-        } else if (
-          planCount != null &&
-          prev.status !== "COMPLETED" &&
-          prev.status !== "CANCELLED" &&
-          current >= planCount
-        ) {
-          nextStatus = "COMPLETED"
-          nextTimes = updateTimes(prev.times, "COMPLETED")
-        }
-        return { status: nextStatus, times: nextTimes }
-      }
+      const totalDriverPeople = (drivers) =>
+        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
+      const totalHotelPeople = (hotels) =>
+        (hotels || []).reduce((sum, h) => sum + (h?.people?.length || 0), 0)
 
       if (waterService) {
         const prev = existing.waterService || {}
         const mergedPlan =
           waterService.plan !== undefined ? waterService.plan : prev.plan
-        const recalc = recalcServiceStatus(
-          prev,
-          mergedPlan,
-          (prev.people || []).length
+        const current = (prev.people || []).length
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
         )
         data.waterService = {
           ...prev,
@@ -853,10 +835,11 @@ const passengerRequestResolvers = {
         const prev = existing.mealService || {}
         const mergedPlan =
           mealService.plan !== undefined ? mealService.plan : prev.plan
-        const recalc = recalcServiceStatus(
-          prev,
-          mergedPlan,
-          (prev.people || []).length
+        const current = (prev.people || []).length
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
         )
         data.mealService = {
           ...prev,
@@ -868,23 +851,31 @@ const passengerRequestResolvers = {
 
       if (livingService) {
         const prev = existing.livingService || {}
+        const mergedPlan =
+          livingService.plan !== undefined ? livingService.plan : prev.plan
+        const current = totalHotelPeople(prev.hotels)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.livingService = {
           ...prev,
-          ...(livingService.plan !== undefined && { plan: livingService.plan })
+          ...(livingService.plan !== undefined && { plan: livingService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
-
-      const totalDriverPeople = (drivers) =>
-        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
 
       if (transferService) {
         const prev = existing.transferService || {}
         const mergedPlan =
           transferService.plan !== undefined ? transferService.plan : prev.plan
-        const recalc = recalcServiceStatus(
-          prev,
-          mergedPlan,
-          totalDriverPeople(prev.drivers)
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
         )
         data.transferService = {
           ...prev,
@@ -902,10 +893,11 @@ const passengerRequestResolvers = {
           departureTransferService.plan !== undefined
             ? departureTransferService.plan
             : prev.plan
-        const recalc = recalcServiceStatus(
-          prev,
-          mergedPlan,
-          totalDriverPeople(prev.drivers)
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
         )
         data.departureTransferService = {
           ...prev,
@@ -923,10 +915,11 @@ const passengerRequestResolvers = {
           intercityTransferService.plan !== undefined
             ? intercityTransferService.plan
             : prev.plan
-        const recalc = recalcServiceStatus(
-          prev,
-          mergedPlan,
-          totalDriverPeople(prev.drivers)
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
         )
         data.intercityTransferService = {
           ...prev,
@@ -940,11 +933,23 @@ const passengerRequestResolvers = {
 
       if (baggageDeliveryService) {
         const prev = existing.baggageDeliveryService || {}
+        const mergedPlan =
+          baggageDeliveryService.plan !== undefined
+            ? baggageDeliveryService.plan
+            : prev.plan
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.baggageDeliveryService = {
           ...prev,
           ...(baggageDeliveryService.plan !== undefined && {
             plan: baggageDeliveryService.plan
-          })
+          }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
       const passengerRequest = await prisma.passengerRequest.update({
@@ -1420,42 +1425,30 @@ const passengerRequestResolvers = {
       if (service === "WATER") {
         const prev = existing.waterService || emptyPeopleService()
         const people = [...(prev.people || []), personWithId]
-        let nextStatus = prev.status
-        let nextTimes = prev.times
-        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
-          nextStatus = "IN_PROGRESS"
-          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
-        }
-        const planCount = prev.plan?.peopleCount
-        if (planCount != null && people.length >= planCount) {
-          nextStatus = "COMPLETED"
-          nextTimes = updateTimes(nextTimes, "COMPLETED")
-        }
+        const recalc = recomputeServiceStatus(
+          prev,
+          (prev.people || []).length,
+          people.length
+        )
         data.waterService = {
           ...prev,
           people,
-          status: nextStatus,
-          times: nextTimes
+          status: recalc.status,
+          times: recalc.times
         }
       } else if (service === "MEAL") {
         const prev = existing.mealService || emptyPeopleService()
         const people = [...(prev.people || []), personWithId]
-        let nextStatus = prev.status
-        let nextTimes = prev.times
-        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
-          nextStatus = "IN_PROGRESS"
-          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
-        }
-        const planCount = prev.plan?.peopleCount
-        if (planCount != null && people.length >= planCount) {
-          nextStatus = "COMPLETED"
-          nextTimes = updateTimes(nextTimes, "COMPLETED")
-        }
+        const recalc = recomputeServiceStatus(
+          prev,
+          (prev.people || []).length,
+          people.length
+        )
         data.mealService = {
           ...prev,
           people,
-          status: nextStatus,
-          times: nextTimes
+          status: recalc.status,
+          times: recalc.times
         }
       } else {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
@@ -1508,17 +1501,13 @@ const passengerRequestResolvers = {
       const prev = existing[serviceField] || emptyPeopleService()
       const nextPeople = [...(prev.people || []), ...peopleWithId]
 
-      let nextStatus = prev.status
-      let nextTimes = prev.times
-      if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(prev.times, "IN_PROGRESS")
-      }
-      const planCount = prev.plan?.peopleCount
-      if (planCount != null && nextPeople.length >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        prev,
+        (prev.people || []).length,
+        nextPeople.length
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
       let savedPassengers = existing.savedPassengers
       for (const p of peopleWithId) {
@@ -1625,23 +1614,16 @@ const passengerRequestResolvers = {
       assertIndex(personIndex, people.length, "personIndex")
       people.splice(personIndex, 1)
 
-      // если удалили последнего и статус был COMPLETED — откатить на IN_PROGRESS
-      let nextStatus = prev.status
-      let nextTimes = prev.times
-      const planCount = prev.plan?.peopleCount
-      if (
-        nextStatus === "COMPLETED" &&
-        planCount != null &&
-        people.length < planCount
-      ) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = { ...(prev.times || {}), finishedAt: null }
-      }
+      const recalc = recomputeServiceStatus(
+        prev,
+        (prev.people || []).length,
+        people.length
+      )
       data[serviceField] = {
         ...prev,
         people,
-        status: nextStatus,
-        times: nextTimes
+        status: recalc.status,
+        times: recalc.times
       }
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -1796,12 +1778,24 @@ const passengerRequestResolvers = {
           }
         })
 
-      const nextStatus = nextHotels.length === 0 ? "NEW" : living.status
+      const totalPeopleBefore = hotels.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextHotels.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc =
+        nextHotels.length === 0
+          ? { status: "NEW", times: living.times || {} }
+          : recomputeServiceStatus(living, totalPeopleBefore, totalPeopleAfter)
       const nextLivingService = {
         ...living,
         hotels: nextHotels,
         evictions: nextEvictions,
-        status: nextStatus
+        status: recalc.status,
+        times: recalc.times
       }
 
       const [, , passengerRequest] = await prisma.$transaction([
@@ -2003,17 +1997,13 @@ const passengerRequestResolvers = {
         (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
         0
       )
-      const planCount = living.plan?.peopleCount ?? null
-      let nextStatus = living.status
-      let nextTimes = living.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
       const targetHotelForPerson = hotels[hotelIndex]
       const normalizedHotelPerson = ensureHotelPerson(
@@ -2109,17 +2099,13 @@ const passengerRequestResolvers = {
         (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
         0
       )
-      const planCount = living.plan?.peopleCount ?? null
-      let nextStatus = living.status
-      let nextTimes = living.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
       let savedPassengers = existing.savedPassengers
       for (const p of peopleWithId) {
@@ -2262,12 +2248,28 @@ const passengerRequestResolvers = {
         }
       })
 
+      const totalPeopleBefore = (hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           livingService: {
             ...living,
-            hotels: hotelsClone
+            hotels: hotelsClone,
+            status: recalc.status,
+            times: recalc.times
           }
         }
       })
@@ -2430,14 +2432,26 @@ const passengerRequestResolvers = {
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)
-      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextDrivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc =
+        nextDrivers.length === 0
+          ? { status: "NEW", times: prev.times || {} }
+          : recomputeServiceStatus(prev, totalPeopleBefore, totalPeopleAfter)
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           [transferField]: {
             ...prev,
-            status: nextStatus,
+            status: recalc.status,
+            times: recalc.times,
             drivers: nextDrivers
           }
         }
@@ -2544,14 +2558,26 @@ const passengerRequestResolvers = {
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)
-      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextDrivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc =
+        nextDrivers.length === 0
+          ? { status: "NEW", times: prev.times || {} }
+          : recomputeServiceStatus(prev, totalPeopleBefore, totalPeopleAfter)
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           baggageDeliveryService: {
             ...prev,
-            status: nextStatus,
+            status: recalc.status,
+            times: recalc.times,
             drivers: nextDrivers
           }
         }
@@ -2702,18 +2728,13 @@ const passengerRequestResolvers = {
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
       )
-      const planCount = prev.plan?.peopleCount ?? null
-
-      let nextStatus = prev.status
-      let nextTimes = prev.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
       const normalizedDriverPerson = ensureDriverPerson(personWithId)
       const passengerRequest = await prisma.passengerRequest.update({
@@ -2782,17 +2803,13 @@ const passengerRequestResolvers = {
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
       )
-      const planCount = prev.plan?.peopleCount ?? null
-      let nextStatus = prev.status
-      let nextTimes = prev.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
       let savedPassengers = existing.savedPassengers
       for (const p of peopleWithId) {
@@ -2902,10 +2919,29 @@ const passengerRequestResolvers = {
         return { ...normalized, people: newPeople }
       })
 
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = driversClone.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          [transferField]: { ...prev, drivers: driversClone }
+          [transferField]: {
+            ...prev,
+            drivers: driversClone,
+            status: recalc.status,
+            times: recalc.times
+          }
         }
       })
       await logPassengerRequestAction({
@@ -3355,13 +3391,29 @@ const passengerRequestResolvers = {
         }
       ]
 
+      const totalPeopleBefore = (hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           livingService: {
             ...living,
             hotels: hotelsClone,
-            evictions
+            evictions,
+            status: recalc.status,
+            times: recalc.times
           }
         }
       })
