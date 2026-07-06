@@ -134,6 +134,30 @@ export const upsertSavedPassenger = (roster, snapshot) => {
   return next
 }
 
+// Backend-propagation: явная правка сервис-персоны переносит её идентичность в ростер
+// (incoming-wins — правка приоритетнее захваченного значения).
+// Сервис-объект несёт ТОЛЬКО свои поля как ключи, поэтому {...base, ...servicePerson}
+// сохраняет поля ростера, которых у услуги нет (напр. seat у отеля, personType у воды),
+// а normalizeSavedPerson выбирает лишь идентичность (placement-поля игнорируются).
+export const patchSavedPersonIdentity = (roster, servicePerson) => {
+  const list = Array.isArray(roster) ? [...roster] : []
+  const personId = servicePerson?.personId
+  if (!personId) return list
+  if (!String(servicePerson?.fullName ?? "").trim()) return list
+
+  const idx = list.findIndex((p) => p?.personId === personId)
+  const base = idx === -1 ? {} : list[idx]
+  const merged = normalizeSavedPerson(
+    { ...base, ...servicePerson, personId },
+    { isNew: idx === -1 }
+  )
+  if (idx === -1) return [...list, merged]
+
+  const next = [...list]
+  next[idx] = merged
+  return next
+}
+
 export const updateSavedPersonInRoster = (roster, personId, patch) => {
   const list = Array.isArray(roster) ? [...roster] : []
   const index = list.findIndex((item) => item?.personId === personId)

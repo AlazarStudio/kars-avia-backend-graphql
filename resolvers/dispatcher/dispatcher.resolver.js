@@ -27,6 +27,7 @@ import {
   getDisabledActionsFromMenu,
   getNotificationMenuForUser
 } from "../../services/notification/notificationMenuCheck.js"
+import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 
 /** Actions stored on Notification.description for transfer domain (no request/reserve/passengerRequest id on row). */
 const TRANSFER_NOTIFICATION_ACTIONS = [
@@ -859,6 +860,13 @@ const dispatcherResolver = {
         }
       )
     }
+  },
+  Notification: {
+    // Гидрируем связанную заявку ФАП через ростер (savedPassengers) — источник
+    // истины идентичности. Иначе identity-поля сервис-персон (waterService.people,
+    // livingService.hotels[].people и т.д.) вернутся stale-after-edit. Сейчас
+    // клиент читает только passengerRequest { id }, но резолвер закрывает footgun.
+    passengerRequest: (parent) => hydratePassengerRequest(parent.passengerRequest)
   },
   PriceCategory: {
     airlinePrices: async (parent) => {

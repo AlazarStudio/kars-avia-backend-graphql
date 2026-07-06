@@ -14,8 +14,10 @@ import {
   snapshotFromHotelPerson,
   snapshotFromServicePerson,
   updateSavedPersonInRoster,
-  upsertSavedPassenger
+  upsertSavedPassenger,
+  patchSavedPersonIdentity
 } from "../../services/passengerRequest/savedPassengers.js"
+import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
 import {
   deleteAllPassengerRequestFilesFromDisk,
@@ -234,7 +236,7 @@ const loadRequestOrThrow = async (id) => {
 
 const publishPassengerRequestUpdated = (passengerRequest) =>
   pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-    passengerRequestUpdated: passengerRequest
+    passengerRequestUpdated: hydratePassengerRequest(passengerRequest)
   })
 
 const assertIndex = (index, length, label) => {
@@ -556,17 +558,19 @@ const passengerRequestResolvers = {
         }
       }
 
-      return prisma.passengerRequest.findMany({
+      const list = await prisma.passengerRequest.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: skip ?? undefined,
         take: take ?? undefined
       })
+      return list.map(hydratePassengerRequest)
     },
 
     passengerRequest: async (_, { id }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      return prisma.passengerRequest.findUnique({ where: { id } })
+      const req = await prisma.passengerRequest.findUnique({ where: { id } })
+      return req ? hydratePassengerRequest(req) : null
     }
   },
 
@@ -1573,6 +1577,10 @@ const passengerRequestResolvers = {
         issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
       }
       data[serviceField] = { ...prev, people }
+      data.savedPassengers = patchSavedPersonIdentity(
+        existing.savedPassengers,
+        people[personIndex]
+      )
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2198,7 +2206,11 @@ const passengerRequestResolvers = {
           livingService: {
             ...living,
             hotels: hotelsClone
-          }
+          },
+          savedPassengers: patchSavedPersonIdentity(
+            existing.savedPassengers,
+            hotelsClone[hotelIndex].people[personIndex]
+          )
         }
       })
       await logPassengerRequestAction({
@@ -2877,7 +2889,11 @@ const passengerRequestResolvers = {
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          [transferField]: { ...prev, drivers: driversClone }
+          [transferField]: { ...prev, drivers: driversClone },
+          savedPassengers: patchSavedPersonIdentity(
+            existing.savedPassengers,
+            driversClone[driverIndex].people[personIndex]
+          )
         }
       })
       await logPassengerRequestAction({
