@@ -40,6 +40,8 @@ import {
   disconnectPubSubRedis
 } from "./services/infra/pubsub.js"
 
+import { botService } from "../services/bot/botService.js"
+
 assertSubscriptionPubSubConfig()
 const require = createRequire(import.meta.url)
 const { version: appVersion } = require("./package.json")
@@ -67,6 +69,30 @@ app.get("/health", async (req, res) => {
       status: "error",
       reason: "DB_UNAVAILABLE"
     })
+  }
+})
+
+app.post("/MAX", async (req, res) => {
+  try {
+    const update = req.body
+
+    if (update.message) {
+      await botService.handleIncomingMessage("MAX", {
+        chatId: update.message.chat.id.toString(),
+        userId: update.message.from.id.toString(),
+        messageId: update.message.message_id.toString(),
+        text: update.message.text || "",
+        userData: {
+          firstName: update.message.from.first_name,
+          lastName: update.message.from.last_name
+        }
+      })
+    }
+
+    res.sendStatus(200)
+  } catch (error) {
+    console.error("Ошибка webhook:", error)
+    res.sendStatus(500)
   }
 })
 
