@@ -17,7 +17,7 @@ import {
   superAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
-import { botService } from "../../botService.js"
+import { botService } from "../../services/bot/botService.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
 import { sendSupportClientMessageEmail } from "../../services/notification/sendSupportEmail.js"
 import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"

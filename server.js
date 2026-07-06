@@ -40,7 +40,7 @@ import {
   disconnectPubSubRedis
 } from "./services/infra/pubsub.js"
 
-import { botService } from "../services/bot/botService.js"
+import { botService } from "./services/bot/botService.js"
 
 assertSubscriptionPubSubConfig()
 const require = createRequire(import.meta.url)

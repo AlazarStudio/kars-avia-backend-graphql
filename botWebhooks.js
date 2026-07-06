@@ -1,7 +1,7 @@
 // routes/botWebhooks.js
 
 import express from 'express'
-import { botService } from '../services/bot/botService.js'
+import { botService } from './services/bot/botService.js'
 
 const router = express.Router()
 
