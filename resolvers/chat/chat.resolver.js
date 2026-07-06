@@ -12,8 +12,9 @@ import {
 } from "../../services/infra/subscriptionPayloads.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
-import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { allMiddleware, superAdminMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { botService } from "../../botService.js"
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -195,7 +196,14 @@ const chatResolver = {
           }
         }
       })
-    }
+    },
+
+    // Резольверы для ботов
+    // Возвращает конфиги всех ботов
+    botConfigs: async (_, __, context) => {
+        await allMiddleware(context)
+        return botService.getBotConfigs() 
+    },
   },
 
   Mutation: {
@@ -346,7 +354,6 @@ const chatResolver = {
         }
       })
       if (!chat) throw new Error("Чат не найден")
-
       let currentTicketId = null
       if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
@@ -571,7 +578,31 @@ const chatResolver = {
 
       return message
     },
+    //Мутация для отправки сообщения боту
+    enhancedSendMessage: async (_, { chatId, senderId, text }, context) => {
+      const originalSendMessage = chatResolver.Mutation.sendMessage   // Ссылка на существующую мутацию sendMessage
 
+      // Вызываем оригинальную логику
+      const message = await originalSendMessage(_, { chatId, senderId, text }, context)
+
+      // ДОПОЛНИТЕЛЬНО: если чат связан с ботом, отправляем сообщение пользователю
+      try {
+        if (message.chat?.channelType && message.chat.channelType !== 'INTERNAL') {
+          const externalMessageId = await botService.sendToUser(chatId, text)
+          
+          // Обновляем сообщение с ID из мессенджера
+          await prisma.message.update({
+            where: { id: message.id },
+            data: { externalMessageId }
+          })
+        }
+      } catch (error) {
+        console.error('Ошибка отправки в мессенджер:', error)
+        // Не блокируем основной поток, сообщение уже сохранено в CRM
+      }
+
+      return message
+    },
     // Помечает конкретное сообщение как прочитанное указанным пользователем.
     // Используется метод upsert для создания или обновления записи в таблице messageRead.
     // markMessageAsRead: async (_, { messageId, userId }, context) => {
@@ -852,6 +883,17 @@ const chatResolver = {
       // Ожидаем завершения создания всех связей с участниками
       await Promise.all(chatUserPromises)
       return chat
+    },
+
+    // Резольверы для ботов
+    // Добавление конфига бота в БД
+    registerBot: async (_, { channelType, name, token }, context) => {
+      await superAdminMiddleware(context)
+      return botService.registerBot(channelType, name, token)
+    },
+    toggleBot: async (_, { id, isActive }, context) => {
+      await superAdminMiddleware(context)
+      return botService.toggleBot(id, isActive)
     }
   },
 
@@ -1146,7 +1188,12 @@ const chatResolver = {
         where: { id: parent.resolvedById },
         select: { id: true, name: true, email: true, images: true, support: true }
       })
-    }
+    }, 
+    channelType: (parent) => parent.channelType || "INTERNAL",
+    botMetadata: (parent) => parent.botMetadata || null
+  },
+  Message: {
+    channelType: (parent) => parent.channelType || "INTERNAL"
   },
   MessageRead: {
     user: async (parent, args, context) => {

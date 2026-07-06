@@ -30,6 +30,7 @@
     "@graphql-tools/schema": "^10.0.31",
     "@graphql-yoga/redis-event-target": "^3.0.3",
     "@levminer/speakeasy": "^1.4.2",
+    "@maxhub/max-bot-api": "^0.2.2",
     "@prisma/client": "6.19",
     "archetype": "^0.13.1",
     "argon2": "^0.40.3",

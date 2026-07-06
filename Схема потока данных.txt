@@ -1,0 +1,15 @@
+Пользователь → Telegram Bot → Webhook/Polling → handleIncomingMessage
+                                                      ↓
+                                           Создание Message в БД
+                                                      ↓
+                                           pubsub.publish(MESSAGE_SENT)
+                                                      ↓
+                                           Админ видит сообщение в UI
+                                                      ↓
+                                           Админ пишет ответ (sendMessage)
+                                                      ↓
+                                           Сообщение сохраняется в БД
+                                                      ↓
+                                           Отправка через Bot в Telegram
+                                                      ↓
+Пользователь ← Telegram Bot ← bot.sendMessage()

@@ -2,6 +2,13 @@ const chatTypeDef = /* GraphQL */ `
   #graphql
   scalar Date
 
+  enum ChannelType {
+    INTERNAL
+    TELEGRAM
+    WHATSAPP
+    MAX
+  }
+
   type Message {
     id: ID!
     text: String!
@@ -13,6 +20,20 @@ const chatTypeDef = /* GraphQL */ `
     isRead: Boolean!
     readBy: [MessageRead!]
     separator: String
+
+    #Поля для ботов из сторонних сервисов
+    channelType: ChannelType!            # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
+    externalMessageId: String            # ID сообщения в мессенджере
+  }
+
+  # Минимальный набор для управления ботами
+  type BotConfig {
+    id: ID!
+    channelType: ChannelType!
+    name: String!
+    isActive: Boolean!
+    webhookUrl: String
+    createdAt: Date!
   }
 
   type MessageRead {
@@ -41,6 +62,12 @@ const chatTypeDef = /* GraphQL */ `
     assignedTo: User
     resolvedAt: Date
     resolvedBy: User
+
+    # Поля для ботов из сторонних сервисов
+    channelType: ChannelType!                # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
+    externalChatId: String                   # ID чата в мессенджере 
+    externalUserId: String                   # ID пользователя в мессенджере
+    botMetadata: Json                        # Доп. данные (имя пользователя и т.д.)
   }
 
   type Query {
@@ -50,6 +77,9 @@ const chatTypeDef = /* GraphQL */ `
     unreadMessages(chatId: ID!, userId: ID!): [Message!]!
     unreadMessagesCount(chatId: ID!, userId: ID!): Int
     readMessages(chatId: ID!, userId: ID!): [Message!]!
+
+    # Получение конфигов всех ботов
+    botConfigs: [BotConfig!]!
   }
 
   type Mutation {
@@ -57,6 +87,12 @@ const chatTypeDef = /* GraphQL */ `
     createChat(requestId: ID!, userIds: [ID!]!): Chat!
     markMessageAsRead(messageId: ID!, userId: ID!): MessageRead!
     markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean!
+
+    # Добавление бота в БД
+    registerBot(channelType: ChannelType!, name: String!, token: String!): BotConfig!
+    
+    # Получение бота по id и активности (работает или нет)
+    toggleBot(id: ID!, isActive: Boolean!): BotConfig!
   }
 
   type Subscription {

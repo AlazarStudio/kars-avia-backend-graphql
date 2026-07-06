@@ -185,6 +185,7 @@ const supportResolver = {
     // Query: userSupportChat
     // Возвращает чат поддержки, связанный с указанным userId.
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
+    // Изучить возможность добавления резольвера для создания чатов из сторонних сервисов (max, tg, и тд)
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId
@@ -607,6 +608,7 @@ const supportResolver = {
       await prisma.documentation.delete({ where: { id } })
       return true
     },
+    //Изучить возможность добавления резольвера для создания чатов из сторонних сервисов (max, tg, и тд)
     createSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Проверяем, существует ли уже чат поддержки для данного userId

@@ -436,6 +436,14 @@ model AirportOnAirlinePrice {
 
 // Chat ---------------- ↓↓↓↓ 
 
+// (Для сторонних сервисов) enum для определения канала откуда пришло сообщение
+enum ChannelType {
+  MAX
+  TELEGRAM
+  WHATSAPP
+  INTERNAL // Сообщение из чата CRM
+}
+
 model Chat {
   id                 String            @id @default(auto()) @map("_id") @db.ObjectId
   createdAt          DateTime          @default(now()) @map("created_at")
@@ -463,7 +471,27 @@ model Chat {
   resolvedBy         User?             @relation("ResolvedSupportChats", fields: [resolvedById], references: [id], onDelete: SetNull)
   resolvedById       String?           @db.ObjectId
   tickets            SupportTicket[]
+
+  // Поля для ботов из сторонних сервисов
+  channelType        ChannelType  @default(INTERNAL)   // Канал коммуникации
+  externalChatId     String?      @unique              // ID чата в мессенджере  
+  externalUserId     String?                           // ID пользователя в мессенджере
+  botMetadata        Json?                             // Доп. данные (имя пользователя и т.д.)
 }
+
+
+// Модель для хранения конфигурации ботов
+model BotConfig {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  channelType  ChannelType @unique
+  name         String
+  token        String      // Токен бота
+  isActive     Boolean     @default(true)
+  webhookUrl   String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+}
+
 
 model ChatUser {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -495,6 +523,10 @@ model Message {
   readBy               MessageRead[]
   separator            String?
   Notification         Notification[]
+
+  // Поля для сообщений из ботов (MAX, TG, WHATSAPP..., )
+  channelType        ChannelType  @default(INTERNAL)   // Через какой канал пришло
+  externalMessageId  String?                           // ID сообщения в мессенджере
 }
 
 model MessageRead {
