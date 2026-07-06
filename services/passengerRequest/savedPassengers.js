@@ -21,7 +21,7 @@ export const normalizeFullNameKey = (fullName) =>
 
 export const rosterMatchKey = (person) => person?.personId || null
 
-// Схлопывает каталог по personId, оставляя первое вхождение.
+// Схлопывает реестр по personId, оставляя первое вхождение.
 // Подстраховка от дублей с одинаковым personId.
 export const dedupeSavedPassengers = (roster) => {
   const list = Array.isArray(roster) ? roster : []
@@ -198,7 +198,7 @@ export const removeSavedPersonFromRoster = (roster, personId) => {
 
 // Пакетный импорт (манифест): матчинг по нормализованному ФИО, жадный 1:1 —
 // каждая входная персона поглощает максимум одну ещё-не-сматченную запись
-// каталога (близнецы из файла = две записи, повторный импорт идемпотентен).
+// реестра (близнецы из файла = две записи, повторный импорт идемпотентен).
 // Совпадение — existing-wins с дозаполнением пустых phone/seat и повышением
 // категории ADULT → CHILD/INFANT (манифест авторитетнее дефолта; понижения нет).
 // Записи с пустым fullName пропускаются, не роняя импорт.

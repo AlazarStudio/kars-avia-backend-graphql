@@ -199,7 +199,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   """
-  Пассажир в каталоге заявки (для повторного выбора после скана/добавления)
+  Пассажир в реестре заявки (для повторного выбора после скана/добавления)
   """
   type PassengerRequestSavedPerson {
     personId: ID!
@@ -535,7 +535,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
 
     """
-    Пакетно добавить людей в каталог заявки (импорт манифеста).
+    Пакетно добавить людей в реестр заявки (импорт манифеста).
     Дедуп по нормализованному ФИО, жадный 1:1.
     """
     addPassengerRequestSavedPeople(
@@ -558,7 +558,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
 
     """
-    Пакетное добавление пассажиров в воду/питание (выбор из каталога заявки).
+    Пакетное добавление пассажиров в воду/питание (выбор из реестра заявки).
     """
     addPassengerRequestPeople(
       requestId: ID!
@@ -602,7 +602,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
 
     """
-    Пакетное добавление пассажиров в отель (выбор из каталога заявки).
+    Пакетное добавление пассажиров в отель (выбор из реестра заявки).
     """
     addPassengerRequestHotelPeople(
       requestId: ID!
@@ -681,7 +681,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     ): PassengerRequest!
 
     """
-    Пакетное добавление пассажиров к водителю трансфера (выбор из каталога заявки).
+    Пакетное добавление пассажиров к водителю трансфера (выбор из реестра заявки).
     """
     addPassengerRequestDriverPeople(
       requestId: ID!

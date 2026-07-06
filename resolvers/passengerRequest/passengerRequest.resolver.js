@@ -1196,8 +1196,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_saved_person",
-        description: "Пассажир добавлен в каталог ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в каталог ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир добавлен в реестр ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в реестр ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -1235,8 +1235,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request_saved_person",
-        description: "Пассажир обновлён в каталоге ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил пассажира в каталоге ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир обновлён в реестре ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил пассажира в реестре ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -1273,8 +1273,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "remove_passenger_request_saved_person",
-        description: "Пассажир удалён из каталога ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из каталога ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир удалён из реестра ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из реестра ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -1286,7 +1286,7 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
-    // Пакетное добавление в каталог (импорт манифеста); дедуп по ФИО в хелпере
+    // Пакетное добавление в реестр (импорт манифеста); дедуп по ФИО в хелпере
     addPassengerRequestSavedPeople: async (
       _,
       { requestId, people },
@@ -1312,8 +1312,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_saved_people",
-        description: `Импорт манифеста в каталог ФАП: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} импортировал манифест в каталог ФАП ${passengerRequest.flightNumber}: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount} (уже в каталоге)`,
+        description: `Импорт манифеста в реестр ФАП: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} импортировал манифест в реестр ФАП ${passengerRequest.flightNumber}: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount} (уже в реестре)`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
