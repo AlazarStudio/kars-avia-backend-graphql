@@ -1,10 +1,9 @@
 // services/bot/botService.js
 
-import { prisma } from '../../prisma.js'
-import { pubsub, MESSAGE_SENT } from '../infra/pubsub.js'
-import TelegramBot from 'node-telegram-bot-api'
+import { prisma } from "./prisma.js"
+import { pubsub, MESSAGE_SENT } from "./services/infra/pubsub.js"
+import TelegramBot from "node-telegram-bot-api"
 import { Bot } from "@maxhub/max-bot-api"
-
 
 class BotService {
   constructor() {
@@ -49,24 +48,24 @@ class BotService {
 
     // Добавить другие мессенджеры по аналогии
     if (config.channelType === "MAX") {
-        const bot = new Bot(config.token)
+      const bot = new Bot(config.token)
 
-        bot.on("message_created", async (ctx) => {
-            await this.handleIncomingMessage("MAX", {
-                chatId: ctx.message.recipient.chat_id.toString(),   // id чата между пользователем и ботом в MAX
-                userId: ctx.message.sender.user_id.toString(),      // id пользователя отправившего сообщение в бота
-                messageId: ctx.message.body.mid.toString(),         // id сообщения в 
-                text: ctx.message.body.text,             // Текст сообщения
-                userData: {                              // Данные пользователя ФИ (пока без номера)
-                    firstName: ctx.message.sender.first_name,
-                    lastName: ctx.message.sender.last_name,
-                }
-            })
+      bot.on("message_created", async (ctx) => {
+        await this.handleIncomingMessage("MAX", {
+          chatId: ctx.message.recipient.chat_id.toString(), // id чата между пользователем и ботом в MAX
+          userId: ctx.message.sender.user_id.toString(), // id пользователя отправившего сообщение в бота
+          messageId: ctx.message.body.mid.toString(), // id сообщения в
+          text: ctx.message.body.text, // Текст сообщения
+          userData: {
+            // Данные пользователя ФИ (пока без номера)
+            firstName: ctx.message.sender.first_name,
+            lastName: ctx.message.sender.last_name
+          }
         })
+      })
 
-        await bot.start()
-        this.bots.set("MAX", bot)
-
+      await bot.start()
+      this.bots.set("MAX", bot)
     }
   }
 
@@ -84,7 +83,7 @@ class BotService {
           channelType,
           externalMessageId: data.messageId,
           senderExternalUserId: data.userId,
-          senderName: data.userData?.firstName || 'Пользователь',
+          senderName: data.userData?.firstName || "Пользователь",
           createdAt: new Date()
         },
         include: {
@@ -123,7 +122,7 @@ class BotService {
         externalChatId: data.chatId,
         externalUserId: data.userId,
         isSupport: true,
-        supportStatus: 'OPEN',
+        supportStatus: "OPEN",
         botMetadata: {
           userData: data.userData,
           startedAt: new Date()
@@ -134,14 +133,14 @@ class BotService {
     return chat
   }
 
-  // Отправка сообщения пользователю в мессенджер 
+  // Отправка сообщения пользователю в мессенджер
   async sendToUser(chatId, text) {
     const chat = await prisma.chat.findUnique({
       where: { id: chatId }
     })
 
     if (!chat || !chat.externalChatId) {
-      throw new Error('Чат не связан с внешним мессенджером')
+      throw new Error("Чат не связан с внешним мессенджером")
     }
 
     const bot = this.bots.get(chat.channelType)
@@ -151,13 +150,12 @@ class BotService {
 
     // Отправляем в мессенджер
     if (chat.channelType === "MAX") {
-        const sentMessage = await bot.api.sendMessageToChat(chat.chatId, text) 
-        return sentMessage.body.mid  // Возвращаем ID сообщения в мессенджере
+      const sentMessage = await bot.api.sendMessageToChat(chat.chatId, text)
+      return sentMessage.body.mid // Возвращаем ID сообщения в мессенджере
     }
-    
-    // const sentMessage = await bot.sendMessage(chat.externalChatId, text)
-}
 
+    // const sentMessage = await bot.sendMessage(chat.externalChatId, text)
+  }
 
   // CRUD для конфигураций ботов
   async registerBot(channelType, name, token) {
