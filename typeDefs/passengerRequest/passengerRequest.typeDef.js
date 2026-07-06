@@ -534,6 +534,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
       personId: ID!
     ): PassengerRequest!
 
+    """
+    Пакетно добавить людей в каталог заявки (импорт манифеста).
+    Дедуп по нормализованному ФИО, жадный 1:1.
+    """
+    addPassengerRequestSavedPeople(
+      requestId: ID!
+      people: [PassengerRequestSavedPersonInput!]!
+    ): PassengerRequest!
+
     cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
 
     setPassengerRequestServiceStatus(

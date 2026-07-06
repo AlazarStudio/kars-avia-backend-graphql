@@ -8,6 +8,7 @@ import { ensurePassengerServiceHotelItemId } from "../../services/passengerReque
 import {
   dedupeSavedPassengers,
   ensurePersonId,
+  mergeManifestPeopleIntoRoster,
   normalizeSavedPerson,
   removeSavedPersonFromRoster,
   snapshotFromDriverPerson,
@@ -1278,6 +1279,46 @@ const passengerRequestResolvers = {
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    // Пакетное добавление в каталог (импорт манифеста); дедуп по ФИО в хелпере
+    addPassengerRequestSavedPeople: async (
+      _,
+      { requestId, people },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      let merged
+      try {
+        merged = mergeManifestPeopleIntoRoster(
+          existing.savedPassengers,
+          people
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passengers")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers: merged.roster }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_saved_people",
+        description: `Импорт манифеста в каталог ФАП: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} импортировал манифест в каталог ФАП ${passengerRequest.flightNumber}: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount} (уже в каталоге)`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        skipEmail: true
       })
 
       publishPassengerRequestUpdated(passengerRequest)

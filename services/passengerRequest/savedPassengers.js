@@ -195,3 +195,48 @@ export const removeSavedPersonFromRoster = (roster, personId) => {
   }
   return next
 }
+
+// Пакетный импорт (манифест): матчинг по нормализованному ФИО, жадный 1:1 —
+// каждая входная персона поглощает максимум одну ещё-не-сматченную запись
+// каталога (близнецы из файла = две записи, повторный импорт идемпотентен).
+// Совпадение — existing-wins с дозаполнением пустых phone/seat и повышением
+// категории ADULT → CHILD/INFANT (манифест авторитетнее дефолта; понижения нет).
+// Записи с пустым fullName пропускаются, не роняя импорт.
+export const mergeManifestPeopleIntoRoster = (roster, people) => {
+  const list = Array.isArray(roster) ? [...roster] : []
+  const consumed = new Set()
+  let addedCount = 0
+  let matchedCount = 0
+
+  for (const person of Array.isArray(people) ? people : []) {
+    const nameKey = normalizeFullNameKey(person?.fullName)
+    if (!nameKey) continue
+
+    const index = list.findIndex(
+      (item, i) =>
+        !consumed.has(i) && normalizeFullNameKey(item?.fullName) === nameKey
+    )
+
+    if (index === -1) {
+      list.push(normalizeSavedPerson(person, { isNew: true }))
+      consumed.add(list.length - 1)
+      addedCount += 1
+      continue
+    }
+
+    const existing = ensurePersonId(list[index])
+    list[index] = {
+      ...existing,
+      phone: existing.phone ?? normalizeOptionalString(person?.phone),
+      seat: existing.seat ?? normalizeOptionalString(person?.seat),
+      personCategory:
+        existing.personCategory == null || existing.personCategory === "ADULT"
+          ? normalizePersonCategory(person?.personCategory)
+          : existing.personCategory
+    }
+    consumed.add(index)
+    matchedCount += 1
+  }
+
+  return { roster: list, addedCount, matchedCount }
+}
