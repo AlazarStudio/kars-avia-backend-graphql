@@ -1127,11 +1127,7 @@ const requestResolver = {
 
       // Запрос на отмену (чат, site, email) — только если заявка уже не в статусе created.
       // При created авиакомпания отменяет заявку самостоятельно, без запроса диспетчеру.
-      if (
-        user.airlineId &&
-        !user.dispatcher &&
-        request.status !== "created"
-      ) {
+      if (user.airlineId && !user.dispatcher && request.status !== "created") {
         const currentTime = new Date()
         const adjustedTime = new Date(
           currentTime.getTime() + 3 * 60 * 60 * 1000

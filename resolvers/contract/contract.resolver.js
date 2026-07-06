@@ -1134,7 +1134,7 @@ const contractResolver = {
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
         where: {
-          airlineContractId: parent.id,
+          airlineContractId: parent.id
           // isArchived: { not: true }
         }
       })
@@ -1160,7 +1160,7 @@ const contractResolver = {
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
         where: {
-          hotelContractId: parent.id,
+          hotelContractId: parent.id
           // isArchived: { not: true }
         }
       })
@@ -1188,7 +1188,7 @@ const contractResolver = {
     additionalAgreements: async (parent) => {
       return prisma.additionalAgreement.findMany({
         where: {
-          organizationContractId: parent.id,
+          organizationContractId: parent.id
           // isArchived: { not: true }
         }
       })

@@ -22,8 +22,8 @@ const chatTypeDef = /* GraphQL */ `
     separator: String
 
     #Поля для ботов из сторонних сервисов
-    channelType: ChannelType!            # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
-    externalMessageId: String            # ID сообщения в мессенджере
+    channelType: ChannelType! # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
+    externalMessageId: String # ID сообщения в мессенджере
   }
 
   # Минимальный набор для управления ботами
@@ -64,10 +64,10 @@ const chatTypeDef = /* GraphQL */ `
     resolvedBy: User
 
     # Поля для ботов из сторонних сервисов
-    channelType: ChannelType!                # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
-    externalChatId: String                   # ID чата в мессенджере 
-    externalUserId: String                   # ID пользователя в мессенджере
-    botMetadata: Json                        # Доп. данные (имя пользователя и т.д.)
+    channelType: ChannelType! # Откуда пришло (MAX, TELEGRAM, WHATSAPP)
+    externalChatId: String # ID чата в мессенджере
+    externalUserId: String # ID пользователя в мессенджере
+    botMetadata: Json # Доп. данные (имя пользователя и т.д.)
   }
 
   type Query {
@@ -89,8 +89,12 @@ const chatTypeDef = /* GraphQL */ `
     markAllMessagesAsRead(chatId: ID!, userId: ID!): Boolean!
 
     # Добавление бота в БД
-    registerBot(channelType: ChannelType!, name: String!, token: String!): BotConfig!
-    
+    registerBot(
+      channelType: ChannelType!
+      name: String!
+      token: String!
+    ): BotConfig!
+
     # Получение бота по id и активности (работает или нет)
     toggleBot(id: ID!, isActive: Boolean!): BotConfig!
   }

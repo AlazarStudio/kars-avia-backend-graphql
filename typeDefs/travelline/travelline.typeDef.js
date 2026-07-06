@@ -459,7 +459,9 @@ const travellineTypeDef = /* GraphQL */ `
     tlSetConfig(input: TlSetConfigInput!): Boolean!
     tlSyncCatalog(countryCode: String): TlSyncStatus!
     tlSetAutoSyncHours(hours: Int!): Int!
-    tlCreateReservation(input: TlCreateReservationInput!): TlCreateReservationResult!
+    tlCreateReservation(
+      input: TlCreateReservationInput!
+    ): TlCreateReservationResult!
     tlCancelReservation(id: ID!): Boolean!
     tlVerifyBooking(input: TlVerifyInput!): TlVerifyResult!
     tlRawRequest(input: TlRawRequestInput!): TlRawResponse!

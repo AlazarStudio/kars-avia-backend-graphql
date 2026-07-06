@@ -12,11 +12,12 @@ import {
 } from "../../services/infra/subscriptionPayloads.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
-import { allMiddleware, superAdminMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  allMiddleware,
+  superAdminMiddleware
+} from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
-<<<<<<< HEAD
 import { botService } from "../../botService.js"
-=======
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
 import { sendSupportClientMessageEmail } from "../../services/notification/sendSupportEmail.js"
 import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"
@@ -25,7 +26,6 @@ import {
   canReceiveChatSubscription
 } from "../../services/chat/chatSubscriptionAccess.js"
 import { isSupportAgent } from "../../services/support/supportAgent.js"
->>>>>>> 06ee86af2d0b9e5897c40d4fad63943da7ef7686
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -215,9 +215,9 @@ const chatResolver = {
     // Резольверы для ботов
     // Возвращает конфиги всех ботов
     botConfigs: async (_, __, context) => {
-        await allMiddleware(context)
-        return botService.getBotConfigs() 
-    },
+      await allMiddleware(context)
+      return botService.getBotConfigs()
+    }
   },
 
   Mutation: {
@@ -500,7 +500,11 @@ const chatResolver = {
         }
       })
 
-      if (message.chat.isSupport && !isExternal && !isSupportAgent(message.sender)) {
+      if (
+        message.chat.isSupport &&
+        !isExternal &&
+        !isSupportAgent(message.sender)
+      ) {
         await sendSupportClientMessageEmail({
           chatId,
           sender: message.sender,
@@ -542,7 +546,6 @@ const chatResolver = {
             }
           })
         }
-
       }
 
       if (message.chat.reserveId) {
@@ -695,16 +698,23 @@ const chatResolver = {
     },
     //Мутация для отправки сообщения боту
     enhancedSendMessage: async (_, { chatId, senderId, text }, context) => {
-      const originalSendMessage = chatResolver.Mutation.sendMessage   // Ссылка на существующую мутацию sendMessage
+      const originalSendMessage = chatResolver.Mutation.sendMessage // Ссылка на существующую мутацию sendMessage
 
       // Вызываем оригинальную логику
-      const message = await originalSendMessage(_, { chatId, senderId, text }, context)
+      const message = await originalSendMessage(
+        _,
+        { chatId, senderId, text },
+        context
+      )
 
       // ДОПОЛНИТЕЛЬНО: если чат связан с ботом, отправляем сообщение пользователю
       try {
-        if (message.chat?.channelType && message.chat.channelType !== 'INTERNAL') {
+        if (
+          message.chat?.channelType &&
+          message.chat.channelType !== "INTERNAL"
+        ) {
           const externalMessageId = await botService.sendToUser(chatId, text)
-          
+
           // Обновляем сообщение с ID из мессенджера
           await prisma.message.update({
             where: { id: message.id },
@@ -712,7 +722,7 @@ const chatResolver = {
           })
         }
       } catch (error) {
-        console.error('Ошибка отправки в мессенджер:', error)
+        console.error("Ошибка отправки в мессенджер:", error)
         // Не блокируем основной поток, сообщение уже сохранено в CRM
       }
 
@@ -1271,7 +1281,7 @@ const chatResolver = {
           support: true
         }
       })
-    }, 
+    },
     channelType: (parent) => parent.channelType || "INTERNAL",
     botMetadata: (parent) => parent.botMetadata || null
   },

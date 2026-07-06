@@ -524,25 +524,23 @@ model Chat {
   tickets            SupportTicket[]
 
   // Поля для ботов из сторонних сервисов
-  channelType        ChannelType  @default(INTERNAL)   // Канал коммуникации
-  externalChatId     String?      @unique              // ID чата в мессенджере  
-  externalUserId     String?                           // ID пользователя в мессенджере
-  botMetadata        Json?                             // Доп. данные (имя пользователя и т.д.)
+  channelType    ChannelType @default(INTERNAL) // Канал коммуникации
+  externalChatId String?     @unique // ID чата в мессенджере  
+  externalUserId String? // ID пользователя в мессенджере
+  botMetadata    Json? // Доп. данные (имя пользователя и т.д.)
 }
-
 
 // Модель для хранения конфигурации ботов
 model BotConfig {
-  id           String      @id @default(auto()) @map("_id") @db.ObjectId
-  channelType  ChannelType @unique
-  name         String
-  token        String      // Токен бота
-  isActive     Boolean     @default(true)
-  webhookUrl   String?
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  channelType ChannelType @unique
+  name        String
+  token       String // Токен бота
+  isActive    Boolean     @default(true)
+  webhookUrl  String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
 }
-
 
 model ChatUser {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -576,8 +574,8 @@ model Message {
   Notification         Notification[]
 
   // Поля для сообщений из ботов (MAX, TG, WHATSAPP..., )
-  channelType        ChannelType  @default(INTERNAL)   // Через какой канал пришло
-  externalMessageId  String?                           // ID сообщения в мессенджере
+  channelType       ChannelType @default(INTERNAL) // Через какой канал пришло
+  externalMessageId String? // ID сообщения в мессенджере
 }
 
 model MessageRead {
@@ -902,66 +900,66 @@ model AdditionalServices {
 }
 
 model Hotel {
-  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  name                String
-  nameFull            String?
-  provision           Int?
-  quote               Int?
-  capacity            Int?
-  location            HotelLocation?
-  information         Information?
-  breakfast           MealTime?
-  lunch               MealTime?
-  dinner              MealTime?
-  images              String[]
-  mealPrice           MealPrice?
-  mealPriceForAir     MealPrice?
-  mealPriceForAirReq  Boolean              @default(false)
+  id                     String               @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  name                   String
+  nameFull               String?
+  provision              Int?
+  quote                  Int?
+  capacity               Int?
+  location               HotelLocation?
+  information            Information?
+  breakfast              MealTime?
+  lunch                  MealTime?
+  dinner                 MealTime?
+  images                 String[]
+  mealPrice              MealPrice?
+  mealPriceForAir        MealPrice?
+  mealPriceForAirReq     Boolean              @default(false)
   transferPrice          HotelTransferPrice?
   transferPriceForAir    HotelTransferPrice?
   transferPriceForAirReq Boolean              @default(false)
-  reserveHotel        ReserveHotel[]
-  hotelChesses        HotelChess[]
-  request             Request[]
-  rooms               Room[]
-  roomKind            RoomKind[]
+  reserveHotel           ReserveHotel[]
+  hotelChesses           HotelChess[]
+  request                Request[]
+  rooms                  Room[]
+  roomKind               RoomKind[]
   // Общая инеформация по номерам
-  user                User[]
-  logs                Log[]
-  stars               String?
-  usStars             String?
-  airportDistance     String?
-  discount            String?
-  externalLinkCRM     String?
-  externalLinkPWA     String?
-  savedReport         SavedReport[]
-  chat                Chat[]
-  prices              Price?
+  user                   User[]
+  logs                   Log[]
+  stars                  String?
+  usStars                String?
+  airportDistance        String?
+  discount               String?
+  externalLinkCRM        String?
+  externalLinkPWA        String?
+  savedReport            SavedReport[]
+  chat                   Chat[]
+  prices                 Price?
   // position        Position[]
-  Notification        Notification[]
-  active              Boolean              @default(true)
-  show                Boolean              @default(true)
-  meal                Boolean              @default(true)
-  breakfastIncluded   Boolean              @default(false)
-  access              Boolean              @default(false)
-  type                HotelType            @default(hotel)
-  gallery             String[]
-  airport             Airport?             @relation(fields: [airportId], references: [id])
-  airportId           String?              @db.ObjectId
-  priceCategory       PriceCategory[]
+  Notification           Notification[]
+  active                 Boolean              @default(true)
+  show                   Boolean              @default(true)
+  meal                   Boolean              @default(true)
+  breakfastIncluded      Boolean              @default(false)
+  access                 Boolean              @default(false)
+  type                   HotelType            @default(hotel)
+  gallery                String[]
+  airport                Airport?             @relation(fields: [airportId], references: [id])
+  airportId              String?              @db.ObjectId
+  priceCategory          PriceCategory[]
   // tariff          Tariff[]
-  AirlinePrice        AirlinePrice[]
-  hotelContract       hotelContract[]
-  additionalServices  AdditionalServices[]
-  externalUsers       ExternalUser[]
-  previewLinks        HotelPreviewLink[]
-  external            Boolean              @default(false)
-  externalSource      String?
-  externalId          String?
-  externalRaw         String?
-  externalSyncedAt    DateTime?
+  AirlinePrice           AirlinePrice[]
+  hotelContract          hotelContract[]
+  additionalServices     AdditionalServices[]
+  externalUsers          ExternalUser[]
+  previewLinks           HotelPreviewLink[]
+  external               Boolean              @default(false)
+  externalSource         String?
+  externalId             String?
+  externalRaw            String?
+  externalSyncedAt       DateTime?
 
   @@index([externalSource, externalId])
 }
@@ -1209,8 +1207,8 @@ type PassengerServicePerson {
   fullName       String
   personCategory PassengerPersonCategory? @default(ADULT)
   issuedAt       DateTime? // время выдачи (14:30 в таблице)
-  phone    String?
-  seat     String? // если достанешь из скана
+  phone          String?
+  seat           String? // если достанешь из скана
 }
 
 type PassengerServicePlan {
@@ -1285,8 +1283,8 @@ model PassengerRequest {
   plannedPassengersCount Int?
 
   // состав заявки: экипаж и/или пассажиры
-  includesCrew       Boolean                      @default(false)
-  includesPassengers Boolean                      @default(true)
+  includesCrew       Boolean                       @default(false)
+  includesPassengers Boolean                       @default(true)
   crewMembers        PassengerRequestCrewMember[] // ростер экипажа (выбранные сотрудники)
   savedPassengers    PassengerRequestSavedPerson[] // каталог пассажиров заявки (скан / выбор)
 
@@ -1408,16 +1406,16 @@ model Request {
   airlineDepartment     AirlineDepartment? @relation(fields: [airlineDepartmentId], references: [id], onDelete: NoAction)
   airlineDepartmentId   String?            @db.ObjectId
 
-  bulkGroupId           String?            @map("bulk_group_id")
-  linkNumber            String?            @map("link_number")
-  arrivalFlightNumber   String?            @map("arrival_flight_number")
-  arrivalAircraftType   String?            @map("arrival_aircraft_type")
-  arrivalFlightStatus   String?            @map("arrival_flight_status")
-  departureFlightNumber String?            @map("departure_flight_number")
-  departureAircraftType String?            @map("departure_aircraft_type")
-  departureFlightStatus String?            @map("departure_flight_status")
-  singleRoomCount       Int?               @map("single_room_count")
-  doubleRoomCount       Int?               @map("double_room_count")
+  bulkGroupId           String? @map("bulk_group_id")
+  linkNumber            String? @map("link_number")
+  arrivalFlightNumber   String? @map("arrival_flight_number")
+  arrivalAircraftType   String? @map("arrival_aircraft_type")
+  arrivalFlightStatus   String? @map("arrival_flight_status")
+  departureFlightNumber String? @map("departure_flight_number")
+  departureAircraftType String? @map("departure_aircraft_type")
+  departureFlightStatus String? @map("departure_flight_status")
+  singleRoomCount       Int?    @map("single_room_count")
+  doubleRoomCount       Int?    @map("double_room_count")
 
   @@index([bulkGroupId])
   @@index([airlineId, linkNumber])

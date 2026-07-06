@@ -169,8 +169,8 @@ const supportResolver = {
       })
 
       const filteredChats = chats.map((chat) => {
-        const filteredParticipants = chat.participants.filter(
-          (participant) => isSupportChatClient(participant.user)
+        const filteredParticipants = chat.participants.filter((participant) =>
+          isSupportChatClient(participant.user)
         )
 
         return {
@@ -181,13 +181,10 @@ const supportResolver = {
 
       return filteredChats
     },
-<<<<<<< HEAD
     // Query: userSupportChat
     // Возвращает чат поддержки, связанный с указанным userId.
     // Если чат не найден, создается новый чат поддержки, в который добавляются указанный пользователь и все агенты поддержки.
     // Изучить возможность добавления резольвера для создания чатов из сторонних сервисов (max, tg, и тд)
-=======
->>>>>>> 06ee86af2d0b9e5897c40d4fad63943da7ef7686
     userSupportChat: async (_, { userId }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       // Ищем чат поддержки, где среди участников присутствует пользователь с указанным userId

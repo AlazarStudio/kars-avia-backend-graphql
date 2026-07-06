@@ -265,7 +265,7 @@ const dispatcherResolver = {
         orderBy: { name: "asc" }
       })
     },
-        getTransferDispatcherPositions: async (_, {}, context) => {
+    getTransferDispatcherPositions: async (_, {}, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "dispatcher", category: "transfer" }
@@ -866,7 +866,8 @@ const dispatcherResolver = {
     // истины идентичности. Иначе identity-поля сервис-персон (waterService.people,
     // livingService.hotels[].people и т.д.) вернутся stale-after-edit. Сейчас
     // клиент читает только passengerRequest { id }, но резолвер закрывает footgun.
-    passengerRequest: (parent) => hydratePassengerRequest(parent.passengerRequest)
+    passengerRequest: (parent) =>
+      hydratePassengerRequest(parent.passengerRequest)
   },
   PriceCategory: {
     airlinePrices: async (parent) => {
