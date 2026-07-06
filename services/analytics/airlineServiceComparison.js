@@ -63,19 +63,18 @@ const addMetrics = (acc, m) => {
 const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100
 
 async function getRegionToAirportIds({ regions }) {
-  // if regions not provided -> compute for all existing regions in City
   if (!regions) {
-    const cities = await prisma.city.findMany({
-      select: { region: true },
-      distinct: ["region"]
+    const rows = await prisma.region.findMany({
+      select: { name: true },
+      orderBy: { name: "asc" }
     })
-    regions = cities.map((c) => c.region).filter(Boolean)
+    regions = rows.map((r) => r.name).filter(Boolean)
   }
 
   const result = new Map()
   for (const region of regions) {
     const cities = await prisma.city.findMany({
-      where: { region: region },
+      where: { regionRef: { name: region } },
       select: { city: true }
     })
     const cityNames = cities.map((c) => c.city).filter(Boolean)

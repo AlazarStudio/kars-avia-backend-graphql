@@ -41,7 +41,7 @@
 
 Enterprise-grade GraphQL API backend for a travel and airline management platform. Manages airlines, hotels, passenger requests, reservations, real-time chat, analytics, reports, and role-based access control.
 
-**Version:** 3.4.0  
+**Version:** 3.5.0  
 **Entry points:** `server2.js` (HTTP, main), `server.js` (HTTPS/SSL, production)
 
 ---
@@ -224,4 +224,4 @@ FIREBASE_ENABLED="false"    # requires src/lib/fbk.json
 - `.env` is committed to git with development values. Use environment overrides for production secrets.
 - `generated/client/` and `uploads/` are in `.gitignore` — don't commit them.
 - Nodemon ignores `uploads/`, `reports/`, `reserve_files/`, `logs/` to avoid restart on file writes.
-- Changelog and version history are documented in `README.md` (v0.0.1 → v3.4.0).
+- Changelog and version history are documented in `README.md` (v0.0.1 → v3.5.0).

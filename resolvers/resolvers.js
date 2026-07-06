@@ -20,6 +20,7 @@ import representativeResolver from "./representative/representative.resolver.js"
 import reportResolver from "./report/report.resolver.js"
 import requestResolver from "./request/request.resolver.js"
 import reserveResolver from "./reserve/reserve.resolver.js"
+import siteResolver from "./site/site.resolver.js"
 import supportResolver from "./support/support.resolver.js"
 import transferResolver from "./transfer/transfer.resolver.js"
 import travellineResolver from "./travelline/travelline.resolver.js"
@@ -46,6 +47,7 @@ const mergedResolvers = mergeResolvers([
   reportResolver,
   requestResolver,
   reserveResolver,
+  siteResolver,
   supportResolver,
   transferResolver,
   travellineResolver,

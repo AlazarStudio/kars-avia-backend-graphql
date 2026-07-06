@@ -6,6 +6,27 @@ import {
 } from "../../services/passengerRequest/utils.js"
 import { ensurePassengerServiceHotelItemId } from "../../services/passengerRequest/hotelItem.js"
 import {
+  dedupeSavedPassengers,
+  ensurePersonId,
+  mergeManifestPeopleIntoRoster,
+  normalizeSavedPerson,
+  removeSavedPersonFromRoster,
+  snapshotFromDriverPerson,
+  snapshotFromHotelPerson,
+  snapshotFromServicePerson,
+  updateSavedPersonInRoster,
+  upsertSavedPassenger,
+  patchSavedPersonIdentity
+} from "../../services/passengerRequest/savedPassengers.js"
+import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
+import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
+import {
+  deleteAllPassengerRequestFilesFromDisk,
+  deletePassengerRequestFileFromDisk,
+  findPassengerRequestFileIndex,
+  uploadPassengerRequestFiles
+} from "../../services/passengerRequest/files.js"
+import {
   allMiddleware,
   representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -17,6 +38,13 @@ import {
   NOTIFICATION
 } from "../../services/infra/pubsub.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { buildPassengerRequestEmail } from "../../services/notification/buildPassengerRequestEmail.js"
+import {
+  getDispatcherFallbackForPassengerEmail,
+  resolveEmailActionForLog
+} from "../../services/notification/passengerRequestEmailActions.js"
+import { formatDate } from "../../services/format/dateTimeFormater.js"
 import logAction from "../../services/infra/logaction.js"
 import {
   buildRepresentativeExternalKey,
@@ -151,6 +179,9 @@ const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   departure: person.departure ?? null,
   roomCategory: person.roomCategory ?? null,
   roomKind: person.roomKind ?? null,
+  personType: normalizePersonType(person?.personType),
+  personCategory: normalizePersonCategory(person?.personCategory),
+  airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
   accommodationChesses: ensureAccommodationChesses(
     person,
     hotelIndex,
@@ -171,10 +202,92 @@ const normalizeOptionalString = (value) => {
   return trimmed || null
 }
 
-const ensureDriverPerson = (p) => ({
-  fullName: (p?.fullName?.trim?.() ?? "") || "",
-  phone: normalizeOptionalString(p?.phone)
+const normalizePersonType = (value) => (value === "CREW" ? "CREW" : "PASSENGER")
+
+const normalizePersonCategory = (value) =>
+  value === "CHILD" || value === "INFANT" ? value : "ADULT"
+
+const normalizeCrewMember = (member = {}) => ({
+  airlinePersonalId: normalizeOptionalString(member?.airlinePersonalId),
+  fullName: member?.fullName?.trim?.() || "",
+  position: normalizeOptionalString(member?.position),
+  gender: normalizeOptionalString(member?.gender),
+  phone: normalizeOptionalString(member?.phone)
 })
+
+// Имя embedded-поля трансфера по направлению (ARRIVAL = аэропорт→гостиница)
+const getTransferField = (direction) => {
+  if (direction === "DEPARTURE") return "departureTransferService"
+  if (direction === "INTERCITY") return "intercityTransferService"
+  return "transferService"
+}
+
+const getTransferServiceKind = (direction) => {
+  if (direction === "DEPARTURE") return "transfer_departure"
+  if (direction === "INTERCITY") return "transfer_intercity"
+  return "transfer"
+}
+
+// ── Общие хелперы мутаций ФАП (единый «конверт») ──
+const loadRequestOrThrow = async (id) => {
+  const existing = await prisma.passengerRequest.findUnique({ where: { id } })
+  if (!existing) throw new GraphQLError("PassengerRequest not found")
+  return existing
+}
+
+const publishPassengerRequestUpdated = (passengerRequest) =>
+  pubsub.publish(PASSENGER_REQUEST_UPDATED, {
+    passengerRequestUpdated: hydratePassengerRequest(passengerRequest)
+  })
+
+const assertIndex = (index, length, label) => {
+  if (index < 0 || index >= length) {
+    throw new GraphQLError(`Invalid ${label}`)
+  }
+}
+
+const assertReason = (reason) => {
+  const trimmed = reason?.trim()
+  if (!trimmed) throw new GraphQLError("Reason is required")
+  return trimmed
+}
+
+// Дефолты embedded-сервисов, когда сервис ещё не создан
+const emptyPeopleService = () => ({
+  plan: null,
+  status: "NEW",
+  times: null,
+  earlyCompletionReason: null,
+  earlyCompletedAt: null,
+  people: []
+})
+
+const emptyLivingService = () => ({
+  plan: null,
+  status: "NEW",
+  times: null,
+  hotels: [],
+  evictions: []
+})
+
+const emptyDriversService = () => ({
+  plan: null,
+  status: "NEW",
+  times: null,
+  drivers: []
+})
+
+const ensureDriverPerson = (p) => ({
+  personId: p?.personId ?? null,
+  fullName: (p?.fullName?.trim?.() ?? "") || "",
+  phone: normalizeOptionalString(p?.phone),
+  personType: normalizePersonType(p?.personType),
+  personCategory: normalizePersonCategory(p?.personCategory),
+  airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId)
+})
+
+const mergeSavedPassengersForRequest = (existing, snapshot) =>
+  upsertSavedPassenger(existing?.savedPassengers, snapshot)
 
 const normalizePassengerServiceDriver = (driver = {}) => ({
   ...driver,
@@ -198,7 +311,11 @@ const logPassengerRequestAction = async ({
   oldData = null,
   newData = null,
   airlineId = null,
-  passengerRequestId = null
+  passengerRequestId = null,
+  emailAction = null,
+  skipEmail = false,
+  emailExtras = {},
+  cancelReason = null
 }) => {
   try {
     await logAction({
@@ -214,6 +331,70 @@ const logPassengerRequestAction = async ({
     })
   } catch (error) {
     console.error("Ошибка логирования действия ФАП:", error)
+  }
+
+  if (skipEmail) return
+
+  const passengerRequest = newData ?? oldData
+  const resolvedAirlineId = airlineId ?? passengerRequest?.airlineId
+  if (!passengerRequest?.id || !resolvedAirlineId) return
+
+  try {
+    const menuAction = emailAction ?? resolveEmailActionForLog(action)
+    const { subject, html } = await buildPassengerRequestEmail({
+      emailAction: menuAction,
+      passengerRequest,
+      description,
+      fulldescription,
+      cancelReason: cancelReason ?? reason,
+      emailExtras
+    })
+
+    await sendRequestPartyEmail({
+      actor: context.user ?? context.subject,
+      airlineId: resolvedAirlineId,
+      action: menuAction,
+      subject,
+      html,
+      entityType: "passenger_request",
+      entityId: passengerRequest.id,
+      dispatcherFallbackTo: getDispatcherFallbackForPassengerEmail(menuAction)
+    })
+  } catch (error) {
+    console.error("Ошибка отправки email по ФАП:", error)
+  }
+}
+
+function fmtPickupForLog(iso) {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+}
+
+function buildDriverPatchDescription(before, applied, driverIndex, direction) {
+  const dirLabel = direction === "DEPARTURE" ? "вылет" : "прилёт"
+  const driverLabel = before?.fullName ? `«${before.fullName}»` : `#${driverIndex + 1}`
+  const diffs = []
+  if ("pickupAt" in applied) {
+    diffs.push(`подача: ${fmtPickupForLog(before?.pickupAt)} → ${fmtPickupForLog(applied.pickupAt)}`)
+  }
+  if ("vehicleType" in applied) {
+    diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
+  }
+  if ("reportCost" in applied) {
+    diffs.push(`сумма: ${before?.reportCost ?? 0} → ${applied.reportCost ?? 0}`)
+  }
+  if (!diffs.length) {
+    return {
+      short: `Заявка ${driverLabel} (${dirLabel}): изменения сохранены`,
+      full: `Заявка ${driverLabel} в трансфере (${dirLabel}): изменения сохранены`,
+    }
+  }
+  return {
+    short: `Заявка ${driverLabel} (${dirLabel}): ${diffs.join(", ")}`,
+    full: `Заявка ${driverLabel} в трансфере (${dirLabel}). Изменения: ${diffs.join("; ")}.`,
   }
 }
 
@@ -276,6 +457,8 @@ async function notifyPassengerRequestSite({
 const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
+    savedPassengers: (parent) => dedupeSavedPassengers(parent.savedPassengers),
+
     airline: async (parent) =>
       prisma.airline.findUnique({ where: { id: parent.airlineId } }),
 
@@ -368,6 +551,7 @@ const passengerRequestResolvers = {
         const search = filter.search.trim()
         if (search) {
           where.OR = [
+            { requestNumber: { contains: search, mode: "insensitive" } },
             { flightNumber: { contains: search, mode: "insensitive" } },
             { routeFrom: { contains: search, mode: "insensitive" } },
             { routeTo: { contains: search, mode: "insensitive" } }
@@ -375,24 +559,26 @@ const passengerRequestResolvers = {
         }
       }
 
-      return prisma.passengerRequest.findMany({
+      const list = await prisma.passengerRequest.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: skip ?? undefined,
         take: take ?? undefined
       })
+      return list.map(hydratePassengerRequest)
     },
 
     passengerRequest: async (_, { id }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      return prisma.passengerRequest.findUnique({ where: { id } })
+      const req = await prisma.passengerRequest.findUnique({ where: { id } })
+      return req ? hydratePassengerRequest(req) : null
     }
   },
 
   // --------- мутации ---------
   Mutation: {
     // создание
-    createPassengerRequest: async (_, { input }, context) => {
+    createPassengerRequest: async (_, { input, files }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         airlineId,
@@ -401,7 +587,10 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        departureTransferService,
+        intercityTransferService,
         baggageDeliveryService,
+        crewMembers,
         status,
         createdById: inputCreatorId,
         ...rest
@@ -423,6 +612,10 @@ const passengerRequestResolvers = {
 
       data.airport = { connect: { id: airportId } }
       if (status) data.status = status
+
+      if (Array.isArray(crewMembers)) {
+        data.crewMembers = crewMembers.map(normalizeCrewMember)
+      }
 
       if (waterService) {
         data.waterService = {
@@ -465,6 +658,24 @@ const passengerRequestResolvers = {
         }
       }
 
+      if (departureTransferService) {
+        data.departureTransferService = {
+          plan: departureTransferService.plan || null,
+          status: "NEW",
+          times: null,
+          drivers: []
+        }
+      }
+
+      if (intercityTransferService) {
+        data.intercityTransferService = {
+          plan: intercityTransferService.plan || null,
+          status: "NEW",
+          times: null,
+          drivers: []
+        }
+      }
+
       if (baggageDeliveryService) {
         data.baggageDeliveryService = {
           plan: baggageDeliveryService.plan || null,
@@ -473,6 +684,29 @@ const passengerRequestResolvers = {
           drivers: []
         }
       }
+      // Формирование уникального requestNumber: {seq4}{airportCode}{MM}{YY}f
+      const now = new Date()
+      const month = String(now.getMonth() + 1).padStart(2, "0")
+      const year = String(now.getFullYear()).slice(-2)
+      const lastRequest = await prisma.passengerRequest.findFirst({
+        where: { requestNumber: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { requestNumber: true }
+      })
+      let sequenceNumber = "0001"
+      if (lastRequest?.requestNumber) {
+        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
+        if (Number.isFinite(lastNumber)) {
+          sequenceNumber = String(lastNumber + 1).padStart(4, "0")
+        }
+      }
+      const airportForNumber = await prisma.airport.findUnique({
+        where: { id: airportId },
+        select: { code: true }
+      })
+      const airportCode = airportForNumber?.code || "XXX"
+      data.requestNumber = `${sequenceNumber}${airportCode}${month}${year}f`
+
       let passengerRequest = await prisma.passengerRequest.create({ data })
       const adminId =
         context.subjectType === "USER" ? context.subject?.id : null
@@ -487,11 +721,24 @@ const passengerRequestResolvers = {
         data: { representativeLinks }
       })
 
+      if (files?.length > 0) {
+        const uploadedPaths = await uploadPassengerRequestFiles(
+          passengerRequest.id,
+          files
+        )
+        if (uploadedPaths.length > 0) {
+          passengerRequest = await prisma.passengerRequest.update({
+            where: { id: passengerRequest.id },
+            data: { files: uploadedPaths }
+          })
+        }
+      }
+
       await logPassengerRequestAction({
         context,
         action: "create_passenger_request",
         description: "ФАП создан",
-        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} создал ФАП ${passengerRequest.requestNumber || passengerRequest.flightNumber}`,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
@@ -531,10 +778,7 @@ const passengerRequestResolvers = {
     // обновление шапки + планов
     updatePassengerRequest: async (_, { id, input }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(id)
 
       const {
         airlineId,
@@ -543,7 +787,10 @@ const passengerRequestResolvers = {
         mealService,
         livingService,
         transferService,
+        departureTransferService,
+        intercityTransferService,
         baggageDeliveryService,
+        crewMembers,
         ...rest
       } = input
 
@@ -552,6 +799,10 @@ const passengerRequestResolvers = {
       Object.entries(rest).forEach(([key, value]) => {
         if (value !== undefined) data[key] = value
       })
+
+      if (Array.isArray(crewMembers)) {
+        data.crewMembers = crewMembers.map(normalizeCrewMember)
+      }
 
       if (airlineId) {
         data.airline = { connect: { id: airlineId } }
@@ -562,53 +813,176 @@ const passengerRequestResolvers = {
         else data.airport = { connect: { id: airportId } }
       }
 
+      const totalDriverPeople = (drivers) =>
+        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
+      const totalHotelPeople = (hotels) =>
+        (hotels || []).reduce((sum, h) => sum + (h?.people?.length || 0), 0)
+
       if (waterService) {
         const prev = existing.waterService || {}
+        const mergedPlan =
+          waterService.plan !== undefined ? waterService.plan : prev.plan
+        const current = (prev.people || []).length
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.waterService = {
           ...prev,
-          ...(waterService.plan !== undefined && { plan: waterService.plan })
+          ...(waterService.plan !== undefined && { plan: waterService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (mealService) {
         const prev = existing.mealService || {}
+        const mergedPlan =
+          mealService.plan !== undefined ? mealService.plan : prev.plan
+        const current = (prev.people || []).length
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.mealService = {
           ...prev,
-          ...(mealService.plan !== undefined && { plan: mealService.plan })
+          ...(mealService.plan !== undefined && { plan: mealService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (livingService) {
         const prev = existing.livingService || {}
+        const mergedPlan =
+          livingService.plan !== undefined ? livingService.plan : prev.plan
+        const current = totalHotelPeople(prev.hotels)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.livingService = {
           ...prev,
-          ...(livingService.plan !== undefined && { plan: livingService.plan })
+          ...(livingService.plan !== undefined && { plan: livingService.plan }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (transferService) {
         const prev = existing.transferService || {}
+        const mergedPlan =
+          transferService.plan !== undefined ? transferService.plan : prev.plan
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.transferService = {
           ...prev,
           ...(transferService.plan !== undefined && {
             plan: transferService.plan
-          })
+          }),
+          status: recalc.status,
+          times: recalc.times
+        }
+      }
+
+      if (departureTransferService) {
+        const prev = existing.departureTransferService || {}
+        const mergedPlan =
+          departureTransferService.plan !== undefined
+            ? departureTransferService.plan
+            : prev.plan
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
+        data.departureTransferService = {
+          ...prev,
+          ...(departureTransferService.plan !== undefined && {
+            plan: departureTransferService.plan
+          }),
+          status: recalc.status,
+          times: recalc.times
+        }
+      }
+
+      if (intercityTransferService) {
+        const prev = existing.intercityTransferService || {}
+        const mergedPlan =
+          intercityTransferService.plan !== undefined
+            ? intercityTransferService.plan
+            : prev.plan
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
+        data.intercityTransferService = {
+          ...prev,
+          ...(intercityTransferService.plan !== undefined && {
+            plan: intercityTransferService.plan
+          }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
 
       if (baggageDeliveryService) {
         const prev = existing.baggageDeliveryService || {}
+        const mergedPlan =
+          baggageDeliveryService.plan !== undefined
+            ? baggageDeliveryService.plan
+            : prev.plan
+        const current = totalDriverPeople(prev.drivers)
+        const recalc = recomputeServiceStatus(
+          { ...prev, plan: mergedPlan },
+          current,
+          current
+        )
         data.baggageDeliveryService = {
           ...prev,
           ...(baggageDeliveryService.plan !== undefined && {
             plan: baggageDeliveryService.plan
-          })
+          }),
+          status: recalc.status,
+          times: recalc.times
         }
       }
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
         data
       })
+
+      const isDateChange = passengerRequestFlightDateChanged(
+        existing.flightDate,
+        rest.flightDate
+      )
+      let emailExtras = {}
+      let emailAction = "update_passenger_request"
+      if (isDateChange) {
+        emailAction = "passenger_request_dates_change"
+        const airline = passengerRequest.airlineId
+          ? await prisma.airline.findUnique({
+              where: { id: passengerRequest.airlineId },
+              select: { name: true }
+            })
+          : null
+        emailExtras = {
+          oldFlightDate: formatDate(existing.flightDate),
+          newFlightDate: formatDate(passengerRequest.flightDate),
+          airlineName: airline?.name
+        }
+      }
+
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request",
@@ -617,14 +991,12 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailAction,
+        emailExtras
       })
 
       if (Object.keys(data).length > 0) {
-        const isDateChange = passengerRequestFlightDateChanged(
-          existing.flightDate,
-          rest.flightDate
-        )
         await notifyPassengerRequestSite({
           action: isDateChange
             ? "passenger_request_dates_change"
@@ -636,15 +1008,90 @@ const passengerRequestResolvers = {
         })
       }
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestFiles: async (_, { requestId, files }, context) => {
+      const existing = await loadRequestOrThrow(requestId)
+      if (!files?.length) {
+        throw new GraphQLError("At least one file is required")
+      }
+
+      const uploadedPaths = await uploadPassengerRequestFiles(requestId, files)
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          files: [...(existing.files || []), ...uploadedPaths]
+        }
       })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_files",
+        description: "Файлы добавлены в ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${uploadedPaths.length} файл(ов) в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    removePassengerRequestFile: async (
+      _,
+      { requestId, filePath },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      const fileIndex = findPassengerRequestFileIndex(
+        existing.files,
+        filePath
+      )
+      if (fileIndex < 0) {
+        throw new GraphQLError("File not found on this passenger request")
+      }
+
+      const removedPath = existing.files[fileIndex]
+      await deletePassengerRequestFileFromDisk(removedPath)
+
+      const nextFiles = (existing.files || []).filter(
+        (_, index) => index !== fileIndex
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { files: nextFiles }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_file",
+        description: "Файл удалён из ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил файл из ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(id)
+
+      await deleteAllPassengerRequestFilesFromDisk(existing.files)
+
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
       })
@@ -658,9 +1105,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return true
     },
@@ -668,10 +1113,7 @@ const passengerRequestResolvers = {
     // общий статус заявки
     setPassengerRequestStatus: async (_, { id, status }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(id)
 
       const statusTimes = updateTimes(existing.statusTimes, status)
 
@@ -694,19 +1136,200 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
+
+    // ростер экипажа заявки
+    updatePassengerRequestCrew: async (
+      _,
+      { requestId, crewMembers },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const normalizedCrew = Array.isArray(crewMembers)
+        ? crewMembers.map(normalizeCrewMember)
+        : []
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { crewMembers: normalizedCrew }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_crew",
+        description: "Обновлён ростер экипажа ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил ростер экипажа ФАП ${passengerRequest.flightNumber} (${normalizedCrew.length} чел.)`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestSavedPerson: async (_, { requestId, person }, context) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      let savedPassengers
+      try {
+        savedPassengers = upsertSavedPassenger(
+          existing.savedPassengers,
+          person
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passenger")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_saved_person",
+        description: "Пассажир добавлен в каталог ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в каталог ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    updatePassengerRequestSavedPerson: async (
+      _,
+      { requestId, personId, person },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      let savedPassengers
+      try {
+        savedPassengers = updateSavedPersonInRoster(
+          existing.savedPassengers,
+          personId,
+          person
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passenger")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_saved_person",
+        description: "Пассажир обновлён в каталоге ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил пассажира в каталоге ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    removePassengerRequestSavedPerson: async (
+      _,
+      { requestId, personId },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      let savedPassengers
+      try {
+        savedPassengers = removeSavedPersonFromRoster(
+          existing.savedPassengers,
+          personId
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Saved passenger not found")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_saved_person",
+        description: "Пассажир удалён из каталога ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из каталога ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    // Пакетное добавление в каталог (импорт манифеста); дедуп по ФИО в хелпере
+    addPassengerRequestSavedPeople: async (
+      _,
+      { requestId, people },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      let merged
+      try {
+        merged = mergeManifestPeopleIntoRoster(
+          existing.savedPassengers,
+          people
+        )
+      } catch (e) {
+        throw new GraphQLError(e.message || "Invalid saved passengers")
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { savedPassengers: merged.roster }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_saved_people",
+        description: `Импорт манифеста в каталог ФАП: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} импортировал манифест в каталог ФАП ${passengerRequest.flightNumber}: добавлено ${merged.addedCount}, пропущено ${merged.matchedCount} (уже в каталоге)`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        skipEmail: true
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
     // общий статус заявки
     cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(id)
       const status = "CANCELLED"
       const statusTimes = updateTimes(existing.statusTimes, status)
 
@@ -725,15 +1348,15 @@ const passengerRequestResolvers = {
         description: "Заявка по ФАП отменена",
         fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
         reason: cancelReason,
+        cancelReason,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailAction: "cancel_passenger_request"
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       await notifyPassengerRequestSite({
         action: "cancel_passenger_request",
@@ -753,10 +1376,7 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(id)
 
       const data = {}
 
@@ -789,6 +1409,20 @@ const passengerRequestResolvers = {
           status,
           times: updateTimes(prev.times, status)
         }
+      } else if (service === "DEPARTURE_TRANSFER") {
+        const prev = existing.departureTransferService || { drivers: [] }
+        data.departureTransferService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
+      } else if (service === "INTERCITY_TRANSFER") {
+        const prev = existing.intercityTransferService || { drivers: [] }
+        data.intercityTransferService = {
+          ...prev,
+          status,
+          times: updateTimes(prev.times, status)
+        }
       } else if (service === "BAGGAGE_DELIVERY") {
         const prev = existing.baggageDeliveryService || { drivers: [] }
         data.baggageDeliveryService = {
@@ -813,9 +1447,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -827,70 +1459,50 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
+      const personWithId = {
+        ...ensurePersonId(person),
+        personCategory: normalizePersonCategory(person?.personCategory),
+      }
 
       const data = {}
 
       if (service === "WATER") {
-        const prev = existing.waterService || {
-          plan: null,
-          status: "NEW",
-          times: null,
-          earlyCompletionReason: null,
-          earlyCompletedAt: null,
-          people: []
-        }
-        const people = [...(prev.people || []), person]
-        let nextStatus = prev.status
-        let nextTimes = prev.times
-        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
-          nextStatus = "IN_PROGRESS"
-          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
-        }
-        const planCount = prev.plan?.peopleCount
-        if (planCount != null && people.length >= planCount) {
-          nextStatus = "COMPLETED"
-          nextTimes = updateTimes(nextTimes, "COMPLETED")
-        }
+        const prev = existing.waterService || emptyPeopleService()
+        const people = [...(prev.people || []), personWithId]
+        const recalc = recomputeServiceStatus(
+          prev,
+          (prev.people || []).length,
+          people.length
+        )
         data.waterService = {
           ...prev,
           people,
-          status: nextStatus,
-          times: nextTimes
+          status: recalc.status,
+          times: recalc.times
         }
       } else if (service === "MEAL") {
-        const prev = existing.mealService || {
-          plan: null,
-          status: "NEW",
-          times: null,
-          earlyCompletionReason: null,
-          earlyCompletedAt: null,
-          people: []
-        }
-        const people = [...(prev.people || []), person]
-        let nextStatus = prev.status
-        let nextTimes = prev.times
-        if (nextStatus === "NEW" || nextStatus === "ACCEPTED") {
-          nextStatus = "IN_PROGRESS"
-          nextTimes = updateTimes(prev.times, "IN_PROGRESS")
-        }
-        const planCount = prev.plan?.peopleCount
-        if (planCount != null && people.length >= planCount) {
-          nextStatus = "COMPLETED"
-          nextTimes = updateTimes(nextTimes, "COMPLETED")
-        }
+        const prev = existing.mealService || emptyPeopleService()
+        const people = [...(prev.people || []), personWithId]
+        const recalc = recomputeServiceStatus(
+          prev,
+          (prev.people || []).length,
+          people.length
+        )
         data.mealService = {
           ...prev,
           people,
-          status: nextStatus,
-          times: nextTimes
+          status: recalc.status,
+          times: recalc.times
         }
       } else {
         throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
       }
+
+      data.savedPassengers = mergeSavedPassengersForRequest(
+        existing,
+        snapshotFromServicePerson(personWithId)
+      )
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -907,9 +1519,178 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestPeople: async (
+      _,
+      { requestId, service, people },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map((p) => ({
+        ...ensurePersonId(p),
+        personCategory: normalizePersonCategory(p?.personCategory),
+      }))
+
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      const prev = existing[serviceField] || emptyPeopleService()
+      const nextPeople = [...(prev.people || []), ...peopleWithId]
+
+      const recalc = recomputeServiceStatus(
+        prev,
+        (prev.people || []).length,
+        nextPeople.length
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of peopleWithId) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromServicePerson(p)
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [serviceField]: {
+            ...prev,
+            people: nextPeople,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
       })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_people",
+        description: `Пакетно добавлены пассажиры в сервис ${service} (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    // обновление получателя воды/питания
+    updatePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex, person },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || emptyPeopleService()
+      const people = [...(prev.people || [])]
+      assertIndex(personIndex, people.length, "personIndex")
+      // keep existing issuedAt unless explicitly provided
+      people[personIndex] = {
+        ...people[personIndex],
+        ...person,
+        personCategory: normalizePersonCategory(
+          person?.personCategory ?? people[personIndex]?.personCategory
+        ),
+        issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
+      }
+      data[serviceField] = { ...prev, people }
+      data.savedPassengers = patchSavedPersonIdentity(
+        existing.savedPassengers,
+        people[personIndex]
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_person",
+        description: `Получатель обновлён в сервисе: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    // удаление получателя воды/питания
+    removePassengerRequestPerson: async (
+      _,
+      { requestId, service, personIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const data = {}
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+
+      const prev = existing[serviceField] || emptyPeopleService()
+      const people = [...(prev.people || [])]
+      assertIndex(personIndex, people.length, "personIndex")
+      people.splice(personIndex, 1)
+
+      const recalc = recomputeServiceStatus(
+        prev,
+        (prev.people || []).length,
+        people.length
+      )
+      data[serviceField] = {
+        ...prev,
+        people,
+        status: recalc.status,
+        times: recalc.times
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_person",
+        description: `Получатель удалён из сервиса: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -917,18 +1698,9 @@ const passengerRequestResolvers = {
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const prev = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const prev = existing.livingService || emptyLivingService()
 
       const hotelWithItemId = ensurePassengerServiceHotelItemId(hotel)
 
@@ -975,12 +1747,11 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: hotelWithItemId.name }
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       await notifyPassengerRequestSite({
         action: "update_hotel_chess_passenger_request",
@@ -994,24 +1765,17 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
-    removePassengerRequestHotel: async (_, { requestId, hotelIndex }, context) => {
+    removePassengerRequestHotel: async (
+      _,
+      { requestId, hotelIndex },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid hotelIndex")
-      }
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
 
       const removedHotel = hotels[hotelIndex]
       const indexMap = new Map()
@@ -1036,7 +1800,8 @@ const passengerRequestResolvers = {
                 return {
                   ...item,
                   hotelIndex: mappedIndex,
-                  hotelName: hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
+                  hotelName:
+                    hotels[item.hotelIndex]?.name ?? item.hotelName ?? null
                 }
               })
             return {
@@ -1062,12 +1827,24 @@ const passengerRequestResolvers = {
           }
         })
 
-      const nextStatus = nextHotels.length === 0 ? "NEW" : living.status
+      const totalPeopleBefore = hotels.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextHotels.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc =
+        nextHotels.length === 0
+          ? { status: "NEW", times: living.times || {} }
+          : recomputeServiceStatus(living, totalPeopleBefore, totalPeopleAfter)
       const nextLivingService = {
         ...living,
         hotels: nextHotels,
         evictions: nextEvictions,
-        status: nextStatus
+        status: recalc.status,
+        times: recalc.times
       }
 
       const [, , passengerRequest] = await prisma.$transaction([
@@ -1104,12 +1881,11 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: removedHotel?.name }
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       await notifyPassengerRequestSite({
         action: "update_hotel_chess_passenger_request",
@@ -1123,28 +1899,111 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    // обновить редактируемые поля отеля (name / peopleCount / address / link / hotelId)
+    // itemId, people, accommodationChesses, linkCRM/linkPWA не трогаем — сохраняем как есть
+    updatePassengerRequestHotel: async (
+      _,
+      { requestId, hotelIndex, hotel },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const living = existing.livingService || emptyLivingService()
+      const hotels = living.hotels || []
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
+
+      const prevHotel = hotels[hotelIndex] || {}
+      const placedCount = (prevHotel.people || []).length
+
+      // Валидация: новое количество мест не может быть меньше уже размещённых
+      if (
+        typeof hotel.peopleCount === "number" &&
+        hotel.peopleCount < placedCount
+      ) {
+        throw new GraphQLError(
+          `Нельзя задать меньше количества уже размещённых гостей (${placedCount})`
+        )
+      }
+
+      // Валидация: сумма мест по всем отелям не должна превышать план услуги
+      const planCap = living?.plan?.peopleCount
+      if (typeof planCap === "number" && typeof hotel.peopleCount === "number") {
+        const sumOthers = hotels.reduce(
+          (s, h, i) => s + (i === hotelIndex ? 0 : Number(h?.peopleCount) || 0),
+          0
+        )
+        if (sumOthers + hotel.peopleCount > planCap) {
+          throw new GraphQLError(
+            `Превышен план услуги. Максимум для этого отеля: ${Math.max(0, planCap - sumOthers)}`
+          )
+        }
+      }
+
+      const updatedHotel = {
+        ...prevHotel,
+        name: hotel.name ?? prevHotel.name,
+        peopleCount:
+          typeof hotel.peopleCount === "number"
+            ? hotel.peopleCount
+            : prevHotel.peopleCount,
+        address: hotel.address ?? prevHotel.address ?? null,
+        link: hotel.link ?? prevHotel.link ?? null,
+        hotelId: hotel.hotelId ?? prevHotel.hotelId ?? null
+      }
+
+      const nextHotels = hotels.map((h, i) =>
+        i === hotelIndex ? updatedHotel : h
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: nextHotels
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_hotel",
+        description: `Отель обновлён в ФАП: ${updatedHotel.name || hotelIndex}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил отель ${updatedHotel.name || `#${hotelIndex}`} в ФАП ${passengerRequest.flightNumber} (мест: ${updatedHotel.peopleCount})`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        emailExtras: { hotelName: updatedHotel.name }
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      await notifyPassengerRequestSite({
+        action: "update_hotel_chess_passenger_request",
+        passengerRequestId: passengerRequest.id,
+        airlineId: passengerRequest.airlineId,
+        hotelId: updatedHotel.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> обновлён отель <span style='color:#545873'>${updatedHotel.name || `#${hotelIndex}`}</span>`,
+        __typename: "PassengerRequestUpdatedNotification"
+      })
+
+      return passengerRequest
+    },
+
     addPassengerRequestHotelPerson: async (
       _,
       { requestId, hotelIndex, person },
       context
     ) => {
       // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
+      const personWithId = ensurePersonId(person)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid hotelIndex")
-      }
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
       if (
         context.subjectType === "EXTERNAL_USER" &&
         context.subject?.scope === "HOTEL" &&
@@ -1168,7 +2027,7 @@ const passengerRequestResolvers = {
                 ...((h && h.people) || []).map((item) =>
                   ensureHotelPerson(item, i, name)
                 ),
-                ensureHotelPerson(person, i, name)
+                ensureHotelPerson(personWithId, i, name)
               ]
             }
           : {
@@ -1187,18 +2046,20 @@ const passengerRequestResolvers = {
         (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
         0
       )
-      const planCount = living.plan?.peopleCount ?? null
-      let nextStatus = living.status
-      let nextTimes = living.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
+      const targetHotelForPerson = hotels[hotelIndex]
+      const normalizedHotelPerson = ensureHotelPerson(
+        personWithId,
+        hotelIndex,
+        targetHotelForPerson?.name ?? ""
+      )
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
@@ -1207,7 +2068,11 @@ const passengerRequestResolvers = {
             hotels: hotelsClone,
             status: nextStatus,
             times: nextTimes
-          }
+          },
+          savedPassengers: mergeSavedPassengersForRequest(
+            existing,
+            snapshotFromHotelPerson(normalizedHotelPerson)
+          )
         }
       })
       await logPassengerRequestAction({
@@ -1218,12 +2083,113 @@ const passengerRequestResolvers = {
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: targetHotelForPerson?.name,
+          personName: person?.fullName,
+          roomName: makeRoomCategoryLabel(
+            person?.roomCategory,
+            person?.roomKind
+          )
+        }
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestHotelPeople: async (
+      _,
+      { requestId, hotelIndex, people },
+      context
+    ) => {
+      // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map(ensurePersonId)
+
+      const living = existing.livingService || emptyLivingService()
+      const hotels = living.hotels || []
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      if (
+        context.subjectType === "EXTERNAL_USER" &&
+        context.subject?.scope === "HOTEL" &&
+        context.subject?.hotelId
+      ) {
+        const targetHotel = hotels[hotelIndex]
+        if (!targetHotel || targetHotel.hotelId !== context.subject.hotelId) {
+          throw new GraphQLError(
+            "Access forbidden: you can only add bookings to your hotel.",
+            { extensions: { code: "FORBIDDEN" } }
+          )
+        }
+      }
+
+      const hotelsClone = hotels.map((h, i) => {
+        const name = h?.name ?? ""
+        const existingPeople = ((h && h.people) || []).map((item) =>
+          ensureHotelPerson(item, i, name)
+        )
+        if (i !== hotelIndex) {
+          return { ...h, people: existingPeople }
+        }
+        const added = peopleWithId.map((p) => ensureHotelPerson(p, i, name))
+        return { ...h, people: [...existingPeople, ...added] }
+      })
+
+      const totalPeopleBefore = (living.hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of peopleWithId) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromHotelPerson(
+            ensureHotelPerson(p, hotelIndex, hotels[hotelIndex]?.name ?? "")
+          )
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_hotel_people",
+        description: `Пакетно добавлены пассажиры в отель ФАП (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в отель ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1234,26 +2200,13 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid hotelIndex")
-      }
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
       const people = hotels[hotelIndex].people || []
-      if (personIndex < 0 || personIndex >= people.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, people.length, "personIndex")
 
       const hotelsClone = hotels.map((h, i) => {
         if (i !== hotelIndex) {
@@ -1268,6 +2221,17 @@ const passengerRequestResolvers = {
         const previousPerson = newPeople[personIndex]
         newPeople[personIndex] = {
           ...person,
+          personId: person?.personId ?? previousPerson?.personId ?? null,
+          personType: normalizePersonType(
+            person?.personType ?? previousPerson?.personType
+          ),
+          personCategory: normalizePersonCategory(
+            person?.personCategory ?? previousPerson?.personCategory
+          ),
+          airlinePersonalId:
+            normalizeOptionalString(person?.airlinePersonalId) ??
+            previousPerson?.airlinePersonalId ??
+            null,
           accommodationChesses: ensureAccommodationChesses(
             previousPerson,
             i,
@@ -1283,7 +2247,11 @@ const passengerRequestResolvers = {
           livingService: {
             ...living,
             hotels: hotelsClone
-          }
+          },
+          savedPassengers: patchSavedPersonIdentity(
+            existing.savedPassengers,
+            hotelsClone[hotelIndex].people[personIndex]
+          )
         }
       })
       await logPassengerRequestAction({
@@ -1297,9 +2265,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1310,26 +2276,13 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid hotelIndex")
-      }
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
       const people = hotels[hotelIndex].people || []
-      if (personIndex < 0 || personIndex >= people.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, people.length, "personIndex")
 
       const hotelsClone = hotels.map((h, i) => {
         if (i !== hotelIndex) {
@@ -1348,12 +2301,28 @@ const passengerRequestResolvers = {
         }
       })
 
+      const totalPeopleBefore = (hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           livingService: {
             ...living,
-            hotels: hotelsClone
+            hotels: hotelsClone,
+            status: recalc.status,
+            times: recalc.times
           }
         }
       })
@@ -1368,30 +2337,25 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     // добавить водителя (для варианта проживание+трансфер)
-    addPassengerRequestDriver: async (_, { requestId, driver }, context) => {
+    addPassengerRequestDriver: async (
+      _,
+      { requestId, driver, direction = "ARRIVAL" },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
       if (!driver?.fullName?.trim()) {
         throw new GraphQLError("Driver fullName is required")
       }
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
       const driverIndex = (prev.drivers || []).length
@@ -1403,7 +2367,7 @@ const passengerRequestResolvers = {
           requestId,
           driverIndex,
           adminId,
-          serviceKind: "transfer"
+          serviceKind: getTransferServiceKind(direction)
         })
         normalizedDriver.linkPWA = linkPWA
       } catch (e) {
@@ -1418,7 +2382,7 @@ const passengerRequestResolvers = {
         : prev.times
 
       const data = {
-        transferService: {
+        [transferField]: {
           ...prev,
           drivers,
           status: nextStatus,
@@ -1441,43 +2405,106 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
-    removePassengerRequestDriver: async (_, { requestId, driverIndex }, context) => {
+    updatePassengerRequestDriver: async (
+      _,
+      { requestId, driverIndex, patch, direction },
+      context
+    ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
+      const req = await loadRequestOrThrow(requestId)
+
+      const field = getTransferField(direction)
+      const service = req[field]
+      if (!service?.plan?.enabled) throw new GraphQLError("Service is not enabled")
+      if (service.status === "COMPLETED" || service.status === "CANCELLED") {
+        throw new GraphQLError("Service is completed, no updates allowed")
+      }
+
+      const drivers = [...(service.drivers ?? [])]
+      assertIndex(driverIndex, drivers.length, "driverIndex")
+      const before = drivers[driverIndex]
+
+      const applied = {}
+      if (Object.prototype.hasOwnProperty.call(patch, "pickupAt")) {
+        applied.pickupAt = patch.pickupAt
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "vehicleType")) {
+        applied.vehicleType = patch.vehicleType
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "reportCost")) {
+        applied.reportCost = patch.reportCost
+      }
+      if (Object.keys(applied).length === 0) return req
+
+      drivers[driverIndex] = { ...before, ...applied }
+
+      const updated = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { [field]: { ...service, drivers } },
       })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const log = buildDriverPatchDescription(before, applied, driverIndex, direction)
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_driver",
+        description: log.short,
+        fulldescription: log.full,
+        oldData: req,
+        newData: updated,
+        airlineId: updated.airlineId,
+        passengerRequestId: requestId,
+        skipEmail: true
+      })
+
+      publishPassengerRequestUpdated(updated)
+
+      return updated
+    },
+
+    removePassengerRequestDriver: async (
+      _,
+      { requestId, driverIndex, direction = "ARRIVAL" },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
       const drivers = prev.drivers || []
-      if (driverIndex < 0 || driverIndex >= drivers.length) {
-        throw new GraphQLError("Invalid driverIndex")
-      }
+      assertIndex(driverIndex, drivers.length, "driverIndex")
 
-      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const removedDriver = normalizePassengerServiceDriver(
+        drivers[driverIndex]
+      )
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)
-      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextDrivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc =
+        nextDrivers.length === 0
+          ? { status: "NEW", times: prev.times || {} }
+          : recomputeServiceStatus(prev, totalPeopleBefore, totalPeopleAfter)
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
-            status: nextStatus,
+            status: recalc.status,
+            times: recalc.times,
             drivers: nextDrivers
           }
         }
@@ -1493,9 +2520,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1506,20 +2531,12 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
       if (!driver?.fullName?.trim()) {
         throw new GraphQLError("Driver fullName is required")
       }
 
-      const prev = existing.baggageDeliveryService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const prev = existing.baggageDeliveryService || emptyDriversService()
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
       const driverIndex = (prev.drivers || []).length
@@ -1571,9 +2588,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1584,34 +2599,38 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const prev = existing.baggageDeliveryService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const prev = existing.baggageDeliveryService || emptyDriversService()
       const drivers = prev.drivers || []
-      if (driverIndex < 0 || driverIndex >= drivers.length) {
-        throw new GraphQLError("Invalid driverIndex")
-      }
+      assertIndex(driverIndex, drivers.length, "driverIndex")
 
-      const removedDriver = normalizePassengerServiceDriver(drivers[driverIndex])
+      const removedDriver = normalizePassengerServiceDriver(
+        drivers[driverIndex]
+      )
       const nextDrivers = drivers
         .filter((_, index) => index !== driverIndex)
         .map(normalizePassengerServiceDriver)
-      const nextStatus = nextDrivers.length === 0 ? "NEW" : prev.status
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = nextDrivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc =
+        nextDrivers.length === 0
+          ? { status: "NEW", times: prev.times || {} }
+          : recomputeServiceStatus(prev, totalPeopleBefore, totalPeopleAfter)
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
           baggageDeliveryService: {
             ...prev,
-            status: nextStatus,
+            status: recalc.status,
+            times: recalc.times,
             drivers: nextDrivers
           }
         }
@@ -1627,9 +2646,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1639,10 +2656,7 @@ const passengerRequestResolvers = {
       { requestId, driverIndex },
       context
     ) => {
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
       const bds = existing.baggageDeliveryService
       if (!bds) throw new GraphQLError("BaggageDeliveryService not found")
@@ -1685,9 +2699,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1698,10 +2710,7 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
       const bds = existing.baggageDeliveryService
       const drivers = bds?.drivers ?? []
@@ -1736,41 +2745,31 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     addPassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, person },
+      { requestId, driverIndex, person, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
+      const personWithId = ensurePersonId(person)
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
       const drivers = prev.drivers || []
-      if (driverIndex < 0 || driverIndex >= drivers.length) {
-        throw new GraphQLError("Invalid driverIndex")
-      }
+      assertIndex(driverIndex, drivers.length, "driverIndex")
 
       const driversClone = drivers.map((d, i) => {
         const normalized = normalizePassengerServiceDriver(d)
         if (i !== driverIndex) return normalized
         return {
           ...normalized,
-          people: [...(normalized.people || []), ensureDriverPerson(person)]
+          people: [...(normalized.people || []), ensureDriverPerson(personWithId)]
         }
       })
 
@@ -1782,28 +2781,28 @@ const passengerRequestResolvers = {
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
       )
-      const planCount = prev.plan?.peopleCount ?? null
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
 
-      let nextStatus = prev.status
-      let nextTimes = prev.times || {}
-      if (totalPeopleBefore === 0 && totalPeopleAfter >= 1) {
-        nextStatus = "IN_PROGRESS"
-        nextTimes = updateTimes(nextTimes, "IN_PROGRESS")
-      }
-      if (planCount != null && totalPeopleAfter >= planCount) {
-        nextStatus = "COMPLETED"
-        nextTimes = updateTimes(nextTimes, "COMPLETED")
-      }
-
+      const normalizedDriverPerson = ensureDriverPerson(personWithId)
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
             drivers: driversClone,
             status: nextStatus,
             times: nextTimes
-          }
+          },
+          savedPassengers: mergeSavedPassengersForRequest(
+            existing,
+            snapshotFromDriverPerson(normalizedDriverPerson)
+          )
         }
       })
       await logPassengerRequestAction({
@@ -1817,51 +2816,125 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    addPassengerRequestDriverPeople: async (
+      _,
+      { requestId, driverIndex, people, direction = "ARRIVAL" },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
+      if (!Array.isArray(people) || people.length === 0) {
+        throw new GraphQLError("people must be a non-empty array")
+      }
+      const existing = await loadRequestOrThrow(requestId)
+      const peopleWithId = people.map(ensurePersonId)
+
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
+      const drivers = prev.drivers || []
+      assertIndex(driverIndex, drivers.length, "driverIndex")
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        const added = peopleWithId.map((p) => ensureDriverPerson(p))
+        return {
+          ...normalized,
+          people: [...(normalized.people || []), ...added]
+        }
       })
+
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = driversClone.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+      const nextStatus = recalc.status
+      const nextTimes = recalc.times
+
+      let savedPassengers = existing.savedPassengers
+      for (const p of peopleWithId) {
+        savedPassengers = upsertSavedPassenger(
+          savedPassengers,
+          snapshotFromDriverPerson(ensureDriverPerson(p))
+        )
+      }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [transferField]: {
+            ...prev,
+            drivers: driversClone,
+            status: nextStatus,
+            times: nextTimes
+          },
+          savedPassengers
+        }
+      })
+      await logPassengerRequestAction({
+        context,
+        action: "add_passenger_request_driver_people",
+        description: `Пакетно добавлены пассажиры к водителю трансфера ФАП (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров к водителю #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     updatePassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, personIndex, person },
+      { requestId, driverIndex, personIndex, person, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
       const drivers = prev.drivers || []
-      if (driverIndex < 0 || driverIndex >= drivers.length) {
-        throw new GraphQLError("Invalid driverIndex")
-      }
+      assertIndex(driverIndex, drivers.length, "driverIndex")
       const people = drivers[driverIndex].people || []
-      if (personIndex < 0 || personIndex >= people.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, people.length, "personIndex")
 
       const driversClone = drivers.map((d, i) => {
         const normalized = normalizePassengerServiceDriver(d)
         if (i !== driverIndex) return normalized
         const newPeople = [...(normalized.people || [])]
-        newPeople[personIndex] = ensureDriverPerson(person)
+        const prevPerson = newPeople[personIndex]
+        newPeople[personIndex] = ensureDriverPerson({
+          ...person,
+          personId: person?.personId ?? prevPerson?.personId ?? null
+        })
         return { ...normalized, people: newPeople }
       })
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: { ...prev, drivers: driversClone }
+          [transferField]: { ...prev, drivers: driversClone },
+          savedPassengers: patchSavedPersonIdentity(
+            existing.savedPassengers,
+            driversClone[driverIndex].people[personIndex]
+          )
         }
       })
       await logPassengerRequestAction({
@@ -1875,38 +2948,25 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     removePassengerRequestDriverPerson: async (
       _,
-      { requestId, driverIndex, personIndex },
+      { requestId, driverIndex, personIndex, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
       const drivers = prev.drivers || []
-      if (driverIndex < 0 || driverIndex >= drivers.length) {
-        throw new GraphQLError("Invalid driverIndex")
-      }
+      assertIndex(driverIndex, drivers.length, "driverIndex")
       const people = drivers[driverIndex].people || []
-      if (personIndex < 0 || personIndex >= people.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, people.length, "personIndex")
 
       const driversClone = drivers.map((d, i) => {
         const normalized = normalizePassengerServiceDriver(d)
@@ -1916,10 +2976,29 @@ const passengerRequestResolvers = {
         return { ...normalized, people: newPeople }
       })
 
+      const totalPeopleBefore = drivers.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = driversClone.reduce(
+        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: { ...prev, drivers: driversClone }
+          [transferField]: {
+            ...prev,
+            drivers: driversClone,
+            status: recalc.status,
+            times: recalc.times
+          }
         }
       })
       await logPassengerRequestAction({
@@ -1933,9 +3012,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -1946,22 +3023,10 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const prev = existing.waterService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        earlyCompletionReason: null,
-        earlyCompletedAt: null,
-        people: []
-      }
+      const prev = existing.waterService || emptyPeopleService()
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -1970,7 +3035,7 @@ const passengerRequestResolvers = {
             ...prev,
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
-            earlyCompletionReason: reason.trim(),
+            earlyCompletionReason: cleanReason,
             earlyCompletedAt: new Date()
           }
         }
@@ -1978,7 +3043,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_water_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Досрочно завершен сервис воды ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил сервис воды ФАП ${passengerRequest.flightNumber}`,
         passengerRequestId: passengerRequest.id,
@@ -1987,9 +3052,7 @@ const passengerRequestResolvers = {
         airlineId: passengerRequest.airlineId
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -2000,22 +3063,10 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const prev = existing.mealService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        earlyCompletionReason: null,
-        earlyCompletedAt: null,
-        people: []
-      }
+      const prev = existing.mealService || emptyPeopleService()
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2024,7 +3075,7 @@ const passengerRequestResolvers = {
             ...prev,
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
-            earlyCompletionReason: reason.trim(),
+            earlyCompletionReason: cleanReason,
             earlyCompletedAt: new Date()
           }
         }
@@ -2032,7 +3083,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_meal_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Досрочно завершен сервис питания ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил сервис питания ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
@@ -2041,9 +3092,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -2054,20 +3103,10 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const prev = existing.baggageDeliveryService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const prev = existing.baggageDeliveryService || emptyDriversService()
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2083,51 +3122,40 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_baggage_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Досрочно завершена услуга «Доставка багажа» ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Доставка багажа» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Доставка багажа» ФАП ${passengerRequest.flightNumber}. Причина: ${cleanReason}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     completePassengerRequestTransferEarly: async (
       _,
-      { requestId, reason },
+      { requestId, reason, direction = "ARRIVAL" },
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const prev = existing.transferService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        drivers: []
-      }
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
         data: {
-          transferService: {
+          [transferField]: {
             ...prev,
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
-            earlyCompletionReason: reason.trim(),
+            earlyCompletionReason: cleanReason,
             earlyCompletedAt: new Date()
           }
         }
@@ -2135,18 +3163,16 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_transfer_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Досрочно завершена услуга «Трансфер» ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Трансфер» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Трансфер» ФАП ${passengerRequest.flightNumber}. Причина: ${cleanReason}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -2157,21 +3183,10 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const prev = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const prev = existing.livingService || emptyLivingService()
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2180,7 +3195,7 @@ const passengerRequestResolvers = {
             ...prev,
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
-            earlyCompletionReason: reason.trim(),
+            earlyCompletionReason: cleanReason,
             earlyCompletedAt: new Date()
           }
         }
@@ -2188,45 +3203,38 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_living_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Досрочно завершена услуга «Проживание» ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Проживание» ФАП ${passengerRequest.flightNumber}. Причина: ${reason.trim()}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил услугу «Проживание» ФАП ${passengerRequest.flightNumber}. Причина: ${cleanReason}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
 
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(id)
+      const cleanReason = assertReason(reason)
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id },
         data: {
           status: "COMPLETED",
           statusTimes: updateTimes(existing.statusTimes, "COMPLETED"),
-          earlyCompletionReason: reason.trim(),
+          earlyCompletionReason: cleanReason,
           earlyCompletedAt: new Date()
         }
       })
       await logPassengerRequestAction({
         context,
         action: "complete_passenger_request_early",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "ФАП завершен досрочно",
         fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
@@ -2235,9 +3243,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
     },
@@ -2248,28 +3254,13 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (fromHotelIndex < 0 || fromHotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid fromHotelIndex")
-      }
-      if (toHotelIndex < 0 || toHotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid toHotelIndex")
-      }
+      assertIndex(fromHotelIndex, hotels.length, "fromHotelIndex")
+      assertIndex(toHotelIndex, hotels.length, "toHotelIndex")
       if (fromHotelIndex === toHotelIndex) {
         throw new GraphQLError(
           "fromHotelIndex and toHotelIndex must be different"
@@ -2277,13 +3268,20 @@ const passengerRequestResolvers = {
       }
 
       const sourcePeople = hotels[fromHotelIndex].people || []
-      if (personIndex < 0 || personIndex >= sourcePeople.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, sourcePeople.length, "personIndex")
 
       const relocationDate = movedAt ? new Date(movedAt) : new Date()
       const sourceHotel = hotels[fromHotelIndex]
       const targetHotel = hotels[toHotelIndex]
+
+      // Проверка вместимости целевого отеля
+      const targetCapacity = Number(targetHotel?.peopleCount) || 0
+      const targetPlaced = (targetHotel?.people || []).length
+      if (targetCapacity > 0 && targetPlaced >= targetCapacity) {
+        throw new GraphQLError(
+          `В гостинице «${targetHotel?.name || `#${toHotelIndex}`}» нет свободных мест (${targetPlaced}/${targetCapacity})`
+        )
+      }
       const person = ensureHotelPerson(
         sourcePeople[personIndex],
         fromHotelIndex,
@@ -2314,7 +3312,7 @@ const passengerRequestResolvers = {
         hotelName: targetHotel?.name || null,
         startAt: relocationDate,
         endAt: null,
-        reason: reason.trim()
+        reason: cleanReason
       })
 
       const movedPerson = {
@@ -2350,18 +3348,20 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "relocate_passenger_request_hotel_person",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Пассажир переселен между отелями ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} переселил пассажира в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: targetHotel?.name,
+          personName: person?.fullName
+        }
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       await notifyPassengerRequestSite({
         action: "update_hotel_chess_passenger_request",
@@ -2381,29 +3381,14 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
-      if (!reason?.trim()) {
-        throw new GraphQLError("Reason is required")
-      }
+      const existing = await loadRequestOrThrow(requestId)
+      const cleanReason = assertReason(reason)
 
-      const living = existing.livingService || {
-        plan: null,
-        status: "NEW",
-        times: null,
-        hotels: [],
-        evictions: []
-      }
+      const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
-      if (hotelIndex < 0 || hotelIndex >= hotels.length) {
-        throw new GraphQLError("Invalid hotelIndex")
-      }
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
       const people = hotels[hotelIndex].people || []
-      if (personIndex < 0 || personIndex >= people.length) {
-        throw new GraphQLError("Invalid personIndex")
-      }
+      assertIndex(personIndex, people.length, "personIndex")
 
       const evictionDate = evictedAt ? new Date(evictedAt) : new Date()
       const hotel = hotels[hotelIndex]
@@ -2420,7 +3405,7 @@ const passengerRequestResolvers = {
         chesses[idx] = {
           ...chesses[idx],
           endAt: evictionDate,
-          reason: reason.trim()
+          reason: cleanReason
         }
       } else {
         chesses.push({
@@ -2428,7 +3413,7 @@ const passengerRequestResolvers = {
           hotelName: hotel?.name || null,
           startAt: evictionDate,
           endAt: evictionDate,
-          reason: reason.trim()
+          reason: cleanReason
         })
       }
 
@@ -2458,10 +3443,24 @@ const passengerRequestResolvers = {
           },
           hotelIndex,
           hotelName: hotel?.name || null,
-          reason: reason.trim(),
+          reason: cleanReason,
           evictedAt: evictionDate
         }
       ]
+
+      const totalPeopleBefore = (hotels || []).reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const totalPeopleAfter = hotelsClone.reduce(
+        (sum, h) => sum + (Array.isArray(h.people) ? h.people.length : 0),
+        0
+      )
+      const recalc = recomputeServiceStatus(
+        living,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2469,25 +3468,29 @@ const passengerRequestResolvers = {
           livingService: {
             ...living,
             hotels: hotelsClone,
-            evictions
+            evictions,
+            status: recalc.status,
+            times: recalc.times
           }
         }
       })
       await logPassengerRequestAction({
         context,
         action: "evict_passenger_request_hotel_person",
-        reason: reason.trim(),
+        reason: cleanReason,
         description: "Пассажир выселен из отеля ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} выселил пассажира из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
+        passengerRequestId: passengerRequest.id,
+        emailExtras: {
+          hotelName: hotel?.name,
+          personName: person?.fullName
+        }
       })
 
-      pubsub.publish(PASSENGER_REQUEST_UPDATED, {
-        passengerRequestUpdated: passengerRequest
-      })
+      publishPassengerRequestUpdated(passengerRequest)
 
       await notifyPassengerRequestSite({
         action: "update_hotel_chess_passenger_request",
@@ -2507,10 +3510,7 @@ const passengerRequestResolvers = {
       context
     ) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
-      const existing = await prisma.passengerRequest.findUnique({
-        where: { id: requestId }
-      })
-      if (!existing) throw new GraphQLError("PassengerRequest not found")
+      const existing = await loadRequestOrThrow(requestId)
 
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",

@@ -12,14 +12,22 @@ import { withFilter } from "graphql-subscriptions"
 import {
   allMiddleware,
   superAdminMiddleware,
-  dispatcherOrSuperAdminMiddleware
+  dispatcherOrSuperAdminMiddleware,
+  airlineAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { GraphQLError } from "graphql"
+import {
+  AIRLINE_POSITION_SEPARATORS,
+  assertPositionAccess,
+  isAirlinePosition,
+  resolveAirlineId
+} from "../../services/position/positionAccess.js"
 import {
   AllowedSiteNotification,
   getDisabledActionsFromMenu,
   getNotificationMenuForUser
 } from "../../services/notification/notificationMenuCheck.js"
+import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 
 /** Actions stored on Notification.description for transfer domain (no request/reserve/passengerRequest id on row). */
 const TRANSFER_NOTIFICATION_ACTIONS = [
@@ -27,6 +35,9 @@ const TRANSFER_NOTIFICATION_ACTIONS = [
   "create_transfer",
   "update_transfer"
 ]
+
+const hasOwn = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj || {}, key)
 
 const dispatcherResolver = {
   Query: {
@@ -224,13 +235,17 @@ const dispatcherResolver = {
       return await prisma.position.findMany({})
     },
     getAirlinePositions: async (_, {}, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      return await prisma.position.findMany({ where: { separator: "airline" } })
-    },
-    getAirlineUserPositions: async (_, {}, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await airlineAdminMiddleware(context)
       return await prisma.position.findMany({
-        where: { separator: "airlineUser" }
+        where: { separator: "airline" },
+        orderBy: { name: "asc" }
+      })
+    },
+    getAirlineUserPositions: async (_, { airlineId }, context) => {
+      await airlineAdminMiddleware(context)
+      return await prisma.position.findMany({
+        where: { separator: "airlineUser", airlineId },
+        orderBy: { name: "asc" }
       })
     },
     getHotelPositions: async (_, {}, context) => {
@@ -243,15 +258,31 @@ const dispatcherResolver = {
         where: { separator: "dispatcher" }
       })
     },
-    getTransferDispatcherPositions: async (_, {}, context) => {
+    getRepresentativePositions: async (_, {}, context) => {
+      await allMiddleware(context)
+      return await prisma.position.findMany({
+        where: { separator: "representative" },
+        orderBy: { name: "asc" }
+      })
+    },
+        getTransferDispatcherPositions: async (_, {}, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       return await prisma.position.findMany({
         where: { separator: "dispatcher", category: "transfer" }
       })
     },
     getPosition: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      return await prisma.position.findUnique({ where: { id } })
+      const position = await prisma.position.findUnique({ where: { id } })
+      if (!position) {
+        return null
+      }
+      if (isAirlinePosition(position)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, position)
+      } else {
+        await allMiddleware(context)
+      }
+      return position
     },
     dispatcherDepartments: async (_, { pagination }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)
@@ -424,28 +455,103 @@ const dispatcherResolver = {
       return true
     },
     createPosition: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name, separator, category } = input
-      const position = await prisma.position.create({
+      const { name, separator, category, airlineId, accessMenu } = input
+
+      if (!separator) {
+        throw new GraphQLError("separator обязателен", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const isAirline = AIRLINE_POSITION_SEPARATORS.includes(separator)
+
+      if (isAirline) {
+        await airlineAdminMiddleware(context)
+        const resolvedAirlineId = resolveAirlineId(context, airlineId)
+        return await prisma.position.create({
+          data: {
+            name,
+            separator,
+            category,
+            airlineId: resolvedAirlineId,
+            ...(accessMenu !== undefined ? { accessMenu } : {})
+          }
+        })
+      }
+
+      await allMiddleware(context)
+      return await prisma.position.create({
         data: {
           name,
           separator,
-          category
+          category,
+          ...(accessMenu !== undefined ? { accessMenu } : {})
         }
       })
-      return position
     },
     updatePosition: async (_, { input }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { name } = input
-      const position = await prisma.position.update({
-        where: { id: input.id },
-        data: {
-          name,
-          category
-        }
+      const { id, name, category, accessMenu } = input
+      if (!id) {
+        throw new GraphQLError("id обязателен для обновления должности", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const existing = await prisma.position.findUnique({ where: { id } })
+      if (!existing) {
+        throw new GraphQLError("Должность не найдена", {
+          extensions: { code: "NOT_FOUND" }
+        })
+      }
+
+      if (isAirlinePosition(existing)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, existing)
+      } else {
+        await allMiddleware(context)
+      }
+
+      const data = {}
+      if (name !== undefined) data.name = name
+      if (category !== undefined) data.category = category
+      if (hasOwn(input, "accessMenu")) {
+        data.accessMenu = accessMenu ?? null
+      }
+
+      return await prisma.position.update({
+        where: { id },
+        data
       })
-      return position
+    },
+    deletePosition: async (_, { id }, context) => {
+      const existing = await prisma.position.findUnique({ where: { id } })
+      if (!existing) {
+        throw new GraphQLError("Должность не найдена", {
+          extensions: { code: "NOT_FOUND" }
+        })
+      }
+
+      if (isAirlinePosition(existing)) {
+        await airlineAdminMiddleware(context)
+        assertPositionAccess(context, existing)
+      } else {
+        await allMiddleware(context)
+      }
+
+      const [usersCount, staffCount, deptLinksCount] = await Promise.all([
+        prisma.user.count({ where: { positionId: id } }),
+        prisma.airlinePersonal.count({ where: { positionId: id } }),
+        prisma.positionOnDepartment.count({ where: { positionId: id } })
+      ])
+
+      if (usersCount + staffCount + deptLinksCount > 0) {
+        throw new GraphQLError(
+          "Невозможно удалить должность: она используется пользователями, сотрудниками или отделами",
+          { extensions: { code: "POSITION_IN_USE" } }
+        )
+      }
+
+      return await prisma.position.delete({ where: { id } })
     },
     createDispatcherDepartment: async (_, { input }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)
@@ -573,6 +679,12 @@ const dispatcherResolver = {
     },
     deleteDispatcherDepartment: async (_, { id }, context) => {
       await dispatcherOrSuperAdminMiddleware(context)
+
+      await prisma.user.updateMany({
+        where: { dispatcherDepartmentId: id },
+        data: { dispatcherDepartmentId: null }
+      })
+
       const department = await prisma.dispatcherDepartment.update({
         where: { id },
         data: { active: false },
@@ -749,6 +861,13 @@ const dispatcherResolver = {
       )
     }
   },
+  Notification: {
+    // Гидрируем связанную заявку ФАП через ростер (savedPassengers) — источник
+    // истины идентичности. Иначе identity-поля сервис-персон (waterService.people,
+    // livingService.hotels[].people и т.д.) вернутся stale-after-edit. Сейчас
+    // клиент читает только passengerRequest { id }, но резолвер закрывает footgun.
+    passengerRequest: (parent) => hydratePassengerRequest(parent.passengerRequest)
+  },
   PriceCategory: {
     airlinePrices: async (parent) => {
       return await prisma.airlinePrice.findMany({
@@ -756,7 +875,8 @@ const dispatcherResolver = {
         include: {
           airports: {
             include: { airport: true }
-          }
+          },
+          geography: true
         }
       })
     }

@@ -1,13 +1,9 @@
 import { prisma } from "../../prisma.js"
+import { buildHotelChessOverlapWhere } from "./overlapUtils.js"
 
 const getOverlappingPlaces = async (roomId, start, end, excludeId) => {
   return await prisma.hotelChess.findMany({
-    where: {
-      roomId,
-      start: { lt: end },
-      end: { gt: start },
-      ...(excludeId ? { id: { not: excludeId } } : {})
-    },
+    where: buildHotelChessOverlapWhere({ roomId, start, end, excludeId }),
     select: { place: true }
   })
 }
@@ -50,4 +46,3 @@ export const resolveAvailablePlace = async (
 
   throw new Error("Невозможно разместить заявку: свободных мест нет")
 }
-

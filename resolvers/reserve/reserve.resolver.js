@@ -2,6 +2,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import logAction from "../../services/infra/logaction.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import {
   HOTEL_UPDATED,
   MESSAGE_SENT,
@@ -31,6 +32,7 @@ import {
 import path from "path"
 import fs from "fs"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { resolveCreatorDepartmentFromSender } from "../../services/notification/resolveCreatorAirlineDepartment.js"
 
 // Резольвер для работы с резервами (reserve)
 const reserveResolver = {
@@ -303,6 +305,10 @@ const reserveResolver = {
         }
       }
 
+      const creatorDepartmentId = await resolveCreatorDepartmentFromSender({
+        senderId
+      })
+
       // Создание нового резерва с подключением связанных сущностей.
       const newReserve = await prisma.reserve.create({
         data: {
@@ -312,6 +318,11 @@ const reserveResolver = {
           mealPlan,
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
+          ...(creatorDepartmentId
+            ? {
+                airlineDepartment: { connect: { id: creatorDepartmentId } }
+              }
+            : {}),
           status,
           reserveNumber,
           passengers,
@@ -650,10 +661,7 @@ const reserveResolver = {
           error
         )
         // console.error("\n❌ Ошибка при обновлении резерва: \n", error)
-        throw new Error(
-          "Ошибка обновления резерва",
-          JSON.stringify(error, null, 2)
-        )
+        rethrowUnlessInternalError(error, "Ошибка обновления резерва")
       }
     },
 
@@ -727,6 +735,7 @@ const reserveResolver = {
         //   throw new Error("This reserve and hotel combination already exists.")
         // }
         // throw error
+        rethrowUnlessInternalError(error, "Не удалось добавить отель к резерву")
       }
     },
 

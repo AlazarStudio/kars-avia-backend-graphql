@@ -3,11 +3,14 @@ import {
   calculateLivingCost,
   calculateMealCostForReportDays,
   calculateEffectiveCostDaysWithPartial,
-  parseAsLocal,
   formatDateToISO,
   formatLocalDate,
   buildAllocation
 } from "../report/reportUtils.js"
+import {
+  getRequestCheckInAt,
+  getRequestCheckOutAt
+} from "../request/requestStayDates.js"
 
 const ACTIVE_STATUSES = [
   "done",
@@ -44,7 +47,13 @@ export function validateDateRange(dateFrom, dateTo, label = "period") {
   return { start, end }
 }
 
-export function buildRequestWhere({ airlineId, start, end, airportIds, positionIds }) {
+export function buildRequestWhere({
+  airlineId,
+  start,
+  end,
+  airportIds,
+  positionIds
+}) {
   const where = {
     airlineId,
     status: { in: ACTIVE_STATUSES },
@@ -72,11 +81,20 @@ export function buildRequestWhere({ airlineId, start, end, airportIds, positionI
 
 export const REQUEST_INCLUDE = {
   person: { include: { position: true } },
-  hotelChess: true,
+  hotelChess: { include: { room: { include: { roomKind: true } } } },
   airline: { include: { prices: { include: { airports: true } } } },
-  hotel: true,
+  hotel: {
+    select: {
+      id: true,
+      name: true,
+      location: true,
+      information: true,
+      airportId: true,
+      breakfastIncluded: true
+    }
+  },
   mealPlan: true,
-  airport: true
+  airport: { select: { id: true, city: true, code: true, name: true } }
 }
 
 export function buildTransferWhere({ airlineId, start, end }) {
@@ -102,7 +120,9 @@ export const TRANSFER_INCLUDE = {
 function getVehicleType(passengersCount) {
   if (passengersCount <= 3) return "threeSeater"
   if (passengersCount <= 5) return "fiveSeater"
-  return "sevenSeater"
+  if (passengersCount <= 7) return "sevenSeater"
+  if (passengersCount <= 20) return "twentySeater"
+  return "fiftySeater"
 }
 
 export async function computeTransferSpend(transfers, airlineId) {
@@ -147,13 +167,8 @@ export async function computeTransferBudgetDetails(transfers, airlineId) {
 }
 
 export function computeRequestCosts(request, rangeStart, rangeEnd) {
-  const hotelChess = request.hotelChess?.[0] || {}
-  const rawIn = hotelChess.start
-    ? parseAsLocal(hotelChess.start)
-    : parseAsLocal(request.arrival)
-  const rawOut = hotelChess.end
-    ? parseAsLocal(hotelChess.end)
-    : parseAsLocal(request.departure)
+  const rawIn = getRequestCheckInAt(request)
+  const rawOut = getRequestCheckOutAt(request)
 
   const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
   const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
@@ -188,12 +203,8 @@ export function computeRequestCosts(request, rangeStart, rangeEnd) {
 
 function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
   const hotelChess = request.hotelChess?.[0] || {}
-  const rawIn = hotelChess.start
-    ? parseAsLocal(hotelChess.start)
-    : parseAsLocal(request.arrival)
-  const rawOut = hotelChess.end
-    ? parseAsLocal(hotelChess.end)
-    : parseAsLocal(request.departure)
+  const rawIn = getRequestCheckInAt(request)
+  const rawOut = getRequestCheckOutAt(request)
 
   const effectiveArrival = rawIn < rangeStart ? rangeStart : rawIn
   const effectiveDeparture = rawOut > rangeEnd ? rangeEnd : rawOut
@@ -211,23 +222,25 @@ function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
 
   const livingCost = calculateLivingCost(request, "airline", effectiveDays)
   const mealPlan = request.mealPlan || { dailyMeals: [] }
-  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
-    ? calculateMealCostForReportDays(
-        request,
-        "airline",
-        effectiveDays,
-        effectiveDays,
-        mealPlan,
-        effectiveArrival,
-        effectiveDeparture
-      )
-    : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
+    mealPlan?.dailyMeals
+      ? calculateMealCostForReportDays(
+          request,
+          "airline",
+          effectiveDays,
+          effectiveDays,
+          mealPlan,
+          effectiveArrival,
+          effectiveDeparture
+        )
+      : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
 
   if (!livingCost && !totalMealCost) {
     return null
   }
 
-  const pricePerDay = effectiveDays > 0 ? Number(livingCost || 0) / effectiveDays : 0
+  const pricePerDay =
+    effectiveDays > 0 ? Number(livingCost || 0) / effectiveDays : 0
 
   return {
     id: request.id,
@@ -245,12 +258,18 @@ function buildRequestRowForAllocation(request, rangeStart, rangeEnd) {
     totalMealCost: roundMoney(Number(totalMealCost) || 0),
     totalLivingCost: roundMoney(Number(livingCost) || 0),
     pricePerDay: roundMoney(pricePerDay),
-    totalDebt: roundMoney((Number(livingCost) || 0) + (Number(totalMealCost) || 0)),
+    totalDebt: roundMoney(
+      (Number(livingCost) || 0) + (Number(totalMealCost) || 0)
+    ),
     hotelName: request.hotel?.name || "Не указано"
   }
 }
 
-export function buildRequestBudgetMapWithAllocation(requests, rangeStart, rangeEnd) {
+export function buildRequestBudgetMapWithAllocation(
+  requests,
+  rangeStart,
+  rangeEnd
+) {
   const rows = []
   const requestIdQueuesByKey = new Map()
 
@@ -272,7 +291,10 @@ export function buildRequestBudgetMapWithAllocation(requests, rangeStart, rangeE
   for (const row of rows) {
     mealBudgetByRequestId.set(
       row.id,
-      roundMoney((mealBudgetByRequestId.get(row.id) || 0) + (Number(row.totalMealCost) || 0))
+      roundMoney(
+        (mealBudgetByRequestId.get(row.id) || 0) +
+          (Number(row.totalMealCost) || 0)
+      )
     )
   }
 
@@ -333,7 +355,11 @@ export function buildPositionsBreakdown(requests) {
     const posName = r.person?.position?.name || "Не указана"
     const posId = r.person?.positionId || null
     if (!posMap.has(posName)) {
-      posMap.set(posName, { positionId: posId, positionName: posName, count: 0 })
+      posMap.set(posName, {
+        positionId: posId,
+        positionName: posName,
+        count: 0
+      })
     }
     posMap.get(posName).count++
   }

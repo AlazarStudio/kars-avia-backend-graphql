@@ -88,6 +88,7 @@ const travellineTypeDef = /* GraphQL */ `
   type TlCancellationPolicy {
     amount: Float!
     deadline: String!
+    deadlineUtc: String
     timezone: String
   }
 
@@ -98,9 +99,18 @@ const travellineTypeDef = /* GraphQL */ `
     capacity: Int
   }
 
+  # Период раннего заезда / позднего выезда с ценой
+  type TlTimeService {
+    periodFrom: String!
+    periodTo: String!
+    price: Float!
+    currency: String!
+  }
+
   type TlRoomRate {
     roomTypeId: String!
     roomTypeName: String!
+    placementName: String
     maxOccupancy: Int
     ratePlanId: String!
     ratePlanName: String!
@@ -117,6 +127,9 @@ const travellineTypeDef = /* GraphQL */ `
     checksum: String
     roomTypePlacements: [String!]
     placements: [TlPlacement!]
+    earlyCheckInOptions: [TlTimeService!]
+    lateCheckOutOptions: [TlTimeService!]
+    corporateIds: [String!]
     raw: String!
   }
 
@@ -135,6 +148,7 @@ const travellineTypeDef = /* GraphQL */ `
     children: Int
     childAges: [Int!]
     currency: String
+    corporateIds: [String!]
   }
 
   # ─── Verify booking ──────────────────────────────────────────────────────
@@ -161,6 +175,9 @@ const travellineTypeDef = /* GraphQL */ `
     roomTypePlacements: [String!]
     checkInTime: String
     checkOutTime: String
+    corporateId: String
+    earlyCheckInDateTime: String
+    lateCheckOutDateTime: String
   }
 
   # ─── Cancellation penalty ───────────────────────────────────────────────────
@@ -219,6 +236,7 @@ const travellineTypeDef = /* GraphQL */ `
     childAges: [Int!]
     propertyIds: [String!]
     mealRequirement: TlMealRequirementInput
+    corporateIds: [String!]
   }
 
   # ─── Reservation API ─────────────────────────────────────────────────────
@@ -248,8 +266,27 @@ const travellineTypeDef = /* GraphQL */ `
     roomTypeName: String
     ratePlanName: String
     cancellationPoliciesJson: String
+    earlyCheckInDateTime: String
+    lateCheckOutDateTime: String
+    corporateId: String
     createdAt: String!
     raw: String!
+  }
+
+  type TlAlternative {
+    newPriceBeforeTax: Float
+    newTax: Float
+    newTotalPrice: Float
+    newPenaltyAmount: Float
+    newChecksum: String
+    message: String
+    cancellationPolicy: TlCancellationPolicy
+  }
+
+  type TlCreateReservationResult {
+    reservation: TlReservation
+    conditionChange: Boolean!
+    alternative: TlAlternative
   }
 
   input TlGuestInput {
@@ -280,6 +317,36 @@ const travellineTypeDef = /* GraphQL */ `
     cancellationPoliciesJson: String
     requestId: String
     mealPlanCode: String
+    corporateId: String
+    earlyCheckInDateTime: String
+    lateCheckOutDateTime: String
+  }
+
+  # ─── Amend reservation ───────────────────────────────────────────────────────
+
+  input TlAmendReservationInput {
+    bookingId: String!
+    arrival: String!
+    departure: String!
+    adults: Int
+    childAges: [Int!]
+    roomTypePlacements: [String!]
+    checkInTime: String
+    checkOutTime: String
+    corporateId: String
+    comment: String
+    earlyCheckInDateTime: String
+    lateCheckOutDateTime: String
+  }
+
+  type TlAmendResult {
+    ok: Boolean!
+    conditionChange: Boolean!
+    newArrival: String
+    newDeparture: String
+    newTotalPrice: Float
+    newChecksum: String
+    message: String
   }
 
   type TlSyncStatus {
@@ -307,6 +374,45 @@ const travellineTypeDef = /* GraphQL */ `
     hasRooms: Boolean
   }
 
+  # ─── Extra stays (РЗПВ) ──────────────────────────────────────────────────────
+
+  type TlExtraStayOption {
+    dateTimeLocal: String!
+    price: Float!
+    currency: String!
+  }
+
+  type TlExtraStays {
+    earlyCheckIn: [TlExtraStayOption!]!
+    lateCheckOut: [TlExtraStayOption!]!
+  }
+
+  input TlExtraStaysInput {
+    arrivalDateTime: String!
+    departureDateTime: String!
+    roomTypeId: String!
+    ratePlanId: String!
+    roomTypePlacements: [String!]
+    adults: Int
+    childAges: [Int!]
+    corporateId: String
+  }
+
+  # ─── Corporate clients ────────────────────────────────────────────────────────
+
+  type TlCorporate {
+    id: String!
+    legalName: String!
+    inn: String
+    kpp: String
+    raw: String!
+  }
+
+  input TlCreateCorporateInput {
+    inn: String!
+    kpp: String!
+  }
+
   # ─── Raw proxy ───────────────────────────────────────────────────────────────
 
   type TlRawResponse {
@@ -326,30 +432,39 @@ const travellineTypeDef = /* GraphQL */ `
   extend type Query {
     tlConfig: TlConfig!
     tlCities(countryCode: String): [TlCity!]!
-    tlPropertiesByCity(input: TlSearchPropertiesByCityInput!): TlPropertiesResult!
+    tlPropertiesByCity(
+      input: TlSearchPropertiesByCityInput!
+    ): TlPropertiesResult!
     tlSearchProperties(filter: TlSearchPropertiesInput): TlPropertiesResult!
     tlProperty(id: ID!): TlProperty!
     tlRoomTypes(propertyId: ID!): [TlRoomType!]!
     tlRatePlans(propertyId: ID!): [TlRatePlan!]!
     tlAvailability(input: TlAvailabilityInput!): TlAvailabilityResult!
     tlPropertyCalendar(input: TlCalendarInput!): [TlCalendarCell!]!
-    tlPropertiesAvailability(input: TlSearchDatesInput!): [TlPropertyPriceSummary!]!
+    tlPropertiesAvailability(
+      input: TlSearchDatesInput!
+    ): [TlPropertyPriceSummary!]!
     tlReservations: [TlReservation!]!
     tlReservation(id: ID!): TlReservation!
     tlCancellationPenalty(bookingId: String!): TlCancellationPenalty!
     hotelOptionsForPlacement(city: String!): [HotelPlacementOption!]!
     tlSyncStatus: TlSyncStatus!
     tlLocalProperties(filter: TlSearchPropertiesInput): TlPropertiesResult!
+    tlCorporate(id: ID!): TlCorporate!
+    tlCorporates: [TlCorporate!]!
+    tlExtraStays(propertyId: String!, input: TlExtraStaysInput!): TlExtraStays!
   }
 
   extend type Mutation {
     tlSetConfig(input: TlSetConfigInput!): Boolean!
     tlSyncCatalog(countryCode: String): TlSyncStatus!
     tlSetAutoSyncHours(hours: Int!): Int!
-    tlCreateReservation(input: TlCreateReservationInput!): TlReservation!
+    tlCreateReservation(input: TlCreateReservationInput!): TlCreateReservationResult!
     tlCancelReservation(id: ID!): Boolean!
     tlVerifyBooking(input: TlVerifyInput!): TlVerifyResult!
     tlRawRequest(input: TlRawRequestInput!): TlRawResponse!
+    tlCreateCorporate(input: TlCreateCorporateInput!): TlCorporate!
+    tlAmendReservation(input: TlAmendReservationInput!): TlAmendResult!
   }
 `
 

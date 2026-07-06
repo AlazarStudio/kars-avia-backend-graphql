@@ -12,6 +12,7 @@ const requestTypeDef = /* GraphQL */ `
     airport: Airport!
     arrival: Date!
     departure: Date!
+    actualCheckInAt: Date
     roomCategory: String
     mealPlan: MealPlan
     senderId: ID!
@@ -24,9 +25,12 @@ const requestTypeDef = /* GraphQL */ `
     roomNumber: String
     airlineId: ID
     airline: Airline!
+    airlineDepartmentId: ID
+    airlineDepartment: AirlineDepartment
     status: String
     requestNumber: String
     archive: Boolean
+    archivingAt: Date
     chat: [Chat]
     # logs: [Log]
     logs(pagination: LogPaginationInput): LogConnection!
@@ -38,6 +42,16 @@ const requestTypeDef = /* GraphQL */ `
     requestHotelPrice: RequestPrice
     externalBookingNumber: String
     externalSource: String
+    bulkGroupId: String
+    linkNumber: String
+    arrivalFlightNumber: String
+    arrivalAircraftType: String
+    arrivalFlightStatus: String
+    departureFlightNumber: String
+    departureAircraftType: String
+    departureFlightStatus: String
+    singleRoomCount: Int
+    doubleRoomCount: Int
   }
 
   # type Log {
@@ -56,6 +70,27 @@ const requestTypeDef = /* GraphQL */ `
     totalPages: Int!
     totalCount: Int!
     requests: [Request!]!
+  }
+
+  type RequestGroup {
+    key: String!
+    label: String!
+    isBulk: Boolean!
+    bulkGroupId: String
+    airlineId: ID!
+    airline: Airline!
+    airportId: ID
+    airport: Airport
+    year: Int
+    month: Int
+    requestCount: Int!
+    requests: [Request!]!
+  }
+
+  type RequestGroupConnection {
+    totalGroups: Int!
+    totalPages: Int!
+    groups: [RequestGroup!]!
   }
 
   # Входные типы
@@ -79,6 +114,7 @@ const requestTypeDef = /* GraphQL */ `
     airlineId: ID
     arrival: Date
     departure: Date
+    actualCheckInAt: Date
     roomCategory: String
     mealPlan: MealPlanInput
     hotelId: ID
@@ -125,6 +161,48 @@ const requestTypeDef = /* GraphQL */ `
     arrival: Date
     departure: Date
     search: String
+    bulkGroupId: String
+    linkNumber: String
+  }
+
+  input RequestGroupPaginationInput {
+    skip: Int
+    take: Int
+    status: [String]
+    airportId: ID
+    airlineId: ID
+    personId: ID
+    hotelId: ID
+    arrival: Date
+    departure: Date
+    search: String
+    bulkGroupId: String
+    linkNumber: String
+    groupYear: Int
+    groupMonth: Int
+  }
+
+  input BulkRequestImportInput {
+    airportId: ID!
+    airlineId: ID!
+    senderId: ID!
+    mealPlan: MealPlanInput
+    reserve: Boolean
+    defaultTimesUsed: Boolean
+    bulkGroupId: String
+  }
+
+  type BulkRequestImportRowError {
+    row: Int!
+    message: String!
+  }
+
+  type BulkRequestImportResult {
+    bulkGroupId: String!
+    createdCount: Int!
+    linkNumbers: [String!]!
+    errors: [BulkRequestImportRowError!]!
+    sourceFile: String
   }
 
   input ExtendRequestDatesInput {
@@ -137,6 +215,9 @@ const requestTypeDef = /* GraphQL */ `
   # Запросы
   type Query {
     requests(pagination: PaginationInput): RequestConnection!
+    requestsByGroup(
+      pagination: RequestGroupPaginationInput
+    ): RequestGroupConnection!
     request(id: ID): Request
     requestArchive(pagination: PaginationInput): RequestConnection!
   }
@@ -144,6 +225,10 @@ const requestTypeDef = /* GraphQL */ `
   # Мутации
   type Mutation {
     createRequest(input: CreateRequestInput!, files: [Upload!]): Request!
+    importBulkRequests(
+      file: Upload!
+      input: BulkRequestImportInput!
+    ): BulkRequestImportResult!
     updateRequest(id: ID!, input: UpdateRequestInput!): Request!
     modifyDailyMeals(input: ModifyDailyMealsInput!): MealPlan!
     cancelRequest(id: ID!): Request!

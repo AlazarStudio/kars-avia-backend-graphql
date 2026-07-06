@@ -121,10 +121,11 @@ const updateRepresentativeLinks = async ({
   }
 
   if (airlineIds !== undefined) {
-    const currentLinks = await prisma.representativeDepartmentOnAirline.findMany({
-      where: { representativeDepartmentId: departmentId },
-      select: { airlineId: true }
-    })
+    const currentLinks =
+      await prisma.representativeDepartmentOnAirline.findMany({
+        where: { representativeDepartmentId: departmentId },
+        select: { airlineId: true }
+      })
     const currentIds = currentLinks.map((item) => item.airlineId)
     const nextIds = airlineIds
 
@@ -150,10 +151,11 @@ const updateRepresentativeLinks = async ({
   }
 
   if (airportIds !== undefined) {
-    const currentLinks = await prisma.representativeDepartmentOnAirport.findMany({
-      where: { representativeDepartmentId: departmentId },
-      select: { airportId: true }
-    })
+    const currentLinks =
+      await prisma.representativeDepartmentOnAirport.findMany({
+        where: { representativeDepartmentId: departmentId },
+        select: { airportId: true }
+      })
     const currentIds = currentLinks.map((item) => item.airportId)
     const nextIds = airportIds
 
@@ -285,9 +287,10 @@ const representativeResolver = {
         airportIds
       })
 
-      const enrichedDepartment = await prisma.representativeDepartment.findUnique({
-        where: { id: department.id }
-      })
+      const enrichedDepartment =
+        await prisma.representativeDepartment.findUnique({
+          where: { id: department.id }
+        })
 
       pubsub.publish(REPRESENTATIVE_DEPARTMENT_CREATED, {
         representativeDepartmentCreated: enrichedDepartment
@@ -299,12 +302,7 @@ const representativeResolver = {
     updateRepresentativeDepartment: async (_, { id, input }, context) => {
       await representativeMiddleware(context)
 
-      const {
-        representativeIds,
-        airlineIds,
-        airportIds,
-        ...restInput
-      } = input
+      const { representativeIds, airlineIds, airportIds, ...restInput } = input
 
       if (representativeIds !== undefined) {
         await ensureRepresentativeUsers(representativeIds)
@@ -330,9 +328,10 @@ const representativeResolver = {
         airportIds
       })
 
-      const enrichedDepartment = await prisma.representativeDepartment.findUnique({
-        where: { id: department.id }
-      })
+      const enrichedDepartment =
+        await prisma.representativeDepartment.findUnique({
+          where: { id: department.id }
+        })
 
       pubsub.publish(REPRESENTATIVE_DEPARTMENT_UPDATED, {
         representativeDepartmentUpdated: enrichedDepartment

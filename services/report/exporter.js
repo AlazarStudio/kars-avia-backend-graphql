@@ -114,7 +114,7 @@ export const generateExcelAvia = async (
       key: "breakfastCount",
       header: "Завтрак",
       width: 10,
-      getter: (r) => r.breakfastCount
+      getter: (r) => (r.breakfastIncludedInPrice ? "вкл" : r.breakfastCount)
     },
     {
       key: "lunchCount",
@@ -398,7 +398,7 @@ export const generateExcelHotel = async (
       key: "breakfastCount",
       header: "Завтрак",
       width: 10,
-      get: (r) => r.breakfastCount
+      get: (r) => (r.breakfastIncludedInPrice ? "вкл" : r.breakfastCount)
     },
     { key: "lunchCount", header: "Обед", width: 10, get: (r) => r.lunchCount },
     {

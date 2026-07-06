@@ -2,31 +2,62 @@
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
+import {
+  getPresenceCleanupIntervalMs,
+  markStaleUsersOffline
+} from "../user/userPresence.js"
 
 let intervalId = null
+let presenceIntervalId = null
+
+const ARCHIVE_GRACE_MS = 3 * 24 * 60 * 60 * 1000
+
+const moveExpiredToArchiving = async (now) => {
+  const requests = await prisma.request.findMany({
+    where: {
+      departure: { lt: now },
+      status: {
+        notIn: ["archived", "canceled", "created", "opened", "archiving"]
+      }
+    },
+    select: { id: true }
+  })
+
+  for (const request of requests) {
+    await prisma.request.update({
+      where: { id: request.id },
+      data: { status: "archiving" }
+    })
+    await publishRequestUpdated(request.id)
+  }
+}
+
+const finalizeArchivingRequests = async (now) => {
+  const departureThreshold = new Date(now.getTime() - ARCHIVE_GRACE_MS)
+
+  const requests = await prisma.request.findMany({
+    where: {
+      status: "archiving",
+      archive: { not: true },
+      departure: { lte: departureThreshold }
+    },
+    select: { id: true }
+  })
+
+  for (const request of requests) {
+    await prisma.request.update({
+      where: { id: request.id },
+      data: { status: "archived", archive: true, archivingAt: now }
+    })
+    await publishRequestUpdated(request.id)
+  }
+}
 
 const checkAndArchiveRequests = async () => {
   try {
     const now = new Date()
-
-    const requests = await prisma.request.findMany({
-      where: {
-        status: { notIn: ["archived", "canceled", "created", "opened"] }
-      }
-    })
-
-    for (const request of requests) {
-      const departureDate = request.departure
-
-      if (departureDate < now) {
-        await prisma.request.update({
-          where: { id: request.id },
-          data: { status: "archiving" }
-        })
-
-        await publishRequestUpdated(request.id)
-      }
-    }
+    await moveExpiredToArchiving(now)
+    await finalizeArchivingRequests(now)
   } catch (e) {
     logger.error("[CRON] checkAndArchiveRequests failed", e)
   }
@@ -37,6 +68,7 @@ export const startArchivingJob = () => {
 
   logger.info("[CRON] Archiving job started")
 
+  void checkAndArchiveRequests()
   intervalId = setInterval(checkAndArchiveRequests, 6 * 60 * 60 * 1000)
 }
 
@@ -45,5 +77,32 @@ export const stopArchivingJob = () => {
     clearInterval(intervalId)
     intervalId = null
     logger.info("[CRON] Archiving job stopped")
+  }
+}
+
+const runPresenceCleanup = async () => {
+  try {
+    await markStaleUsersOffline()
+  } catch (e) {
+    logger.error("[CRON] presence cleanup failed", e)
+  }
+}
+
+export const startPresenceCleanupJob = () => {
+  if (presenceIntervalId) return
+
+  const intervalMs = getPresenceCleanupIntervalMs()
+
+  logger.info(`[CRON] Presence cleanup job started (interval ${intervalMs}ms)`)
+
+  void runPresenceCleanup()
+  presenceIntervalId = setInterval(runPresenceCleanup, intervalMs)
+}
+
+export const stopPresenceCleanupJob = () => {
+  if (presenceIntervalId) {
+    clearInterval(presenceIntervalId)
+    presenceIntervalId = null
+    logger.info("[CRON] Presence cleanup job stopped")
   }
 }

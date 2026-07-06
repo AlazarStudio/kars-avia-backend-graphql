@@ -2,6 +2,7 @@
 import { prisma } from "../../prisma.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import logAction from "../../services/infra/logaction.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import {
   pubsub,
   REQUEST_CREATED,
@@ -29,9 +30,16 @@ import {
 } from "../../middlewares/authMiddleware.js"
 import updateDailyMeals from "../../services/meal/updateDailyMeals.js"
 import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
-import { sendEmail } from "../../services/sendMail.js"
-import { AllowedEmailNotification } from "../../services/notification/notificationMenuCheck.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { resolveCreatorDepartmentFromSender } from "../../services/notification/resolveCreatorAirlineDepartment.js"
+import {
+  buildCancelRequestDoneEmail,
+  buildCancelRequestRequestEmail,
+  buildCreateRequestEmail,
+  buildExtendRequestEmail,
+  buildUpdateRequestEmail
+} from "../../services/email/requestEmailTemplates.js"
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
@@ -41,6 +49,13 @@ import {
   recalculateOverlappingRequests,
   recalculateAffectedByRoomChange
 } from "../../services/request/requestPricing.js"
+import { generateNextRequestNumber } from "../../services/request/generateRequestNumber.js"
+import { importBulkRequestsFromFile } from "../../services/request/bulkImport/createBulkRequests.js"
+import {
+  buildRequestListWhere,
+  REQUEST_LIST_INCLUDE
+} from "../../services/request/buildRequestListWhere.js"
+import { groupRequestsByAirlineAirportMonth } from "../../services/request/groupRequestsByAirlineAirportMonth.js"
 
 const transporter = nodemailer.createTransport({
   // host: "smtp.mail.ru",
@@ -64,74 +79,17 @@ const requestResolver = {
   Query: {
     // Получение списка заявок с пагинацией и фильтрацией по статусу.
     // Если у пользователя задан airlineId, добавляется фильтр по нему.
-    // Исключаются архивные заявки (archive: true).
+    // Исключаются архивные (archive: true) и отменённые (status: canceled) заявки.
     requests: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { user } = context
-      const {
-        skip = 0,
-        take = 10,
-        status,
-        airportId,
-        airlineId,
-        personId,
-        hotelId,
-        arrival,
-        departure,
-        search
-      } = pagination
+      const { skip = 0, take = 10 } = pagination || {}
 
-      const statusFilter =
-        status && status.length > 0 && !status.includes("all")
-          ? { status: { in: status } }
-          : {}
-
-      const airlineAccessFilter = user.airlineId
-        ? { airlineId: user.airlineId }
-        : {}
-
-      const exactMatchFilters = {
-        ...(airportId && { airportId }),
-        ...(airlineId && { airlineId }),
-        ...(personId && { personId }),
-        ...(hotelId && { hotelId }),
-        ...(arrival && {
-          arrival: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(departure && {
-          departure: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        })
-      }
-
-      const searchFilter = search
-        ? {
-            OR: [
-              { airport: { name: { contains: search, mode: "insensitive" } } },
-              { airline: { name: { contains: search, mode: "insensitive" } } },
-              { hotel: { name: { contains: search, mode: "insensitive" } } },
-              { person: { name: { contains: search, mode: "insensitive" } } },
-              { requestNumber: { contains: search, mode: "insensitive" } }
-            ]
-          }
-        : null
-
-      const filters = [
-        { archive: { not: true } },
-        airlineAccessFilter,
-        statusFilter,
-        exactMatchFilters,
-        ...(searchFilter ? [searchFilter] : [])
-      ]
-
-      const where = {
-        AND: filters
-      }
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: false
+      })
 
       const totalCount = await prisma.request.count({ where })
 
@@ -141,13 +99,7 @@ const requestResolver = {
         where,
         skip: skip * take,
         take,
-        include: {
-          airline: { select: { name: true, images: true } },
-          airport: { select: { name: true, code: true } },
-          hotel: { select: { name: true } },
-          person: { select: { name: true } },
-          chat: true
-        },
+        include: REQUEST_LIST_INCLUDE,
         orderBy: { createdAt: "desc" }
       })
 
@@ -157,76 +109,35 @@ const requestResolver = {
         requests
       }
     },
+    requestsByGroup: async (_, { pagination }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: false
+      })
+
+      return groupRequestsByAirlineAirportMonth({
+        prisma,
+        where,
+        pagination
+      })
+    },
     // Получение архивных заявок.
     // Доступно только для администраторов авиалиний (airlineAdminMiddleware).
     requestArchive: async (_, { pagination }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)
 
-      const {
-        skip = 0,
-        take = 10,
-        status,
-        airportId,
-        airlineId,
-        personId,
-        hotelId,
-        arrival,
-        departure,
-        search
-      } = pagination
+      const { skip = 0, take = 10 } = pagination || {}
 
-      const statusFilter =
-        status && status.length > 0 && !status.includes("all")
-          ? { status: { in: status } }
-          : {}
-
-      const airlineAccessFilter = user.airlineId
-        ? { airlineId: user.airlineId }
-        : {}
-
-      const exactMatchFilters = {
-        ...(airportId && { airportId }),
-        ...(airlineId && { airlineId }),
-        ...(personId && { personId }),
-        ...(hotelId && { hotelId }),
-        ...(arrival && {
-          arrival: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        }),
-        ...(departure && {
-          departure: {
-            gte: new Date(arrival),
-            lte: new Date(new Date(departure).getTime() + 24 * 60 * 60 * 1000)
-          }
-        })
-      }
-
-      const searchFilter = search
-        ? {
-            OR: [
-              { airport: { name: { contains: search, mode: "insensitive" } } },
-              { airline: { name: { contains: search, mode: "insensitive" } } },
-              { hotel: { name: { contains: search, mode: "insensitive" } } },
-              { person: { name: { contains: search, mode: "insensitive" } } },
-              { requestNumber: { contains: search, mode: "insensitive" } }
-            ]
-          }
-        : null
-
-      const filters = [
-        { archive: true },
-        airlineAccessFilter,
-        statusFilter,
-        exactMatchFilters,
-        ...(searchFilter ? [searchFilter] : [])
-      ]
-
-      const where = {
-        AND: filters
-      }
+      const where = buildRequestListWhere({
+        pagination,
+        user,
+        archive: true
+      })
 
       const totalCount = await prisma.request.count({ where })
 
@@ -393,46 +304,11 @@ const requestResolver = {
       //     `Request already exists with id: ${existingRequest.id} \n request number: ${existingRequest.requestNumber}`
       //   )
       // }
-      // Определение текущего месяца и года для формирования номера заявки
-      const currentDate = new Date()
-      const month = String(currentDate.getMonth() + 1).padStart(2, "0") // двузначный номер месяца
-      const year = String(currentDate.getFullYear()).slice(-2)
-      // Определение границ месяца для поиска последней заявки
-      const startOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1
+      // Формирование номера заявки
+      const { requestNumber } = await generateNextRequestNumber(
+        prisma,
+        airportId
       )
-      const endOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      )
-      // Поиск последней созданной заявки в текущем месяце
-      const lastRequest = await prisma.request.findFirst({
-        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
-        orderBy: { createdAt: "desc" }
-      })
-      // Формирование последовательного номера заявки
-      let sequenceNumber
-      if (lastRequest) {
-        const lastNumber = parseInt(lastRequest.requestNumber.slice(0, 4), 10)
-        sequenceNumber = String(lastNumber + 1).padStart(4, "0")
-      } else {
-        sequenceNumber = "0001"
-      }
-      // Получение данных об аэропорте для формирования кода заявки
-      const airport = await prisma.airport.findUnique({
-        where: { id: airportId }
-      })
-      if (!airport) {
-        throw new Error("Airport not found")
-      }
-      // Формирование номера заявки: номер + код аэропорта + месяц + год + буква "e"
-      const requestNumber = `${sequenceNumber}${airport.code}${month}${year}e`
       // Обработка загрузки файлов (если они есть)
       let filesPath = []
       if (files && files.length > 0) {
@@ -456,6 +332,11 @@ const requestResolver = {
           mealPlan.dinnerEnabled = mealPlan.dinnerEnabled || false
         }
       }
+      const creatorDepartmentId = await resolveCreatorDepartmentFromSender({
+        senderId,
+        personId
+      })
+
       // Создание заявки в базе данных с подключением связанных сущностей
       const newRequest = await prisma.request.create({
         data: {
@@ -468,6 +349,11 @@ const requestResolver = {
           mealPlan,
           airline: { connect: { id: airlineId } },
           sender: { connect: { id: senderId } },
+          ...(creatorDepartmentId
+            ? {
+                airlineDepartment: { connect: { id: creatorDepartmentId } }
+              }
+            : {}),
           status,
           reserve,
           defaultTimesUsed: defaultTimesUsed ?? false,
@@ -497,33 +383,28 @@ const requestResolver = {
           user: { connect: { id: senderId } }
         }
       })
-      const mailOptions = {
-        // from: `${process.env.EMAIL_USER}`,
-        to: `${process.env.EMAIL_KARS}`,
-        subject: "Request created",
-        html:
-          newRequest.person && newRequest.person.position
-            ? `Пользователь <span style='color:#545873'>${user.name}</span> создал заявку <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        для <span style='color:#545873'>${newRequest.person.position.name} ${newRequest.person.name}</span> в аэропорт 
-        <span style='color:#545873'>${newRequest.airport.name}</span>`
-            : `Пользователь <span style='color:#545873'>${user.name}</span> создал предварительную бронь <span style='color:#545873'>№${newRequest.requestNumber}</span> 
-        в аэропорт <span style='color:#545873'>${newRequest.airport.name}</span>`
-      }
-
-      // Отправка письма через настроенный транспортёр (с учётом ограничений NotificationMenu)
-      const createRequestEmailAllowed =
-        (await AllowedEmailNotification(user, "create_request")) &&
-        shouldSendNotification({
-          channel: "email",
-          action: "create_request",
-          entityType: "request",
-          entityId: newRequest.id,
-          recipientId: process.env.EMAIL_KARS
-        }).allowed
-
-      if (createRequestEmailAllowed) {
-        await sendEmail(mailOptions)
-      }
+      const createEmail = buildCreateRequestEmail({
+        requestNumber: newRequest.requestNumber,
+        personName: newRequest.person?.name,
+        positionName: newRequest.person?.position?.name,
+        airportName: newRequest.airport.name,
+        isPreliminary: !(newRequest.person && newRequest.person.position),
+        airlineName: newRequest.airline.name,
+        arrivalTime: formatDate(newRequest.arrival),
+        departureTime: formatDate(newRequest.departure),
+        mealPlan: newRequest.mealPlan,
+        requestId: newRequest.id
+      })
+      await sendRequestPartyEmail({
+        actor: user,
+        airlineId,
+        action: "create_request",
+        subject: createEmail.subject,
+        html: createEmail.html,
+        entityType: "request",
+        entityId: newRequest.id,
+        dispatcherFallbackTo: "EMAIL_KARS"
+      })
 
       // Логирование создания заявки
       try {
@@ -589,6 +470,26 @@ const requestResolver = {
       return newRequest
     },
 
+    importBulkRequests: async (_, { file, input }, context) => {
+      await airlineModerMiddleware(context)
+
+      const result = await importBulkRequestsFromFile({ file, input, context })
+
+      if (result.firstRequest) {
+        pubsub.publish(REQUEST_CREATED, {
+          requestCreated: result.firstRequest
+        })
+      }
+
+      return {
+        bulkGroupId: result.bulkGroupId || "",
+        createdCount: result.createdCount,
+        linkNumbers: result.linkNumbers,
+        errors: result.errors,
+        sourceFile: result.sourceFile
+      }
+    },
+
     // Обновление существующей заявки.
     // Производится сравнение новых дат с текущими, обновление связанных сущностей (например, hotelChess)
     // и пересчёт плана питания, если даты изменились.
@@ -644,6 +545,18 @@ const requestResolver = {
           throw new Error(
             "the end of an Request cannot be before its beginning"
           )
+        }
+
+        if (input.actualCheckInAt != null) {
+          const actualCheckIn = new Date(input.actualCheckInAt)
+          const checkOutEnd = oldHotelChess?.end
+            ? new Date(oldHotelChess.end)
+            : updatedEnd
+          if (actualCheckIn > checkOutEnd) {
+            throw new Error(
+              "Фактическое заселение не может быть позже даты выезда"
+            )
+          }
         }
 
         const wantsPlacement = roomId != null
@@ -767,29 +680,25 @@ const requestResolver = {
             })
           }
 
-          const mailOptions = {
-            to: `${process.env.EMAIL_KARS}`,
-            subject: "Request updated",
-            html: `Запрос на изменение дат заявки <span style='color:#545873'>№${
-              request.requestNumber
-            }</span> с ${formatDate(request.arrival)} - ${formatDate(
-              request.departure
-            )} на ${formatDate(updatedStart)} - ${formatDate(updatedEnd)}`
-          }
-
-          const extendRequestEmailAllowed =
-            (await AllowedEmailNotification(user, "extend_request")) &&
-            shouldSendNotification({
-              channel: "email",
-              action: "extend_request",
-              entityType: "request",
-              entityId: extendRequest.requestId,
-              recipientId: process.env.EMAIL_KARS
-            }).allowed
-
-          if (extendRequestEmailAllowed) {
-            await sendEmail(mailOptions)
-          }
+          const extendEmail = buildExtendRequestEmail({
+            requestNumber: request.requestNumber,
+            oldArrival: formatDate(request.arrival),
+            oldDeparture: formatDate(request.departure),
+            newArrival: formatDate(updatedStart),
+            newDeparture: formatDate(updatedEnd),
+            airlineName: request.airline.name,
+            requestId: extendRequest.requestId
+          })
+          await sendRequestPartyEmail({
+            actor: user,
+            airlineId: request.airlineId,
+            action: "extend_request",
+            subject: extendEmail.subject,
+            html: extendEmail.html,
+            entityType: "request",
+            entityId: extendRequest.requestId,
+            dispatcherFallbackTo: "EMAIL_KARS"
+          })
 
           if (extendRequestSiteAllowed) {
             pubsub.publish(NOTIFICATION, {
@@ -870,7 +779,6 @@ const requestResolver = {
             place,
             request.hotelChess?.[0]?.id
           )
-          shouldRemoveHotelChess = true
         } else if (inputHotelId != null) {
           shouldRemoveHotelChess = true
           placementHotelId = inputHotelId
@@ -970,18 +878,47 @@ const requestResolver = {
         }
 
         if (wantsPlacement) {
-          const newHotelChess = await prisma.hotelChess.create({
-            data: {
-              hotel: { connect: { id: placementHotelId } },
-              room: { connect: { id: placementRoom.id } },
-              place: placementPlace,
-              start: updatedStart,
-              end: updatedEnd,
-              request: { connect: { id: requestId } },
-              mealPlan: mealPlanData
-            }
-          })
-          pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
+          await ensureNoOverlap(
+            placementRoom.id,
+            placementPlace,
+            updatedStart,
+            updatedEnd,
+            request.hotelChess?.[0]?.id
+          )
+
+          const existingHc =
+            request.hotelChess?.[0] ||
+            (await prisma.hotelChess.findFirst({ where: { requestId } }))
+
+          if (existingHc) {
+            const updatedHotelChess = await prisma.hotelChess.update({
+              where: { id: existingHc.id },
+              data: {
+                hotel: { connect: { id: placementHotelId } },
+                room: { connect: { id: placementRoom.id } },
+                place: placementPlace,
+                start: updatedStart,
+                end: updatedEnd,
+                mealPlan: mealPlanData
+              }
+            })
+            pubsub.publish(HOTEL_UPDATED, {
+              hotelUpdated: updatedHotelChess
+            })
+          } else {
+            const newHotelChess = await prisma.hotelChess.create({
+              data: {
+                hotel: { connect: { id: placementHotelId } },
+                room: { connect: { id: placementRoom.id } },
+                place: placementPlace,
+                start: updatedStart,
+                end: updatedEnd,
+                request: { connect: { id: requestId } },
+                mealPlan: mealPlanData
+              }
+            })
+            pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
+          }
         }
 
         if (inputMealPlan && request.mealPlan) {
@@ -1038,21 +975,23 @@ const requestResolver = {
           }
         })
 
-        const mailOptions = {
-          to: `${notifyReceiverEmail}`,
-          subject: "Request updated",
-          html: `Даты заявки  <span style='color:#545873'> № ${updatedRequest.requestNumber}</span> обновлены c <span style='color:#545873'>${formatDate(
-            request.arrival
-          )} - ${formatDate(
-            request.departure
-          )}</span> до <span style='color:#545873'>${formatDate(
-            updatedStart
-          )} - ${formatDate(updatedEnd)}</span>`
-        }
-
-        if (await AllowedEmailNotification(user, "update_request")) {
-          await sendEmail(mailOptions)
-        }
+        const updateEmail = buildUpdateRequestEmail({
+          requestNumber: updatedRequest.requestNumber,
+          oldArrival: formatDate(request.arrival),
+          oldDeparture: formatDate(request.departure),
+          newArrival: formatDate(updatedStart),
+          newDeparture: formatDate(updatedEnd)
+        })
+        await sendRequestPartyEmail({
+          actor: user,
+          airlineId: request.airlineId ?? updatedRequest.airlineId,
+          action: "update_request",
+          subject: updateEmail.subject,
+          html: updateEmail.html,
+          entityType: "request",
+          entityId: updatedRequest.id,
+          dispatcherFallbackTo: "EMAIL_RECEIVER"
+        })
 
         try {
           await logAction({
@@ -1069,20 +1008,35 @@ const requestResolver = {
         }
 
         const newHc = updatedRequest.hotelChess?.[0]
-        const newRoomId = newHc?.roomId || (wantsPlacement ? placementRoom?.id : null)
+        const newRoomId =
+          newHc?.roomId || (wantsPlacement ? placementRoom?.id : null)
 
         if (newRoomId || oldRoomId) {
           await recalculateRequestPricing(requestId)
 
           if (wantsPlacement || isHotelChange) {
             await recalculateAffectedByRoomChange(
-              oldRoomId, oldChessStart, oldChessEnd,
-              newRoomId, updatedStart, updatedEnd,
+              oldRoomId,
+              oldChessStart,
+              oldChessEnd,
+              newRoomId,
+              updatedStart,
+              updatedEnd,
               requestId
             )
           } else if (datesChanged && oldRoomId) {
-            await recalculateOverlappingRequests(oldRoomId, oldChessStart, oldChessEnd, requestId)
-            await recalculateOverlappingRequests(oldRoomId, updatedStart, updatedEnd, requestId)
+            await recalculateOverlappingRequests(
+              oldRoomId,
+              oldChessStart,
+              oldChessEnd,
+              requestId
+            )
+            await recalculateOverlappingRequests(
+              oldRoomId,
+              updatedStart,
+              updatedEnd,
+              requestId
+            )
           }
         }
 
@@ -1090,7 +1044,7 @@ const requestResolver = {
         return updatedRequest
       } catch (error) {
         logger.error("Ошибка при обновлении заявки. ", error)
-        throw new Error(error)
+        rethrowUnlessInternalError(error, "Не удалось обновить заявку")
       }
     },
 
@@ -1141,7 +1095,7 @@ const requestResolver = {
       ) {
         const archiveRequest = await prisma.request.update({
           where: { id: requestId },
-          data: { status: "archived", archive: true }
+          data: { status: "archived", archive: true, archivingAt: new Date() }
         })
         await logAction({
           context,
@@ -1171,16 +1125,39 @@ const requestResolver = {
         include: { hotelChess: true }
       })
 
-      if (user.airlineId && request.status != "created") {
+      // Запрос на отмену (чат, site, email) — только если заявка уже не в статусе created.
+      // При created авиакомпания отменяет заявку самостоятельно, без запроса диспетчеру.
+      if (
+        user.airlineId &&
+        !user.dispatcher &&
+        request.status !== "created"
+      ) {
         const currentTime = new Date()
         const adjustedTime = new Date(
           currentTime.getTime() + 3 * 60 * 60 * 1000
         )
         const formattedTime = adjustedTime.toISOString()
 
-        const chat = await prisma.chat.findFirst({
+        let chat = await prisma.chat.findFirst({
           where: { requestId: requestId, separator: "airline" }
         })
+        if (!chat) {
+          chat = await prisma.chat.create({
+            data: {
+              request: { connect: { id: requestId } },
+              separator: "airline",
+              ...(request.airlineId
+                ? { airline: { connect: { id: request.airlineId } } }
+                : {})
+            }
+          })
+          await prisma.chatUser.create({
+            data: {
+              chat: { connect: { id: chat.id } },
+              user: { connect: { id: user.id } }
+            }
+          })
+        }
         const message = await prisma.message.create({
           data: {
             text: `Запрос на отмену заявки`,
@@ -1235,26 +1212,20 @@ const requestResolver = {
           })
         }
 
-        const mailOptions = {
-          // from: `${process.env.EMAIL_USER}`,
-          to: `${process.env.EMAIL_KARS}`,
-          subject: "Request cancelled",
-          html: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки <span style='color:#545873'>№${request.requestNumber}</span>`
-        }
-
-        const cancelRequestEmailKarsAllowed =
-          (await AllowedEmailNotification(user, "cancel_request")) &&
-          shouldSendNotification({
-            channel: "email",
-            action: "cancel_request",
-            entityType: "request",
-            entityId: request.id,
-            recipientId: process.env.EMAIL_KARS
-          }).allowed
-
-        if (cancelRequestEmailKarsAllowed) {
-          await sendEmail(mailOptions)
-        }
+        const cancelRequestEmail = buildCancelRequestRequestEmail({
+          requestNumber: request.requestNumber,
+          requestId: request.id
+        })
+        await sendRequestPartyEmail({
+          actor: user,
+          airlineId: request.airlineId,
+          action: "cancel_request",
+          subject: cancelRequestEmail.subject,
+          html: cancelRequestEmail.html,
+          entityType: "request",
+          entityId: request.id,
+          dispatcherFallbackTo: "EMAIL_KARS"
+        })
 
         if (cancelRequestSiteAllowed) {
           pubsub.publish(NOTIFICATION, {
@@ -1273,9 +1244,14 @@ const requestResolver = {
 
       // Если заявка размещена через TravelLine — сначала отменяем бронь в TL.
       // Если TL вернул ошибку — пробрасываем её, Request не меняется (предотвращаем рассинхрон).
-      if (request.externalSource === "travelline" && request.externalBookingNumber) {
+      if (
+        request.externalSource === "travelline" &&
+        request.externalBookingNumber
+      ) {
         try {
-          await travellineService.cancelReservation(request.externalBookingNumber)
+          await travellineService.cancelReservation(
+            request.externalBookingNumber
+          )
         } catch (err) {
           logger.warn(
             `cancelRequest: TravelLine cancel failed for booking ${request.externalBookingNumber}: ${err?.message}`
@@ -1304,26 +1280,19 @@ const requestResolver = {
         }
       }
 
-      const mailOptions = {
-        // from: `${process.env.EMAIL_USER}`,
-        to: `${notifyReceiverEmail}`,
-        subject: "Request canceled",
-        html: `Пользователь <span style='color:#545873'>${user.name}</span> отменил заявку <span style='color:#545873'>№${canceledRequest.requestNumber}</span>`
-      }
-
-      const cancelRequestEmailReceiverAllowed =
-        (await AllowedEmailNotification(user, "cancel_request")) &&
-        shouldSendNotification({
-          channel: "email",
-          action: "cancel_request",
-          entityType: "request",
-          entityId: canceledRequest.id,
-          recipientId: notifyReceiverEmail
-        }).allowed
-
-      if (cancelRequestEmailReceiverAllowed) {
-        await sendEmail(mailOptions)
-      }
+      const cancelDoneEmail = buildCancelRequestDoneEmail({
+        requestNumber: canceledRequest.requestNumber
+      })
+      await sendRequestPartyEmail({
+        actor: user,
+        airlineId: request.airlineId,
+        action: "cancel_request",
+        subject: cancelDoneEmail.subject,
+        html: cancelDoneEmail.html,
+        entityType: "request",
+        entityId: canceledRequest.id,
+        dispatcherFallbackTo: "EMAIL_RECEIVER"
+      })
 
       await logAction({
         context,
@@ -1441,6 +1410,40 @@ const requestResolver = {
       return await prisma.hotel.findUnique({
         where: { id: parent.hotelId }
       })
+    },
+    requestHotelPrice: async (parent) => {
+      if (!parent.requestHotelPrice) return null
+      if (!parent.hotelId) {
+        return { ...parent.requestHotelPrice, breakfastIncluded: false }
+      }
+      const hotel =
+        parent.hotel?.breakfastIncluded !== undefined
+          ? parent.hotel
+          : await prisma.hotel.findUnique({
+              where: { id: parent.hotelId },
+              select: { breakfastIncluded: true }
+            })
+      return {
+        ...parent.requestHotelPrice,
+        breakfastIncluded: Boolean(hotel?.breakfastIncluded)
+      }
+    },
+    requestAirlinePrice: async (parent) => {
+      if (!parent.requestAirlinePrice) return null
+      if (!parent.hotelId) {
+        return { ...parent.requestAirlinePrice, breakfastIncluded: false }
+      }
+      const hotel =
+        parent.hotel?.breakfastIncluded !== undefined
+          ? parent.hotel
+          : await prisma.hotel.findUnique({
+              where: { id: parent.hotelId },
+              select: { breakfastIncluded: true }
+            })
+      return {
+        ...parent.requestAirlinePrice,
+        breakfastIncluded: Boolean(hotel?.breakfastIncluded)
+      }
     },
     // Получение первой записи hotelChess, связанной с данной заявкой.
     hotelChess: async (parent) => {

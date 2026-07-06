@@ -62,7 +62,7 @@ function getActionFieldMap(channel) {
   return SITE_PUSH_ACTION_TO_MENU_FIELD
 }
 
-function isActionEnabledInMenu(menu, action, channel) {
+export function isActionEnabledInMenu(menu, action, channel) {
   const legacyField = LEGACY_ACTION_TO_MENU_FIELD[action]
   const legacyValue = menu?.[legacyField]
   if (legacyValue === false) return false
@@ -75,6 +75,77 @@ function isActionEnabledInMenu(menu, action, channel) {
   if (typeof channelValue === "boolean") return channelValue
 
   return true
+}
+
+export function normalizeEmail(email) {
+  if (email == null || typeof email !== "string") return ""
+  return email.trim().toLowerCase()
+}
+
+export function dedupeDepartmentRecipients(departments) {
+  const seen = new Set()
+  const recipients = []
+
+  for (const dept of departments) {
+    const normalized = normalizeEmail(dept.email)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    recipients.push({
+      departmentId: dept.id,
+      email: dept.email.trim()
+    })
+  }
+
+  return recipients
+}
+
+function filterDepartmentsForEmail(departments, action) {
+  return departments.filter((dept) => {
+    const trimmed = dept.email?.trim()
+    if (!trimmed) return false
+    return isActionEnabledInMenu(dept.notificationMenu, action, "email")
+  })
+}
+
+export async function getDispatcherDepartmentsForEmail(action) {
+  const departments = await prisma.dispatcherDepartment.findMany({
+    where: { active: true, email: { not: null } },
+    select: { id: true, email: true, notificationMenu: true }
+  })
+
+  return filterDepartmentsForEmail(departments, action)
+}
+
+export async function getUniqueDispatcherEmailRecipients(action) {
+  const departments = await getDispatcherDepartmentsForEmail(action)
+  return dedupeDepartmentRecipients(departments)
+}
+
+export async function getAirlineDepartmentsForEmail(
+  action,
+  airlineId,
+  { departmentId } = {}
+) {
+  const where = { active: true, airlineId, email: { not: null } }
+  if (departmentId) where.id = departmentId
+
+  const departments = await prisma.airlineDepartment.findMany({
+    where,
+    select: { id: true, email: true, notificationMenu: true }
+  })
+
+  return filterDepartmentsForEmail(departments, action)
+}
+
+export async function getUniqueAirlineEmailRecipients(
+  action,
+  airlineId,
+  { departmentId } = {}
+) {
+  const departments = await getAirlineDepartmentsForEmail(action, airlineId, {
+    departmentId
+  })
+  return dedupeDepartmentRecipients(departments)
 }
 
 export function getDisabledActionsFromMenu(menu) {
@@ -120,9 +191,10 @@ export async function AllowedSiteNotification(subject, action) {
 }
 
 /**
- * Проверяет, нужно ли отправлять email (диспетчерам и отделам авиакомпаний).
- * Возвращает true, если хотя бы один активный отдел диспетчеров ИЛИ
- * отдел авиакомпании имеет данный тип уведомления включённым в NotificationMenu.
+ * Проверяет, разрешено ли инициатору действия email-уведомление по меню его отдела.
+ * Для рассылки по отделам диспетчеров/авиакомпаний используйте getUniqueDispatcherEmailRecipients
+ * и getUniqueAirlineEmailRecipients — они фильтруют по NotificationMenu каждого получателя.
+ * @param {object} subject - пользователь (id)
  * @param {string} action - тип действия (create_request, extend_request, и т.д.)
  * @returns {Promise<boolean>}
  */

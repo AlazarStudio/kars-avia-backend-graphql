@@ -1,5 +1,9 @@
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
+import {
+  isHotelPreviewFilePathAllowed,
+  loadHotelPreviewDataForFileAccess
+} from "../hotel/hotelPreviewLink.js"
 
 function normalizeRelativePath(filePath) {
   let p = filePath.replace(/^\/+/, "").replace(/\\/g, "/")
@@ -79,7 +83,7 @@ async function checkReportFileAccess(context, normalizedPath) {
  * reports — см. checkReportFileAccess.
  */
 export async function checkFileAccess(context, filePath) {
-  const { subject } = context
+  const { subject, subjectType } = context
 
   if (!subject) {
     return false
@@ -87,6 +91,20 @@ export async function checkFileAccess(context, filePath) {
 
   const normalized = normalizeRelativePath(filePath)
   const first = normalized.split("/")[0]
+
+  if (subjectType === "HOTEL_PREVIEW") {
+    if (first === "reports" || first === "reserve_files") {
+      return false
+    }
+    if (first === "uploads") {
+      const hotel = await loadHotelPreviewDataForFileAccess(subject.hotelId)
+      if (!hotel?.active) {
+        return false
+      }
+      return isHotelPreviewFilePathAllowed(hotel, normalized)
+    }
+    return false
+  }
 
   if (first === "reports") {
     return checkReportFileAccess(context, normalized)

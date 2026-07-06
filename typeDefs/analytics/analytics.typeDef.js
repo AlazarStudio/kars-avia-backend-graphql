@@ -273,9 +273,7 @@ const analyticsTypeDef = /* GraphQL */ `
     analyticsDispatchersPerformance(
       input: DispatchersAnalyticsInput!
     ): DispatchersAnalyticsResult!
-    airlineAnalytics(
-      input: AirlineAnalyticsInput!
-    ): AirlineAnalyticsResult!
+    airlineAnalytics(input: AirlineAnalyticsInput!): AirlineAnalyticsResult!
   }
 `
 

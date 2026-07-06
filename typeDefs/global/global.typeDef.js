@@ -50,6 +50,7 @@ const globalTypeDef = /* GraphQL */ `
     index: String
     email: String
     number: String
+    additionalNumbers: [String]
     inn: String
     ogrn: String
     rs: String
@@ -66,6 +67,7 @@ const globalTypeDef = /* GraphQL */ `
     index: String
     email: String
     number: String
+    additionalNumbers: [String]
     inn: String
     ogrn: String
     rs: String
@@ -156,6 +158,16 @@ const globalTypeDef = /* GraphQL */ `
     dinner: Float
   }
 
+  type HotelTransferPrice {
+    arrival: Float
+    departure: Float
+  }
+
+  input HotelTransferPriceInput {
+    arrival: Float
+    departure: Float
+  }
+
   # Тип прайс-листа (ценовой набор)
   type Price {
     priceApartment: Float
@@ -212,12 +224,31 @@ const globalTypeDef = /* GraphQL */ `
     dinner: Int
   }
 
+  type PriceGeography {
+    country: String
+    region: String
+    city: String
+    cityId: ID
+    cityRef: City
+    regionId: ID
+    regionRef: Region
+  }
+
+  input PriceGeographyInput {
+    country: String
+    region: String
+    cityId: ID
+    regionId: ID
+  }
+
   # Новый тип тарифного договора для авиакомпании
   type AirlinePrice {
     id: ID!
     prices: Price
     mealPrice: MealPrice
     name: String
+    geography: [PriceGeography!]!
+    individual: Boolean!
     airports: [AirportOnAirlinePrice]
     priceCategory: PriceCategory
   }
@@ -228,7 +259,9 @@ const globalTypeDef = /* GraphQL */ `
     prices: PriceInput
     mealPrice: MealPriceInput
     name: String
-    airportIds: [ID!] # список id аэропортов, к которым применяется договор
+    geography: [PriceGeographyInput!]
+    individual: Boolean
+    airportIds: [ID!]
   }
 
   # Новый тип для связи аэропортов с тарифом авиакомпании
@@ -246,6 +279,8 @@ const globalTypeDef = /* GraphQL */ `
     threeSeater: TransferRoutePrices
     fiveSeater: TransferRoutePrices
     sevenSeater: TransferRoutePrices
+    twentySeater: TransferRoutePrices
+    fiftySeater: TransferRoutePrices
   }
 
   type TransferPrice {
@@ -270,6 +305,8 @@ const globalTypeDef = /* GraphQL */ `
     threeSeater: TransferRoutePricesInput
     fiveSeater: TransferRoutePricesInput
     sevenSeater: TransferRoutePricesInput
+    twentySeater: TransferRoutePricesInput
+    fiftySeater: TransferRoutePricesInput
   }
 
   input TransferPriceInput {
@@ -285,6 +322,7 @@ const globalTypeDef = /* GraphQL */ `
     breakfast: Float
     lunch: Float
     dinner: Float
+    breakfastIncluded: Boolean
   }
 
   type File {

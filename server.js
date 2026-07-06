@@ -1,4 +1,5 @@
 import "./load-env.js"
+import { createRequire } from "module"
 import fs from "fs"
 import cors from "cors"
 import http from "http"
@@ -19,8 +20,15 @@ import mergedResolvers from "./resolvers/resolvers.js"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import {
   startArchivingJob,
-  stopArchivingJob
+  startPresenceCleanupJob,
+  stopArchivingJob,
+  stopPresenceCleanupJob
 } from "./services/cron/cronTasks.js"
+import {
+  startContractArchivingJob,
+  stopContractArchivingJob
+} from "./services/cron/contractArchiving.js"
+import { touchLastSeenForContext } from "./services/user/userPresence.js"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import { getCorsOptions } from "./services/infra/corsOptions.js"
@@ -33,6 +41,8 @@ import {
 } from "./services/infra/pubsub.js"
 
 assertSubscriptionPubSubConfig()
+const require = createRequire(import.meta.url)
+const { version: appVersion } = require("./package.json")
 const app = express()
 
 /* =========================
@@ -45,6 +55,7 @@ app.get("/health", async (req, res) => {
 
     res.status(200).json({
       status: "ok",
+      version: appVersion,
       uptime: process.uptime(),
       timestamp: Date.now(),
       env: process.env.NODE_ENV || "development"
@@ -80,7 +91,9 @@ const schema = makeExecutableSchema({
 
 async function buildGraphqlContext(req) {
   try {
-    return await buildAuthContext(req.headers.authorization || null)
+    const context = await buildAuthContext(req.headers.authorization || null)
+    touchLastSeenForContext(context)
+    return context
   } catch (e) {
     if (isAuthError(e)) {
       throw new GraphQLError("Unauthorized", {
@@ -169,6 +182,7 @@ const serverCleanup = useServer(
         } subjectId=${context.subject?.id || "-"}`
       )
 
+      touchLastSeenForContext(context)
       return context
     },
 
@@ -207,7 +221,11 @@ const server = new ApolloServer({
   csrfPrevention: {
     // Разрешаем multipart upload-клиентам с JWT в Authorization работать
     // при включенной CSRF-защите Apollo.
-    requestHeaders: ["authorization", "x-apollo-operation-name", "apollo-require-preflight"]
+    requestHeaders: [
+      "authorization",
+      "x-apollo-operation-name",
+      "apollo-require-preflight"
+    ]
   },
   cache: "bounded",
   plugins: [
@@ -227,6 +245,8 @@ const server = new ApolloServer({
 })
 
 startArchivingJob()
+startContractArchivingJob()
+startPresenceCleanupJob()
 await server.start()
 
 /* =========================
@@ -240,14 +260,18 @@ app.use("/graphql", (req, res, next) => {
     const contentType = req.headers["content-type"] || ""
     const isMultipart = String(contentType).includes("multipart/form-data")
     const operationName =
-      req.headers["x-apollo-operation-name"] || req.headers["apollo-operation-name"] || "unknown"
+      req.headers["x-apollo-operation-name"] ||
+      req.headers["apollo-operation-name"] ||
+      "unknown"
     const hasCsrfHeaders =
       Boolean(req.headers.authorization) ||
       Boolean(req.headers["apollo-require-preflight"]) ||
       Boolean(req.headers["x-apollo-operation-name"])
 
     if (isMultipart) {
-      logger.info(`[GRAPHQL UPLOAD] multipart request operation=${operationName}`)
+      logger.info(
+        `[GRAPHQL UPLOAD] multipart request operation=${operationName}`
+      )
     }
 
     if (isMultipart && !hasCsrfHeaders) {
@@ -311,6 +335,8 @@ const shutdown = async (signal) => {
   try {
     // 1. Останавливаем cron
     stopArchivingJob()
+    stopContractArchivingJob()
+    stopPresenceCleanupJob()
     logger.info("[SHUTDOWN] Cron stopped")
 
     // 2. Закрываем WebSocket-сервер

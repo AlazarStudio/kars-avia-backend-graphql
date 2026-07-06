@@ -127,6 +127,10 @@ const airlineTypeDef = /* GraphQL */ `
     all: Boolean
   }
 
+  input AirlineFilter {
+    search: String
+  }
+
   type AirlineConnection {
     totalPages: Int!
     totalCount: Int!
@@ -134,7 +138,10 @@ const airlineTypeDef = /* GraphQL */ `
   }
 
   type Query {
-    airlines(pagination: AirlinePaginationInput): AirlineConnection!
+    airlines(
+      pagination: AirlinePaginationInput
+      filter: AirlineFilter
+    ): AirlineConnection!
     airline(id: ID!): Airline
     airlineStaff(id: ID!): AirlinePersonal
     airlineStaffs(id: ID!): [AirlinePersonal]

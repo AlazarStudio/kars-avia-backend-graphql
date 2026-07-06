@@ -22,6 +22,10 @@ import {
   buildPositionWhere,
   aggregateRequestReports
 } from "../../services/report/reportUtils.js"
+import {
+  buildPriceSearchLocation,
+  resolvePriceByHotelLocation
+} from "../../services/airline/resolvePriceByHotelLocation.js"
 
 const reportResolver = {
   Query: {
@@ -184,7 +188,11 @@ const reportResolver = {
             person: { include: { position: true } },
             hotelChess: { include: { room: true } },
             hotel: true,
-            airline: { include: { prices: { include: { airports: true } } } },
+            airline: {
+              include: {
+                prices: { include: { airports: true, geography: true } }
+              }
+            },
             mealPlan: true,
             airport: true
           },
@@ -193,39 +201,54 @@ const reportResolver = {
 
         const company = await prisma.airline.findUnique({
           where: { id: filter.airlineId },
-          include: { prices: { include: { airports: true } } }
+          include: { prices: { include: { airports: true, geography: true } } }
         })
 
-        const airlinePrices = company?.prices
+        const firstRequestWithHotel = requests.find((r) => r.hotel)
+        const reportHotel = firstRequestWithHotel?.hotel
+        let reportAirport = firstRequestWithHotel?.airport || null
+        if (filter.airportId) {
+          reportAirport = await prisma.airport.findUnique({
+            where: { id: filter.airportId }
+          })
+        }
 
-        let airlinePriceId = null
+        const hotelLocation = await buildPriceSearchLocation(
+          reportHotel,
+          reportAirport
+        )
 
-        for (const contract of airlinePrices) {
-          if (contract.airports && contract.airports.length > 0) {
-            const match = contract.airports.find(
-              (item) => item.airportId && item.airportId === filter.airportId
+        for (const request of requests) {
+          request._reportAirportId = filter.airportId || null
+          request._skipCountryLevel = true
+
+          if (request.hotel || request.airport || reportAirport) {
+            request._priceSearchLocation = await buildPriceSearchLocation(
+              request.hotel,
+              request.airport || reportAirport
             )
-            if (match) {
-              airlinePriceId = contract.id
-            }
           }
         }
 
-        if (airlinePriceId === null) {
+        const contract = resolvePriceByHotelLocation({
+          airlinePrices: company?.prices,
+          hotelLocation,
+          airportId:
+            filter.airportId ||
+            firstRequestWithHotel?.airport?.id ||
+            reportHotel?.airportId ||
+            null,
+          skipCountryLevel: true
+        })
+
+        if (!contract) {
           throw new Error("Airline has no prices")
         }
-
-        const contract = await prisma.airlinePrice.findUnique({
-          where: { id: airlinePriceId }
-        })
-        const city = await prisma.airport.findUnique({
-          where: { id: filter.airportId }
-        })
 
         companyData = {
           name: company.name,
           nameFull: company.nameFull,
-          city: city.city,
+          city: hotelLocation.city || reportAirport?.city || "",
           contractName: contract.name
         }
 
@@ -327,7 +350,11 @@ const reportResolver = {
             person: { include: { position: true } },
             hotelChess: { include: { room: { include: { roomKind: true } } } },
             hotel: true,
-            airline: { include: { prices: { include: { airports: true } } } },
+            airline: {
+              include: {
+                prices: { include: { airports: true, geography: true } }
+              }
+            },
             mealPlan: true,
             airport: true
           },

@@ -33,6 +33,27 @@ const buildUploadPath = ({ bucket, entityId }) => {
   return parts
 }
 
+export const uploadBuffer = async (buffer, filename, options = {}) => {
+  const { bucket = "misc", entityId = null } = options
+
+  const { name, ext } = path.parse(filename || "file")
+  const safeName = safeSlug(name)
+  const timestamp = Date.now()
+
+  const relParts = buildUploadPath({ bucket, entityId })
+  const absDir = path.join(process.cwd(), ...relParts)
+
+  ensureDir(absDir)
+
+  const finalName = `${timestamp}-${safeName}${ext}`
+  const absPath = path.join(absDir, finalName)
+
+  await fsPromises.writeFile(absPath, buffer)
+
+  const relativePath = path.posix.join(...relParts, finalName)
+  return "/files/" + relativePath
+}
+
 /* =========================
    📁 uploadFiles
 ========================= */
@@ -75,12 +96,36 @@ export const uploadFiles = async (file, options = {}) => {
 }
 
 /* =========================
+   📍 resolveAbsoluteFilePath
+========================= */
+
+export const resolveAbsoluteFilePath = (filePath) => {
+  if (!filePath) {
+    throw new Error("filePath is required")
+  }
+
+  let relative = String(filePath).trim().replace(/\\/g, "/")
+
+  if (relative.startsWith("/files/")) {
+    relative = relative.slice("/files/".length)
+  } else if (relative.startsWith("files/")) {
+    relative = relative.slice("files/".length)
+  }
+
+  if (relative.startsWith("/")) {
+    relative = relative.slice(1)
+  }
+
+  return path.join(process.cwd(), relative)
+}
+
+/* =========================
    🗑 deleteFiles
 ========================= */
 
 export const deleteFiles = async (filePath) => {
-  const absolutePath = path.join(process.cwd(), filePath)
   try {
+    const absolutePath = resolveAbsoluteFilePath(filePath)
     await fsPromises.unlink(absolutePath)
   } catch (error) {
     logger.error("[DELETE FILE ERROR]", error)

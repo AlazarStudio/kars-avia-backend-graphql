@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { uploadImage, deleteImage } from "../../services/files/uploadImage.js"
 import logAction from "../../services/infra/logaction.js"
+import { assertAirlinePositionForUser } from "../../services/position/positionAccess.js"
 import {
   adminHotelAirMiddleware,
   adminMiddleware,
@@ -27,7 +28,11 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import { sendEmail } from "../../services/sendMail.js"
 import { logger } from "../../services/infra/logger.js"
-import { buildClosedSessionStats } from "../../services/user/userActivity.js"
+import {
+  buildOfflineUpdateData,
+  buildOnlineRestoreData,
+  resolveUserOnlineStatus
+} from "../../services/user/userPresence.js"
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 import { signInUser } from "../../services/auth/signInUser.js"
 import {
@@ -44,80 +49,7 @@ import {
   sendAccountCreatedByAdminEmail,
   sendPasswordChangedNotificationEmail
 } from "../../services/email/sendAuthEmails.js"
-
-const buildOfflineUpdateData = ({ currentUser, now }) => {
-  const { addedMinutes, nextDailyStats } = buildClosedSessionStats({
-    sessionStartedAt: currentUser?.sessionStartedAt,
-    currentDailyStats: currentUser?.dailyTimeStats || [],
-    now
-  })
-
-  return {
-    isOnline: false,
-    sessionStartedAt: null,
-    lastSeen: now,
-    totalTimeMinutes: (currentUser?.totalTimeMinutes || 0) + addedMinutes,
-    dailyTimeStats: nextDailyStats
-  }
-}
-
-const ACCESS_MENU_KEYS = [
-  "requestMenu",
-  "requestCreate",
-  "requestUpdate",
-  "requestChat",
-  "transferMenu",
-  "transferCreate",
-  "transferUpdate",
-  "transferChat",
-  "personalMenu",
-  "personalCreate",
-  "personalUpdate",
-  "reserveMenu",
-  "reserveCreate",
-  "reserveUpdate",
-  "analyticsMenu",
-  "analyticsUpload",
-  "reportMenu",
-  "reportCreate",
-  "userMenu",
-  "userCreate",
-  "userUpdate",
-  "airlineMenu",
-  "airlineUpdate",
-  "contracts",
-  "contractCreate",
-  "contractUpdate",
-  "organizationMenu",
-  "organizationCreate",
-  "organizationUpdate",
-  "organizationAddDrivers",
-  "organizationAcceptDrivers"
-]
-
-const hasOwn = (obj, key) =>
-  Object.prototype.hasOwnProperty.call(obj || {}, key)
-
-const resolveEffectiveAccessMenu = ({ departmentAccessMenu, positionAccessMenu }) => {
-  if (!departmentAccessMenu && !positionAccessMenu) {
-    return null
-  }
-
-  const merged = {}
-
-  for (const key of ACCESS_MENU_KEYS) {
-    if (hasOwn(positionAccessMenu, key) && positionAccessMenu[key] !== undefined) {
-      merged[key] = positionAccessMenu[key]
-      continue
-    }
-
-    if (hasOwn(departmentAccessMenu, key)) {
-      merged[key] = departmentAccessMenu[key]
-    }
-  }
-
-  return merged
-}
+import { loadEffectiveAccessMenuForUser } from "../../services/access/loadEffectiveAccessMenuForUser.js"
 
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
@@ -359,6 +291,10 @@ const userResolver = {
         }
       }
 
+      if (positionId) {
+        await assertAirlinePositionForUser(prisma, positionId, airlineId)
+      }
+
       // Хэширование пароля с помощью argon2
       const hashedPassword = await argon2.hash(password)
 
@@ -374,7 +310,10 @@ const userResolver = {
 
       if (existingUser) {
         const existingLoginNorm = normalizeUserLogin(existingUser.login)
-        if (existingUser.email === email && existingLoginNorm === loginNormalized) {
+        if (
+          existingUser.email === email &&
+          existingLoginNorm === loginNormalized
+        ) {
           throw new Error(
             "Пользователь с таким email и логином уже существует",
             "USER_EXISTS"
@@ -449,7 +388,8 @@ const userResolver = {
         await sendAccountCreatedByAdminEmail({
           to: createdData.email,
           name: createdData.name,
-          login: createdData.login
+          login: createdData.login,
+          password
         })
       } catch (error) {
         console.error("Ошибка при отправке письма:", error)
@@ -603,7 +543,18 @@ const userResolver = {
           updatedData.userType = userType
         }
       }
-      if (positionId !== undefined) updatedData.positionId = positionId
+      if (positionId !== undefined) {
+        const targetAirlineId =
+          airlineId !== undefined ? airlineId : currentUser.airlineId
+        if (positionId !== null) {
+          await assertAirlinePositionForUser(
+            prisma,
+            positionId,
+            targetAirlineId
+          )
+        }
+        updatedData.positionId = positionId
+      }
       if (hotelId !== undefined) updatedData.hotelId = hotelId
       if (airlineId !== undefined) updatedData.airlineId = airlineId
       // dispatcherDepartment, representativeDepartment и airlineDepartment взаимоисключающие
@@ -914,11 +865,10 @@ const userResolver = {
 
       const updatedUser = await prisma.user.update({
         where: { id: context.user.id },
-        data: {
-          isOnline: true,
-          lastSeen: now,
-          sessionStartedAt: currentUser?.sessionStartedAt || now
-        }
+        data: buildOnlineRestoreData({
+          sessionStartedAt: currentUser?.sessionStartedAt,
+          now
+        })
       })
 
       pubsub.publish(USER_ONLINE, { userOnline: updatedUser })
@@ -963,6 +913,13 @@ const userResolver = {
         throw new Error("Access forbidden")
       }
 
+      const deactivateData = {
+        active: false,
+        airlineDepartmentId: null,
+        dispatcherDepartmentId: null,
+        representativeDepartmentId: null
+      }
+
       // Если пользователь привязан к авиакомпании – проверяем права авиадминистратора
       if (userForDelete.airlineId) {
         await airlineAdminMiddleware(context)
@@ -973,9 +930,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
 
@@ -989,9 +944,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
 
@@ -1005,9 +958,7 @@ const userResolver = {
         }
         return await prisma.user.update({
           where: { id },
-          data: {
-            active: false
-          }
+          data: deactivateData
         })
       }
     }
@@ -1083,27 +1034,19 @@ const userResolver = {
       return null
     },
     online: async (parent) => {
-      if (typeof parent.isOnline === "boolean") {
-        return parent.isOnline
+      let isOnline = parent.isOnline
+      let lastSeen = parent.lastSeen
+
+      if (typeof isOnline !== "boolean" || lastSeen === undefined) {
+        const user = await prisma.user.findUnique({
+          where: { id: parent.id },
+          select: { isOnline: true, lastSeen: true }
+        })
+        isOnline = user?.isOnline
+        lastSeen = user?.lastSeen
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: parent.id },
-        select: { isOnline: true, lastSeen: true }
-      })
-
-      if (user?.isOnline) return true
-      if (!user?.lastSeen) return false
-
-      const lastSeenDate =
-        user.lastSeen instanceof Date ? user.lastSeen : new Date(user.lastSeen)
-
-      const now = new Date()
-
-      const fiveMinutesInMs = 5 * 60 * 1000
-      const lastSeenPlus5 = new Date(lastSeenDate.getTime() + fiveMinutesInMs)
-
-      return now <= lastSeenPlus5
+      return resolveUserOnlineStatus({ isOnline, lastSeen })
     },
     dailyTimeStats: (parent) => {
       if (!Array.isArray(parent.dailyTimeStats)) return []
@@ -1122,30 +1065,31 @@ const userResolver = {
       return null
     },
     effectiveAccessMenu: async (parent) => {
-      if (!parent.airlineDepartmentId) {
+      const hasDepartment =
+        parent.airlineDepartmentId ||
+        parent.dispatcherDepartmentId ||
+        parent.representativeDepartmentId
+
+      if (!hasDepartment && !parent.positionId) {
         return null
       }
 
-      const department = await prisma.airlineDepartment.findUnique({
-        where: { id: parent.airlineDepartmentId },
-        select: { accessMenu: true }
-      })
-
-      let positionAccessMenu = null
-      if (parent.positionId) {
-        const positionOnDepartment = await prisma.positionOnDepartment.findFirst({
-          where: {
-            airlineDepartmentId: parent.airlineDepartmentId,
-            positionId: parent.positionId
-          },
+      let accessMenu = parent.accessMenu
+      if (accessMenu === undefined && parent.id) {
+        const row = await prisma.user.findUnique({
+          where: { id: parent.id },
           select: { accessMenu: true }
         })
-        positionAccessMenu = positionOnDepartment?.accessMenu || null
+        accessMenu = row?.accessMenu
       }
 
-      return resolveEffectiveAccessMenu({
-        departmentAccessMenu: department?.accessMenu || null,
-        positionAccessMenu
+      return loadEffectiveAccessMenuForUser(prisma, {
+        id: parent.id,
+        airlineDepartmentId: parent.airlineDepartmentId,
+        dispatcherDepartmentId: parent.dispatcherDepartmentId,
+        representativeDepartmentId: parent.representativeDepartmentId,
+        positionId: parent.positionId,
+        accessMenu: accessMenu ?? null
       })
     }
   }

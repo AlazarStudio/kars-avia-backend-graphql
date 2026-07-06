@@ -1,6 +1,7 @@
 const passengerRequestTypeDef = /* GraphQL */ `
   #graphql
   scalar Date
+  scalar Upload
 
   enum PassengerRequestStatus {
     CREATED
@@ -26,6 +27,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     MEAL
     LIVING
     TRANSFER
+    DEPARTURE_TRANSFER
+    INTERCITY_TRANSFER
     BAGGAGE_DELIVERY
   }
 
@@ -35,6 +38,29 @@ const passengerRequestTypeDef = /* GraphQL */ `
   enum PassengerWaterFoodKind {
     WATER
     MEAL
+  }
+
+  """
+  Тип персоны: пассажир или член экипажа
+  """
+  enum PassengerPersonType {
+    PASSENGER
+    CREW
+  }
+
+  enum PassengerPersonCategory {
+    ADULT
+    CHILD
+    INFANT
+  }
+
+  """
+  Направление трансфера
+  """
+  enum TransferDirection {
+    ARRIVAL
+    DEPARTURE
+    INTERCITY
   }
 
   type PassengerStatusTimes {
@@ -53,7 +79,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerServicePerson {
+    personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     issuedAt: Date
     phone: String
     seat: String
@@ -69,6 +97,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerServiceHotelPerson {
+    personId: ID
     fullName: String!
     phone: String
     roomNumber: String
@@ -76,6 +105,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     departure: Date
     roomCategory: String
     roomKind: String
+    personType: PassengerPersonType!
+    personCategory: PassengerPersonCategory
+    airlinePersonalId: ID
     accommodationChesses: [PassengerAccommodationChess!]!
   }
 
@@ -108,8 +140,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerServiceDriverPerson {
+    personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     phone: String
+    personType: PassengerPersonType!
+    airlinePersonalId: ID
   }
 
   type PassengerServiceDriver {
@@ -123,6 +159,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressTo: String
     description: String
     deliveryCompletedAt: Date
+    vehicleType: String
+    reportCost: Float
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -152,10 +190,35 @@ const passengerRequestTypeDef = /* GraphQL */ `
     linkPWA: String
   }
 
+  type PassengerRequestCrewMember {
+    airlinePersonalId: ID
+    fullName: String!
+    position: String
+    gender: String
+    phone: String
+  }
+
+  """
+  Пассажир в каталоге заявки (для повторного выбора после скана/добавления)
+  """
+  type PassengerRequestSavedPerson {
+    personId: ID!
+    fullName: String!
+    phone: String
+    seat: String
+    personType: PassengerPersonType!
+    personCategory: PassengerPersonCategory
+    airlinePersonalId: ID
+    addedAt: Date!
+  }
+
   type PassengerRequest {
     id: ID!
     createdAt: Date!
     updatedAt: Date!
+
+    "Уникальный человекочитаемый номер заявки ФАП, формата {seq4}{airportCode}{MM}{YY}f"
+    requestNumber: String
 
     airlineId: ID!
     airline: Airline!
@@ -170,10 +233,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     plannedPassengersCount: Int
 
+    includesCrew: Boolean!
+    includesPassengers: Boolean!
+    crewMembers: [PassengerRequestCrewMember!]!
+    savedPassengers: [PassengerRequestSavedPerson!]!
+    files: [String]
+
     waterService: PassengerWaterFoodService
     mealService: PassengerWaterFoodService
     livingService: PassengerLivingService
     transferService: PassengerTransferService
+    departureTransferService: PassengerTransferService
+    intercityTransferService: PassengerTransferService
     baggageDeliveryService: PassengerTransferService
 
     status: PassengerRequestStatus!
@@ -264,13 +335,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   input PassengerServicePersonInput {
+    personId: ID
     fullName: String!
+    personCategory: PassengerPersonCategory
     issuedAt: Date
     phone: String
     seat: String
   }
 
   input PassengerServiceHotelPersonInput {
+    personId: ID
     fullName: String!
     phone: String
     roomNumber: String
@@ -278,6 +352,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     departure: Date
     roomCategory: String
     roomKind: String
+    personType: PassengerPersonType
+    personCategory: PassengerPersonCategory
+    airlinePersonalId: ID
   }
 
   input PassengerServiceHotelInput {
@@ -290,8 +367,29 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   input PassengerServiceDriverPersonInput {
+    personId: ID
+    fullName: String!
+    personCategory: PassengerPersonCategory
+    phone: String
+    personType: PassengerPersonType
+    airlinePersonalId: ID
+  }
+
+  input PassengerRequestCrewMemberInput {
+    airlinePersonalId: ID
+    fullName: String!
+    position: String
+    gender: String
+    phone: String
+  }
+
+  input PassengerRequestSavedPersonInput {
     fullName: String!
     phone: String
+    seat: String
+    personType: PassengerPersonType
+    personCategory: PassengerPersonCategory
+    airlinePersonalId: ID
   }
 
   input PassengerServiceDriverInput {
@@ -303,6 +401,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressFrom: String
     addressTo: String
     description: String
+  }
+
+  input PassengerServiceDriverPatchInput {
+    pickupAt: Date
+    vehicleType: String
+    reportCost: Float
   }
 
   input PassengerRequestHotelReportRowInput {
@@ -327,10 +431,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     routeTo: String
     plannedPassengersCount: Int
 
+    includesCrew: Boolean
+    includesPassengers: Boolean
+    crewMembers: [PassengerRequestCrewMemberInput!]
+
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    departureTransferService: PassengerTransferServiceInput
+    intercityTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
 
     status: PassengerRequestStatus
@@ -351,10 +461,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plannedPassengersCount: Int
     status: PassengerRequestStatus
 
+    includesCrew: Boolean
+    includesPassengers: Boolean
+    crewMembers: [PassengerRequestCrewMemberInput!]
+
     waterService: PassengerWaterFoodServiceInput
     mealService: PassengerWaterFoodServiceInput
     livingService: PassengerLivingServiceInput
     transferService: PassengerTransferServiceInput
+    departureTransferService: PassengerTransferServiceInput
+    intercityTransferService: PassengerTransferServiceInput
     baggageDeliveryService: PassengerBaggageDeliveryServiceInput
   }
 
@@ -371,6 +487,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
   type Mutation {
     createPassengerRequest(
       input: PassengerRequestCreateInput!
+      files: [Upload!]
+    ): PassengerRequest!
+
+    addPassengerRequestFiles(
+      requestId: ID!
+      files: [Upload!]!
+    ): PassengerRequest!
+
+    removePassengerRequestFile(
+      requestId: ID!
+      filePath: String!
     ): PassengerRequest!
     updatePassengerRequest(
       id: ID!
@@ -381,6 +508,39 @@ const passengerRequestTypeDef = /* GraphQL */ `
     setPassengerRequestStatus(
       id: ID!
       status: PassengerRequestStatus!
+    ): PassengerRequest!
+
+    """
+    Заменить ростер экипажа заявки (выбранные сотрудники).
+    """
+    updatePassengerRequestCrew(
+      requestId: ID!
+      crewMembers: [PassengerRequestCrewMemberInput!]!
+    ): PassengerRequest!
+
+    addPassengerRequestSavedPerson(
+      requestId: ID!
+      person: PassengerRequestSavedPersonInput!
+    ): PassengerRequest!
+
+    updatePassengerRequestSavedPerson(
+      requestId: ID!
+      personId: ID!
+      person: PassengerRequestSavedPersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestSavedPerson(
+      requestId: ID!
+      personId: ID!
+    ): PassengerRequest!
+
+    """
+    Пакетно добавить людей в каталог заявки (импорт манифеста).
+    Дедуп по нормализованному ФИО, жадный 1:1.
+    """
+    addPassengerRequestSavedPeople(
+      requestId: ID!
+      people: [PassengerRequestSavedPersonInput!]!
     ): PassengerRequest!
 
     cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
@@ -397,6 +557,28 @@ const passengerRequestTypeDef = /* GraphQL */ `
       person: PassengerServicePersonInput!
     ): PassengerRequest!
 
+    """
+    Пакетное добавление пассажиров в воду/питание (выбор из каталога заявки).
+    """
+    addPassengerRequestPeople(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      people: [PassengerServicePersonInput!]!
+    ): PassengerRequest!
+
+    updatePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
+      person: PassengerServicePersonInput!
+    ): PassengerRequest!
+
+    removePassengerRequestPerson(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndex: Int!
+    ): PassengerRequest!
+
     addPassengerRequestHotel(
       requestId: ID!
       hotel: PassengerServiceHotelInput!
@@ -407,10 +589,25 @@ const passengerRequestTypeDef = /* GraphQL */ `
       hotelIndex: Int!
     ): PassengerRequest!
 
+    updatePassengerRequestHotel(
+      requestId: ID!
+      hotelIndex: Int!
+      hotel: PassengerServiceHotelInput!
+    ): PassengerRequest!
+
     addPassengerRequestHotelPerson(
       requestId: ID!
       hotelIndex: Int!
       person: PassengerServiceHotelPersonInput!
+    ): PassengerRequest!
+
+    """
+    Пакетное добавление пассажиров в отель (выбор из каталога заявки).
+    """
+    addPassengerRequestHotelPeople(
+      requestId: ID!
+      hotelIndex: Int!
+      people: [PassengerServiceHotelPersonInput!]!
     ): PassengerRequest!
 
     removePassengerRequestHotelPerson(
@@ -429,6 +626,19 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
+      direction: TransferDirection = ARRIVAL
+    ): PassengerRequest!
+
+    """
+    Партиал-обновление полей заявки (водителя) в услуге трансфера.
+    Сейчас покрывает только pickupAt. Другие поля добавятся вместе с UI.
+    Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
+    """
+    updatePassengerRequestDriver(
+      requestId: ID!
+      driverIndex: Int!
+      patch: PassengerServiceDriverPatchInput!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     addPassengerRequestBaggageDriver(
@@ -439,6 +649,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     removePassengerRequestDriver(
       requestId: ID!
       driverIndex: Int!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     removePassengerRequestBaggageDriver(
@@ -466,6 +677,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driverIndex: Int!
       person: PassengerServiceDriverPersonInput!
+      direction: TransferDirection = ARRIVAL
+    ): PassengerRequest!
+
+    """
+    Пакетное добавление пассажиров к водителю трансфера (выбор из каталога заявки).
+    """
+    addPassengerRequestDriverPeople(
+      requestId: ID!
+      driverIndex: Int!
+      people: [PassengerServiceDriverPersonInput!]!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     updatePassengerRequestDriverPerson(
@@ -473,12 +695,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
       driverIndex: Int!
       personIndex: Int!
       person: PassengerServiceDriverPersonInput!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     removePassengerRequestDriverPerson(
       requestId: ID!
       driverIndex: Int!
       personIndex: Int!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     completePassengerRequestWaterEarly(
@@ -499,6 +723,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     completePassengerRequestTransferEarly(
       requestId: ID!
       reason: String!
+      direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
     completePassengerRequestLivingEarly(

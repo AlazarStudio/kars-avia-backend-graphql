@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js"
+import { rethrowUnlessInternalError } from "../../services/infra/mutationError.js"
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs"
 import { uploadImage } from "../../services/files/uploadImage.js"
 import logAction from "../../services/infra/logaction.js"
@@ -15,6 +16,37 @@ import {
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
+import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
+import {
+  assertNoCrossPriceLevelConflict,
+  emptyOccupiedLevels,
+  loadOccupiedPriceGeography,
+  mergeOccupiedLevels,
+  normalizePriceGeographyList,
+  toPriceGeoCreateData
+} from "../../services/geo/normalizeGeography.js"
+import { buildAirlineWhere } from "../../services/airline/airlineFilters.js"
+
+const syncAirlinePriceGeography = async (
+  airlinePriceId,
+  geographyInput,
+  occupied
+) => {
+  await prisma.priceGeoOnAirlinePrice.deleteMany({
+    where: { airlinePriceId }
+  })
+  const list = await normalizePriceGeographyList(geographyInput ?? [])
+  assertNoCrossPriceLevelConflict(list, occupied)
+  for (const geo of list) {
+    await prisma.priceGeoOnAirlinePrice.create({
+      data: {
+        airlinePriceId,
+        ...toPriceGeoCreateData(geo)
+      }
+    })
+  }
+  return mergeOccupiedLevels(occupied, list)
+}
 
 const hasOwn = (obj, key) =>
   Object.prototype.hasOwnProperty.call(obj || {}, key)
@@ -92,41 +124,38 @@ const airlineResolver = {
   Upload: GraphQLUpload,
 
   Query: {
-    airlines: async (_, { pagination }, context) => {
+    airlines: async (_, { pagination, filter }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const { skip, take, all } = pagination || {}
-      const totalCount = await prisma.airline.count({ where: { active: true } })
+      const baseWhere = { active: true }
+      const filterWhere = buildAirlineWhere(filter)
+      const where =
+        filterWhere.AND?.length > 0
+          ? { AND: [baseWhere, ...filterWhere.AND] }
+          : baseWhere
+      const include = {
+        staff: true,
+        department: true,
+        prices: true,
+        transferPrices: {
+          include: {
+            airportOnTransferPrice: { include: { airport: true } },
+            cityOnTransferPrice: { include: { city: true } }
+          }
+        }
+      }
+      const totalCount = await prisma.airline.count({ where })
       const airlines = all
         ? await prisma.airline.findMany({
-            where: { active: true },
-            include: {
-              staff: true,
-              department: true,
-              prices: true,
-              transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
-            }
-          }
-            },
+            where,
+            include,
             orderBy: { name: "asc" }
           })
         : await prisma.airline.findMany({
-            where: { active: true },
+            where,
             skip: skip ? skip * take : undefined,
             take: take || undefined,
-            include: {
-              staff: true,
-              department: true,
-              prices: true,
-              transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
-            }
-          }
-            },
+            include,
             orderBy: { name: "asc" }
           })
       const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
@@ -188,7 +217,37 @@ const airlineResolver = {
 
       const airlinePriceData = input.prices || []
       const transferPricesData = input.transferPrices || []
-      const { prices: _prices, transferPrices: _transferPrices, ...airlineInput } = input
+      const {
+        prices: _prices,
+        transferPrices: _transferPrices,
+        ...airlineInput
+      } = input
+
+      const priceCreates = []
+      let occupied = emptyOccupiedLevels()
+      for (const priceInput of airlinePriceData) {
+        const geoList = priceInput.geography
+          ? await normalizePriceGeographyList(priceInput.geography)
+          : []
+        assertNoCrossPriceLevelConflict(geoList, occupied)
+        occupied = mergeOccupiedLevels(occupied, geoList)
+        priceCreates.push({
+          name: priceInput.name ?? "",
+          prices: priceInput.prices,
+          mealPrice: priceInput.mealPrice,
+          individual: priceInput.individual ?? false,
+          geography: {
+            create: geoList.map(toPriceGeoCreateData)
+          },
+          airports: {
+            create: priceInput.airportIds
+              ? priceInput.airportIds.map((airportId) => ({
+                  airport: { connect: { id: airportId } }
+                }))
+              : []
+          }
+        })
+      }
 
       // 1️⃣ Создаём авиакомпанию БЕЗ картинок
       const createdAirline = await prisma.airline.create({
@@ -196,20 +255,11 @@ const airlineResolver = {
           ...airlineInput,
           images: [],
           prices: {
-            create: airlinePriceData.map((priceInput) => ({
-              prices: priceInput.prices,
-              airports: {
-                create: priceInput.airportIds
-                  ? priceInput.airportIds.map((airportId) => ({
-                      airport: { connect: { id: airportId } }
-                    }))
-                  : []
-              }
-            }))
+            create: priceCreates
           },
           transferPrices: {
             create: transferPricesData.map((tp) => ({
-              name: tp.name ?? '',
+              name: tp.name ?? "",
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -325,24 +375,40 @@ const airlineResolver = {
         })
 
         if (prices) {
+          const priceIdsBeingUpdated = prices
+            .filter((p) => p.id && p.geography !== undefined)
+            .map((p) => p.id)
+
+          let occupied = await loadOccupiedPriceGeography(id, {
+            excludePriceIds: priceIdsBeingUpdated
+          })
+
           for (const priceInput of prices) {
             if (priceInput.id) {
-              // Обновляем существующий тариф
               await prisma.airlinePrice.update({
                 where: { id: priceInput.id },
                 data: {
                   name: priceInput.name,
                   prices: priceInput.prices,
-                  mealPrice: priceInput.mealPrice
+                  mealPrice: priceInput.mealPrice,
+                  ...(priceInput.individual !== undefined && {
+                    individual: priceInput.individual
+                  })
                 }
               })
 
-              // Удаляем старые связи
+              if (priceInput.geography !== undefined) {
+                occupied = await syncAirlinePriceGeography(
+                  priceInput.id,
+                  priceInput.geography,
+                  occupied
+                )
+              }
+
               await prisma.airportOnAirlinePrice.deleteMany({
                 where: { airlinePriceId: priceInput.id }
               })
 
-              // Создаём новые связи для тарифа
               if (priceInput.airportIds && priceInput.airportIds.length > 0) {
                 for (const airportId of priceInput.airportIds) {
                   await prisma.airportOnAirlinePrice.create({
@@ -355,13 +421,24 @@ const airlineResolver = {
                 }
               }
             } else {
-              // Создаем новый тариф без id
+              const geoList =
+                priceInput.geography !== undefined
+                  ? await normalizePriceGeographyList(priceInput.geography)
+                  : []
+
+              assertNoCrossPriceLevelConflict(geoList, occupied)
+              occupied = mergeOccupiedLevels(occupied, geoList)
+
               const createdPrice = await prisma.airlinePrice.create({
                 data: {
                   airlineId: id,
                   name: priceInput.name,
                   prices: priceInput.prices,
-                  mealPrice: priceInput.mealPrice
+                  mealPrice: priceInput.mealPrice,
+                  individual: priceInput.individual ?? false,
+                  geography: {
+                    create: geoList.map(toPriceGeoCreateData)
+                  }
                 }
               })
 
@@ -385,7 +462,10 @@ const airlineResolver = {
             if (tp.id) {
               await prisma.transferPrice.update({
                 where: { id: tp.id },
-                data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
+                data: {
+                  prices: tp.prices,
+                  ...(tp.name != null && { name: tp.name })
+                }
               })
               await prisma.airportOnTransferPrice.deleteMany({
                 where: { transferPriceId: tp.id }
@@ -417,7 +497,7 @@ const airlineResolver = {
               const created = await prisma.transferPrice.create({
                 data: {
                   airlineId: id,
-                  name: tp.name ?? '',
+                  name: tp.name ?? "",
                   prices: tp.prices,
                   airportOnTransferPrice: {
                     create: (tp.airportIds || []).map((airportId) => ({
@@ -476,6 +556,7 @@ const airlineResolver = {
                   name: depart.name,
                   email: depart.email,
                   accessMenu: depart.accessMenu,
+                  notificationMenu: depart.notificationMenu,
                   users: {
                     connect: depart.userIds
                       ? depart.userIds.map((userId) => ({ id: userId }))
@@ -576,11 +657,11 @@ const airlineResolver = {
             staff: true,
             prices: true,
             transferPrices: {
-            include: {
-              airportOnTransferPrice: { include: { airport: true } },
-              cityOnTransferPrice: { include: { city: true } }
+              include: {
+                airportOnTransferPrice: { include: { airport: true } },
+                cityOnTransferPrice: { include: { city: true } }
+              }
             }
-          }
           }
         })
         await logAction({
@@ -603,7 +684,7 @@ const airlineResolver = {
           "\nОшибка при обновлении авиакомпании:\n",
           error
         )
-        throw new Error("Не удалось обновить авиакомпанию")
+        rethrowUnlessInternalError(error, "Не удалось обновить авиакомпанию")
       }
     },
 
@@ -680,13 +761,23 @@ const airlineResolver = {
     deleteAirlineDepartment: async (_, { id }, context) => {
       // Проверка прав администратора авиакомпании
       await airlineAdminMiddleware(context)
-      // Удаляем департамент и возвращаем связанные с ним данные (например, персонал)
-      const department = await prisma.airlineDepartment.delete({
-        where: { id },
-        include: {
-          staff: true
-        }
-      })
+
+      const [, , department] = await prisma.$transaction([
+        prisma.user.updateMany({
+          where: { airlineDepartmentId: id },
+          data: { airlineDepartmentId: null }
+        }),
+        prisma.airlinePersonal.updateMany({
+          where: { departmentId: id },
+          data: { departmentId: null }
+        }),
+        prisma.airlineDepartment.delete({
+          where: { id },
+          include: {
+            staff: true
+          }
+        })
+      ])
       // Получаем обновленную информацию об авиакомпании, к которой относится удалённый департамент
       const airlineWithRelations = await prisma.airline.findUnique({
         where: { id: department.airlineId }
@@ -733,6 +824,9 @@ const airlineResolver = {
       }
 
       await prisma.$transaction([
+        prisma.priceGeoOnAirlinePrice.deleteMany({
+          where: { airlinePriceId: id }
+        }),
         prisma.airportOnAirlinePrice.deleteMany({
           where: { airlinePriceId: id }
         }),
@@ -920,6 +1014,9 @@ const airlineResolver = {
         include: {
           airports: {
             include: { airport: true }
+          },
+          geography: {
+            include: { regionRef: true, cityRef: true }
           }
         }
       })
@@ -933,9 +1030,10 @@ const airlineResolver = {
     },
     // Определяем резольвер для поля airlineContract
     airlineContract: async (parent) => {
-      return await prisma.airlineContract.findMany({
-        where: { airlineId: parent.id }
+      const contracts = await prisma.airlineContract.findMany({
+        where: { airlineId: parent.id, isArchived: { not: true } }
       })
+      return sortContractsByExpiration(contracts)
     }
   },
 
@@ -1016,6 +1114,30 @@ const airlineResolver = {
         })
       }
       return null
+    }
+  },
+
+  AirlinePrice: {
+    geography: (parent) =>
+      (parent.geography || []).map((row) => ({
+        country: row.country ?? "",
+        region: row.region ?? "",
+        city: row.city ?? "",
+        cityId: row.cityId,
+        regionId: row.regionId
+      })),
+    individual: (parent) => Boolean(parent.individual)
+  },
+
+  PriceGeography: {
+    cityRef: async (parent) => {
+      if (!parent?.cityId) return null
+      return prisma.city.findUnique({ where: { id: parent.cityId } })
+    },
+    regionRef: async (parent) => {
+      if (parent?.regionRef) return parent.regionRef
+      if (!parent?.regionId) return null
+      return prisma.region.findUnique({ where: { id: parent.regionId } })
     }
   }
 }

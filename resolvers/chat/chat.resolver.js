@@ -14,7 +14,18 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import { allMiddleware, superAdminMiddleware } from "../../middlewares/authMiddleware.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
+<<<<<<< HEAD
 import { botService } from "../../botService.js"
+=======
+import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
+import { sendSupportClientMessageEmail } from "../../services/notification/sendSupportEmail.js"
+import { buildNewMessageEmail } from "../../services/email/requestEmailTemplates.js"
+import {
+  canReceiveChatReadSubscription,
+  canReceiveChatSubscription
+} from "../../services/chat/chatSubscriptionAccess.js"
+import { isSupportAgent } from "../../services/support/supportAgent.js"
+>>>>>>> 06ee86af2d0b9e5897c40d4fad63943da7ef7686
 
 // import leoProfanity from "leo-profanity"
 // leoProfanity.loadDictionary("ru")
@@ -31,6 +42,7 @@ const chatResolver = {
         where: { id: chatId },
         include: {
           messages: {
+            orderBy: { createdAt: "asc" },
             include: {
               sender: {
                 select: {
@@ -130,6 +142,7 @@ const chatResolver = {
             }
           }
         },
+        orderBy: { createdAt: "asc" },
         include: {
           sender: {
             select: {
@@ -179,6 +192,7 @@ const chatResolver = {
       }
       return await prisma.message.findMany({
         where: { chatId },
+        orderBy: { createdAt: "asc" },
         include: {
           sender: {
             select: {
@@ -355,15 +369,18 @@ const chatResolver = {
       })
       if (!chat) throw new Error("Чат не найден")
       let currentTicketId = null
+      let currentTicketNumber = null
       if (chat.isSupport && !isExternal) {
         const sender = await prisma.user.findUnique({
           where: { id: senderId },
-          select: { id: true, support: true }
+          select: { id: true, dispatcher: true, support: true, role: true }
         })
         if (!sender) throw new Error("Отправитель не найден")
-        if (sender.support) {
+        if (isSupportAgent(sender)) {
           if (chat.assignedToId !== senderId) {
-            throw new Error("Ответить в чате техподдержки может только агент, принявший тикет. Сначала возьмите тикет в работу.")
+            throw new Error(
+              "Ответить в чате поддержки может только агент, принявший тикет. Сначала возьмите тикет в работу."
+            )
           }
         } else {
           if (chat.supportStatus === "RESOLVED") {
@@ -379,6 +396,7 @@ const chatResolver = {
               }
             })
             currentTicketId = newTicket.id
+            currentTicketNumber = newTicket.ticketNumber
             await prisma.chat.update({
               where: { id: chatId },
               data: {
@@ -396,6 +414,7 @@ const chatResolver = {
           )
           if (activeTicket) {
             currentTicketId = activeTicket.id
+            currentTicketNumber = activeTicket.ticketNumber
           } else if (chat.tickets?.length === 0) {
             const firstTicket = await prisma.supportTicket.create({
               data: {
@@ -405,6 +424,7 @@ const chatResolver = {
               }
             })
             currentTicketId = firstTicket.id
+            currentTicketNumber = firstTicket.ticketNumber
           }
         }
       }
@@ -424,13 +444,17 @@ const chatResolver = {
             where: { id: context.subject.hotelId },
             select: { name: true }
           })
-          extName = hotel?.name ? `Гостиница «${hotel.name}»` : (extName || "Гостиница")
+          extName = hotel?.name
+            ? `Гостиница «${hotel.name}»`
+            : extName || "Гостиница"
         } else if (scope === "DRIVER" && context.subject.driverId) {
           const driver = await prisma.user.findUnique({
             where: { id: context.subject.driverId },
             select: { name: true }
           })
-          extName = driver?.name ? `Водитель: ${driver.name}` : (extName || "Водитель")
+          extName = driver?.name
+            ? `Водитель: ${driver.name}`
+            : extName || "Водитель"
         } else if (!extName) {
           extName = "Внешний пользователь"
         }
@@ -457,7 +481,9 @@ const chatResolver = {
               airlineId: true,
               airlineDepartmentId: true,
               hotelId: true,
-              dispatcher: true
+              dispatcher: true,
+              support: true,
+              role: true
             }
           },
           chat: {
@@ -467,11 +493,21 @@ const chatResolver = {
               reserveId: true,
               passengerRequestId: true,
               airlineId: true,
-              hotelId: true
+              hotelId: true,
+              isSupport: true
             }
           }
         }
       })
+
+      if (message.chat.isSupport && !isExternal && !isSupportAgent(message.sender)) {
+        await sendSupportClientMessageEmail({
+          chatId,
+          sender: message.sender,
+          text: message.text,
+          ticketNumber: currentTicketNumber
+        })
+      }
 
       const tasks = []
 
@@ -507,7 +543,6 @@ const chatResolver = {
           })
         }
 
-        await publishRequestUpdated(message.chat.requestId)
       }
 
       if (message.chat.reserveId) {
@@ -543,6 +578,86 @@ const chatResolver = {
         }
 
         await publishReserveUpdated(message.chat.reserveId)
+      }
+
+      if (
+        message.chat.requestId ||
+        message.chat.reserveId ||
+        message.chat.passengerRequestId
+      ) {
+        const actor = message.sender ?? { dispatcher: false }
+        let requestNumber
+        let reserveNumber
+        let passengerRequestNumber
+        let flightNumber
+        let airlineId = message.chat.airlineId
+        let entityId
+        let entityType
+        let requestId
+        let reserveId
+        let passengerRequestId
+
+        if (message.chat.requestId) {
+          const req = await prisma.request.findUnique({
+            where: { id: message.chat.requestId },
+            select: { requestNumber: true, airlineId: true }
+          })
+          requestNumber = req?.requestNumber
+          airlineId = req?.airlineId ?? airlineId
+          entityId = message.chat.requestId
+          entityType = "request"
+          requestId = message.chat.requestId
+        } else if (message.chat.reserveId) {
+          const res = await prisma.reserve.findUnique({
+            where: { id: message.chat.reserveId },
+            select: { reserveNumber: true, airlineId: true }
+          })
+          reserveNumber = res?.reserveNumber
+          airlineId = res?.airlineId ?? airlineId
+          entityId = message.chat.reserveId
+          entityType = "reserve"
+          reserveId = message.chat.reserveId
+        } else {
+          const pr = await prisma.passengerRequest.findUnique({
+            where: { id: message.chat.passengerRequestId },
+            select: {
+              requestNumber: true,
+              flightNumber: true,
+              airlineId: true
+            }
+          })
+          passengerRequestNumber = pr?.requestNumber ?? undefined
+          flightNumber = pr?.flightNumber ?? undefined
+          airlineId = pr?.airlineId ?? airlineId
+          entityId = message.chat.passengerRequestId
+          entityType = "passenger_request"
+          passengerRequestId = message.chat.passengerRequestId
+        }
+
+        const senderName =
+          message.sender?.name ?? message.senderName ?? "Пользователь"
+        const newMessageEmail = buildNewMessageEmail({
+          requestNumber,
+          reserveNumber,
+          passengerRequestNumber,
+          flightNumber,
+          senderName,
+          textPreview: message.text,
+          requestId,
+          reserveId,
+          passengerRequestId
+        })
+
+        await sendRequestPartyEmail({
+          actor,
+          airlineId,
+          action: "new_message",
+          subject: newMessageEmail.subject,
+          html: newMessageEmail.html,
+          entityType,
+          entityId,
+          dispatcherFallbackTo: "EMAIL_KARS"
+        })
       }
 
       if (senderId && !isExternal) {
@@ -947,14 +1062,21 @@ const chatResolver = {
 
           const message = payload.messageSent
 
-          if (variables.chatId && message.chat && message.chat.id !== variables.chatId) {
+          if (
+            variables.chatId &&
+            message.chat &&
+            message.chat.id !== variables.chatId
+          ) {
             return false
           }
 
           if (isExternal) {
             if (message.chat?.passengerRequestId) return true
             if (message.chatId && !message.chat) {
-              const chat = await prisma.chat.findUnique({ where: { id: message.chatId }, select: { passengerRequestId: true } })
+              const chat = await prisma.chat.findUnique({
+                where: { id: message.chatId },
+                select: { passengerRequestId: true }
+              })
               return !!chat?.passengerRequestId
             }
             return false
@@ -962,52 +1084,11 @@ const chatResolver = {
 
           if (subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
-          if (message.chat) {
-            if (subject.airlineId && message.chat.airlineId === subject.airlineId) {
-              return true
-            }
-            if (subject.hotelId && message.chat.hotelId === subject.hotelId) {
-              return true
-            }
-            if (message.chat.participants) {
-              const isParticipant = message.chat.participants.some(
-                (participant) => participant.id === subject.id
-              )
-              if (isParticipant) return true
-            }
-          }
-
-          if (!message.chat && message.chatId) {
-            const chat = await prisma.chat.findUnique({
-              where: { id: message.chatId },
-              include: {
-                participants: {
-                  include: {
-                    user: { select: { id: true } }
-                  }
-                }
-              }
-            })
-
-            if (chat) {
-              if (subject.airlineId && chat.airlineId === subject.airlineId) {
-                return true
-              }
-              if (subject.hotelId && chat.hotelId === subject.hotelId) {
-                return true
-              }
-              const isParticipant = chat.participants?.some(
-                (participant) => participant.userId === subject.id || participant.user?.id === subject.id
-              )
-              if (isParticipant) return true
-            }
-          }
-
-          return false
+          return canReceiveChatSubscription(subject, message)
         }
       )
     },
@@ -1031,7 +1112,7 @@ const chatResolver = {
           const { subject, subjectType } = context
           if (!subject || subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
@@ -1058,25 +1139,14 @@ const chatResolver = {
           const { subject, subjectType } = context
           if (!subject || subjectType !== "USER") return false
 
-          if (subject.role === "SUPERADMIN" || subject.dispatcher === true) {
+          if (isSupportAgent(subject)) {
             return true
           }
 
           const eventChatId = payload?.messageRead?.chatId || variables.chatId
           if (!eventChatId || eventChatId !== variables.chatId) return false
 
-          const chat = await prisma.chat.findUnique({
-            where: { id: eventChatId }
-          })
-
-          if (!chat) return false
-          if (subject.airlineId && chat.airlineId === subject.airlineId) {
-            return true
-          }
-          if (subject.hotelId && chat.hotelId === subject.hotelId) {
-            return true
-          }
-          return false
+          return canReceiveChatReadSubscription(subject, eventChatId)
         }
       ),
       resolve: (payload) => payload.messageRead
@@ -1133,6 +1203,7 @@ const chatResolver = {
     messages: async (parent) => {
       const msgs = await prisma.message.findMany({
         where: { chatId: parent.id },
+        orderBy: { createdAt: "asc" },
         include: {
           sender: {
             select: {
@@ -1178,7 +1249,13 @@ const chatResolver = {
       if (!parent.assignedToId) return null
       return prisma.user.findUnique({
         where: { id: parent.assignedToId },
-        select: { id: true, name: true, email: true, images: true, support: true }
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          images: true,
+          support: true
+        }
       })
     },
     resolvedBy: async (parent) => {
@@ -1186,7 +1263,13 @@ const chatResolver = {
       if (!parent.resolvedById) return null
       return prisma.user.findUnique({
         where: { id: parent.resolvedById },
-        select: { id: true, name: true, email: true, images: true, support: true }
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          images: true,
+          support: true
+        }
       })
     }, 
     channelType: (parent) => parent.channelType || "INTERNAL",

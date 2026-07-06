@@ -6,12 +6,21 @@ import {
   formatDateToISO,
   formatLocalDate,
   getAirlineMealPrice,
-  getLivingPricePerDay,
-  parseAsLocal
+  getLivingPricePerDay
 } from "../report/reportUtils.js"
 import { logger } from "../infra/logger.js"
+import {
+  getRequestCheckInAt,
+  getRequestCheckOutAt
+} from "./requestStayDates.js"
 
 const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100
+
+const toStoredRequestPrice = (price) => {
+  if (!price) return null
+  const { breakfastIncluded: _ignored, ...stored } = price
+  return stored
+}
 
 const createAllocationKey = (row) =>
   [
@@ -31,16 +40,28 @@ const REQUEST_INCLUDE_FOR_PRICING = {
       room: { include: { roomKind: true } }
     }
   },
-  hotel: { select: { id: true, mealPrice: true, mealPriceForAir: true } },
-  airline: { include: { prices: { include: { airports: true } } } },
-  airport: { select: { id: true } },
+  hotel: {
+    select: {
+      id: true,
+      name: true,
+      mealPrice: true,
+      mealPriceForAir: true,
+      breakfastIncluded: true,
+      location: true,
+      information: true,
+      airportId: true
+    }
+  },
+  airline: {
+    include: { prices: { include: { airports: true, geography: true } } }
+  },
+  airport: { select: { id: true, city: true } },
   person: { include: { position: true } }
 }
 
 function getEffectiveStay(request) {
-  const hc = request.hotelChess?.[0]
-  const rawStart = hc?.start ? parseAsLocal(hc.start) : parseAsLocal(request.arrival)
-  const rawEnd = hc?.end ? parseAsLocal(hc.end) : parseAsLocal(request.departure)
+  const rawStart = getRequestCheckInAt(request)
+  const rawEnd = getRequestCheckOutAt(request)
 
   if (!rawStart || !rawEnd || rawStart >= rawEnd) return null
   return { start: rawStart, end: rawEnd }
@@ -67,7 +88,13 @@ function buildRequestRowForAllocation(request, reportType) {
 
   const pricePerDay = getLivingPricePerDay(request, reportType)
   const mealPlan = request.mealPlan || { dailyMeals: [] }
-  const { totalMealCost, breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
+  const {
+    totalMealCost,
+    breakfastCount,
+    lunchCount,
+    dinnerCount,
+    breakfastIncludedInPrice
+  } = mealPlan?.dailyMeals
     ? calculateMealCostForReportDays(
         request,
         reportType,
@@ -77,7 +104,13 @@ function buildRequestRowForAllocation(request, reportType) {
         stay.start,
         stay.end
       )
-    : { totalMealCost: 0, breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+    : {
+        totalMealCost: 0,
+        breakfastCount: 0,
+        lunchCount: 0,
+        dinnerCount: 0,
+        breakfastIncludedInPrice: false
+      }
 
   const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
   if (!totalLivingCost && !totalMealCost) return null
@@ -96,6 +129,7 @@ function buildRequestRowForAllocation(request, reportType) {
     breakfastCount,
     lunchCount,
     dinnerCount,
+    breakfastIncludedInPrice,
     totalMealCost: roundMoney(totalMealCost),
     totalLivingCost: roundMoney(totalLivingCost),
     pricePerDay: roundMoney(pricePerDay),
@@ -142,7 +176,7 @@ function buildLivingCostsByRequestId(requests, reportType) {
 function calculateMealParts(request, reportType) {
   const stay = getEffectiveStay(request)
   if (!stay) {
-    return { breakfast: 0, lunch: 0, dinner: 0 }
+    return { breakfast: 0, lunch: 0, dinner: 0, breakfastIncluded: false }
   }
 
   const effectiveDays = calculateEffectiveCostDaysWithPartial(
@@ -152,11 +186,16 @@ function calculateMealParts(request, reportType) {
     formatDateToISO(stay.end)
   )
   if (effectiveDays <= 0) {
-    return { breakfast: 0, lunch: 0, dinner: 0 }
+    return { breakfast: 0, lunch: 0, dinner: 0, breakfastIncluded: false }
   }
 
   const mealPlan = request.mealPlan || { dailyMeals: [] }
-  const { breakfastCount, lunchCount, dinnerCount } = mealPlan?.dailyMeals
+  const {
+    breakfastCount,
+    lunchCount,
+    dinnerCount,
+    breakfastIncludedInPrice
+  } = mealPlan?.dailyMeals
     ? calculateMealCostForReportDays(
         request,
         reportType,
@@ -166,13 +205,21 @@ function calculateMealParts(request, reportType) {
         stay.start,
         stay.end
       )
-    : { breakfastCount: 0, lunchCount: 0, dinnerCount: 0 }
+    : {
+        breakfastCount: 0,
+        lunchCount: 0,
+        dinnerCount: 0,
+        breakfastIncludedInPrice: false
+      }
 
   const mealPrices = getMealPricesForType(request, reportType)
   return {
-    breakfast: roundMoney(breakfastCount * (mealPrices?.breakfast || 0)),
+    breakfast: breakfastIncludedInPrice
+      ? 0
+      : roundMoney(breakfastCount * (mealPrices?.breakfast || 0)),
     lunch: roundMoney(lunchCount * (mealPrices?.lunch || 0)),
-    dinner: roundMoney(dinnerCount * (mealPrices?.dinner || 0))
+    dinner: roundMoney(dinnerCount * (mealPrices?.dinner || 0)),
+    breakfastIncluded: breakfastIncludedInPrice
   }
 }
 
@@ -182,7 +229,8 @@ function buildPriceForRequest(request, reportType, livingCostByRequestId) {
     livingCost: roundMoney(livingCostByRequestId.get(request.id) || 0),
     breakfast: mealParts.breakfast,
     lunch: mealParts.lunch,
-    dinner: mealParts.dinner
+    dinner: mealParts.dinner,
+    breakfastIncluded: mealParts.breakfastIncluded
   }
 }
 
@@ -252,8 +300,8 @@ export async function recalculateRequestPricing(requestId) {
     await prisma.request.update({
       where: { id: requestId },
       data: {
-        requestHotelPrice: hotelPrice,
-        requestAirlinePrice: airlinePrice
+        requestHotelPrice: toStoredRequestPrice(hotelPrice),
+        requestAirlinePrice: toStoredRequestPrice(airlinePrice)
       }
     })
 

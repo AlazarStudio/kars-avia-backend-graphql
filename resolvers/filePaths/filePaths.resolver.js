@@ -12,6 +12,10 @@ const filePathsResolver = {
     }
   },
 
+  PassengerRequest: {
+    files: (parent) => normalizeFilePaths(parent.files || [])
+  },
+
   // Reserve
   Reserve: {
     files: (parent) => {
@@ -72,9 +76,9 @@ const filePathsResolver = {
   Driver: {
     documents: (parent) => {
       if (!parent.documents) return null
-      
+
       const normalized = {}
-      Object.keys(parent.documents).forEach(key => {
+      Object.keys(parent.documents).forEach((key) => {
         normalized[key] = normalizeFilePaths(parent.documents[key] || [])
       })
       return normalized
@@ -89,6 +93,11 @@ const filePathsResolver = {
     gallery: (parent) => {
       return normalizeFilePaths(parent.gallery || [])
     }
+  },
+
+  HotelPreview: {
+    images: (parent) => normalizeFilePaths(parent.images || []),
+    gallery: (parent) => normalizeFilePaths(parent.gallery || [])
   },
 
   // Hotel nested entities

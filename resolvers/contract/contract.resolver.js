@@ -15,8 +15,72 @@ import {
   buildAirlineContractWhere,
   buildHotelContractWhere,
   buildOrganizationContractWhere,
-  buildOrderBy
+  fetchContractConnection,
+  isArchivedContractFilter
 } from "../../services/contract/contractFilters.js"
+import {
+  archiveContractRecord,
+  restoreContractRecord,
+  archiveAgreementRecord,
+  restoreAgreementRecord,
+  buildAdditionalAgreementWhere
+} from "../../services/contract/contractArchive.js"
+import { getContractExpirationMeta } from "../../services/contract/contractExpiration.js"
+
+const contractExpirationFields = {
+  daysUntilEnd: (parent) =>
+    getContractExpirationMeta(parent.contractEndDate).daysUntilEnd,
+  isExpiringSoon: (parent) =>
+    getContractExpirationMeta(parent.contractEndDate).isExpiringSoon,
+  isExpired: (parent) =>
+    getContractExpirationMeta(parent.contractEndDate).isExpired,
+  expirationPriority: (parent) =>
+    getContractExpirationMeta(parent.contractEndDate).expirationPriority
+}
+
+const agreementExpirationFields = {
+  daysUntilEnd: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).daysUntilEnd,
+  isExpiringSoon: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).isExpiringSoon,
+  isExpired: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).isExpired,
+  expirationPriority: (parent) =>
+    getContractExpirationMeta(parent.agreementEndDate).expirationPriority
+}
+
+const publishAgreementParentContract = async (agreement) => {
+  if (!agreement) return
+
+  if (agreement.airlineContractId) {
+    const contract = await prisma.airlineContract.findUnique({
+      where: { id: agreement.airlineContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+    }
+    return
+  }
+
+  if (agreement.hotelContractId) {
+    const contract = await prisma.hotelContract.findUnique({
+      where: { id: agreement.hotelContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+    }
+    return
+  }
+
+  if (agreement.organizationContractId) {
+    const contract = await prisma.organizationContract.findUnique({
+      where: { id: agreement.organizationContractId }
+    })
+    if (contract) {
+      pubsub.publish(CONTRACT_ORGANIZATION, { contractOrganization: contract })
+    }
+  }
+}
 
 const deleteContractAndAgreementFiles = async (contract) => {
   const filePaths = [
@@ -37,22 +101,18 @@ const contractResolver = {
     airlineContracts: async (_, { pagination, filter, orderBy }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const where = buildAirlineContractWhere(filter)
-      const totalCount = await prisma.airlineContract.count({ where })
-
-      const { skip, take, all } = pagination || {}
-      const items = await prisma.airlineContract.findMany({
+      return fetchContractConnection({
+        prismaModel: prisma.airlineContract,
         where,
-        skip: all ? undefined : (skip ?? 0),
-        take: all ? undefined : (take ?? 20),
-        orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
+        pagination,
+        orderBy,
+        isArchivedList: isArchivedContractFilter(filter),
         include: {
           company: true,
           airline: true,
           additionalAgreements: true
         }
       })
-      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
-      return { items, totalCount, totalPages }
     },
 
     airlineContract: async (_, { id }, context) => {
@@ -71,22 +131,18 @@ const contractResolver = {
     hotelContracts: async (_, { pagination, filter, orderBy }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const where = buildHotelContractWhere(filter)
-      const totalCount = await prisma.hotelContract.count({ where })
-
-      const { skip, take, all } = pagination || {}
-      const items = await prisma.hotelContract.findMany({
+      return fetchContractConnection({
+        prismaModel: prisma.hotelContract,
         where,
-        skip: all ? undefined : (skip ?? 0),
-        take: all ? undefined : (take ?? 20),
-        orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
+        pagination,
+        orderBy,
+        isArchivedList: isArchivedContractFilter(filter),
         include: {
           company: true,
           hotel: true,
-          region: true // City
+          region: true
         }
       })
-      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
-      return { items, totalCount, totalPages }
     },
 
     hotelContract: async (_, { id }, context) => {
@@ -109,25 +165,18 @@ const contractResolver = {
     ) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
       const where = buildOrganizationContractWhere(filter)
-      const totalCount = await prisma.organizationContract.count({ where })
-
-      const { skip, take, all } = pagination || {}
-
-      const items = await prisma.organizationContract.findMany({
+      return fetchContractConnection({
+        prismaModel: prisma.organizationContract,
         where,
-        skip: all ? undefined : (skip ?? 0),
-        take: all ? undefined : (take ?? 20),
-        orderBy: buildOrderBy(orderBy) ?? [{ date: "desc" }],
+        pagination,
+        orderBy,
+        isArchivedList: isArchivedContractFilter(filter),
         include: {
           region: true,
           company: true,
           organization: true
-          // additionalAgreements: true
         }
       })
-
-      const totalPages = take && !all ? Math.ceil(totalCount / take) : 1
-      return { items, totalCount, totalPages }
     },
 
     organizationContract: async (_, { id }, context) => {
@@ -144,12 +193,22 @@ const contractResolver = {
     },
 
     // ADDITIONAL AGREEMENTS
-    additionalAgreements: async (_, { airlineContractId }, context) => {
+    additionalAgreements: async (_, { airlineContractId, filter }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const resolvedFilter = {
+        ...(filter || {}),
+        ...(airlineContractId ? { airlineContractId } : {})
+      }
+      const where = buildAdditionalAgreementWhere(resolvedFilter)
+
       return await prisma.additionalAgreement.findMany({
-        where: airlineContractId ? { airlineContractId } : undefined,
+        where,
         orderBy: { date: "desc" },
-        include: { airlineContract: true }
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
       })
     }
   },
@@ -171,6 +230,8 @@ const contractResolver = {
           companyId: input.companyId ?? null,
           airlineId: input.airlineId ?? null,
           date: input.date ?? null,
+          contractEndDate: input.contractEndDate ?? null,
+          isProlongationEnabled: input.isProlongationEnabled ?? false,
           contractNumber: input.contractNumber ?? null,
           region: input.region ?? null,
           applicationType: input.applicationType ?? null,
@@ -210,7 +271,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
@@ -226,6 +287,12 @@ const contractResolver = {
       }
       if (input.date != undefined) {
         updatedData.date = input.date
+      }
+      if (input.contractEndDate !== undefined) {
+        updatedData.contractEndDate = input.contractEndDate
+      }
+      if (input.isProlongationEnabled !== undefined) {
+        updatedData.isProlongationEnabled = input.isProlongationEnabled
       }
       if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
@@ -286,6 +353,54 @@ const contractResolver = {
       return true
     },
 
+    archiveAirlineContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const userId = context.subject?.id ?? context.user?.id
+      const contract = await archiveContractRecord({
+        prismaModel: prisma.airlineContract,
+        id,
+        userId,
+        include: {
+          company: true,
+          airline: true,
+          additionalAgreements: true
+        }
+      })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      await logAction({
+        context,
+        action: "archive_airline_contract",
+        description: "Договор авиакомпании архивирован",
+        fulldescription:
+          `Архивирован договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
+    restoreAirlineContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const contract = await restoreContractRecord({
+        prismaModel: prisma.airlineContract,
+        id,
+        include: {
+          company: true,
+          airline: true,
+          additionalAgreements: true
+        }
+      })
+      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      await logAction({
+        context,
+        action: "restore_airline_contract",
+        description: "Договор авиакомпании восстановлен из архива",
+        fulldescription:
+          `Восстановлен договор авиакомпании ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
     // HOTEL
     createHotelContract: async (_, { input, files }, context) => {
       await allMiddleware(context)
@@ -303,6 +418,8 @@ const contractResolver = {
           hotelId: input.hotelId ?? null,
           cityId: input.cityId, // обязательный
           date: input.date ?? null,
+          contractEndDate: input.contractEndDate ?? null,
+          isProlongationEnabled: input.isProlongationEnabled ?? false,
           contractNumber: input.contractNumber ?? null,
           notes: input.notes ?? null,
           legalEntity: input.legalEntity ?? null,
@@ -347,7 +464,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
@@ -366,6 +483,12 @@ const contractResolver = {
       }
       if (input.date != undefined) {
         updatedData.date = input.date
+      }
+      if (input.contractEndDate !== undefined) {
+        updatedData.contractEndDate = input.contractEndDate
+      }
+      if (input.isProlongationEnabled !== undefined) {
+        updatedData.isProlongationEnabled = input.isProlongationEnabled
       }
       if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
@@ -443,6 +566,54 @@ const contractResolver = {
       return true
     },
 
+    archiveHotelContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const userId = context.subject?.id ?? context.user?.id
+      const contract = await archiveContractRecord({
+        prismaModel: prisma.hotelContract,
+        id,
+        userId,
+        include: {
+          company: true,
+          hotel: true,
+          region: true
+        }
+      })
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      await logAction({
+        context,
+        action: "archive_hotel_contract",
+        description: "Договор гостиницы архивирован",
+        fulldescription:
+          `Архивирован договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
+    restoreHotelContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const contract = await restoreContractRecord({
+        prismaModel: prisma.hotelContract,
+        id,
+        include: {
+          company: true,
+          hotel: true,
+          region: true
+        }
+      })
+      pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      await logAction({
+        context,
+        action: "restore_hotel_contract",
+        description: "Договор гостиницы восстановлен из архива",
+        fulldescription:
+          `Восстановлен договор гостиницы ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
     // ORGANIZATION
     createOrganizationContract: async (_, { input, files }, context) => {
       await allMiddleware(context)
@@ -460,6 +631,8 @@ const contractResolver = {
           organizationId: input.organizationId ?? null,
           cityId: input.cityId,
           date: input.date ?? null,
+          contractEndDate: input.contractEndDate ?? null,
+          isProlongationEnabled: input.isProlongationEnabled ?? false,
           contractNumber: input.contractNumber ?? null,
           notes: input.notes ?? null,
           applicationType: input.applicationType ?? null,
@@ -503,10 +676,11 @@ const contractResolver = {
       const updatedData = {}
 
       if (files?.length) {
-        updatedData.files = []
+        let filesPath = oldContract.files ? oldContract.files : []
         for (const file of files) {
-          updatedData.files.push(await uploadFiles(file))
+          filesPath.push(await uploadFiles(file))
         }
+        updatedData.files = filesPath
       }
 
       if (input.companyId !== undefined) updatedData.companyId = input.companyId
@@ -516,6 +690,10 @@ const contractResolver = {
         updatedData.cityId = input.cityId
       }
       if (input.date !== undefined) updatedData.date = input.date
+      if (input.contractEndDate !== undefined)
+        updatedData.contractEndDate = input.contractEndDate
+      if (input.isProlongationEnabled !== undefined)
+        updatedData.isProlongationEnabled = input.isProlongationEnabled
       if (input.contractNumber !== undefined)
         updatedData.contractNumber = input.contractNumber
       if (input.notes !== undefined) updatedData.notes = input.notes
@@ -580,6 +758,58 @@ const contractResolver = {
       return true
     },
 
+    archiveOrganizationContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const userId = context.subject?.id ?? context.user?.id
+      const contract = await archiveContractRecord({
+        prismaModel: prisma.organizationContract,
+        id,
+        userId,
+        include: {
+          region: true,
+          company: true,
+          organization: true
+        }
+      })
+      pubsub.publish(CONTRACT_ORGANIZATION, {
+        contractOrganization: contract
+      })
+      await logAction({
+        context,
+        action: "archive_organization_contract",
+        description: "Договор организации архивирован",
+        fulldescription:
+          `Архивирован договор организации ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
+    restoreOrganizationContract: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const contract = await restoreContractRecord({
+        prismaModel: prisma.organizationContract,
+        id,
+        include: {
+          region: true,
+          company: true,
+          organization: true
+        }
+      })
+      pubsub.publish(CONTRACT_ORGANIZATION, {
+        contractOrganization: contract
+      })
+      await logAction({
+        context,
+        action: "restore_organization_contract",
+        description: "Договор организации восстановлен из архива",
+        fulldescription:
+          `Восстановлен договор организации ${contract.contractNumber || ""}`.trim(),
+        newData: contract
+      })
+      return contract
+    },
+
     // ADDITIONAL AGREEMENTS
     createAdditionalAgreement: async (_, { input, files }, context) => {
       await allMiddleware(context)
@@ -602,6 +832,8 @@ const contractResolver = {
             ? input.organizationContractId
             : null,
           date: input.date ?? null,
+          agreementEndDate: input.agreementEndDate ?? null,
+          isProlongationEnabled: input.isProlongationEnabled ?? false,
           contractNumber: input.contractNumber ?? null,
           itemAgreement: input.itemAgreement ?? null,
           notes: input.notes ?? null,
@@ -653,7 +885,7 @@ const contractResolver = {
       const updatedData = {}
 
       if (files && files.length > 0) {
-        let filesPath = []
+        let filesPath = oldAgreement.files ? oldAgreement.files : []
         for (const file of files) {
           const uploadedPath = await uploadFiles(file)
           filesPath.push(uploadedPath)
@@ -672,6 +904,12 @@ const contractResolver = {
       }
       if (input.date != undefined) {
         updatedData.date = input.date
+      }
+      if (input.agreementEndDate !== undefined) {
+        updatedData.agreementEndDate = input.agreementEndDate
+      }
+      if (input.isProlongationEnabled !== undefined) {
+        updatedData.isProlongationEnabled = input.isProlongationEnabled
       }
       if (input.contractNumber != undefined) {
         updatedData.contractNumber = input.contractNumber
@@ -726,8 +964,62 @@ const contractResolver = {
         }
       }
       await prisma.additionalAgreement.delete({ where: { id } })
-      pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      await publishAgreementParentContract(contract)
       return true
+    },
+
+    archiveAdditionalAgreement: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const userId = context.subject?.id ?? context.user?.id
+      const agreement = await archiveAgreementRecord({
+        prisma,
+        id,
+        userId,
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
+      })
+      await publishAgreementParentContract(agreement)
+      await logAction({
+        context,
+        action: "archive_additional_agreement",
+        description: "Дополнительное соглашение архивировано",
+        fulldescription:
+          `Архивировано дополнительное соглашение ${agreement.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: agreement.id,
+          contractNumber: agreement.contractNumber
+        }
+      })
+      return agreement
+    },
+
+    restoreAdditionalAgreement: async (_, { id }, context) => {
+      await allMiddleware(context)
+      const agreement = await restoreAgreementRecord({
+        prisma,
+        id,
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        }
+      })
+      await publishAgreementParentContract(agreement)
+      await logAction({
+        context,
+        action: "restore_additional_agreement",
+        description: "Дополнительное соглашение восстановлено из архива",
+        fulldescription:
+          `Восстановлено дополнительное соглашение ${agreement.contractNumber || ""}`.trim(),
+        newData: {
+          additionalAgreementId: agreement.id,
+          contractNumber: agreement.contractNumber
+        }
+      })
+      return agreement
     }
   },
 
@@ -824,6 +1116,7 @@ const contractResolver = {
      Обычно Prisma include уже подтягивает реляции. Эти поля можно
      опустить, но оставляю примеры для явного маппинга. */
   AirlineContract: {
+    ...contractExpirationFields,
     company: async (parent) => {
       if (parent.companyId) {
         return await prisma.company.findUnique({
@@ -840,12 +1133,16 @@ const contractResolver = {
     },
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
-        where: { airlineContractId: parent.id }
+        where: {
+          airlineContractId: parent.id,
+          // isArchived: { not: true }
+        }
       })
     }
   },
 
   HotelContract: {
+    ...contractExpirationFields,
     company: async (parent) => {
       if (parent.companyId) {
         return await prisma.company.findUnique({
@@ -862,7 +1159,10 @@ const contractResolver = {
     },
     additionalAgreements: async (parent) => {
       return await prisma.additionalAgreement.findMany({
-        where: { hotelContractId: parent.id }
+        where: {
+          hotelContractId: parent.id,
+          // isArchived: { not: true }
+        }
       })
     }
     // region: (parent, _, __) =>
@@ -870,6 +1170,7 @@ const contractResolver = {
   },
 
   OrganizationContract: {
+    ...contractExpirationFields,
     company: async (parent) => {
       if (!parent.companyId) return null
       return prisma.company.findUnique({
@@ -886,12 +1187,16 @@ const contractResolver = {
 
     additionalAgreements: async (parent) => {
       return prisma.additionalAgreement.findMany({
-        where: { organizationContractId: parent.id }
+        where: {
+          organizationContractId: parent.id,
+          // isArchived: { not: true }
+        }
       })
     }
   },
 
   AdditionalAgreement: {
+    ...agreementExpirationFields,
     airlineContract: async (parent) => {
       parent.airlineContract ??
         (parent.airlineContractId

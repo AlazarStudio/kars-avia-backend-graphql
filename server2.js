@@ -1,4 +1,5 @@
 import "./load-env.js"
+import { createRequire } from "module"
 import cors from "cors"
 import http from "http"
 import express from "express"
@@ -16,8 +17,15 @@ import mergedResolvers from "./resolvers/resolvers.js"
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs"
 import {
   startArchivingJob,
-  stopArchivingJob
+  startPresenceCleanupJob,
+  stopArchivingJob,
+  stopPresenceCleanupJob
 } from "./services/cron/cronTasks.js"
+import {
+  startContractArchivingJob,
+  stopContractArchivingJob
+} from "./services/cron/contractArchiving.js"
+import { touchLastSeenForContext } from "./services/user/userPresence.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
@@ -30,6 +38,8 @@ import {
 } from "./services/infra/pubsub.js"
 
 assertSubscriptionPubSubConfig()
+const require = createRequire(import.meta.url)
+const { version: appVersion } = require("./package.json")
 const app = express()
 
 /* =========================
@@ -42,6 +52,7 @@ app.get("/health", async (req, res) => {
 
     res.status(200).json({
       status: "ok",
+      version: appVersion,
       uptime: process.uptime(),
       timestamp: Date.now(),
       env: process.env.NODE_ENV || "development"
@@ -71,7 +82,9 @@ const schema = makeExecutableSchema({
 
 async function buildGraphqlContext(req) {
   try {
-    return await buildAuthContext(req.headers.authorization || null)
+    const context = await buildAuthContext(req.headers.authorization || null)
+    touchLastSeenForContext(context)
+    return context
   } catch (e) {
     if (isAuthError(e)) {
       throw new GraphQLError("Unauthorized", {
@@ -160,6 +173,7 @@ const serverCleanup = useServer(
         } subjectId=${context.subject?.id || "-"}`
       )
 
+      touchLastSeenForContext(context)
       return context
     },
 
@@ -221,6 +235,8 @@ const server = new ApolloServer({
    ⏱ CRON
 ========================= */
 startArchivingJob()
+startContractArchivingJob()
+startPresenceCleanupJob()
 
 await server.start()
 
@@ -312,6 +328,8 @@ const shutdown = async (signal) => {
   try {
     // 1. Останавливаем cron
     stopArchivingJob()
+    stopContractArchivingJob()
+    stopPresenceCleanupJob()
     logger.info("[SHUTDOWN] Cron stopped")
 
     // 2. Закрываем WebSocket-сервер

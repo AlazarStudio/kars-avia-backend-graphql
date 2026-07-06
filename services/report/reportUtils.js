@@ -1,3 +1,13 @@
+import {
+  getRequestCheckInAt,
+  getRequestCheckOutAt
+} from "../request/requestStayDates.js"
+import {
+  getHotelLocation,
+  resolvePriceByHotelLocation,
+  getCategoryPriceFromContract
+} from "../airline/resolvePriceByHotelLocation.js"
+
 const TECH_POS = ["Техник", "Инженер"]
 const NOT_TECH_POS = [
   "КАЭ",
@@ -163,72 +173,37 @@ export const calculateLivingCost = (request, type, days) => {
   return days > 0 ? days * pricePerDay : 0
 }
 
-export const getAirlinePriceForCategory = (request, category) => {
-  const airportId = request.airport?.id
+const resolveAirlineContractForRequest = (request) => {
+  const airportId =
+    request._reportAirportId ||
+    request.airport?.id ||
+    request.hotel?.airportId ||
+    null
 
-  const airlinePrices = request.airline?.prices
-  for (const contract of airlinePrices) {
-    if (contract.airports && contract.airports.length > 0) {
-      const match = contract.airports.find(
-        (item) => item.airportId && item.airportId === airportId
-      )
-      if (match) {
-        switch (category) {
-          case "studio":
-            return contract.prices?.priceStudio || 0
-          case "apartment":
-            return contract.prices?.priceApartment || 0
-          case "luxe":
-            return contract.prices?.priceLuxe || 0
-          case "comfort":
-            return contract.prices?.priceComfort || 0
-          case "improvedComfort":
-            return contract.prices?.priceImprovedComfort || 0
-          case "onePlace":
-            return contract.prices?.priceOneCategory || 0
-          case "twoPlace":
-            return contract.prices?.priceTwoCategory || 0
-          case "threePlace":
-            return contract.prices?.priceThreeCategory || 0
-          case "fourPlace":
-            return contract.prices?.priceFourCategory || 0
-          case "fivePlace":
-            return contract.prices?.priceFiveCategory || 0
-          case "sixPlace":
-            return contract.prices?.priceSixCategory || 0
-          case "sevenPlace":
-            return contract.prices?.priceSevenCategory || 0
-          case "eightPlace":
-            return contract.prices?.priceEightCategory || 0
-          case "ninePlace":
-            return contract.prices?.priceNineCategory || 0
-          case "tenPlace":
-            return contract.prices?.priceTenCategory || 0
-          default:
-            return 0
-        }
-      }
-    }
-  }
-  return 0
+  return resolvePriceByHotelLocation({
+    airlinePrices: request.airline?.prices,
+    hotelLocation:
+      request._priceSearchLocation ??
+      getHotelLocation(request.hotel, request.airport),
+    airportId,
+    skipCountryLevel: request._skipCountryLevel ?? false
+  })
+}
+
+export const getAirlinePriceForCategory = (request, category) => {
+  const contract = resolveAirlineContractForRequest(request)
+  if (!contract) return 0
+  return getCategoryPriceFromContract(contract, category)
 }
 
 export const getAirlineMealPrice = (request) => {
-  const airportId = request.airport?.id
-
-  const airlinePrices = request.airline?.prices
-  for (const contract of airlinePrices) {
-    if (contract.airports && contract.airports.length > 0) {
-      const match = contract.airports.find(
-        (item) => item.airportId && item.airportId === airportId
-      )
-      if (match) {
-        return contract.mealPrice
-      }
-    }
-  }
-  return 0
+  const contract = resolveAirlineContractForRequest(request)
+  if (!contract?.mealPrice) return 0
+  return contract.mealPrice
 }
+
+export const isHotelBreakfastIncluded = (request) =>
+  Boolean(request?.hotel?.breakfastIncluded)
 
 export const calculateMealCostForReportDays = (
   request,
@@ -272,12 +247,21 @@ export const calculateMealCostForReportDays = (
     mealPrices = request.hotel?.mealPrice
   }
 
-  const breakfastCost = breakfastCount * (mealPrices?.breakfast || 0)
+  const breakfastIncludedInPrice = isHotelBreakfastIncluded(request)
+  const breakfastCost = breakfastIncludedInPrice
+    ? 0
+    : breakfastCount * (mealPrices?.breakfast || 0)
   const lunchCost = lunchCount * (mealPrices?.lunch || 0)
   const dinnerCost = dinnerCount * (mealPrices?.dinner || 0)
   const totalMealCost = breakfastCost + lunchCost + dinnerCost
 
-  return { totalMealCost, breakfastCount, lunchCount, dinnerCount }
+  return {
+    totalMealCost,
+    breakfastCount,
+    lunchCount,
+    dinnerCount,
+    breakfastIncludedInPrice
+  }
 }
 
 export const parseAsLocal = (input) => {
@@ -387,12 +371,8 @@ export const aggregateRequestReports = (
 
   return filtered.map((request, index) => {
     const hotelChess = request.hotelChess?.[0] || {}
-    const rawIn = hotelChess.start
-      ? parseAsLocal(hotelChess.start)
-      : parseAsLocal(request.arrival)
-    const rawOut = hotelChess.end
-      ? parseAsLocal(hotelChess.end)
-      : parseAsLocal(request.departure)
+    const rawIn = getRequestCheckInAt(request)
+    const rawOut = getRequestCheckOutAt(request)
 
     const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
     const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
@@ -426,8 +406,13 @@ export const aggregateRequestReports = (
     const pricePerDay = getLivingPricePerDay(request, reportType)
     const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
 
-    const { totalMealCost, breakfastCount, lunchCount, dinnerCount } =
-      calculateMealCostForReportDays(
+    const {
+      totalMealCost,
+      breakfastCount,
+      lunchCount,
+      dinnerCount,
+      breakfastIncludedInPrice
+    } = calculateMealCostForReportDays(
         request,
         reportType,
         effectiveDays,
@@ -454,6 +439,7 @@ export const aggregateRequestReports = (
       breakfastCount,
       lunchCount,
       dinnerCount,
+      breakfastIncludedInPrice,
       totalMealCost,
       totalLivingCost,
       pricePerDay,
@@ -804,6 +790,7 @@ export const buildAllocation = (data) => {
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,
         dinnerCount: g.dinnerCount,
+        breakfastIncludedInPrice: g.breakfastIncludedInPrice,
         totalMealCost: g.totalMealCost,
         totalLivingCost: livingCost,
         totalDebt: livingCost + g.totalMealCost,

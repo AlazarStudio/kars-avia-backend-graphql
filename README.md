@@ -880,3 +880,52 @@ v3.4.0 (2026-03-16)
   - Обновлены **request/reserve/hotel/transfer/report/chat/dispatcher/user/analytics/global/contract/log** резольверы
   - Добавлены и улучшены сервисы: **services/analytics/userTimeAnalytics.js**, **services/user/userActivity.js**, **services/hotel/hotelFilters.js**, **services/infra/logaction.js**
   - Обновлены **server.js** и **server2.js** (контекст, авторизация, инфраструктурные доработки)
+
+v3.5.0 (2026-06-26)
+
+- **Новое — уведомления об обновлениях системы**:
+
+  - **prisma/schema.prisma**: модель **SystemUpdate**, поле **User.lastSeenAppVersion**
+  - **typeDefs/site/site.typeDef.js**, **resolvers/site/site.resolver.js**: query **systemUpdate**, mutation **updateSystemUpdate** / **markSystemUpdateSeen**, subscription **systemUpdatePublished**
+  - **services/site/systemUpdate.js**, **services/site/systemUpdateUtils.js**: бизнес-логика и валидация semver
+  - **tests/site/systemUpdate.test.js**: unit-тесты утилит
+  - **documentations/frontend/system-update-notifications.md**: интеграционный гайд для фронта
+
+- **Passenger Request**:
+
+  - Файлы в заявках, статусы, группировка, массовые заявки, saved passengers
+  - Доработки **passengerRequest.resolver.js**, **services/passengerRequest/**
+
+- **TravelLine**:
+
+  - РЗПВ, корпоративные тарифы, изменение брони
+  - **services/travelline/travellineService.js**
+
+- **Hotel**:
+
+  - Preview-ссылки (**HotelPreviewLink**), auth для просмотра отеля
+  - Поиск и фильтры, трансферы, геолокация
+  - **resolvers/hotel/hotel.resolver.js**, **services/hotel/**
+
+- **Request / Reserve**:
+
+  - Групповые заявки, доработка архивации (cron + grace period)
+  - **services/cron/cronTasks.js**, **resolvers/request/request.resolver.js**
+
+- **Contracts**:
+
+  - Cron автоархивации истёкших договоров и доп. соглашений
+  - **services/cron/contractArchiving.js**, **services/contract/contractArchive.js**
+
+- **Support / Chat / Mail**:
+
+  - Доработки чатов поддержки и почтовых уведомлений
+
+- **MaintenanceBanner**:
+
+  - Subscription **maintenanceBannerUpdated** для live-обновления плашки
+
+- **Общие изменения**:
+
+  - Версия приложения **3.5.0** (**package.json**, **INSTALL.md**)
+  - **GET /health** возвращает поле **version**

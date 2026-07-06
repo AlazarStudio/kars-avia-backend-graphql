@@ -303,10 +303,11 @@ const dispatcherTypeDef = /* GraphQL */ `
     # getAllNotifications: Notification
     getPosition(id: ID!): Position
     getAllPositions: [Position]
-    getAirlinePositions: [Position]
-    getAirlineUserPositions: [Position]
+    getAirlinePositions: [Position!]!
+    getAirlineUserPositions(airlineId: ID!): [Position!]!
     getHotelPositions: [Position]
     getDispatcherPositions: [Position]
+    getRepresentativePositions: [Position]
     getTransferDispatcherPositions: [Position]
     getAllNotifications(
       pagination: NotificationPaginationInput
@@ -323,8 +324,9 @@ const dispatcherTypeDef = /* GraphQL */ `
     createPriceCategory(input: PriceCategoryInput): PriceCategory
     updatePriceCategory(input: PriceCategoryInput): PriceCategory
     deletePriceCategory(id: ID!): Boolean!
-    createPosition(input: PositionInput): Position
-    updatePosition(input: PositionInput): Position
+    createPosition(input: PositionInput!): Position!
+    updatePosition(input: PositionInput!): Position!
+    deletePosition(id: ID!): Position!
     allDataUpdate: Boolean
     createDispatcherDepartment(
       input: DispatcherDepartmentInput!

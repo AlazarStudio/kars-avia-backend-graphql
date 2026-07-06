@@ -30,7 +30,7 @@ const organizationResolver = {
               take: typeof take === "number" ? take : undefined
             }),
 
-        orderBy: { information: { city: "asc" } },
+        orderBy: { name: "asc" },
         include: {
           transferPrices: {
             include: {
@@ -102,7 +102,7 @@ const organizationResolver = {
           await prisma.transferPrice.create({
             data: {
               organizationId: newOrganization.id,
-              name: tp.name ?? '',
+              name: tp.name ?? "",
               prices: tp.prices,
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
@@ -123,11 +123,11 @@ const organizationResolver = {
         where: { id: newOrganization.id },
         include: {
           transferPrices: {
-              include: {
-                airportOnTransferPrice: { include: { airport: true } },
-                cityOnTransferPrice: { include: { city: true } }
-              }
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
             }
+          }
         }
       })
 
@@ -153,10 +153,15 @@ const organizationResolver = {
       const newData = {}
 
       if (restInput.information) {
-        newData.information = {
+        // information — опциональный composite (Information?), на update Prisma
+        // требует явный оператор (set/upsert/unset), плоский объект запрещён
+        const mergedInfo = {
           ...(currentOrganization.information || {}),
           ...restInput.information
         }
+        // additionalNumbers — обязательный String[] в composite; на set null недопустим
+        mergedInfo.additionalNumbers = mergedInfo.additionalNumbers ?? []
+        newData.information = { set: mergedInfo }
       }
 
       if (typeof restInput.name === "string") {
@@ -181,7 +186,10 @@ const organizationResolver = {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
-              data: { prices: tp.prices, ...(tp.name != null && { name: tp.name }) }
+              data: {
+                prices: tp.prices,
+                ...(tp.name != null && { name: tp.name })
+              }
             })
             await prisma.airportOnTransferPrice.deleteMany({
               where: { transferPriceId: tp.id }
@@ -207,7 +215,7 @@ const organizationResolver = {
             await prisma.transferPrice.create({
               data: {
                 organizationId: id,
-                name: tp.name ?? '',
+                name: tp.name ?? "",
                 prices: tp.prices,
                 airportOnTransferPrice: {
                   create: (tp.airportIds || []).map((airportId) => ({
@@ -229,11 +237,11 @@ const organizationResolver = {
         where: { id },
         include: {
           transferPrices: {
-              include: {
-                airportOnTransferPrice: { include: { airport: true } },
-                cityOnTransferPrice: { include: { city: true } }
-              }
+            include: {
+              airportOnTransferPrice: { include: { airport: true } },
+              cityOnTransferPrice: { include: { city: true } }
             }
+          }
         }
       })
 

@@ -1,6 +1,9 @@
 import { prisma } from "../../prisma.js"
 import { travellineService } from "../../services/travelline/travellineService.js"
-import { adminMiddleware, allMiddleware } from "../../middlewares/authMiddleware.js"
+import {
+  adminMiddleware,
+  allMiddleware
+} from "../../middlewares/authMiddleware.js"
 import { logger } from "../../services/infra/logger.js"
 
 const travellineResolver = {
@@ -16,16 +19,28 @@ const travellineResolver = {
 
       const trimmed = city.trim()
 
+      // Видимость как в запросе `hotels`: суперадмин/диспетчер видят и скрытые
+      // (show=false) отели, остальные роли — только show=true. Без этого город
+      // мог присутствовать в выпадающем списке, но не давать ни одной гостиницы.
+      const { user } = context
+      const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
+
       // Локальные отели — kars-avia (не external) и TL-двойники (external=true) — оба из БД
       const allHotels = await prisma.hotel
         .findMany({
           where: {
             active: true,
-            information: { is: { city: { equals: trimmed, mode: "insensitive" } } },
-            OR: [
-              { external: { not: true }, show: true },
-              { external: true }
-            ]
+            information: {
+              is: { city: { equals: trimmed, mode: "insensitive" } }
+            },
+            ...(isSuper
+              ? {}
+              : {
+                  OR: [
+                    { external: { not: true }, show: true },
+                    { external: true }
+                  ]
+                })
           },
           select: {
             id: true,
@@ -49,12 +64,19 @@ const travellineResolver = {
       const options = allHotels.map((h) => {
         if (h.external && h.externalSource === "travelline") {
           let parsed = null
-          try { parsed = h.externalRaw ? JSON.parse(h.externalRaw) : null } catch { parsed = null }
+          try {
+            parsed = h.externalRaw ? JSON.parse(h.externalRaw) : null
+          } catch {
+            parsed = null
+          }
           return {
             source: "travelline",
             id: h.externalId || h.id,
             name: h.name,
-            photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+            photo:
+              Array.isArray(h.images) && h.images.length > 0
+                ? h.images[0]
+                : null,
             city: h.information?.city ?? null,
             address: h.information?.address ?? null,
             stars: h.stars ?? null,
@@ -67,7 +89,8 @@ const travellineResolver = {
           source: "local",
           id: h.id,
           name: h.name,
-          photo: Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
+          photo:
+            Array.isArray(h.images) && h.images.length > 0 ? h.images[0] : null,
           city: h.information?.city ?? null,
           address: h.information?.address ?? null,
           stars: h.stars ?? null,
@@ -87,7 +110,10 @@ const travellineResolver = {
 
     tlPropertiesByCity: async (_, { input }, context) => {
       await adminMiddleware(context)
-      return travellineService.searchPropertiesByCity(input.cityId, input.count ?? 200)
+      return travellineService.searchPropertiesByCity(
+        input.cityId,
+        input.count ?? 200
+      )
     },
 
     tlSearchProperties: async (_, { filter }, context) => {
@@ -145,19 +171,40 @@ const travellineResolver = {
       return travellineService.getSyncStatus()
     },
 
+    tlCorporate: async (_, { id }, context) => {
+      await adminMiddleware(context)
+      return travellineService.getCorporate(id)
+    },
+
+    tlCorporates: async (_, __, context) => {
+      await adminMiddleware(context)
+      return travellineService.listCorporates()
+    },
+
+    tlExtraStays: async (_, { propertyId, input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.searchExtraStays(propertyId, input)
+    },
+
     tlLocalProperties: async (_, { filter }, context) => {
       await allMiddleware(context)
       const where = { externalSource: "travelline" }
       if (filter?.city) {
         where.information = {
-          is: { city: { equals: String(filter.city).trim(), mode: "insensitive" } }
+          is: {
+            city: { equals: String(filter.city).trim(), mode: "insensitive" }
+          }
         }
       }
       const hotels = await prisma.hotel.findMany({ where })
       const items = hotels.map((h) => {
         const raw = h.externalRaw
         let parsed = null
-        try { parsed = raw ? JSON.parse(raw) : null } catch { parsed = null }
+        try {
+          parsed = raw ? JSON.parse(raw) : null
+        } catch {
+          parsed = null
+        }
         return {
           id: h.externalId || h.id,
           name: h.name,
@@ -184,7 +231,11 @@ const travellineResolver = {
   Mutation: {
     tlSetConfig: async (_, { input }, context) => {
       await adminMiddleware(context)
-      return travellineService.setConfig(input.clientId, input.clientSecret, input.baseUrl)
+      return travellineService.setConfig(
+        input.clientId,
+        input.clientSecret,
+        input.baseUrl
+      )
     },
 
     tlSyncCatalog: async (_, { countryCode }, context) => {
@@ -215,6 +266,16 @@ const travellineResolver = {
     tlRawRequest: async (_, { input }, context) => {
       await adminMiddleware(context)
       return travellineService.rawRequest(input)
+    },
+
+    tlCreateCorporate: async (_, { input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.createCorporate(input)
+    },
+
+    tlAmendReservation: async (_, { input }, context) => {
+      await adminMiddleware(context)
+      return travellineService.amendReservation(input)
     }
   }
 }

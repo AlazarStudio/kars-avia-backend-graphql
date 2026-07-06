@@ -42,12 +42,28 @@ const hotelTypeDef = /* GraphQL */ `
     end: String!
   }
 
+  type HotelLocation {
+    country: String
+    region: String
+    city: String
+    cityId: ID
+    cityRef: City
+    address: String
+  }
+
+  input HotelLocationInput {
+    country: String
+    cityId: ID
+    address: String
+  }
+
   # Основной тип отеля, отражающий актуальную структуру базы данных
   type Hotel {
     id: ID!
     name: String!
     nameFull: String
     airport: Airport
+    location: HotelLocation
     information: Information
     provision: Int
     quote: Int
@@ -61,6 +77,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTime
     mealPrice: MealPrice
     mealPriceForAir: MealPrice
+    mealPriceForAirReq: Boolean
+    transferPrice: HotelTransferPrice
+    transferPriceForAir: HotelTransferPrice
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -75,6 +95,7 @@ const hotelTypeDef = /* GraphQL */ `
     active: Boolean
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
     access: Boolean
     type: HotelType
     # position: [Position]
@@ -150,6 +171,7 @@ const hotelTypeDef = /* GraphQL */ `
     description: String
     price: Float!
     priceForAirline: Float
+    priceForAirReq: Boolean
     images: [String]
     hotel: Hotel
   }
@@ -169,11 +191,52 @@ const hotelTypeDef = /* GraphQL */ `
     hotels: [Hotel!]!
   }
 
+  type HotelPreviewLinkResult {
+    link: String!
+    expiresAt: Date!
+    hotelId: ID!
+  }
+
+  type HotelPreviewAuthPayload {
+    token: String!
+    expiresAt: Date!
+    hotelId: ID!
+  }
+
+  type HotelPreview {
+    id: ID!
+    name: String!
+    nameFull: String
+    airport: Airport
+    location: HotelLocation
+    information: Information
+    images: [String!]!
+    gallery: [String!]
+    rooms: [Room!]!
+    roomKind: [RoomKind]
+    additionalServices: [AdditionalServices]
+    breakfast: MealTime
+    lunch: MealTime
+    dinner: MealTime
+    stars: String
+    usStars: String
+    airportDistance: String
+    type: HotelType
+    meal: Boolean
+    breakfastIncluded: Boolean
+    discount: String
+    mealPriceForAir: MealPrice
+    mealPriceForAirReq: Boolean
+    transferPriceForAir: HotelTransferPrice
+    transferPriceForAirReq: Boolean
+  }
+
   # Входные типы для создания/обновления отеля
   input CreateHotelInput {
     name: String!
     nameFull: String
     airportId: ID
+    location: HotelLocationInput
     information: InformationInput
     provision: Int
     quote: Int
@@ -185,6 +248,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    mealPriceForAirReq: Boolean
+    transferPrice: HotelTransferPriceInput
+    transferPriceForAir: HotelTransferPriceInput
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -193,12 +260,14 @@ const hotelTypeDef = /* GraphQL */ `
     type: HotelType
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
   }
 
   input UpdateHotelInput {
     name: String
     nameFull: String
     airportId: ID
+    location: HotelLocationInput
     information: InformationInput
     provision: Int
     quote: Int
@@ -212,6 +281,10 @@ const hotelTypeDef = /* GraphQL */ `
     dinner: MealTimeInput
     mealPrice: MealPriceInput
     mealPriceForAir: MealPriceInput
+    mealPriceForAirReq: Boolean
+    transferPrice: HotelTransferPriceInput
+    transferPriceForAir: HotelTransferPriceInput
+    transferPriceForAirReq: Boolean
     stars: String
     usStars: String
     airportDistance: String
@@ -220,6 +293,7 @@ const hotelTypeDef = /* GraphQL */ `
     access: Boolean
     show: Boolean
     meal: Boolean
+    breakfastIncluded: Boolean
   }
 
   input HotelChessInput {
@@ -279,6 +353,7 @@ const hotelTypeDef = /* GraphQL */ `
     description: String
     price: Float
     priceForAirline: Float
+    priceForAirReq: Boolean
     images: [String]
   }
 
@@ -290,8 +365,10 @@ const hotelTypeDef = /* GraphQL */ `
 
   input HotelFilter {
     cityId: ID
+    airportId: ID
     stars: String
     usStars: String
+    search: String
   }
 
   input ManyRoomsInput {
@@ -311,6 +388,7 @@ const hotelTypeDef = /* GraphQL */ `
       filter: HotelFilter
     ): HotelConnection!
     hotel(id: ID!): Hotel
+    hotelPreview: HotelPreview
   }
 
   type Mutation {
@@ -344,7 +422,10 @@ const hotelTypeDef = /* GraphQL */ `
     deleteHotel(id: ID!): Hotel!
     deleteRoom(id: ID!): Room!
     deleteRoomKind(id: ID!): RoomKind!
+    deleteAdditionalService(id: ID!): AdditionalServices!
     updateAllRoomKindCount: [Hotel]
+    createHotelPreviewLink(hotelId: ID!, hours: Int!): HotelPreviewLinkResult!
+    authorizeHotelPreview(token: String!): HotelPreviewAuthPayload!
   }
 
   type Subscription {
