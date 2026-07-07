@@ -15,6 +15,7 @@ import path from "path"
 import cliProgress from "cli-progress"
 import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
+import { filePathsMatch, replaceUrlInContractFiles } from "../contract/files.js"
 
 /* =========================
    ⚙ CONFIG
@@ -127,6 +128,24 @@ const replaceInArray = (arr, oldVariants, newPath) =>
     return p
   })
 
+const CONTRACT_FILE_MODELS = new Set([
+  "airlineContract",
+  "hotelContract",
+  "organizationContract",
+  "additionalAgreement"
+])
+
+const contractFileContainsVariant = (files, searchVariants) => {
+  for (const file of files || []) {
+    const url = typeof file === "string" ? file : file?.url
+    if (!url) continue
+    if (searchVariants.some((variant) => filePathsMatch(url, variant))) {
+      return true
+    }
+  }
+  return false
+}
+
 /* =========================
    🔍 FILE CLASSIFICATION
 ========================= */
@@ -186,25 +205,25 @@ const resolveFileOwner = async (oldRelPath) => {
     if (personal) return { bucket: "airline-personal", entityId: personal.id }
   }
 
-  // Ищем в contracts
-  for (const variant of searchVariants) {
-    const airlineContract = await prisma.airlineContract.findFirst({
-      where: { files: { has: variant } },
-      select: { id: true }
+  // Ищем в contracts (files: ContractFile[])
+  const contractModels = [
+    prisma.airlineContract,
+    prisma.hotelContract,
+    prisma.organizationContract,
+    prisma.additionalAgreement
+  ]
+
+  for (const model of contractModels) {
+    const records = await model.findMany({
+      where: { files: { isEmpty: false } },
+      select: { id: true, files: true }
     })
-    if (airlineContract) return { bucket: "contracts", entityId: airlineContract.id }
-    
-    const hotelContract = await prisma.hotelContract.findFirst({
-      where: { files: { has: variant } },
-      select: { id: true }
-    })
-    if (hotelContract) return { bucket: "contracts", entityId: hotelContract.id }
-    
-    const orgContract = await prisma.organizationContract.findFirst({
-      where: { files: { has: variant } },
-      select: { id: true }
-    })
-    if (orgContract) return { bucket: "contracts", entityId: orgContract.id }
+
+    for (const rec of records) {
+      if (contractFileContainsVariant(rec.files, searchVariants)) {
+        return { bucket: "contracts", entityId: rec.id }
+      }
+    }
   }
 
   return { bucket: "misc", entityId: null }
@@ -251,6 +270,41 @@ const updateDatabaseLinks = async () => {
 
       for (const field of target.fields) {
         const oldVariants = buildOldVariants(item.old)
+        const isContractFiles =
+          CONTRACT_FILE_MODELS.has(target.model) && field === "files"
+
+        if (isContractFiles) {
+          const records = await model.findMany({
+            where: { [field]: { isEmpty: false } },
+            select: { id: true, [field]: true }
+          })
+
+          for (const rec of records) {
+            if (!contractFileContainsVariant(rec[field], oldVariants)) continue
+
+            const updatedField = replaceUrlInContractFiles(
+              rec[field],
+              oldVariants,
+              item.new
+            )
+            if (
+              !updatedField ||
+              JSON.stringify(updatedField) === JSON.stringify(rec[field])
+            ) {
+              continue
+            }
+
+            await model.update({
+              where: { id: rec.id },
+              data: {
+                [field]: updatedField
+              }
+            })
+            updated++
+          }
+          continue
+        }
+
         const records = await model.findMany({
           where: { [field]: { hasSome: oldVariants } },
           select: { id: true, [field]: true }

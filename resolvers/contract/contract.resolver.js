@@ -8,8 +8,14 @@ import {
 } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
+import { GraphQLError } from "graphql"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
-import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
+import {
+  deleteAllContractFilesFromDisk,
+  mergeContractFiles,
+  removeContractFileFromList,
+  uploadContractFiles
+} from "../../services/contract/files.js"
 import logAction from "../../services/infra/logaction.js"
 import {
   buildAirlineContractWhere,
@@ -83,16 +89,68 @@ const publishAgreementParentContract = async (agreement) => {
 }
 
 const deleteContractAndAgreementFiles = async (contract) => {
-  const filePaths = [
+  const allFiles = [
     ...(contract?.files || []),
     ...(contract?.additionalAgreements || []).flatMap(
       (agreement) => agreement.files || []
     )
   ]
 
-  for (const filePath of filePaths) {
-    await deleteFiles(filePath)
+  await deleteAllContractFilesFromDisk(allFiles)
+}
+
+const appendUploadedContractFiles = async (existingFiles, files, fileNames) => {
+  if (!files?.length) return null
+  const uploaded = await uploadContractFiles(files, fileNames)
+  return mergeContractFiles(existingFiles, uploaded)
+}
+
+const removeContractFileRecord = async ({
+  prismaModel,
+  id,
+  fileUrl,
+  include,
+  context,
+  action,
+  description,
+  fulldescription,
+  publish
+}) => {
+  await allMiddleware(context)
+
+  const existing = await prismaModel.findUnique({ where: { id } })
+  if (!existing) {
+    throw new GraphQLError("Запись не найдена")
   }
+
+  const { files, removed, index } = removeContractFileFromList(
+    existing.files,
+    fileUrl
+  )
+  if (index === -1) {
+    throw new GraphQLError("Файл не найден")
+  }
+
+  await deleteAllContractFilesFromDisk([removed])
+
+  const updated = await prismaModel.update({
+    where: { id },
+    data: { files },
+    include
+  })
+
+  if (publish) publish(updated)
+
+  await logAction({
+    context,
+    action,
+    description,
+    fulldescription,
+    oldData: existing,
+    newData: updated
+  })
+
+  return updated
 }
 
 const contractResolver = {
@@ -215,15 +273,9 @@ const contractResolver = {
 
   Mutation: {
     // AIRLINE
-    createAirlineContract: async (_, { input, files }, context) => {
+    createAirlineContract: async (_, { input, files, fileNames }, context) => {
       await allMiddleware(context)
-      let filesPath = []
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-      }
+      const contractFiles = await uploadContractFiles(files, fileNames)
 
       const contract = await prisma.airlineContract.create({
         data: {
@@ -236,7 +288,7 @@ const contractResolver = {
           region: input.region ?? null,
           applicationType: input.applicationType ?? null,
           notes: input.notes ?? null,
-          files: filesPath
+          files: contractFiles
         },
         include: {
           company: true,
@@ -263,20 +315,20 @@ const contractResolver = {
       return contract
     },
 
-    updateAirlineContract: async (_, { id, input, files }, context) => {
+    updateAirlineContract: async (_, { id, input, files, fileNames }, context) => {
       await allMiddleware(context)
       const oldContract = await prisma.airlineContract.findUnique({
         where: { id }
       })
       const updatedData = {}
 
-      if (files && files.length > 0) {
-        let filesPath = oldContract.files ? oldContract.files : []
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-        updatedData.files = filesPath
+      const mergedFiles = await appendUploadedContractFiles(
+        oldContract.files,
+        files,
+        fileNames
+      )
+      if (mergedFiles) {
+        updatedData.files = mergedFiles
       }
 
       if (input.companyId != undefined) {
@@ -330,6 +382,24 @@ const contractResolver = {
 
       return contract
     },
+
+    removeAirlineContractFile: async (_, { contractId, fileUrl }, context) =>
+      removeContractFileRecord({
+        prismaModel: prisma.airlineContract,
+        id: contractId,
+        fileUrl,
+        include: {
+          company: true,
+          airline: true,
+          additionalAgreements: true
+        },
+        context,
+        action: "remove_airline_contract_file",
+        description: "Файл удалён из договора авиакомпании",
+        fulldescription: "Удалён файл из договора авиакомпании",
+        publish: (contract) =>
+          pubsub.publish(CONTRACT_AIRLINE, { contractAirline: contract })
+      }),
 
     deleteAirlineContract: async (_, { id }, context) => {
       await allMiddleware(context)
@@ -402,15 +472,9 @@ const contractResolver = {
     },
 
     // HOTEL
-    createHotelContract: async (_, { input, files }, context) => {
+    createHotelContract: async (_, { input, files, fileNames }, context) => {
       await allMiddleware(context)
-      let filesPath = []
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-      }
+      const contractFiles = await uploadContractFiles(files, fileNames)
 
       const contract = await prisma.hotelContract.create({
         data: {
@@ -428,7 +492,7 @@ const contractResolver = {
           normativeAct: input.normativeAct ?? null,
           applicationType: input.applicationType ?? null,
           executor: input.executor ?? null,
-          files: filesPath
+          files: contractFiles
         },
         include: {
           company: true,
@@ -456,20 +520,20 @@ const contractResolver = {
       return contract
     },
 
-    updateHotelContract: async (_, { id, input, files }, context) => {
+    updateHotelContract: async (_, { id, input, files, fileNames }, context) => {
       await allMiddleware(context)
       const oldContract = await prisma.hotelContract.findUnique({
         where: { id }
       })
       const updatedData = {}
 
-      if (files && files.length > 0) {
-        let filesPath = oldContract.files ? oldContract.files : []
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-        updatedData.files = filesPath
+      const mergedFiles = await appendUploadedContractFiles(
+        oldContract.files,
+        files,
+        fileNames
+      )
+      if (mergedFiles) {
+        updatedData.files = mergedFiles
       }
 
       if (input.companyId != undefined) {
@@ -538,6 +602,24 @@ const contractResolver = {
 
       return contract
     },
+
+    removeHotelContractFile: async (_, { contractId, fileUrl }, context) =>
+      removeContractFileRecord({
+        prismaModel: prisma.hotelContract,
+        id: contractId,
+        fileUrl,
+        include: {
+          company: true,
+          hotel: true,
+          region: true
+        },
+        context,
+        action: "remove_hotel_contract_file",
+        description: "Файл удалён из договора гостиницы",
+        fulldescription: "Удалён файл из договора гостиницы",
+        publish: (contract) =>
+          pubsub.publish(CONTRACT_HOTEL, { contractHotel: contract })
+      }),
 
     deleteHotelContract: async (_, { id }, context) => {
       await allMiddleware(context)
@@ -615,15 +697,9 @@ const contractResolver = {
     },
 
     // ORGANIZATION
-    createOrganizationContract: async (_, { input, files }, context) => {
+    createOrganizationContract: async (_, { input, files, fileNames }, context) => {
       await allMiddleware(context)
-      let filesPath = []
-
-      if (files?.length) {
-        for (const file of files) {
-          filesPath.push(await uploadFiles(file))
-        }
-      }
+      const contractFiles = await uploadContractFiles(files, fileNames)
 
       const contract = await prisma.organizationContract.create({
         data: {
@@ -636,7 +712,7 @@ const contractResolver = {
           contractNumber: input.contractNumber ?? null,
           notes: input.notes ?? null,
           applicationType: input.applicationType ?? null,
-          files: filesPath
+          files: contractFiles
         },
         include: {
           region: true,
@@ -668,19 +744,24 @@ const contractResolver = {
       return contract
     },
 
-    updateOrganizationContract: async (_, { id, input, files }, context) => {
+    updateOrganizationContract: async (
+      _,
+      { id, input, files, fileNames },
+      context
+    ) => {
       await allMiddleware(context)
       const oldContract = await prisma.organizationContract.findUnique({
         where: { id }
       })
       const updatedData = {}
 
-      if (files?.length) {
-        let filesPath = oldContract.files ? oldContract.files : []
-        for (const file of files) {
-          filesPath.push(await uploadFiles(file))
-        }
-        updatedData.files = filesPath
+      const mergedFiles = await appendUploadedContractFiles(
+        oldContract.files,
+        files,
+        fileNames
+      )
+      if (mergedFiles) {
+        updatedData.files = mergedFiles
       }
 
       if (input.companyId !== undefined) updatedData.companyId = input.companyId
@@ -727,6 +808,26 @@ const contractResolver = {
 
       return contract
     },
+
+    removeOrganizationContractFile: async (_, { contractId, fileUrl }, context) =>
+      removeContractFileRecord({
+        prismaModel: prisma.organizationContract,
+        id: contractId,
+        fileUrl,
+        include: {
+          region: true,
+          company: true,
+          organization: true
+        },
+        context,
+        action: "remove_organization_contract_file",
+        description: "Файл удалён из договора организации",
+        fulldescription: "Удалён файл из договора организации",
+        publish: (contract) =>
+          pubsub.publish(CONTRACT_ORGANIZATION, {
+            contractOrganization: contract
+          })
+      }),
 
     deleteOrganizationContract: async (_, { id }, context) => {
       await allMiddleware(context)
@@ -811,16 +912,10 @@ const contractResolver = {
     },
 
     // ADDITIONAL AGREEMENTS
-    createAdditionalAgreement: async (_, { input, files }, context) => {
+    createAdditionalAgreement: async (_, { input, files, fileNames }, context) => {
       await allMiddleware(context)
 
-      let filesPath = []
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-      }
+      const contractFiles = await uploadContractFiles(files, fileNames)
 
       const contract = await prisma.additionalAgreement.create({
         data: {
@@ -837,7 +932,7 @@ const contractResolver = {
           contractNumber: input.contractNumber ?? null,
           itemAgreement: input.itemAgreement ?? null,
           notes: input.notes ?? null,
-          files: filesPath
+          files: contractFiles
         },
         include: {
           airlineContract: true,
@@ -877,20 +972,24 @@ const contractResolver = {
       return contract
     },
 
-    updateAdditionalAgreement: async (_, { id, input, files }, context) => {
+    updateAdditionalAgreement: async (
+      _,
+      { id, input, files, fileNames },
+      context
+    ) => {
       await allMiddleware(context)
       const oldAgreement = await prisma.additionalAgreement.findUnique({
         where: { id }
       })
       const updatedData = {}
 
-      if (files && files.length > 0) {
-        let filesPath = oldAgreement.files ? oldAgreement.files : []
-        for (const file of files) {
-          const uploadedPath = await uploadFiles(file)
-          filesPath.push(uploadedPath)
-        }
-        updatedData.files = filesPath
+      const mergedFiles = await appendUploadedContractFiles(
+        oldAgreement.files,
+        files,
+        fileNames
+      )
+      if (mergedFiles) {
+        updatedData.files = mergedFiles
       }
 
       if (input.airlineContractId != undefined) {
@@ -953,16 +1052,33 @@ const contractResolver = {
       return contract
     },
 
+    removeAdditionalAgreementFile: async (_, { agreementId, fileUrl }, context) => {
+      const agreement = await removeContractFileRecord({
+        prismaModel: prisma.additionalAgreement,
+        id: agreementId,
+        fileUrl,
+        include: {
+          airlineContract: true,
+          hotelContract: true,
+          organizationContract: true
+        },
+        context,
+        action: "remove_additional_agreement_file",
+        description: "Файл удалён из дополнительного соглашения",
+        fulldescription: "Удалён файл из дополнительного соглашения",
+        publish: null
+      })
+
+      await publishAgreementParentContract(agreement)
+      return agreement
+    },
+
     deleteAdditionalAgreement: async (_, { id }, context) => {
       await allMiddleware(context)
       const contract = await prisma.additionalAgreement.findUnique({
         where: { id }
       })
-      if (contract.files && contract.files.length > 0) {
-        for (const filePath of contract.files) {
-          await deleteFiles(filePath)
-        }
-      }
+      await deleteAllContractFilesFromDisk(contract?.files)
       await prisma.additionalAgreement.delete({ where: { id } })
       await publishAgreementParentContract(contract)
       return true

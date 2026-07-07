@@ -26,28 +26,12 @@ const filePathsResolver = {
     }
   },
 
-  // Contract types
-  AirlineContract: {
-    files: (parent) => {
-      return normalizeFilePaths(parent.files || [])
-    }
-  },
-
-  HotelContract: {
-    files: (parent) => {
-      return normalizeFilePaths(parent.files || [])
-    }
-  },
-
-  OrganizationContract: {
-    files: (parent) => {
-      return normalizeFilePaths(parent.files || [])
-    }
-  },
-
-  AdditionalAgreement: {
-    files: (parent) => {
-      return normalizeFilePaths(parent.files || [])
+  // Contract file items
+  ContractFile: {
+    url: (parent) => {
+      if (!parent?.url) return parent?.url
+      const normalized = normalizeFilePaths(parent.url)
+      return Array.isArray(normalized) ? normalized[0] : normalized
     }
   },
 

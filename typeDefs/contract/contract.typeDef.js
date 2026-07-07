@@ -92,6 +92,11 @@ const contractTypeDef = /* GraphQL */ `
 
   #  ===== DOMAIN TYPES =====
 
+  type ContractFile {
+    name: String!
+    url: String!
+  }
+
   type AdditionalAgreement {
     id: ID!
     airlineContractId: ID
@@ -113,7 +118,7 @@ const contractTypeDef = /* GraphQL */ `
     contractNumber: String
     itemAgreement: String
     notes: String
-    files: [String!]!
+    files: [ContractFile!]!
   }
 
   type AirlineContract {
@@ -136,7 +141,7 @@ const contractTypeDef = /* GraphQL */ `
     region: String
     applicationType: String
     notes: String
-    files: [String!]!
+    files: [ContractFile!]!
     additionalAgreements: [AdditionalAgreement!]!
   }
 
@@ -166,7 +171,7 @@ const contractTypeDef = /* GraphQL */ `
     normativeAct: String
     applicationType: String
     executor: String
-    files: [String!]!
+    files: [ContractFile!]!
     additionalAgreements: [AdditionalAgreement!]!
   }
 
@@ -196,7 +201,7 @@ const contractTypeDef = /* GraphQL */ `
     # normativeAct: String
     applicationType: String
     # executor: String
-    files: [String!]!
+    files: [ContractFile!]!
     additionalAgreements: [AdditionalAgreement!]!
   }
 
@@ -351,52 +356,76 @@ const contractTypeDef = /* GraphQL */ `
     createAirlineContract(
       input: AirlineContractCreateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): AirlineContract!
     updateAirlineContract(
       id: ID!
       input: AirlineContractUpdateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): AirlineContract!
     deleteAirlineContract(id: ID!): Boolean!
+    removeAirlineContractFile(
+      contractId: ID!
+      fileUrl: String!
+    ): AirlineContract!
     archiveAirlineContract(id: ID!): AirlineContract!
     restoreAirlineContract(id: ID!): AirlineContract!
 
     createAdditionalAgreement(
       input: AdditionalAgreementInput!
       files: [Upload!]
+      fileNames: [String!]
     ): AdditionalAgreement!
     updateAdditionalAgreement(
       id: ID!
       input: AdditionalAgreementInput!
       files: [Upload!]
+      fileNames: [String!]
     ): AdditionalAgreement!
     deleteAdditionalAgreement(id: ID!): Boolean!
+    removeAdditionalAgreementFile(
+      agreementId: ID!
+      fileUrl: String!
+    ): AdditionalAgreement!
     archiveAdditionalAgreement(id: ID!): AdditionalAgreement!
     restoreAdditionalAgreement(id: ID!): AdditionalAgreement!
 
     createHotelContract(
       input: HotelContractCreateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): HotelContract!
     updateHotelContract(
       id: ID!
       input: HotelContractUpdateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): HotelContract!
     deleteHotelContract(id: ID!): Boolean!
+    removeHotelContractFile(
+      contractId: ID!
+      fileUrl: String!
+    ): HotelContract!
     archiveHotelContract(id: ID!): HotelContract!
     restoreHotelContract(id: ID!): HotelContract!
 
     createOrganizationContract(
       input: OrganizationContractCreateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): OrganizationContract!
     updateOrganizationContract(
       id: ID!
       input: OrganizationContractUpdateInput!
       files: [Upload!]
+      fileNames: [String!]
     ): OrganizationContract!
     deleteOrganizationContract(id: ID!): Boolean!
+    removeOrganizationContractFile(
+      contractId: ID!
+      fileUrl: String!
+    ): OrganizationContract!
     archiveOrganizationContract(id: ID!): OrganizationContract!
     restoreOrganizationContract(id: ID!): OrganizationContract!
   }

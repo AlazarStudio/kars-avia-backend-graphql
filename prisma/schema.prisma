@@ -611,6 +611,11 @@ model SupportTicket {
 
 // Company ---------------- ↓↓↓↓ 
 
+type ContractFile {
+  name String
+  url  String
+}
+
 model additionalAgreement {
   id                     String                @id @default(auto()) @map("_id") @db.ObjectId
   createdAt              DateTime              @default(now()) @map("created_at")
@@ -625,7 +630,7 @@ model additionalAgreement {
   contractNumber         String?
   itemAgreement          String?
   notes                  String?
-  files                  String[]
+  files                  ContractFile[]
   isArchived             Boolean               @default(false)
   archivedAt             DateTime?
   archivedById           String?               @db.ObjectId
@@ -652,7 +657,7 @@ model airlineContract {
   archivedAt            DateTime?
   archivedById          String?               @db.ObjectId
   additionalAgreements  additionalAgreement[]
-  files                 String[]
+  files                 ContractFile[]
 }
 
 model Company {
@@ -691,7 +696,7 @@ model hotelContract {
   isArchived            Boolean               @default(false)
   archivedAt            DateTime?
   archivedById          String?               @db.ObjectId
-  files                 String[]
+  files                 ContractFile[]
   additionalAgreement   additionalAgreement[]
 }
 
@@ -719,7 +724,7 @@ model organizationContract {
   isArchived            Boolean               @default(false)
   archivedAt            DateTime?
   archivedById          String?               @db.ObjectId
-  files                 String[]
+  files                 ContractFile[]
   additionalAgreement   additionalAgreement[]
 }
 
@@ -1394,7 +1399,7 @@ model Request {
   logs                  Log[]
   archive               Boolean            @default(false)
   archivingAt           DateTime?          @map("archiving_at")
-  files                 String[]
+  files                 ContractFile[]
   reserve               Boolean            @default(false)
   defaultTimesUsed      Boolean            @default(false)
   note                  String?
