@@ -46,7 +46,7 @@ const migrateModel = async ({ name, model }) => {
     }
 
     updated++
-    logger.info(
+    console.log(
       `[${name}] ${DRY_RUN ? "would update" : "updated"} ${record.id} (${record.files.length} files)`
     )
   }
@@ -55,18 +55,16 @@ const migrateModel = async ({ name, model }) => {
 }
 
 const main = async () => {
-  logger.info(
-    `[migrateContractFiles] start${DRY_RUN ? " (dry-run)" : ""}`
-  )
+  console.log(`[migrateContractFiles] start${DRY_RUN ? " (dry-run)" : ""}`)
 
   let total = 0
   for (const target of TARGETS) {
     const count = await migrateModel(target)
     total += count
-    logger.info(`[${target.name}] processed: ${count}`)
+    console.log(`[${target.name}] processed: ${count}`)
   }
 
-  logger.info(`[migrateContractFiles] done, total updated: ${total}`)
+  console.log(`[migrateContractFiles] done, total updated: ${total}`)
 }
 
 main()
