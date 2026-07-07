@@ -108,29 +108,29 @@ const migrateModel = async ({ name, collection }) => {
     await updateLegacyDoc(collection, record, normalized)
 
     updated++
-    logger.info(
+    console.log(
       `[${name}] ${DRY_RUN ? "would update" : "updated"} ${JSON.stringify(record._id)} (${record.files.length} files)`
     )
   }
 
   if (skipped > 0) {
-    logger.info(`[${name}] skipped (already migrated): ${skipped}`)
+    console.log(`[${name}] skipped (already migrated): ${skipped}`)
   }
 
   return updated
 }
 
 const main = async () => {
-  logger.info(`[migrateContractFiles] start${DRY_RUN ? " (dry-run)" : ""}`)
+  console.log(`[migrateContractFiles] start${DRY_RUN ? " (dry-run)" : ""}`)
 
   let total = 0
   for (const target of TARGETS) {
     const count = await migrateModel(target)
     total += count
-    logger.info(`[${target.name}] processed: ${count}`)
+    console.log(`[${target.name}] processed: ${count}`)
   }
 
-  logger.info(`[migrateContractFiles] done, total updated: ${total}`)
+  console.log(`[migrateContractFiles] done, total updated: ${total}`)
 }
 
 main()
