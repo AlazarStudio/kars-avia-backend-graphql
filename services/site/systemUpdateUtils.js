@@ -1,4 +1,5 @@
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/
+// Поддерживаем X.Y.Z и X.Y.Z-N (дефис + ещё одно число)
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-\d+)?$/
 
 export const SYSTEM_UPDATE_AUDIENCES = ["AIRLINE", "DISPATCHER", "HOTEL"]
 
@@ -10,7 +11,11 @@ const AUDIENCE_FIELD_MAP = {
 
 export function parseVersion(version) {
   if (!SEMVER_PATTERN.test(version)) return null
-  return version.split(".").map((part) => Number(part))
+  // Четвёртая часть (после дефиса) — опциональна, отсутствует → 0
+  const [core, suffix] = version.split("-")
+  const parts = core.split(".").map((part) => Number(part))
+  parts.push(suffix !== undefined ? Number(suffix) : 0)
+  return parts
 }
 
 export function compareVersions(a, b) {
@@ -18,10 +23,10 @@ export function compareVersions(a, b) {
   const partsB = parseVersion(b)
 
   if (!partsA || !partsB) {
-    throw new Error("Версия должна быть в формате X.Y.Z")
+    throw new Error("Версия должна быть в формате X.Y.Z или X.Y.Z-N")
   }
 
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     if (partsA[i] > partsB[i]) return 1
     if (partsA[i] < partsB[i]) return -1
   }
@@ -194,7 +199,7 @@ export function validateSystemUpdateInput({ enabled, version, title, audiences }
   if (!enabled) return
 
   if (!normalizedVersion || !parseVersion(normalizedVersion)) {
-    throw new Error("Версия обязательна и должна быть в формате X.Y.Z")
+    throw new Error("Версия обязательна и должна быть в формате X.Y.Z или X.Y.Z-N")
   }
 
   if (!normalizedTitle) {

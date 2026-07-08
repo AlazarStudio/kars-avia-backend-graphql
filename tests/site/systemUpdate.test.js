@@ -67,6 +67,13 @@ test("compareVersions orders semver parts", () => {
   assert.equal(compareVersions("3.5.0", "3.5.0"), 0)
 })
 
+test("compareVersions handles -N suffix", () => {
+  assert.equal(compareVersions("3.5.0-2", "3.5.0"), 1)
+  assert.equal(compareVersions("3.5.0", "3.5.0-1"), -1)
+  assert.equal(compareVersions("3.5.0-2", "3.5.0-1"), 1)
+  assert.equal(compareVersions("3.5.0-1", "3.5.0-1"), 0)
+})
+
 test("compareVersions rejects invalid format", () => {
   assert.throws(() => compareVersions("3.5", "3.4.0"), /X\.Y\.Z/)
 })
