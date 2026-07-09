@@ -3,6 +3,7 @@ import { promises as fsPromises } from "fs"
 import path from "path"
 import sharp from "sharp"
 import { logger } from "../infra/logger.js"
+import { streamToBuffer } from "./streamToBuffer.js"
 
 /* =========================
    🧠 helpers
@@ -21,14 +22,6 @@ const ensureDir = (dir) => {
     mkdirSync(dir, { recursive: true })
   }
 }
-
-const streamToBuffer = (stream) =>
-  new Promise((resolve, reject) => {
-    const chunks = []
-    stream.on("data", (c) => chunks.push(c))
-    stream.on("error", reject)
-    stream.on("end", () => resolve(Buffer.concat(chunks)))
-  })
 
 const buildUploadPath = ({ bucket, entityId }) => {
   const now = new Date()

@@ -19,6 +19,7 @@ import {
   patchSavedPersonIdentity
 } from "../../services/passengerRequest/savedPassengers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
+import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
 import {
   deleteAllPassengerRequestFilesFromDisk,
@@ -1450,6 +1451,11 @@ const passengerRequestResolvers = {
       publishPassengerRequestUpdated(passengerRequest)
 
       return passengerRequest
+    },
+
+    recognizePassengerDocument: async (_, { image }, context) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      return await recognizeDocumentService(image)
     },
 
     // добавить ФИО из скана / вручную

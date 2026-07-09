@@ -484,7 +484,21 @@ const passengerRequestTypeDef = /* GraphQL */ `
     passengerRequest(id: ID!): PassengerRequest
   }
 
+  type RecognizedPassengerDoc {
+    fullName: String
+    flight: String
+    from: String
+    to: String
+    carrier: String
+    seat: String
+    date: String
+    confidence: Float
+    rawText: String
+  }
+
   type Mutation {
+    recognizePassengerDocument(image: Upload!): RecognizedPassengerDoc!
+
     createPassengerRequest(
       input: PassengerRequestCreateInput!
       files: [Upload!]
