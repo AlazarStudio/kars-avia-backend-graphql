@@ -915,7 +915,25 @@ class TravellineService {
 
   // ─── Calculate cancellation penalty ─────────────────────────────────────────
 
+  // Дедлайн бесплатной отмены и пояс из политики, сохранённой при создании брони (№2).
+  async _getStoredCancellationDeadline(bookingId) {
+    try {
+      const record = await prisma.tlBookingRecord.findUnique({
+        where: { id: bookingId },
+        select: { cancellationPoliciesRaw: true }
+      })
+      if (!record?.cancellationPoliciesRaw) return null
+      const policies = JSON.parse(record.cancellationPoliciesRaw)
+      const cp = Array.isArray(policies) ? policies[0] : policies
+      return extractCancellationPolicy(cp)
+    } catch (err) {
+      logger.warn(`_getStoredCancellationDeadline(${bookingId}): ${err?.message}`)
+      return null
+    }
+  }
+
   async calculateCancellationPenalty(bookingId) {
+    const stored = await this._getStoredCancellationDeadline(bookingId)
     try {
       const nowUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
       const { data } = await this.request(
@@ -924,15 +942,26 @@ class TravellineService {
           nowUtc
         )}`
       )
+      const live = extractCancellationPolicy(data)
       return {
         penalty: data?.penaltyAmount ?? data?.penalty ?? data?.amount ?? 0,
         currency: data?.currency ?? data?.currencyCode ?? "RUB",
         penaltyType: data?.penaltyType ?? data?.type ?? null,
-        description: data?.description ?? null
+        description: data?.description ?? null,
+        deadline: live?.deadline || stored?.deadline || null,
+        deadlineUtc: live?.deadlineUtc ?? stored?.deadlineUtc ?? null,
+        timezone: live?.timezone ?? stored?.timezone ?? null
       }
     } catch (err) {
       logger.warn(`calculateCancellationPenalty(${bookingId}): ${err?.message}`)
-      return { penalty: 0, currency: "RUB", penaltyType: "unknown" }
+      return {
+        penalty: 0,
+        currency: "RUB",
+        penaltyType: "unknown",
+        deadline: stored?.deadline ?? null,
+        deadlineUtc: stored?.deadlineUtc ?? null,
+        timezone: stored?.timezone ?? null
+      }
     }
   }
 
@@ -1555,6 +1584,42 @@ class TravellineService {
       guests: existingGuests,
       checksum: newChecksum,
       ...(amendExtraStay ? { extraStay: amendExtraStay } : {})
+    }
+
+    // При РЗПВ checksum из поиска не включает доплату — /modify отвечает
+    // 400 NotEnoughRoomStays. Прогоняем verify: он пересчитывает стоимость
+    // с extraStay и возвращает checksum с учётом доплаты (как в create, №9).
+    if (amendExtraStay) {
+      try {
+        const { data: verifyData } = await this.request(
+          "POST",
+          `${PREFIX_RESERVATION}/v1/bookings/verify`,
+          {
+            booking: {
+              propertyId: record.propertyId,
+              roomStays: [roomStayBody],
+              customer: {
+                firstName: record.guestFirst ?? "Guest",
+                lastName: record.guestLast ?? "Guest",
+                contacts: {
+                  phones: record.guestPhone ? [{ phoneNumber: record.guestPhone }] : [],
+                  emails: record.guestEmail ? [{ emailAddress: record.guestEmail }] : []
+                }
+              },
+              ...(input.corporateId ?? record.corporateId
+                ? { corporateId: input.corporateId ?? record.corporateId }
+                : {})
+            }
+          }
+        )
+        const verifiedChecksum = verifyData?.booking?.roomStays?.[0]?.checksum
+        if (verifiedChecksum) {
+          roomStayBody.checksum = verifiedChecksum
+          logger.info(`amendReservation(${input.bookingId}): checksum updated via verify (extraStay)`)
+        }
+      } catch (verifyErr) {
+        logger.warn(`amendReservation(${input.bookingId}): verify for extraStay failed (${verifyErr?.message}), keeping search checksum`)
+      }
     }
 
     const amendBody = {

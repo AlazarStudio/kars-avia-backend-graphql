@@ -158,6 +158,9 @@ const travellineTypeDef = /* GraphQL */ `
     currency: String!
     penaltyType: String
     description: String
+    deadline: String
+    deadlineUtc: String
+    timezone: String
   }
 
   # ─── Calendar ──────────────────────────────────────────────────────────────
