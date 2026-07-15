@@ -1556,6 +1556,15 @@ class TravellineService {
       } else {
         logger.warn(`amendReservation(${input.bookingId}): rate ${record.roomTypeId}/${record.ratePlanId} not found in search for new dates — room may be unavailable`)
       }
+      // У брони с РЗПВ в raw лежат переопределённые времена (напр. 12:30/18:30).
+      // Дефолтные времена тарифа берём из поиска — иначе TL отвечает 400
+      // "Check-in time should be the default time" при снятии/смене РЗПВ.
+      if (!input.checkInTime && matchingStay?.stayDates?.arrivalDateTime) {
+        checkInTime = matchingStay.stayDates.arrivalDateTime.slice(11, 16)
+      }
+      if (!input.checkOutTime && matchingStay?.stayDates?.departureDateTime) {
+        checkOutTime = matchingStay.stayDates.departureDateTime.slice(11, 16)
+      }
     } catch (searchErr) {
       logger.warn(`amendReservation(${input.bookingId}): availability search failed (${searchErr?.message}), using existing checksum`)
     }
@@ -1741,10 +1750,41 @@ class TravellineService {
   // ─── Corporate clients ────────────────────────────────────────────────────
 
   async searchExtraStays(propertyId, input) {
+    // TL принимает в /extra-stays только ДЕФОЛТНЫЕ времена заезда/выезда тарифа.
+    // Если фронт передал времена из брони с РЗПВ (переопределённые, напр. 12:30),
+    // TL отвечает 400 "The stay dates does not match the stay dates in RatePlane".
+    // Нормализуем через поиск по тем же датам/тарифу.
+    let arrivalDateTime = input.arrivalDateTime
+    let departureDateTime = input.departureDateTime
+    try {
+      const params = new URLSearchParams({
+        arrivalDate: String(input.arrivalDateTime).slice(0, 10),
+        departureDate: String(input.departureDateTime).slice(0, 10),
+        adults: String(input.adults ?? 1)
+      })
+      ;(input.childAges ?? []).forEach((age) => params.append("childAges", String(age)))
+      if (input.corporateId) params.append("corporateIds", String(input.corporateId))
+      const { data } = await this.request(
+        "GET",
+        `${PREFIX_SEARCH}/v1/properties/${propertyId}/room-stays?${params.toString()}`
+      )
+      const match = (data?.roomStays ?? []).find(
+        (s) =>
+          String(s.roomType?.id) === String(input.roomTypeId) &&
+          String(s.ratePlan?.id) === String(input.ratePlanId)
+      )
+      if (match?.stayDates?.arrivalDateTime) {
+        arrivalDateTime = match.stayDates.arrivalDateTime
+        departureDateTime = match.stayDates.departureDateTime
+      }
+    } catch (err) {
+      logger.warn(`searchExtraStays(${propertyId}): stay dates normalize failed: ${err?.message}`)
+    }
+
     const body = {
       stayDates: {
-        arrivalDateTime: input.arrivalDateTime,
-        departureDateTime: input.departureDateTime
+        arrivalDateTime,
+        departureDateTime
       },
       roomType: {
         id: input.roomTypeId,
