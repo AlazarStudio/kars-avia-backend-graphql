@@ -151,35 +151,6 @@ const travellineTypeDef = /* GraphQL */ `
     corporateIds: [String!]
   }
 
-  # ─── Verify booking ──────────────────────────────────────────────────────
-
-  type TlVerifyResult {
-    ok: Boolean!
-    conditionChange: Boolean!
-    newChecksum: String
-    newPriceBeforeTax: Float
-    newTotalPrice: Float
-    newTax: Float
-    message: String
-  }
-
-  input TlVerifyInput {
-    propertyId: String!
-    roomTypeId: String!
-    ratePlanId: String!
-    arrival: String!
-    departure: String!
-    adults: Int
-    childAges: [Int!]
-    checksum: String
-    roomTypePlacements: [String!]
-    checkInTime: String
-    checkOutTime: String
-    corporateId: String
-    earlyCheckInDateTime: String
-    lateCheckOutDateTime: String
-  }
-
   # ─── Cancellation penalty ───────────────────────────────────────────────────
 
   type TlCancellationPenalty {
@@ -463,7 +434,6 @@ const travellineTypeDef = /* GraphQL */ `
       input: TlCreateReservationInput!
     ): TlCreateReservationResult!
     tlCancelReservation(id: ID!): Boolean!
-    tlVerifyBooking(input: TlVerifyInput!): TlVerifyResult!
     tlRawRequest(input: TlRawRequestInput!): TlRawResponse!
     tlCreateCorporate(input: TlCreateCorporateInput!): TlCorporate!
     tlAmendReservation(input: TlAmendReservationInput!): TlAmendResult!

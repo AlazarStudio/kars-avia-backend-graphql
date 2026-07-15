@@ -10,39 +10,40 @@ function timePart(dt) {
   return "00:00"
 }
 
-// Строит stayDates + additionalServices так, чтобы время РЗПВ строго совпадало
-// со временем заезда/выезда в stayDates (требование сертификации TravelLine №6).
+// Строит stayDates + extraStay для РЗПВ (требование сертификации TravelLine №6).
+// ВАЖНО: чтобы TravelLine применил доплату за ранний заезд/поздний выезд, нужно
+// (1) выставить stayDates.arrivalDateTime/departureDateTime на фактическое
+// (расширенное) время и (2) передать объект extraStay с earlyArrival/lateDeparture,
+// где overriddenDateTime СОВПАДАЕТ со stayDates. Без extraStay TravelLine отвечает
+// 400 "Check-in time should be the default time", а additionalServices он молча
+// игнорирует (доплата не начисляется — extraStayCharge остаётся null).
 export function buildStayDatesWithExtras(opts) {
   const arrivalDate = String(opts.arrival).slice(0, 10)
   const departureDate = String(opts.departure).slice(0, 10)
 
-  const additionalServices = []
+  const defaultArrival = `${arrivalDate}T${timePart(opts.checkInTime)}`
+  const defaultDeparture = `${departureDate}T${timePart(opts.checkOutTime)}`
 
-  let arrivalTime = timePart(opts.checkInTime)
-  if (opts.earlyCheckInDateTime) {
-    arrivalTime = timePart(opts.earlyCheckInDateTime)
-    additionalServices.push({
-      type: "EarlyCheckIn",
-      dateTimeLocal: `${arrivalDate}T${arrivalTime}`
-    })
+  const earlyArrival = opts.earlyCheckInDateTime
+    ? `${arrivalDate}T${timePart(opts.earlyCheckInDateTime)}`
+    : null
+  const lateDeparture = opts.lateCheckOutDateTime
+    ? `${departureDate}T${timePart(opts.lateCheckOutDateTime)}`
+    : null
+
+  const stayDates = {
+    arrivalDateTime: earlyArrival ?? defaultArrival,
+    departureDateTime: lateDeparture ?? defaultDeparture
   }
 
-  let departureTime = timePart(opts.checkOutTime)
-  if (opts.lateCheckOutDateTime) {
-    departureTime = timePart(opts.lateCheckOutDateTime)
-    additionalServices.push({
-      type: "LateCheckOut",
-      dateTimeLocal: `${departureDate}T${departureTime}`
-    })
+  let extraStay = null
+  if (earlyArrival || lateDeparture) {
+    extraStay = {}
+    if (earlyArrival) extraStay.earlyArrival = { overriddenDateTime: earlyArrival }
+    if (lateDeparture) extraStay.lateDeparture = { overriddenDateTime: lateDeparture }
   }
 
-  return {
-    stayDates: {
-      arrivalDateTime: `${arrivalDate}T${arrivalTime}`,
-      departureDateTime: `${departureDate}T${departureTime}`
-    },
-    additionalServices
-  }
+  return { stayDates, extraStay }
 }
 
 // Разбирает ответ POST /bookings/verify. При изменении цены/доступности TravelLine

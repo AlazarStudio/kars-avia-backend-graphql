@@ -42,6 +42,63 @@ export function extractCancellationPolicy(cp, fallbackTz = null) {
   }
 }
 
+// Приводит часовой пояс к виду "UTC+03:00" (требование №1).
+// Принимает IANA-имя ("Europe/Moscow"), числовое смещение ("+3", "+03:00", "3")
+// или готовую строку "UTC+03:00"/"GMT+03:00". refDateISO нужен IANA для учёта
+// летнего/зимнего времени. Возвращает null, если распознать не удалось.
+export function normalizeTzOffset(tzRaw, refDateISO = null) {
+  if (tzRaw == null) return null
+  const s = String(tzRaw).trim()
+  if (!s) return null
+
+  // Готовое смещение: "UTC+03:00", "GMT+3", "+03:00", "+3", "3"
+  const m = s.match(/^(?:UTC|GMT)?\s*([+-]?)(\d{1,2})(?::?(\d{2}))?$/i)
+  if (m && /[+-]|^\d/.test(s)) {
+    const sign = m[1] === "-" ? "-" : "+"
+    const hh = String(parseInt(m[2], 10)).padStart(2, "0")
+    const mm = (m[3] ?? "00").padStart(2, "0")
+    return `UTC${sign}${hh}:${mm}`
+  }
+
+  // IANA-имя ("Europe/Moscow")
+  try {
+    const ref = refDateISO ? new Date(refDateISO) : new Date()
+    if (!Number.isNaN(ref.getTime())) {
+      const part = new Intl.DateTimeFormat("en-US", {
+        timeZone: s,
+        timeZoneName: "longOffset"
+      })
+        .formatToParts(ref)
+        .find((p) => p.type === "timeZoneName")
+      if (part?.value) {
+        const norm = part.value.replace(/^GMT/, "UTC")
+        if (/^UTC[+-]\d{2}:\d{2}$/.test(norm)) return norm
+        if (norm === "UTC") return "UTC+00:00"
+      }
+    }
+  } catch {
+    // не валидное IANA-имя — вернём null ниже
+  }
+  return null
+}
+
+// Достаёт сырой часовой пояс из объекта property Content API (№1).
+// TL отдаёт timeZone объектом вида { id: "Europe/Samara" }, поэтому
+// разворачиваем .id, но поддерживаем и строковый вид на всякий случай.
+export function extractPropertyTimeZone(p) {
+  if (!p) return null
+  const raw =
+    p.timeZone ??
+    p.timezone ??
+    p.contactInfo?.timeZone ??
+    p.contactInfo?.address?.timeZone ??
+    p.address?.timeZone ??
+    null
+  if (raw == null) return null
+  if (typeof raw === "object") return raw.id ?? raw.name ?? null
+  return raw
+}
+
 // Сопоставляет id категории номера (Search API) с названием из Content API (№3).
 export function pickRoomTypeName(roomTypeId, contentRoomTypes, fallbackName) {
   if (Array.isArray(contentRoomTypes)) {

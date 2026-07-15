@@ -258,11 +258,6 @@ const travellineResolver = {
       return travellineService.cancelReservation(id)
     },
 
-    tlVerifyBooking: async (_, { input }, context) => {
-      await adminMiddleware(context)
-      return travellineService.verifyBooking(input)
-    },
-
     tlRawRequest: async (_, { input }, context) => {
       await adminMiddleware(context)
       return travellineService.rawRequest(input)

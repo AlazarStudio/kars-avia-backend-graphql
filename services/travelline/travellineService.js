@@ -6,7 +6,12 @@ import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
 import calculateMeal from "../meal/calculateMeal.js"
 import { buildStayDatesWithExtras, parseVerifyResponse } from "./travellineBooking.js"
-import { extractCancellationPolicy, pickRoomTypeName } from "./travellineMappers.js"
+import {
+  extractCancellationPolicy,
+  extractPropertyTimeZone,
+  normalizeTzOffset,
+  pickRoomTypeName
+} from "./travellineMappers.js"
 
 const DEFAULT_BASE_URL = "https://partner.qatl.ru"
 const CLIENT_ID_KEY = "travelline.client_id"
@@ -676,6 +681,20 @@ class TravellineService {
     return this.mapProperty(data, raw)
   }
 
+  // Часовой пояс отеля из Content API, нормализованный к "UTC+03:00" (№1).
+  async getPropertyTimeZone(propertyId, refDateISO = null) {
+    try {
+      const { data } = await this.request(
+        "GET",
+        `${PREFIX_CONTENT}/v1/properties/${propertyId}`
+      )
+      return normalizeTzOffset(extractPropertyTimeZone(data), refDateISO)
+    } catch (err) {
+      logger.warn(`getPropertyTimeZone(${propertyId}) failed: ${err?.message}`)
+      return null
+    }
+  }
+
   async getRoomTypes(propertyId) {
     const { data } = await this.request(
       "GET",
@@ -785,6 +804,9 @@ class TravellineService {
       )
     }
 
+    // Часовой пояс отеля (нормализованный "UTC+03:00") — единый для всех тарифов (№1)
+    const propertyTz = await this.getPropertyTimeZone(input.propertyId, input.arrival)
+
     const seen = new Set()
     const rates = []
 
@@ -799,10 +821,16 @@ class TravellineService {
       const taxAmount = stay.total?.taxAmount ?? 0
       const pricePerNight = nights > 0 ? stayTotal / nights : stayTotal
 
-      const tz = stay.timeZone ?? stay.timezone ?? stay.propertyTimeZone ?? null
+      const stayTz = normalizeTzOffset(
+        stay.timeZone ?? stay.timezone ?? stay.propertyTimeZone ?? null,
+        stay.stayDates?.arrivalDateTime ?? input.arrival
+      )
 
-      const cancPolicy = extractCancellationPolicy(stay.cancellationPolicy, tz)
+      const cancPolicy = extractCancellationPolicy(stay.cancellationPolicy, stayTz ?? propertyTz)
       const cancellationPolicies = cancPolicy ? [cancPolicy] : []
+
+      // Приоритет: пояс из stay → пояс отеля → пояс, вычисленный из дедлайна отмены
+      const tz = stayTz ?? propertyTz ?? cancPolicy?.timezone ?? null
 
       const placements = stay.roomType?.placements ?? []
       const { earlyCheckInOptions, lateCheckOutOptions } = this._extractTimeServices(stay)
@@ -854,7 +882,7 @@ class TravellineService {
   // ─── Verify booking ──────────────────────────────────────────────────────
 
   buildRoomStay(opts) {
-    const { stayDates, additionalServices } = buildStayDatesWithExtras({
+    const { stayDates, extraStay } = buildStayDatesWithExtras({
       arrival: opts.arrival,
       departure: opts.departure,
       checkInTime: opts.checkInTime,
@@ -878,65 +906,11 @@ class TravellineService {
       ...(opts.checksum ? { checksum: opts.checksum } : {})
     }
 
-    if (additionalServices.length > 0) {
-      roomStay.additionalServices = additionalServices
+    if (extraStay) {
+      roomStay.extraStay = extraStay
     }
 
     return roomStay
-  }
-
-  async verifyBooking(input) {
-    const roomStay = this.buildRoomStay({
-      roomTypeId: input.roomTypeId,
-      roomTypePlacements: input.roomTypePlacements,
-      ratePlanId: input.ratePlanId,
-      arrival: input.arrival,
-      departure: input.departure,
-      adults: input.adults ?? 1,
-      childAges: input.childAges ?? [],
-      guests: [{ firstName: "Guest", lastName: "Guest" }],
-      checksum: input.checksum,
-      checkInTime: input.checkInTime,
-      checkOutTime: input.checkOutTime,
-      earlyCheckInDateTime: input.earlyCheckInDateTime,
-      lateCheckOutDateTime: input.lateCheckOutDateTime
-    })
-
-    const body = {
-      booking: {
-        propertyId: input.propertyId,
-        roomStays: [roomStay],
-        customer: {
-          firstName: "Guest",
-          lastName: "Guest",
-          contacts: { phones: [], emails: [] }
-        },
-        ...(input.corporateId ? { corporateId: input.corporateId } : {})
-      }
-    }
-
-    try {
-      const { data } = await this.request("POST", `${PREFIX_RESERVATION}/v1/bookings/verify`, body)
-
-      const conditionChange = data?.conditionChange === true || data?.isConditionChanged === true
-      const newPlacement = data?.booking?.placements?.[0] ?? data?.booking?.roomStays?.[0]
-
-      return {
-        ok: !conditionChange,
-        conditionChange,
-        newChecksum: newPlacement?.checksum ?? data?.createBookingToken ?? null,
-        newPriceBeforeTax: newPlacement?.priceBeforeTax ?? null,
-        newTotalPrice: newPlacement?.totalPrice ?? data?.booking?.totalPrice ?? null,
-        newTax: newPlacement?.tax ?? null,
-        message: data?.message ?? (conditionChange ? "Условия проживания изменились" : null)
-      }
-    } catch (err) {
-      return {
-        ok: false,
-        conditionChange: false,
-        message: err?.message ?? "Ошибка верификации"
-      }
-    }
   }
 
   // ─── Calculate cancellation penalty ─────────────────────────────────────────
@@ -1220,6 +1194,11 @@ class TravellineService {
       lateCheckOutDateTime: input.lateCheckOutDateTime
     })
 
+    // TL требует контакты заказчика (email + телефон) для брони (№4)
+    if (!customer?.email || !customer?.phone) {
+      throw new Error("Для бронирования нужны email и телефон заказчика")
+    }
+
     const phones = customer?.phone ? [{ phoneNumber: customer.phone }] : []
     const emails = customer?.email ? [{ emailAddress: customer.email }] : []
 
@@ -1277,9 +1256,20 @@ class TravellineService {
       )
     }
 
+    // При РЗПВ verify пересчитывает стоимость и возвращает ОБНОВЛЁННЫЙ checksum
+    // на roomStay (ChecksumWithExtras с учётом доплаты). Если при создании отправить
+    // исходный checksum из поиска, TravelLine ответит 400 NotEnoughRoomStays
+    // "Booking conditions have changed". Поэтому подставляем checksum из ответа verify.
+    const verifiedRoomStays = parsedVerify.booking?.roomStays ?? []
+    const createRoomStays = verifyBody.booking.roomStays.map((rs, i) => {
+      const verifiedChecksum = verifiedRoomStays[i]?.checksum
+      return verifiedChecksum ? { ...rs, checksum: verifiedChecksum } : rs
+    })
+
     const createBody = {
       booking: {
         ...verifyBody.booking,
+        roomStays: createRoomStays,
         createBookingToken
       }
     }
@@ -1541,7 +1531,7 @@ class TravellineService {
       logger.warn(`amendReservation(${input.bookingId}): availability search failed (${searchErr?.message}), using existing checksum`)
     }
 
-    const { stayDates: amendStayDates, additionalServices: amendServices } =
+    const { stayDates: amendStayDates, extraStay: amendExtraStay } =
       buildStayDatesWithExtras({
         arrival: input.arrival,
         departure: input.departure,
@@ -1564,7 +1554,7 @@ class TravellineService {
       },
       guests: existingGuests,
       checksum: newChecksum,
-      ...(amendServices.length > 0 ? { additionalServices: amendServices } : {})
+      ...(amendExtraStay ? { extraStay: amendExtraStay } : {})
     }
 
     const amendBody = {

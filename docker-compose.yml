@@ -35,7 +35,8 @@ services:
       "try { let s = rs.status(); print('RS already initialized, state: ' + s.myState); }
        catch(e) { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongo:27017'}]}); print('RS initiated.'); }"
 
-  # ── 3. Backend (GraphQL API, порт 4000) ───────────────────────────────────
+  # ── 3. Backend (GraphQL API, контейнер :4000 → хост :4001) ────────────────
+  #  Хост-порт 4001, чтобы не конфликтовать с локальным npm-бэкендом на :4000
   backend:
     build:
       context: .
@@ -48,7 +49,7 @@ services:
     env_file:
       - .env.docker
     ports:
-      - "4000:4000"
+      - "4001:4000"
     volumes:
       - ./uploads:/app/uploads
       - ./reports:/app/reports
@@ -68,8 +69,8 @@ services:
       context: ../kars-avia
       dockerfile: Dockerfile
       args:
-        # Браузер пользователя обращается к бэку напрямую по localhost:4000
-        VITE_BACKEND_HOST: localhost:4000
+        # Браузер пользователя обращается к бэку напрямую по localhost:4001
+        VITE_BACKEND_HOST: localhost:4001
     container_name: karsavia-frontend
     restart: unless-stopped
     depends_on:

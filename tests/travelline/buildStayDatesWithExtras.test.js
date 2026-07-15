@@ -9,39 +9,38 @@ const base = {
   checkOutTime: "10:00"
 }
 
-test("без РЗПВ: stayDates из checkInTime/checkOutTime, services пуст", () => {
+test("без РЗПВ: stayDates из checkInTime/checkOutTime, extraStay = null", () => {
   const r = buildStayDatesWithExtras(base)
   assert.equal(r.stayDates.arrivalDateTime, "2026-07-15T13:00")
   assert.equal(r.stayDates.departureDateTime, "2026-07-17T10:00")
-  assert.deepEqual(r.additionalServices, [])
+  assert.equal(r.extraStay, null)
 })
 
-test("ранний заезд: время stayDates совпадает с дополнительной услугой", () => {
+test("ранний заезд: stayDates.arrival на время РЗПВ + extraStay.earlyArrival", () => {
   const r = buildStayDatesWithExtras({
     ...base,
     earlyCheckInDateTime: "2026-07-15T07:30"
   })
   assert.equal(r.stayDates.arrivalDateTime, "2026-07-15T07:30")
-  assert.equal(r.additionalServices.length, 1)
-  assert.deepEqual(r.additionalServices[0], {
-    type: "EarlyCheckIn",
-    dateTimeLocal: "2026-07-15T07:30"
+  assert.equal(r.stayDates.departureDateTime, "2026-07-17T10:00")
+  assert.deepEqual(r.extraStay, {
+    earlyArrival: { overriddenDateTime: "2026-07-15T07:30" }
   })
 })
 
-test("поздний выезд: время stayDates совпадает с услугой", () => {
+test("поздний выезд: stayDates.departure на время РЗПВ + extraStay.lateDeparture", () => {
   const r = buildStayDatesWithExtras({
     ...base,
     lateCheckOutDateTime: "2026-07-17T19:30"
   })
+  assert.equal(r.stayDates.arrivalDateTime, "2026-07-15T13:00")
   assert.equal(r.stayDates.departureDateTime, "2026-07-17T19:30")
-  assert.deepEqual(r.additionalServices[0], {
-    type: "LateCheckOut",
-    dateTimeLocal: "2026-07-17T19:30"
+  assert.deepEqual(r.extraStay, {
+    lateDeparture: { overriddenDateTime: "2026-07-17T19:30" }
   })
 })
 
-test("оба РЗПВ одновременно — обе услуги и оба времени совпадают", () => {
+test("оба РЗПВ: stayDates на расширенные времена + обе ветки extraStay с совпадающим overriddenDateTime", () => {
   const r = buildStayDatesWithExtras({
     ...base,
     earlyCheckInDateTime: "2026-07-15T07:30",
@@ -49,7 +48,13 @@ test("оба РЗПВ одновременно — обе услуги и оба
   })
   assert.equal(r.stayDates.arrivalDateTime, "2026-07-15T07:30")
   assert.equal(r.stayDates.departureDateTime, "2026-07-17T19:30")
-  assert.equal(r.additionalServices.length, 2)
+  assert.deepEqual(r.extraStay, {
+    earlyArrival: { overriddenDateTime: "2026-07-15T07:30" },
+    lateDeparture: { overriddenDateTime: "2026-07-17T19:30" }
+  })
+  // overriddenDateTime обязан совпадать со stayDates, иначе TL вернёт 400
+  assert.equal(r.extraStay.earlyArrival.overriddenDateTime, r.stayDates.arrivalDateTime)
+  assert.equal(r.extraStay.lateDeparture.overriddenDateTime, r.stayDates.departureDateTime)
 })
 
 test("checkInTime как полное датавремя тоже даёт корректное время", () => {

@@ -306,7 +306,7 @@ app.use(
 /* =========================
    ▶️ START
 ========================= */
-const PORT = 4000
+const PORT = 4010
 const HOST = "0.0.0.0"
 
 httpServer.listen({ port: PORT, host: HOST }, () => {
