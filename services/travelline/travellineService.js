@@ -579,6 +579,28 @@ class TravellineService {
     return { data, status: res.status, raw: text }
   }
 
+  // Повторяет запрос при сетевом сбое (fetch failed / abort) — HTTP-ошибки не ретраятся.
+  // Только для идемпотентных вызовов: GET, поиск, verify. Create/modify/cancel не ретраить.
+  async requestWithRetry(method, fullPath, body, attempts = 3) {
+    let lastErr
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await this.request(method, fullPath, body)
+      } catch (err) {
+        const msg = String(err?.message ?? "")
+        const isNetwork =
+          err?.name === "AbortError" || msg.includes("fetch failed") || msg.includes("aborted")
+        if (!isNetwork) throw err
+        lastErr = err
+        logger.warn(
+          `TravelLine ${method} ${fullPath}: сетевой сбой (попытка ${i + 1}/${attempts})`
+        )
+        await new Promise((r) => setTimeout(r, 1000 * (i + 1)))
+      }
+    }
+    throw lastErr
+  }
+
   // ─── Raw proxy ─────────────────────────────────────────────────────────────
 
   async rawRequest(input) {
@@ -787,7 +809,7 @@ class TravellineService {
     const corporateIds = input.corporateIds ?? []
     corporateIds.forEach((id) => params.append("corporateIds", String(id)))
 
-    const { data, raw } = await this.request(
+    const { data, raw } = await this.requestWithRetry(
       "GET",
       `${PREFIX_SEARCH}/v1/properties/${input.propertyId}/room-stays?${params.toString()}`
     )
@@ -936,7 +958,7 @@ class TravellineService {
     const stored = await this._getStoredCancellationDeadline(bookingId)
     try {
       const nowUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
-      const { data } = await this.request(
+      const { data } = await this.requestWithRetry(
         "GET",
         `${PREFIX_RESERVATION}/v1/bookings/${bookingId}/calculate-cancellation-penalty?cancellationDateTimeUtc=${encodeURIComponent(
           nowUtc
@@ -1247,7 +1269,7 @@ class TravellineService {
       }
     }
 
-    const { data: verifyData } = await this.request(
+    const { data: verifyData } = await this.requestWithRetry(
       "POST",
       `${PREFIX_RESERVATION}/v1/bookings/verify`,
       verifyBody
@@ -1487,7 +1509,7 @@ class TravellineService {
     let existingPlacements = []
 
     try {
-      const { data: currentData } = await this.request(
+      const { data: currentData } = await this.requestWithRetry(
         "GET",
         `${PREFIX_RESERVATION}/v1/bookings/${input.bookingId}`
       )
@@ -1543,7 +1565,7 @@ class TravellineService {
       const effectiveCorporateId = input.corporateId ?? record.corporateId ?? null
       if (effectiveCorporateId) searchParams.append("corporateIds", effectiveCorporateId)
 
-      const { data: searchData } = await this.request(
+      const { data: searchData } = await this.requestWithRetry(
         "GET",
         `${PREFIX_SEARCH}/v1/properties/${record.propertyId}/room-stays?${searchParams.toString()}`
       )
@@ -1567,6 +1589,13 @@ class TravellineService {
       }
     } catch (searchErr) {
       logger.warn(`amendReservation(${input.bookingId}): availability search failed (${searchErr?.message}), using existing checksum`)
+      // Для брони с РЗПВ времена в raw переопределены, а дефолтные мы не получили —
+      // modify гарантированно упадёт с 400. Лучше честная ошибка, чем кривой запрос.
+      if (record.earlyCheckInDateTime || record.lateCheckOutDateTime) {
+        throw new Error(
+          "TravelLine временно недоступен: не удалось получить параметры тарифа для изменения брони. Повторите попытку."
+        )
+      }
     }
 
     const { stayDates: amendStayDates, extraStay: amendExtraStay } =
@@ -1600,7 +1629,7 @@ class TravellineService {
     // с extraStay и возвращает checksum с учётом доплаты (как в create, №9).
     if (amendExtraStay) {
       try {
-        const { data: verifyData } = await this.request(
+        const { data: verifyData } = await this.requestWithRetry(
           "POST",
           `${PREFIX_RESERVATION}/v1/bookings/verify`,
           {
@@ -1764,7 +1793,7 @@ class TravellineService {
       })
       ;(input.childAges ?? []).forEach((age) => params.append("childAges", String(age)))
       if (input.corporateId) params.append("corporateIds", String(input.corporateId))
-      const { data } = await this.request(
+      const { data } = await this.requestWithRetry(
         "GET",
         `${PREFIX_SEARCH}/v1/properties/${propertyId}/room-stays?${params.toString()}`
       )
@@ -1799,7 +1828,7 @@ class TravellineService {
         childAges: input.childAges ?? []
       }
     }
-    const { data } = await this.request(
+    const { data } = await this.requestWithRetry(
       "POST",
       `${PREFIX_SEARCH}/v1/properties/${propertyId}/extra-stays`,
       body
