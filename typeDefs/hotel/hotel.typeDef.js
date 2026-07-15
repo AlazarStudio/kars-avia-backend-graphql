@@ -369,6 +369,8 @@ const hotelTypeDef = /* GraphQL */ `
     stars: String
     usStars: String
     search: String
+    active: Boolean
+    show: Boolean
   }
 
   input ManyRoomsInput {

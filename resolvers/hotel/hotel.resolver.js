@@ -122,7 +122,11 @@ const hotelResolver = {
       const isSuper = user.role === "SUPERADMIN" || user.dispatcher === true
 
       const baseWhere = isSuper
-        ? { active: true }
+        ? {
+            active:
+              typeof filter?.active === "boolean" ? filter.active : true,
+            ...(typeof filter?.show === "boolean" ? { show: filter.show } : {})
+          }
         : { active: true, show: true }
       const filterWhere = await buildHotelWhere(filter)
       const where =
