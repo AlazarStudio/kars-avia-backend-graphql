@@ -1329,6 +1329,12 @@ class TravellineService {
     logger.info(`createReservation response keys: ${Object.keys(data?.booking ?? data ?? {}).join(", ")}`)
     const reservation = this.mapReservation(data?.booking ?? data, raw)
 
+    // Политика отмены из verify учитывает доплату РЗПВ (штраф после дедлайна =
+    // тариф + услуги), политика из поиска — нет. Сохраняем verify-версию (№2, №6).
+    const verifiedPolicy = extractCancellationPolicy(
+      parsedVerify.booking?.cancellationPolicy
+    )
+
     try {
       await prisma.tlBookingRecord.upsert({
         where: { id: reservation.id },
@@ -1352,7 +1358,9 @@ class TravellineService {
           comment: input.comment ?? null,
           roomTypeName: input.roomTypeName ?? null,
           ratePlanName: input.ratePlanName ?? null,
-          cancellationPoliciesRaw: input.cancellationPoliciesJson ?? null,
+          cancellationPoliciesRaw: verifiedPolicy
+            ? JSON.stringify([verifiedPolicy])
+            : input.cancellationPoliciesJson ?? null,
           earlyCheckInDateTime: input.earlyCheckInDateTime ?? null,
           lateCheckOutDateTime: input.lateCheckOutDateTime ?? null,
           corporateId: input.corporateId ?? null,
