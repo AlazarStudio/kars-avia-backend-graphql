@@ -3528,7 +3528,10 @@ const passengerRequestResolvers = {
         lunch: row.lunch ?? 0,
         dinner: row.dinner ?? 0,
         foodCost: row.foodCost ?? 0,
-        accommodationCost: row.accommodationCost ?? 0
+        accommodationCost: row.accommodationCost ?? 0,
+        tariffName: row.tariffName ?? "",
+        pricePerDay: row.pricePerDay ?? 0,
+        placementKind: row.placementKind ?? 0
       }))
 
       const report = await prisma.passengerRequestHotelReport.upsert({

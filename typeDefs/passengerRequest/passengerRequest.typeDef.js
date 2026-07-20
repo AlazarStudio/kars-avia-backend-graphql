@@ -286,6 +286,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
     dinner: Int
     foodCost: Float
     accommodationCost: Float
+    "Наименование тарифа (после подписания ДС — номер допсоглашения)"
+    tariffName: String
+    "Цена койко-места за сутки, применённая к строке"
+    pricePerDay: Float
+    "Вид размещения: число мест в номере (1/2/3...), 0 — не определён"
+    placementKind: Int
   }
 
   """
@@ -420,6 +426,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     dinner: Int
     foodCost: Float
     accommodationCost: Float
+    tariffName: String
+    pricePerDay: Float
+    placementKind: Int
   }
 
   input PassengerRequestCreateInput {
