@@ -262,6 +262,57 @@ const analyticsTypeDef = /* GraphQL */ `
     period2: AirlineAnalyticsPeriodBlock
   }
 
+  input PassengerAnalyticsInput {
+    airlineId: ID
+    dateFrom: Date!
+    dateTo: Date!
+    airportIds: [ID!]
+    flightNumber: String
+    statuses: [PassengerRequestStatus!]
+  }
+
+  type PassengerAnalyticsPeriod {
+    dateFrom: Date!
+    dateTo: Date!
+  }
+
+  type PassengerAnalyticsTotals {
+    requestsCount: Int!
+    peopleCount: Int!
+    living: Float!
+    meal: Float!
+    transfer: Float!
+    total: Float!
+    missingCostCount: Int!
+    noFlightDateCount: Int!
+  }
+
+  type PassengerAnalyticsRequestItem {
+    requestId: ID!
+    requestNumber: String
+    flightNumber: String
+    flightDate: Date
+    airportId: ID
+    airportName: String
+    airportCode: String
+    airlineId: ID
+    airlineName: String
+    hotelNames: [String!]!
+    peopleCount: Int!
+    living: Float!
+    meal: Float!
+    transfer: Float!
+    total: Float!
+    status: PassengerRequestStatus
+    costMissing: Boolean!
+  }
+
+  type PassengerAnalyticsResult {
+    period: PassengerAnalyticsPeriod!
+    totals: PassengerAnalyticsTotals!
+    requests: [PassengerAnalyticsRequestItem!]!
+  }
+
   type Query {
     analyticsEntityRequests(input: AnalyticsInput): Analytics
     analyticsEntityUsers(input: AnalyticsUserInput): AnalyticsUser
@@ -274,6 +325,7 @@ const analyticsTypeDef = /* GraphQL */ `
       input: DispatchersAnalyticsInput!
     ): DispatchersAnalyticsResult!
     airlineAnalytics(input: AirlineAnalyticsInput!): AirlineAnalyticsResult!
+    passengerAnalytics(input: PassengerAnalyticsInput!): PassengerAnalyticsResult!
   }
 `
 

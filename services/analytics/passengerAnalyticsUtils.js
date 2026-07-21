@@ -1,0 +1,94 @@
+const TRANSFER_FIELDS = [
+  "transferService",
+  "departureTransferService",
+  "intercityTransferService",
+  "baggageDeliveryService"
+]
+
+const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100
+
+// Проживание/питание: суммируем ТОЛЬКО гостевые строки (fullName непустой);
+// ghost/тарифные строки (пустой fullName) исключаем — иначе двойной счёт.
+function sumHotelReportsCost(hotelReports) {
+  let living = 0
+  let meal = 0
+  let hasGuestRow = false
+  for (const rep of hotelReports || []) {
+    const rows = Array.isArray(rep?.reportRows) ? rep.reportRows : []
+    for (const row of rows) {
+      const name = (row?.fullName ?? "").toString().trim()
+      if (!name) continue
+      hasGuestRow = true
+      living += Number(row.accommodationCost) || 0
+      meal += Number(row.foodCost) || 0
+    }
+  }
+  return { living: roundMoney(living), meal: roundMoney(meal), hasGuestRow }
+}
+
+function sumTransferCost(request) {
+  let sum = 0
+  for (const field of TRANSFER_FIELDS) {
+    const drivers = request?.[field]?.drivers || []
+    for (const d of drivers) sum += Number(d?.reportCost) || 0
+  }
+  return roundMoney(sum)
+}
+
+function extractHotelNames(request) {
+  const hotels = request?.livingService?.hotels || []
+  return [...new Set(hotels.map((h) => (h?.name || "").trim()).filter(Boolean))]
+}
+
+function countRequestPeople(request) {
+  if (Number.isFinite(request?.plannedPassengersCount) && request.plannedPassengersCount > 0) {
+    return request.plannedPassengersCount
+  }
+  const hotels = request?.livingService?.hotels || []
+  return hotels.reduce((acc, h) => acc + (h?.people?.length || 0), 0)
+}
+
+function computeCostMissing(request, hasGuestRow) {
+  const hasLivingPlanned = (request?.livingService?.hotels || []).length > 0
+  return hasLivingPlanned && !hasGuestRow
+}
+
+export function aggregatePassengerRequest(request) {
+  const { living, meal, hasGuestRow } = sumHotelReportsCost(request?.hotelReports)
+  const transfer = sumTransferCost(request)
+  const costMissing = computeCostMissing(request, hasGuestRow)
+  const total = roundMoney(living + meal + transfer)
+  return {
+    requestId: request.id,
+    requestNumber: request.requestNumber || null,
+    flightNumber: request.flightNumber || null,
+    flightDate: request.flightDate || null,
+    airportId: request.airport?.id || request.airportId || null,
+    airportName: request.airport?.name || null,
+    airportCode: request.airport?.code || null,
+    airlineId: request.airline?.id || request.airlineId || null,
+    airlineName: request.airline?.name || null,
+    hotelNames: extractHotelNames(request),
+    peopleCount: countRequestPeople(request),
+    living,
+    meal,
+    transfer,
+    total,
+    status: request.status || null,
+    costMissing
+  }
+}
+
+export function buildPassengerAnalyticsTotals(rows) {
+  const counted = rows.filter((r) => !r.costMissing)
+  const sum = (k) => roundMoney(counted.reduce((a, r) => a + (Number(r[k]) || 0), 0))
+  return {
+    requestsCount: rows.length,
+    peopleCount: counted.reduce((a, r) => a + (Number(r.peopleCount) || 0), 0),
+    living: sum("living"),
+    meal: sum("meal"),
+    transfer: sum("transfer"),
+    total: sum("total"),
+    missingCostCount: rows.filter((r) => r.costMissing).length
+  }
+}

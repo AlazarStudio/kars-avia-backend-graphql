@@ -11,6 +11,7 @@ import { buildUserTimeAnalytics } from "../../services/analytics/userTimeAnalyti
 import { analyticsAirlineServiceComparison } from "../../services/analytics/airlineServiceComparison.js"
 import { analyticsDispatchersPerformance } from "../../services/analytics/dispatchersPerformance.js"
 import { computeAirlineAnalytics } from "../../services/analytics/airlineAnalytics.js"
+import { computePassengerAnalytics } from "../../services/analytics/passengerAnalytics.js"
 import { prisma } from "../../prisma.js"
 import {
   allMiddleware,
@@ -128,6 +129,13 @@ const analyticsResolver = {
     airlineAnalytics: async (_, { input }, context) => {
       await allMiddleware(context)
       return await computeAirlineAnalytics(input)
+    },
+    passengerAnalytics: async (_, { input }, context) => {
+      await allMiddleware(context)
+      const { user } = context
+      // АК видит только свои заявки; диспетчер/суперадмин — по input.airlineId (или все)
+      const scopedAirlineId = user?.airlineId || input.airlineId || null
+      return await computePassengerAnalytics(input, { scopedAirlineId })
     }
   }
 }
