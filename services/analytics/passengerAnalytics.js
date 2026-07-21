@@ -25,7 +25,6 @@ export async function computePassengerAnalytics(input, options = {}) {
 
   const airlineId = scopedAirlineId || input.airlineId || null
 
-  // базовый where без периода (для отдельного count заявок без даты рейса)
   const baseWhere = {}
   if (airlineId) baseWhere.airlineId = airlineId
   if (input.airportIds?.length) baseWhere.airportId = { in: input.airportIds }
@@ -33,18 +32,23 @@ export async function computePassengerAnalytics(input, options = {}) {
   if (input.statuses?.length) baseWhere.status = { in: input.statuses }
   else baseWhere.status = { not: "CANCELLED" }
 
-  const where = { ...baseWhere, flightDate: { gte: dateFrom, lte: dateTo } }
+  // Период по дате рейса; если flightDate не заполнена — по дате создания (гибрид),
+  // чтобы заявки без даты рейса не выпадали из аналитики.
+  const inPeriod = { gte: dateFrom, lte: dateTo }
+  const where = {
+    ...baseWhere,
+    OR: [{ flightDate: inPeriod }, { flightDate: null, createdAt: inPeriod }]
+  }
 
-  const [requests, noFlightDateCount] = await Promise.all([
-    prisma.passengerRequest.findMany({
-      where,
-      include: PASSENGER_ANALYTICS_INCLUDE,
-      orderBy: { flightDate: "asc" }
-    }),
-    prisma.passengerRequest.count({ where: { ...baseWhere, flightDate: null } })
-  ])
+  const requests = await prisma.passengerRequest.findMany({
+    where,
+    include: PASSENGER_ANALYTICS_INCLUDE,
+    orderBy: { createdAt: "desc" }
+  })
 
   const rows = requests.map(aggregatePassengerRequest)
+  // Сколько показанных заявок попало по дате создания (без даты рейса) — информативно.
+  const noFlightDateCount = rows.filter((r) => !r.flightDate).length
   const totals = { ...buildPassengerAnalyticsTotals(rows), noFlightDateCount }
 
   return {
