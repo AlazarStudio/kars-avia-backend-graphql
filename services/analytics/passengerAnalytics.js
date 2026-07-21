@@ -34,10 +34,19 @@ export async function computePassengerAnalytics(input, options = {}) {
 
   // Период по дате рейса; если flightDate не заполнена — по дате создания (гибрид),
   // чтобы заявки без даты рейса не выпадали из аналитики.
+  // ВАЖНО (Prisma+Mongo): flightDate может быть explicit null ИЛИ вовсе не задана (unset).
+  // { flightDate: null } матчит только явный null и НЕ матчит unset-документы (старые заявки),
+  // поэтому для «нет даты рейса» нужен и { flightDate: { isSet: false } }.
   const inPeriod = { gte: dateFrom, lte: dateTo }
+  const flightDateMissing = {
+    OR: [{ flightDate: null }, { flightDate: { isSet: false } }]
+  }
   const where = {
     ...baseWhere,
-    OR: [{ flightDate: inPeriod }, { flightDate: null, createdAt: inPeriod }]
+    OR: [
+      { flightDate: inPeriod },
+      { AND: [flightDateMissing, { createdAt: inPeriod }] }
+    ]
   }
 
   const requests = await prisma.passengerRequest.findMany({
