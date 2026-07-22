@@ -3591,6 +3591,10 @@ const passengerRequestResolvers = {
         passengerRequestId: requestId
       })
 
+      // Уведомляем подписчиков: другие открытые клиенты перечитают заявку и
+      // увидят обновлённый отчёт/тарифы (раньше сейв отчёта событие не публиковал).
+      publishPassengerRequestUpdated(existing)
+
       return report
     }
   },
