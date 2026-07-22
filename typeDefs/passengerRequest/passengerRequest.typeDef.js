@@ -286,6 +286,15 @@ const passengerRequestTypeDef = /* GraphQL */ `
     breakfast: Int
     lunch: Int
     dinner: Int
+    "Количества порций (null у легаси-строк — трактуется как 1 при цене > 0)"
+    breakfastCount: Int
+    lunchCount: Int
+    dinnerCount: Int
+    "Ланчбокс: включён ли к приёму (разовая добавка) и применённая цена"
+    breakfastLunchbox: Boolean
+    lunchLunchbox: Boolean
+    dinnerLunchbox: Boolean
+    lunchboxPrice: Float
     foodCost: Float
     accommodationCost: Float
     "Наименование тарифа (после подписания ДС — номер допсоглашения)"
@@ -430,6 +439,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
     breakfast: Int
     lunch: Int
     dinner: Int
+    breakfastCount: Int
+    lunchCount: Int
+    dinnerCount: Int
+    breakfastLunchbox: Boolean
+    lunchLunchbox: Boolean
+    dinnerLunchbox: Boolean
+    lunchboxPrice: Float
     foodCost: Float
     accommodationCost: Float
     tariffName: String
