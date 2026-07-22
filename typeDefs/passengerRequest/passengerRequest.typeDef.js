@@ -277,6 +277,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
   """
   type PassengerRequestHotelReportRow {
     fullName: String!
+    "personId гостя услуги проживания — стойкий матчинг строки к гостю (пусто у теневых строк тарифов и старых отчётов)"
+    personId: String
     roomNumber: String
     roomCategory: String
     roomKind: String
@@ -314,6 +316,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     airportId: ID
     status: PassengerRequestStatus
     search: String
+    "Период: по flightDate; заявки без даты рейса — по createdAt"
+    dateFrom: Date
+    dateTo: Date
   }
 
   input PassengerServicePlanInput {
@@ -417,6 +422,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   input PassengerRequestHotelReportRowInput {
     fullName: String!
+    personId: String
     roomNumber: String
     roomCategory: String
     roomKind: String

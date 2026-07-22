@@ -548,17 +548,42 @@ const passengerRequestResolvers = {
       if (filter?.airportId) where.airportId = filter.airportId
       if (filter?.status) where.status = filter.status
 
+      // Поиск и период оба используют внутренний OR — кладём их в where.AND,
+      // чтобы условия не затирали друг друга.
+      const and = []
+
       if (filter?.search) {
         const search = filter.search.trim()
         if (search) {
-          where.OR = [
-            { requestNumber: { contains: search, mode: "insensitive" } },
-            { flightNumber: { contains: search, mode: "insensitive" } },
-            { routeFrom: { contains: search, mode: "insensitive" } },
-            { routeTo: { contains: search, mode: "insensitive" } }
-          ]
+          and.push({
+            OR: [
+              { requestNumber: { contains: search, mode: "insensitive" } },
+              { flightNumber: { contains: search, mode: "insensitive" } },
+              { routeFrom: { contains: search, mode: "insensitive" } },
+              { routeTo: { contains: search, mode: "insensitive" } }
+            ]
+          })
         }
       }
+
+      // Период: по дате рейса; заявки без flightDate (null ИЛИ unset — в Mongo это
+      // разные вещи, ловим обе через isSet) — по дате создания.
+      if (filter?.dateFrom || filter?.dateTo) {
+        const range = {}
+        if (filter.dateFrom) range.gte = new Date(filter.dateFrom)
+        if (filter.dateTo) range.lte = new Date(filter.dateTo)
+        const flightDateMissing = {
+          OR: [{ flightDate: null }, { flightDate: { isSet: false } }]
+        }
+        and.push({
+          OR: [
+            { flightDate: range },
+            { AND: [flightDateMissing, { createdAt: range }] }
+          ]
+        })
+      }
+
+      if (and.length) where.AND = and
 
       const list = await prisma.passengerRequest.findMany({
         where,
@@ -3520,6 +3545,7 @@ const passengerRequestResolvers = {
 
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",
+        personId: row.personId ?? "",
         roomNumber: row.roomNumber ?? "",
         roomCategory: makeRoomCategoryLabel(row.roomCategory, row.roomKind),
         roomKind: row.roomKind ?? "",
