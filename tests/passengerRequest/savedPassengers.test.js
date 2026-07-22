@@ -21,14 +21,17 @@ test("upsertSavedPassenger: adds new entry with personId", () => {
   assert.ok(next[0].personId.length > 10)
 })
 
-test("upsertSavedPassenger: dedup by fullName and seat", () => {
+// Идентичность реестра — строго по personId (рефактор 40ecfb1). Матчинг по ФИО
+// живёт только в импорте манифеста — mergeManifestPeopleIntoRoster, см. savedPeopleBulk.test.js.
+test("upsertSavedPassenger: слияние по personId — обновляет поля, не плодит записи", () => {
   const first = upsertSavedPassenger([], {
     fullName: "Petrov Petr",
     seat: "1B",
     phone: null
   })
   const second = upsertSavedPassenger(first, {
-    fullName: "  petrov   petr ",
+    personId: first[0].personId,
+    fullName: "Petrov Petr",
     seat: "1B",
     phone: "+7999"
   })
@@ -38,7 +41,21 @@ test("upsertSavedPassenger: dedup by fullName and seat", () => {
   assert.equal(second[0].phone, "+7999")
 })
 
-test("upsertSavedPassenger: same name different seat creates two entries", () => {
+test("upsertSavedPassenger: без personId одинаковое ФИО даёт вторую запись", () => {
+  const first = upsertSavedPassenger([], {
+    fullName: "  petrov   petr ",
+    seat: "1B"
+  })
+  const second = upsertSavedPassenger(first, {
+    fullName: "Petrov Petr",
+    seat: "1B"
+  })
+
+  assert.equal(second.length, 2)
+  assert.notEqual(second[0].personId, second[1].personId)
+})
+
+test("upsertSavedPassenger: разные personId — две записи независимо от места", () => {
   const first = upsertSavedPassenger([], {
     fullName: "Sidorov Sidor",
     seat: "2A"
@@ -52,9 +69,11 @@ test("upsertSavedPassenger: same name different seat creates two entries", () =>
   assert.notEqual(second[0].personId, second[1].personId)
 })
 
-test("rosterMatchKey: name only when seat absent", () => {
-  assert.equal(rosterMatchKey({ fullName: "A B" }), "a b")
-  assert.equal(rosterMatchKey({ fullName: "A B", seat: "3C" }), "a b::3c")
+test("rosterMatchKey: ключ = personId, без него — null", () => {
+  assert.equal(rosterMatchKey({ personId: "p1", fullName: "A B" }), "p1")
+  assert.equal(rosterMatchKey({ personId: "p1", fullName: "A B", seat: "3C" }), "p1")
+  assert.equal(rosterMatchKey({ fullName: "A B", seat: "3C" }), null)
+  assert.equal(rosterMatchKey(null), null)
 })
 
 test("updateSavedPersonInRoster: updates by personId", () => {
