@@ -89,6 +89,13 @@ export const normalizeSavedPerson = (person, { isNew = false } = {}) => {
     personType: normalizePersonType(person?.personType),
     personCategory: normalizePersonCategory(person?.personCategory),
     airlinePersonalId: normalizeOptionalString(person?.airlinePersonalId),
+    // требование вида размещения («не более N в номере»); белый список — поле
+    // ОБЯЗАНО быть здесь, иначе любая правка персоны молча его стирает
+    placementRequirement:
+      Number.isInteger(person?.placementRequirement) &&
+      person.placementRequirement >= 1
+        ? person.placementRequirement
+        : null,
     addedAt: person?.addedAt ? new Date(person.addedAt) : new Date()
   }
 
@@ -109,7 +116,10 @@ const mergeSavedPerson = (existing, incoming) => ({
   // явные правки категории придут в Этапе 2 через мутацию ростера
   personCategory: existing.personCategory ?? incoming.personCategory,
   airlinePersonalId:
-    incoming.airlinePersonalId ?? existing.airlinePersonalId
+    incoming.airlinePersonalId ?? existing.airlinePersonalId,
+  // повторное добавление из услуг/манифеста требование не несёт — сохраняем существующее
+  placementRequirement:
+    incoming.placementRequirement ?? existing.placementRequirement ?? null
 })
 
 /**

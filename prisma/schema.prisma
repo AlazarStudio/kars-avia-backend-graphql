@@ -1096,6 +1096,21 @@ enum PassengerPersonCategory {
   INFANT
 }
 
+// Тип связи пассажиров: влияет на дефолтный уровень «вместе» и подсказки; нюансы — в label.
+enum PassengerGroupKind {
+  FAMILY
+  ESCORT
+  COLLEAGUES
+  GROUP
+  OTHER
+}
+
+// Уровень «селить вместе»: номер или гостиница.
+enum PassengerGroupTogetherLevel {
+  ROOM
+  HOTEL
+}
+
 enum TransferDirection {
   ARRIVAL // аэропорт → гостиница
   DEPARTURE // гостиница → аэропорт
@@ -1201,10 +1216,23 @@ type PassengerRequestSavedPerson {
   fullName          String
   phone             String?
   seat              String?
-  personType        PassengerPersonType      @default(PASSENGER)
-  personCategory    PassengerPersonCategory? @default(ADULT)
-  airlinePersonalId String?                  @db.ObjectId
-  addedAt           DateTime                 @default(now())
+  personType           PassengerPersonType      @default(PASSENGER)
+  personCategory       PassengerPersonCategory? @default(ADULT)
+  airlinePersonalId    String?                  @db.ObjectId
+  addedAt              DateTime                 @default(now())
+  placementRequirement Int? // требование «не более N гостей в номере», 1 = одноместное; null = нет
+}
+
+/// Группа связанных пассажиров заявки (семья/сопровождение/коллеги/орг.группа).
+/// Метка для расселения: на деньги и отчёт не влияет.
+type PassengerRequestGroup {
+  groupId         String
+  label           String?
+  kind            PassengerGroupKind           @default(OTHER)
+  togetherLevel   PassengerGroupTogetherLevel? // null → фронт выводит из kind (FAMILY|ESCORT→ROOM)
+  color           String? // hex; фронт назначает следующий незанятый из палитры
+  memberPersonIds String[]
+  createdAt       DateTime                     @default(now())
 }
 
 type PassengerServicePerson {
@@ -1292,6 +1320,7 @@ model PassengerRequest {
   includesPassengers Boolean                       @default(true)
   crewMembers        PassengerRequestCrewMember[] // ростер экипажа (выбранные сотрудники)
   savedPassengers    PassengerRequestSavedPerson[] // каталог пассажиров заявки (скан / выбор)
+  passengerGroups    PassengerRequestGroup[] // группы связанных пассажиров (метка расселения)
 
   // сервисы
   waterService             PassengerWaterFoodService?

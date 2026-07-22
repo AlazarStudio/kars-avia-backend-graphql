@@ -18,6 +18,11 @@ import {
   upsertSavedPassenger,
   patchSavedPersonIdentity
 } from "../../services/passengerRequest/savedPassengers.js"
+import {
+  upsertGroup,
+  removeGroup,
+  stripPersonFromGroups
+} from "../../services/passengerRequest/passengerGroups.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
@@ -459,6 +464,10 @@ const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
     savedPassengers: (parent) => dedupeSavedPassengers(parent.savedPassengers),
+
+    // legacy-заявки без поля → [] (в схеме список non-null)
+    passengerGroups: (parent) =>
+      Array.isArray(parent.passengerGroups) ? parent.passengerGroups : [],
 
     airline: async (parent) =>
       prisma.airline.findUnique({ where: { id: parent.airlineId } }),
@@ -1291,9 +1300,15 @@ const passengerRequestResolvers = {
         throw new GraphQLError(e.message || "Saved passenger not found")
       }
 
+      // удалённый человек уходит и из групп; опустевшие группы удаляются
+      const passengerGroups = stripPersonFromGroups(
+        existing.passengerGroups,
+        personId
+      )
+
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
-        data: { savedPassengers }
+        data: { savedPassengers, passengerGroups }
       })
 
       await logPassengerRequestAction({
@@ -1301,6 +1316,62 @@ const passengerRequestResolvers = {
         action: "remove_passenger_request_saved_person",
         description: "Пассажир удалён из реестра ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из реестра ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    setPassengerRequestGroup: async (_, { requestId, group }, context) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      const passengerGroups = upsertGroup(
+        existing.passengerGroups,
+        group,
+        existing.savedPassengers
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { passengerGroups }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "set_passenger_request_group",
+        description: "Группа пассажиров сохранена",
+        fulldescription: `Пользователь ${getSubjectName(context)} сохранил группу пассажиров в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    removePassengerRequestGroup: async (_, { requestId, groupId }, context) => {
+      const existing = await loadRequestOrThrow(requestId)
+
+      const passengerGroups = removeGroup(existing.passengerGroups, groupId)
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { passengerGroups }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_group",
+        description: "Группа пассажиров расформирована",
+        fulldescription: `Пользователь ${getSubjectName(context)} расформировал группу пассажиров в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

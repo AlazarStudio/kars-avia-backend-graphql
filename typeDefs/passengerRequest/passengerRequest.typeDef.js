@@ -55,6 +55,25 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   """
+  Тип связи пассажиров в группе
+  """
+  enum PassengerGroupKind {
+    FAMILY
+    ESCORT
+    COLLEAGUES
+    GROUP
+    OTHER
+  }
+
+  """
+  Уровень «селить вместе»: номер или гостиница
+  """
+  enum PassengerGroupTogetherLevel {
+    ROOM
+    HOTEL
+  }
+
+  """
   Направление трансфера
   """
   enum TransferDirection {
@@ -210,6 +229,31 @@ const passengerRequestTypeDef = /* GraphQL */ `
     personCategory: PassengerPersonCategory
     airlinePersonalId: ID
     addedAt: Date!
+    "Требование «не более N гостей в номере», 1 = одноместное; null = нет"
+    placementRequirement: Int
+  }
+
+  """
+  Группа связанных пассажиров заявки (метка расселения, на деньги не влияет)
+  """
+  type PassengerRequestGroup {
+    groupId: String!
+    label: String
+    kind: PassengerGroupKind!
+    togetherLevel: PassengerGroupTogetherLevel
+    color: String
+    memberPersonIds: [String!]!
+    createdAt: Date
+  }
+
+  input PassengerRequestGroupInput {
+    "null/отсутствует → создание новой группы"
+    groupId: String
+    label: String
+    kind: PassengerGroupKind
+    togetherLevel: PassengerGroupTogetherLevel
+    color: String
+    memberPersonIds: [String!]!
   }
 
   type PassengerRequest {
@@ -237,6 +281,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     includesPassengers: Boolean!
     crewMembers: [PassengerRequestCrewMember!]!
     savedPassengers: [PassengerRequestSavedPerson!]!
+    passengerGroups: [PassengerRequestGroup!]!
     files: [String]
 
     waterService: PassengerWaterFoodService
@@ -410,6 +455,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     personType: PassengerPersonType
     personCategory: PassengerPersonCategory
     airlinePersonalId: ID
+    placementRequirement: Int
   }
 
   input PassengerServiceDriverInput {
@@ -577,6 +623,22 @@ const passengerRequestTypeDef = /* GraphQL */ `
     removePassengerRequestSavedPerson(
       requestId: ID!
       personId: ID!
+    ): PassengerRequest!
+
+    """
+    Создать/обновить группу пассажиров (upsert по groupId)
+    """
+    setPassengerRequestGroup(
+      requestId: ID!
+      group: PassengerRequestGroupInput!
+    ): PassengerRequest!
+
+    """
+    Расформировать группу пассажиров
+    """
+    removePassengerRequestGroup(
+      requestId: ID!
+      groupId: String!
     ): PassengerRequest!
 
     """
