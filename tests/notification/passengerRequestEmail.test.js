@@ -50,7 +50,7 @@ test("buildCreatePassengerRequestEmail includes flight and route", () => {
   assert.match(html, /SVO/)
 })
 
-test("buildCreatePassengerRequestEmail link uses fapv2 path", () => {
+test("buildCreatePassengerRequestEmail link uses far path", () => {
   const prev = process.env.FRONTEND_URL
   process.env.FRONTEND_URL = "https://karsavia.ru"
   try {
@@ -58,7 +58,7 @@ test("buildCreatePassengerRequestEmail link uses fapv2 path", () => {
       requestNumber: "0001",
       requestId: "6a1d29c2810501c3600f2572"
     })
-    assert.match(html, /https:\/\/karsavia\.ru\/fapv2\/6a1d29c2810501c3600f2572/)
+    assert.match(html, /https:\/\/karsavia\.ru\/far\/6a1d29c2810501c3600f2572/)
   } finally {
     if (prev === undefined) delete process.env.FRONTEND_URL
     else process.env.FRONTEND_URL = prev

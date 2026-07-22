@@ -26,7 +26,6 @@ function buildPassengerRequestRelayUrl(passengerRequestId) {
   const base = getFrontendUrl()
   if (!base || !passengerRequestId) return ""
   return `${base}/far/${encodeURIComponent(passengerRequestId)}`
-  // return `${base}/fapv2/${encodeURIComponent(passengerRequestId)}`
 }
 
 function passengerRequestRelayLinkHtml(passengerRequestId) {
