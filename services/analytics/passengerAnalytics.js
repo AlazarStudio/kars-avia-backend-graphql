@@ -1,7 +1,8 @@
 import { prisma } from "../../prisma.js"
 import {
   aggregatePassengerRequest,
-  buildPassengerAnalyticsTotals
+  buildPassengerAnalyticsTotals,
+  resolvePeriodBounds
 } from "./passengerAnalyticsUtils.js"
 
 // airline/airport/hotelReports — реляции, их надо include.
@@ -14,14 +15,7 @@ const PASSENGER_ANALYTICS_INCLUDE = {
 
 export async function computePassengerAnalytics(input, options = {}) {
   const { scopedAirlineId = null } = options
-  const dateFrom = new Date(input.dateFrom)
-  const dateTo = new Date(input.dateTo)
-  if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
-    throw new Error("Некорректный период (dateFrom/dateTo)")
-  }
-  if (dateFrom > dateTo) {
-    throw new Error("dateFrom не может быть позже dateTo")
-  }
+  const { dateFrom, dateTo } = resolvePeriodBounds(input.dateFrom, input.dateTo)
 
   const airlineId = scopedAirlineId || input.airlineId || null
 

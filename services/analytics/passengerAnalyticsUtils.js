@@ -105,3 +105,26 @@ export function buildPassengerAnalyticsTotals(rows) {
     missingCostCount: rows.filter((r) => r.costMissing).length
   }
 }
+
+// Границы периода аналитики. Date-only строки ("YYYY-MM-DD") трактуем как
+// московские календарные сутки (UTC+3; в РФ нет сезонного перевода времени):
+// dateFrom — начало суток, dateTo — конец суток. flightDate пишется фронтом как
+// локальная полночь МСК → UTC, поэтому UTC-границы теряли рейсы 1-го числа периода.
+// Полные ISO-строки проходят как есть (совместимость с будущими вызовами).
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function resolvePeriodBounds(dateFromInput, dateToInput) {
+  const dateFrom = DATE_ONLY_RE.test(dateFromInput)
+    ? new Date(`${dateFromInput}T00:00:00.000+03:00`)
+    : new Date(dateFromInput)
+  const dateTo = DATE_ONLY_RE.test(dateToInput)
+    ? new Date(`${dateToInput}T23:59:59.999+03:00`)
+    : new Date(dateToInput)
+  if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
+    throw new Error("Некорректный период (dateFrom/dateTo)")
+  }
+  if (dateFrom > dateTo) {
+    throw new Error("dateFrom не может быть позже dateTo")
+  }
+  return { dateFrom, dateTo }
+}

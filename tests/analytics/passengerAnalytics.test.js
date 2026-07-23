@@ -2,7 +2,8 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import {
   aggregatePassengerRequest,
-  buildPassengerAnalyticsTotals
+  buildPassengerAnalyticsTotals,
+  resolvePeriodBounds
 } from "../../services/analytics/passengerAnalyticsUtils.js"
 
 test("проживание/питание = сумма гостевых строк, ghost-строки исключены", () => {
@@ -104,4 +105,30 @@ test("итоги: linkedPeopleCount суммируется по ВСЕМ стр�
   ]
   const t = buildPassengerAnalyticsTotals(rows)
   assert.equal(t.linkedPeopleCount, 5)
+})
+
+test("период: date-only границы = московские сутки (+03:00)", () => {
+  const { dateFrom, dateTo } = resolvePeriodBounds("2026-07-01", "2026-07-31")
+  assert.equal(dateFrom.toISOString(), "2026-06-30T21:00:00.000Z")
+  assert.equal(dateTo.toISOString(), "2026-07-31T20:59:59.999Z")
+})
+
+test("период: рейс 1-го числа (полночь МСК в UTC) попадает в границы", () => {
+  const { dateFrom } = resolvePeriodBounds("2026-07-01", "2026-07-31")
+  const flightDate = new Date("2026-06-30T21:00:00.000Z")
+  assert.ok(flightDate >= dateFrom)
+})
+
+test("период: полный ISO проходит как есть", () => {
+  const { dateFrom, dateTo } = resolvePeriodBounds(
+    "2026-07-01T10:00:00.000Z",
+    "2026-07-02T10:00:00.000Z"
+  )
+  assert.equal(dateFrom.toISOString(), "2026-07-01T10:00:00.000Z")
+  assert.equal(dateTo.toISOString(), "2026-07-02T10:00:00.000Z")
+})
+
+test("период: мусор и перевёрнутые границы бросают ошибку", () => {
+  assert.throws(() => resolvePeriodBounds("абв", "2026-07-31"), /Некорректный период/)
+  assert.throws(() => resolvePeriodBounds("2026-08-01", "2026-07-01"), /не может быть позже/)
 })
