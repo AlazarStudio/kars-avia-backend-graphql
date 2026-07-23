@@ -68,6 +68,9 @@ export function aggregatePassengerRequest(request) {
   const transfer = sumTransferCost(request)
   const costMissing = computeCostMissing(request, hasGuestRow)
   const total = roundMoney(living + meal + transfer)
+  const roomNights = sumRoomNights(request?.hotelReports)
+  const water = serviceCounts(request?.waterService)
+  const mealSvc = serviceCounts(request?.mealService)
   return {
     requestId: request.id,
     requestNumber: request.requestNumber || null,
@@ -82,6 +85,20 @@ export function aggregatePassengerRequest(request) {
     peopleCount: countRequestPeople(request),
     groupsCount: (request?.passengerGroups ?? []).length,
     linkedPeopleCount: countLinkedPeople(request),
+    ...countPersonCategories(request),
+    crewCount: (request?.crewMembers || []).length,
+    roomNights,
+    avgPricePerNight: roomNights > 0 ? roundMoney(living / roomNights) : 0,
+    transferArrival: sumTransferField(request, "transferService"),
+    transferDeparture: sumTransferField(request, "departureTransferService"),
+    transferBaggage: sumTransferField(request, "baggageDeliveryService"),
+    transferIntercity: sumTransferField(request, "intercityTransferService"),
+    ...countMeals(request?.hotelReports),
+    waterPlanned: water.planned,
+    waterServed: water.served,
+    mealServicePlanned: mealSvc.planned,
+    mealServiceServed: mealSvc.served,
+    hotels: buildHotelsBreakdown(request),
     living,
     meal,
     transfer,
@@ -98,6 +115,14 @@ export function buildPassengerAnalyticsTotals(rows) {
     requestsCount: rows.length,
     peopleCount: counted.reduce((a, r) => a + (Number(r.peopleCount) || 0), 0),
     linkedPeopleCount: rows.reduce((a, r) => a + (Number(r.linkedPeopleCount) || 0), 0),
+    adultsCount: counted.reduce((a, r) => a + (Number(r.adultsCount) || 0), 0),
+    childrenCount: counted.reduce((a, r) => a + (Number(r.childrenCount) || 0), 0),
+    infantsCount: counted.reduce((a, r) => a + (Number(r.infantsCount) || 0), 0),
+    roomNights: sum("roomNights"),
+    transferArrival: sum("transferArrival"),
+    transferDeparture: sum("transferDeparture"),
+    transferBaggage: sum("transferBaggage"),
+    transferIntercity: sum("transferIntercity"),
     living: sum("living"),
     meal: sum("meal"),
     transfer: sum("transfer"),
@@ -127,4 +152,85 @@ export function resolvePeriodBounds(dateFromInput, dateToInput) {
     throw new Error("dateFrom не может быть позже dateTo")
   }
   return { dateFrom, dateTo }
+}
+
+function isGuestRow(row) {
+  return ((row?.fullName ?? "").toString().trim()) !== ""
+}
+
+function guestRows(hotelReports) {
+  const out = []
+  for (const rep of hotelReports || []) {
+    const rows = Array.isArray(rep?.reportRows) ? rep.reportRows : []
+    for (const row of rows) {
+      if (isGuestRow(row)) out.push(row)
+    }
+  }
+  return out
+}
+
+function countPersonCategories(request) {
+  const counts = { adultsCount: 0, childrenCount: 0, infantsCount: 0 }
+  for (const h of request?.livingService?.hotels || []) {
+    for (const p of h?.people || []) {
+      const cat = p?.personCategory || "ADULT"
+      if (cat === "CHILD") counts.childrenCount += 1
+      else if (cat === "INFANT") counts.infantsCount += 1
+      else counts.adultsCount += 1
+    }
+  }
+  return counts
+}
+
+function sumTransferField(request, field) {
+  const drivers = request?.[field]?.drivers || []
+  return roundMoney(drivers.reduce((acc, d) => acc + (Number(d?.reportCost) || 0), 0))
+}
+
+function sumRoomNights(hotelReports) {
+  return roundMoney(guestRows(hotelReports).reduce((acc, r) => acc + (Number(r?.daysCount) || 0), 0))
+}
+
+// Легаси-правило: счётчика нет (null/undefined), но цена приёма > 0 → 1 порция; явный 0 = 0.
+function mealCount(row, meal) {
+  const raw = row?.[meal + "Count"]
+  if (raw == null) return Number(row?.[meal]) > 0 ? 1 : 0
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
+function countMeals(hotelReports) {
+  const counts = { breakfastsCount: 0, lunchesCount: 0, dinnersCount: 0, lunchboxesCount: 0 }
+  for (const row of guestRows(hotelReports)) {
+    counts.breakfastsCount += mealCount(row, "breakfast")
+    counts.lunchesCount += mealCount(row, "lunch")
+    counts.dinnersCount += mealCount(row, "dinner")
+    if (row?.breakfastLunchbox) counts.lunchboxesCount += 1
+    if (row?.lunchLunchbox) counts.lunchboxesCount += 1
+    if (row?.dinnerLunchbox) counts.lunchboxesCount += 1
+  }
+  return counts
+}
+
+function serviceCounts(svc) {
+  return {
+    planned: Number(svc?.plan?.peopleCount) || 0,
+    served: (svc?.people || []).length
+  }
+}
+
+function buildHotelsBreakdown(request) {
+  const reports = request?.hotelReports || []
+  return (request?.livingService?.hotels || []).map((h, i) => {
+    const rep = reports.find((r) => r?.hotelIndex === i)
+    const rows = Array.isArray(rep?.reportRows) ? rep.reportRows.filter(isGuestRow) : []
+    return {
+      hotelName: h?.name || "",
+      peopleCount: h?.people?.length || 0,
+      roomNights: roundMoney(rows.reduce((acc, r) => acc + (Number(r?.daysCount) || 0), 0)),
+      living: roundMoney(rows.reduce((acc, r) => acc + (Number(r?.accommodationCost) || 0), 0)),
+      meal: roundMoney(rows.reduce((acc, r) => acc + (Number(r?.foodCost) || 0), 0)),
+      reportSaved: rows.length > 0
+    }
+  })
 }

@@ -280,12 +280,29 @@ const analyticsTypeDef = /* GraphQL */ `
     requestsCount: Int!
     peopleCount: Int!
     linkedPeopleCount: Int!
+    adultsCount: Int!
+    childrenCount: Int!
+    infantsCount: Int!
+    roomNights: Float!
+    transferArrival: Float!
+    transferDeparture: Float!
+    transferBaggage: Float!
+    transferIntercity: Float!
     living: Float!
     meal: Float!
     transfer: Float!
     total: Float!
     missingCostCount: Int!
     noFlightDateCount: Int!
+  }
+
+  type PassengerAnalyticsHotelBreakdown {
+    hotelName: String!
+    peopleCount: Int!
+    roomNights: Float!
+    living: Float!
+    meal: Float!
+    reportSaved: Boolean!
   }
 
   type PassengerAnalyticsRequestItem {
@@ -302,6 +319,25 @@ const analyticsTypeDef = /* GraphQL */ `
     peopleCount: Int!
     groupsCount: Int!
     linkedPeopleCount: Int!
+    adultsCount: Int!
+    childrenCount: Int!
+    infantsCount: Int!
+    crewCount: Int!
+    roomNights: Float!
+    avgPricePerNight: Float!
+    transferArrival: Float!
+    transferDeparture: Float!
+    transferBaggage: Float!
+    transferIntercity: Float!
+    breakfastsCount: Int!
+    lunchesCount: Int!
+    dinnersCount: Int!
+    lunchboxesCount: Int!
+    waterPlanned: Int!
+    waterServed: Int!
+    mealServicePlanned: Int!
+    mealServiceServed: Int!
+    hotels: [PassengerAnalyticsHotelBreakdown!]!
     living: Float!
     meal: Float!
     transfer: Float!
