@@ -22,7 +22,7 @@ export async function computePassengerAnalytics(input, options = {}) {
   const baseWhere = {}
   if (airlineId) baseWhere.airlineId = airlineId
   if (input.airportIds?.length) baseWhere.airportId = { in: input.airportIds }
-  if (input.flightNumber) baseWhere.flightNumber = { contains: input.flightNumber }
+  if (input.flightNumber) baseWhere.flightNumber = { contains: input.flightNumber, mode: "insensitive" }
   if (input.statuses?.length) baseWhere.status = { in: input.statuses }
   else baseWhere.status = { not: "CANCELLED" }
 
