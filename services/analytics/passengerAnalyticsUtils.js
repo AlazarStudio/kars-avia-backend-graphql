@@ -48,6 +48,16 @@ function countRequestPeople(request) {
   return hotels.reduce((acc, h) => acc + (h?.people?.length || 0), 0)
 }
 
+function countLinkedPeople(request) {
+  const ids = new Set()
+  for (const g of request?.passengerGroups || []) {
+    for (const pid of g?.memberPersonIds || []) {
+      if (pid) ids.add(pid)
+    }
+  }
+  return ids.size
+}
+
 function computeCostMissing(request, hasGuestRow) {
   const hasLivingPlanned = (request?.livingService?.hotels || []).length > 0
   return hasLivingPlanned && !hasGuestRow
@@ -70,6 +80,8 @@ export function aggregatePassengerRequest(request) {
     airlineName: request.airline?.name || null,
     hotelNames: extractHotelNames(request),
     peopleCount: countRequestPeople(request),
+    groupsCount: (request?.passengerGroups ?? []).length,
+    linkedPeopleCount: countLinkedPeople(request),
     living,
     meal,
     transfer,
@@ -85,6 +97,7 @@ export function buildPassengerAnalyticsTotals(rows) {
   return {
     requestsCount: rows.length,
     peopleCount: counted.reduce((a, r) => a + (Number(r.peopleCount) || 0), 0),
+    linkedPeopleCount: rows.reduce((a, r) => a + (Number(r.linkedPeopleCount) || 0), 0),
     living: sum("living"),
     meal: sum("meal"),
     transfer: sum("transfer"),

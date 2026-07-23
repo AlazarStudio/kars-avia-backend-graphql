@@ -279,6 +279,7 @@ const analyticsTypeDef = /* GraphQL */ `
   type PassengerAnalyticsTotals {
     requestsCount: Int!
     peopleCount: Int!
+    linkedPeopleCount: Int!
     living: Float!
     meal: Float!
     transfer: Float!
@@ -299,6 +300,8 @@ const analyticsTypeDef = /* GraphQL */ `
     airlineName: String
     hotelNames: [String!]!
     peopleCount: Int!
+    groupsCount: Int!
+    linkedPeopleCount: Int!
     living: Float!
     meal: Float!
     transfer: Float!

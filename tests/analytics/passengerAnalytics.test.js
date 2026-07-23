@@ -73,3 +73,35 @@ test("итоги: costMissing не входят в деньги, но счита
   assert.equal(t.total, 7400)
   assert.equal(t.missingCostCount, 1)
 })
+
+test("группы: groupsCount = число групп, linkedPeopleCount = уникальные участники", () => {
+  const req = {
+    id: "r5",
+    flightNumber: "SU5",
+    status: "COMPLETED",
+    passengerGroups: [
+      { groupId: "g1", memberPersonIds: ["p1", "p2"] },
+      { groupId: "g2", memberPersonIds: ["p3", "p4", "p5"] }
+    ],
+    hotelReports: []
+  }
+  const row = aggregatePassengerRequest(req)
+  assert.equal(row.groupsCount, 2)
+  assert.equal(row.linkedPeopleCount, 5)
+})
+
+test("нет групп → groupsCount=0, linkedPeopleCount=0", () => {
+  const req = { id: "r6", flightNumber: "SU6", status: "COMPLETED", hotelReports: [] }
+  const row = aggregatePassengerRequest(req)
+  assert.equal(row.groupsCount, 0)
+  assert.equal(row.linkedPeopleCount, 0)
+})
+
+test("итоги: linkedPeopleCount суммируется по ВСЕМ строкам, включая costMissing", () => {
+  const rows = [
+    { costMissing: false, peopleCount: 2, linkedPeopleCount: 2, living: 7000, meal: 400, transfer: 0, total: 7400 },
+    { costMissing: true, peopleCount: 1, linkedPeopleCount: 3, living: 0, meal: 0, transfer: 0, total: 0 }
+  ]
+  const t = buildPassengerAnalyticsTotals(rows)
+  assert.equal(t.linkedPeopleCount, 5)
+})
