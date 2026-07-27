@@ -1020,21 +1020,37 @@ model Room {
 }
 
 model RoomKind {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
   name            String?
   description     String?
   square          String?
   category        Category
   price           Float
   priceForAirline Float?
-  priceForAirReq  Boolean  @default(false)
+  priceForAirReq  Boolean          @default(false)
   images          String[]
   room            Room[]
   roomsCount      Int?
-  hotel           Hotel    @relation(fields: [hotelId], references: [id])
-  hotelId         String   @db.ObjectId
+  hotel           Hotel            @relation(fields: [hotelId], references: [id])
+  hotelId         String           @db.ObjectId
+  seasons         RoomKindSeason[]
+}
+
+model RoomKindSeason {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  name            String?
+  startDate       DateTime
+  endDate         DateTime
+  price           Float
+  priceForAirline Float?
+  roomKind        RoomKind @relation(fields: [roomKindId], references: [id], onDelete: Cascade)
+  roomKindId      String   @db.ObjectId
+
+  @@index([roomKindId, startDate, endDate])
 }
 
 // Hotel ---------------- ↑↑↑↑
@@ -1212,10 +1228,10 @@ type PassengerRequestCrewMember {
 
 /// Каталог пассажиров заявки (для повторного выбора после скана/добавления)
 type PassengerRequestSavedPerson {
-  personId          String // стабильный UUID
-  fullName          String
-  phone             String?
-  seat              String?
+  personId             String // стабильный UUID
+  fullName             String
+  phone                String?
+  seat                 String?
   personType           PassengerPersonType      @default(PASSENGER)
   personCategory       PassengerPersonCategory? @default(ADULT)
   airlinePersonalId    String?                  @db.ObjectId
@@ -1456,10 +1472,11 @@ model Request {
 }
 
 type requestPrice {
-  livingCost Float?
-  breakfast  Float?
-  lunch      Float?
-  dinner     Float?
+  livingCost  Float?
+  breakfast   Float?
+  lunch       Float?
+  dinner      Float?
+  pricePerDay Float?
 }
 
 // Request ---------------- ↑↑↑↑

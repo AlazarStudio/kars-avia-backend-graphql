@@ -323,6 +323,7 @@ const globalTypeDef = /* GraphQL */ `
     lunch: Float
     dinner: Float
     breakfastIncluded: Boolean
+    pricePerDay: Float
   }
 
   type File {

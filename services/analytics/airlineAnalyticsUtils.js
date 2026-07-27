@@ -81,7 +81,11 @@ export function buildRequestWhere({
 
 export const REQUEST_INCLUDE = {
   person: { include: { position: true } },
-  hotelChess: { include: { room: { include: { roomKind: true } } } },
+  hotelChess: {
+    include: {
+      room: { include: { roomKind: { include: { seasons: true } } } }
+    }
+  },
   airline: { include: { prices: { include: { airports: true } } } },
   hotel: {
     select: {

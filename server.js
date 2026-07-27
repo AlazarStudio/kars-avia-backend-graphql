@@ -40,6 +40,7 @@ import {
   disconnectPubSubRedis
 } from "./services/infra/pubsub.js"
 
+import botWebhooks from "./botWebhooks.js"
 import { botService } from "./services/bot/botService.js"
 
 assertSubscriptionPubSubConfig()
@@ -95,10 +96,6 @@ app.get("/health", async (req, res) => {
 //     res.sendStatus(500)
 //   }
 // })
-
-
-
-
 
 // SSL
 const sslOptions = {
@@ -278,50 +275,14 @@ startArchivingJob()
 startContractArchivingJob()
 startPresenceCleanupJob()
 await server.start()
+await botService.initialize()
 
 /* =========================
    🌍 EXPRESS
 ========================= */
 app.use(graphqlUploadExpress())
-
-
-// Webhook endpoint для MAX (на случай перехода на Webhook в будущем)
-app.post("/MAX", async (req, res) => {
-  try {
-    const update = req.body
-    
-    console.log("Получен Webhook от MAX:", {
-      type: update.message ? "message" : 
-            update.bot_added ? "bot_added" : 
-            update.message_callback ? "callback" : "unknown"
-    })
-
-    // Обработка разных типов событий
-    if (update.message) {
-      await botService.handleIncomingMessage("MAX", {
-        chatId: update.message.recipient.chat_id.toString(),
-        userId: update.message.sender.user_id.toString(),
-        messageId: update.message.body.mid.toString(),
-        text: update.message.body.text || "",
-        userData: {
-          firstName: update.message.sender.first_name,
-          lastName: update.message.sender.last_name,
-          username: update.message.sender.username
-        }
-      })
-    } else if (update.message_callback) {
-      // Обработка callback от кнопок
-      console.log("Получен callback:", update.message_callback)
-      // Здесь можно добавить логику обработки
-    }
-
-    res.sendStatus(200)
-  } catch (error) {
-    console.error("Ошибка обработки Webhook от MAX:", error)
-    res.sendStatus(500)
-  }
-})
-
+app.use(express.json())
+app.use("/", botWebhooks)
 
 // Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
 app.use("/graphql", (req, res, next) => {
@@ -384,9 +345,6 @@ app.use(
     context: async ({ req }) => buildGraphqlContext(req)
   })
 )
-
-
-
 
 /* =========================
    ▶️ START

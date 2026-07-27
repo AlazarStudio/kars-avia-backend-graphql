@@ -37,7 +37,11 @@ const createAllocationKey = (row) =>
 const REQUEST_INCLUDE_FOR_PRICING = {
   hotelChess: {
     include: {
-      room: { include: { roomKind: true } }
+      room: {
+        include: {
+          roomKind: { include: { seasons: true } }
+        }
+      }
     }
   },
   hotel: {
@@ -86,7 +90,10 @@ function buildRequestRowForAllocation(request, reportType) {
   )
   if (effectiveDays <= 0) return null
 
-  const pricePerDay = getLivingPricePerDay(request, reportType)
+  const pricePerDay = getLivingPricePerDay(request, reportType, {
+    stayStart: stay.start,
+    stayEnd: stay.end
+  })
   const mealPlan = request.mealPlan || { dailyMeals: [] }
   const {
     totalMealCost,
@@ -141,11 +148,13 @@ function buildRequestRowForAllocation(request, reportType) {
 function buildLivingCostsByRequestId(requests, reportType) {
   const rows = []
   const requestIdQueuesByKey = new Map()
+  const pricePerDayByRequestId = new Map()
 
   for (const request of requests) {
     const row = buildRequestRowForAllocation(request, reportType)
     if (!row) continue
     rows.push(row)
+    pricePerDayByRequestId.set(request.id, row.pricePerDay)
 
     const key = createAllocationKey(row)
     if (!requestIdQueuesByKey.has(key)) {
@@ -170,7 +179,7 @@ function buildLivingCostsByRequestId(requests, reportType) {
     )
   }
 
-  return livingCostByRequestId
+  return { livingCostByRequestId, pricePerDayByRequestId }
 }
 
 function calculateMealParts(request, reportType) {
@@ -223,14 +232,20 @@ function calculateMealParts(request, reportType) {
   }
 }
 
-function buildPriceForRequest(request, reportType, livingCostByRequestId) {
+function buildPriceForRequest(
+  request,
+  reportType,
+  livingCostByRequestId,
+  pricePerDayByRequestId
+) {
   const mealParts = calculateMealParts(request, reportType)
   return {
     livingCost: roundMoney(livingCostByRequestId.get(request.id) || 0),
     breakfast: mealParts.breakfast,
     lunch: mealParts.lunch,
     dinner: mealParts.dinner,
-    breakfastIncluded: mealParts.breakfastIncluded
+    breakfastIncluded: mealParts.breakfastIncluded,
+    pricePerDay: roundMoney(pricePerDayByRequestId.get(request.id) || 0)
   }
 }
 
@@ -261,8 +276,14 @@ export async function calculateRequestHotelPrice(requestId) {
   if (!hc?.roomId || !hc?.start || !hc?.end) return null
 
   const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
-  const livingCostByRequestId = buildLivingCostsByRequestId(clusterRequests, "hotel")
-  return buildPriceForRequest(request, "hotel", livingCostByRequestId)
+  const { livingCostByRequestId, pricePerDayByRequestId } =
+    buildLivingCostsByRequestId(clusterRequests, "hotel")
+  return buildPriceForRequest(
+    request,
+    "hotel",
+    livingCostByRequestId,
+    pricePerDayByRequestId
+  )
 }
 
 export async function calculateRequestAirlinePrice(requestId) {
@@ -276,8 +297,14 @@ export async function calculateRequestAirlinePrice(requestId) {
   if (!hc?.roomId || !hc?.start || !hc?.end) return null
 
   const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
-  const livingCostByRequestId = buildLivingCostsByRequestId(clusterRequests, "airline")
-  return buildPriceForRequest(request, "airline", livingCostByRequestId)
+  const { livingCostByRequestId, pricePerDayByRequestId } =
+    buildLivingCostsByRequestId(clusterRequests, "airline")
+  return buildPriceForRequest(
+    request,
+    "airline",
+    livingCostByRequestId,
+    pricePerDayByRequestId
+  )
 }
 
 export async function recalculateRequestPricing(requestId) {
@@ -354,4 +381,56 @@ export async function recalculateAffectedByRoomChange(
   }
 
   await Promise.all(promises)
+}
+
+/**
+ * Пересчёт незаархивированных заявок RoomKind, чьё проживание пересекает [startDate, endDate].
+ * Если даты не переданы — пересчитывает все незаархивированные заявки этого RoomKind.
+ */
+export async function recalculateNonArchivedForRoomKindPeriod(
+  roomKindId,
+  startDate = null,
+  endDate = null
+) {
+  if (!roomKindId) return
+
+  try {
+    const rooms = await prisma.room.findMany({
+      where: { roomKindId },
+      select: { id: true }
+    })
+    const roomIds = rooms.map((r) => r.id)
+    if (!roomIds.length) return
+
+    const where = {
+      roomId: { in: roomIds },
+      requestId: { not: null },
+      request: {
+        archive: false,
+        status: { notIn: ["archived", "archiving"] }
+      }
+    }
+
+    if (startDate && endDate) {
+      const periodStart = new Date(startDate)
+      const periodEnd = new Date(endDate)
+      const periodEndInclusive = new Date(periodEnd)
+      periodEndInclusive.setHours(23, 59, 59, 999)
+      where.start = { lte: periodEndInclusive }
+      where.end = { gte: periodStart }
+    }
+
+    const chess = await prisma.hotelChess.findMany({
+      where,
+      select: { requestId: true }
+    })
+
+    const requestIds = [...new Set(chess.map((c) => c.requestId).filter(Boolean))]
+    await Promise.all(requestIds.map((id) => recalculateRequestPricing(id)))
+  } catch (error) {
+    logger.error(
+      `Ошибка пересчёта заявок для RoomKind ${roomKindId}:`,
+      error
+    )
+  }
 }

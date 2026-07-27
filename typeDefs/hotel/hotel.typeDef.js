@@ -163,6 +163,37 @@ const hotelTypeDef = /* GraphQL */ `
     images: [String]
     hotel: Hotel
     roomsCount: Float
+    seasons: [RoomKindSeason!]!
+  }
+
+  type RoomKindSeason {
+    id: ID!
+    name: String
+    startDate: Date!
+    endDate: Date!
+    price: Float!
+    priceForAirline: Float
+    roomKindId: ID!
+    roomKind: RoomKind
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  input RoomKindSeasonInput {
+    roomKindId: ID!
+    name: String
+    startDate: Date!
+    endDate: Date!
+    price: Float!
+    priceForAirline: Float
+  }
+
+  input RoomKindSeasonUpdateInput {
+    name: String
+    startDate: Date
+    endDate: Date
+    price: Float
+    priceForAirline: Float
   }
 
   type AdditionalServices {
@@ -391,6 +422,7 @@ const hotelTypeDef = /* GraphQL */ `
     ): HotelConnection!
     hotel(id: ID!): Hotel
     hotelPreview: HotelPreview
+    roomKindSeasons(roomKindId: ID!): [RoomKindSeason!]!
   }
 
   type Mutation {
@@ -428,6 +460,12 @@ const hotelTypeDef = /* GraphQL */ `
     updateAllRoomKindCount: [Hotel]
     createHotelPreviewLink(hotelId: ID!, hours: Int!): HotelPreviewLinkResult!
     authorizeHotelPreview(token: String!): HotelPreviewAuthPayload!
+    createRoomKindSeason(input: RoomKindSeasonInput!): RoomKindSeason!
+    updateRoomKindSeason(
+      id: ID!
+      input: RoomKindSeasonUpdateInput!
+    ): RoomKindSeason!
+    deleteRoomKindSeason(id: ID!): Boolean!
   }
 
   type Subscription {

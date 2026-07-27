@@ -1,15 +1,31 @@
-// services/bot/botService.js
-
-import { prisma } from "../../prisma.js"
-import { pubsub, MESSAGE_SENT } from "../infra/pubsub.js"
 import { Bot } from "@maxhub/max-bot-api"
+import { prisma } from "../../prisma.js"
+import { publishNewUnreadToSupportClients } from "../chat/chatSubscriptionAccess.js"
+import { pubsub, MESSAGE_SENT } from "../infra/pubsub.js"
+import { sendSupportClientMessageEmail } from "../notification/sendSupportEmail.js"
+import { findSupportAgents } from "../support/supportAgent.js"
+import {
+  deleteTelegramWebhook,
+  sendTelegramMessage,
+  setTelegramWebhook
+} from "./telegramApi.js"
+
+function buildSenderName(userData, fallbackName) {
+  const fullName = [userData?.firstName, userData?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+
+  if (fullName) return fullName
+  if (userData?.username) return `@${userData.username}`
+  return fallbackName
+}
 
 class BotService {
   constructor() {
-    this.bots = new Map() // channelType -> botInstance
+    this.bots = new Map()
   }
 
-  // Инициализация при старте сервера
   async initialize() {
     try {
       const configs = await prisma.botConfig.findMany({
@@ -27,14 +43,43 @@ class BotService {
     }
   }
 
-  // Запуск конкретного бота
+  getTelegramWebhookBaseUrl() {
+    return process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\/+$/, "")
+  }
+
+  getTelegramWebhookSecret(config) {
+    return process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || `telegram-${config.id}`
+  }
+
+  async verifyTelegramWebhookSecret(secretToken) {
+    const config = await prisma.botConfig.findFirst({
+      where: {
+        channelType: "TELEGRAM",
+        isActive: true
+      }
+    })
+
+    if (!config) {
+      throw new Error("Активный Telegram бот не найден")
+    }
+
+    const expectedSecret = this.getTelegramWebhookSecret(config)
+    if (expectedSecret && secretToken !== expectedSecret) {
+      throw new Error("Неверный Telegram webhook secret")
+    }
+
+    return config
+  }
+
   async startBot(config) {
     try {
+      if (this.bots.has(config.channelType)) {
+        await this.stopBot(config.channelType)
+      }
+
       if (config.channelType === "MAX") {
-        // Создаем бота с токеном (теперь передается через заголовок Authorization)
         const bot = new Bot(config.token)
 
-        // Обработка входящих сообщений
         bot.on("message_created", async (ctx) => {
           try {
             console.log("Получено сообщение от MAX:", {
@@ -59,18 +104,14 @@ class BotService {
           }
         })
 
-        // Обработка callback'ов от кнопок
         bot.on("message_callback", async (ctx) => {
           try {
             console.log("Получен callback от кнопки:", ctx)
-            
-            // Можно обработать нажатие на кнопку
-            // Например, отправить ответное сообщение
+
             const callbackData = ctx.callback?.data
             const chatId = ctx.callback?.message?.recipient?.chat_id
-            
+
             if (callbackData && chatId) {
-              // Здесь можно добавить логику обработки callback'ов
               console.log(`Callback "${callbackData}" от чата ${chatId}`)
             }
           } catch (error) {
@@ -78,26 +119,44 @@ class BotService {
           }
         })
 
-        // Обработка ошибок бота
         bot.on("error", (error) => {
           console.error("Ошибка бота MAX:", error)
         })
 
-        // Запускаем Long Polling
         await bot.start()
-        
-        this.bots.set("MAX", bot)
-        console.log(`Бот MAX запущен с Long Polling`)
+        this.bots.set("MAX", { provider: "MAX", bot, token: config.token })
+        console.log("Бот MAX запущен с Long Polling")
+        return
       }
 
-      // Добавить другие мессенджеры по аналогии
       if (config.channelType === "TELEGRAM") {
-        // Реализация для Telegram
-        console.log("Telegram бот пока не реализован")
+        const webhookBaseUrl = this.getTelegramWebhookBaseUrl()
+        if (!webhookBaseUrl) {
+          throw new Error("Не задан TELEGRAM_WEBHOOK_BASE_URL")
+        }
+
+        const secretToken = this.getTelegramWebhookSecret(config)
+        const webhookUrl = `${webhookBaseUrl}/telegram`
+
+        await setTelegramWebhook(config.token, webhookUrl, secretToken)
+
+        await prisma.botConfig.update({
+          where: { id: config.id },
+          data: { webhookUrl }
+        })
+
+        this.bots.set("TELEGRAM", {
+          provider: "TELEGRAM",
+          token: config.token,
+          secretToken,
+          webhookUrl
+        })
+
+        console.log(`Telegram webhook зарегистрирован: ${webhookUrl}`)
+        return
       }
 
       if (config.channelType === "WHATSAPP") {
-        // Реализация для WhatsApp
         console.log("WhatsApp бот пока не реализован")
       }
     } catch (error) {
@@ -106,7 +165,85 @@ class BotService {
     }
   }
 
-  // Обработка входящего сообщения от пользователя
+  async ensureSupportParticipants(chatId) {
+    const supportAgents = await findSupportAgents()
+    if (supportAgents.length === 0) {
+      throw new Error("Нет доступных агентов поддержки")
+    }
+
+    const existingParticipants = await prisma.chatUser.findMany({
+      where: { chatId },
+      select: { userId: true }
+    })
+
+    const existingIds = new Set(existingParticipants.map((participant) => participant.userId))
+    const missingAgents = supportAgents.filter((agent) => !existingIds.has(agent.id))
+
+    if (missingAgents.length > 0) {
+      await prisma.chatUser.createMany({
+        data: missingAgents.map((agent) => ({
+          chatId,
+          userId: agent.id
+        }))
+      })
+    }
+  }
+
+  async ensureSupportChatInfrastructure(chat, data) {
+    await this.ensureSupportParticipants(chat.id)
+
+    const tickets = await prisma.supportTicket.findMany({
+      where: { chatId: chat.id },
+      orderBy: { ticketNumber: "desc" }
+    })
+
+    let currentTicket = tickets.find(
+      (ticket) => ticket.status === "OPEN" || ticket.status === "IN_PROGRESS"
+    )
+
+    if (!currentTicket && chat.supportStatus === "RESOLVED") {
+      const nextTicketNumber = tickets.length > 0 ? tickets[0].ticketNumber + 1 : 1
+
+      currentTicket = await prisma.supportTicket.create({
+        data: {
+          chatId: chat.id,
+          ticketNumber: nextTicketNumber,
+          status: "OPEN"
+        }
+      })
+
+      chat = await prisma.chat.update({
+        where: { id: chat.id },
+        data: {
+          supportStatus: "OPEN",
+          assignedToId: null,
+          resolvedAt: null,
+          resolvedById: null,
+          externalChatId: data.chatId,
+          externalUserId: data.userId,
+          botMetadata: {
+            userData: data.userData,
+            lastActivity: new Date()
+          }
+        }
+      })
+    }
+
+    if (!currentTicket) {
+      const nextTicketNumber = tickets.length > 0 ? tickets[0].ticketNumber + 1 : 1
+
+      currentTicket = await prisma.supportTicket.create({
+        data: {
+          chatId: chat.id,
+          ticketNumber: nextTicketNumber,
+          status: chat.supportStatus || "OPEN"
+        }
+      })
+    }
+
+    return currentTicket
+  }
+
   async handleIncomingMessage(channelType, data) {
     try {
       console.log(`Обработка входящего сообщения из ${channelType}:`, {
@@ -116,10 +253,13 @@ class BotService {
         textPreview: data.text?.substring(0, 50) + "..."
       })
 
-      // 1. Находим или создаем чат
       const chat = await this.findOrCreateChat(channelType, data)
+      const ticket = await this.ensureSupportChatInfrastructure(chat, data)
+      const senderName = buildSenderName(
+        data.userData,
+        channelType === "TELEGRAM" ? "Пользователь Telegram" : "Пользователь MAX"
+      )
 
-      // 2. Создаем сообщение в CRM
       const message = await prisma.message.create({
         data: {
           chatId: chat.id,
@@ -127,9 +267,8 @@ class BotService {
           channelType,
           externalMessageId: data.messageId,
           senderExternalUserId: data.userId,
-          senderName: data.userData?.firstName 
-            ? `${data.userData.firstName} ${data.userData.lastName || ''}`.trim()
-            : "Пользователь MAX",
+          senderName,
+          supportTicketId: ticket.id,
           createdAt: new Date()
         },
         include: {
@@ -138,9 +277,20 @@ class BotService {
         }
       })
 
+      await sendSupportClientMessageEmail({
+        chatId: chat.id,
+        sender: {
+          name: senderName,
+          role: channelType
+        },
+        text: data.text,
+        ticketNumber: ticket.ticketNumber
+      })
+
+      await publishNewUnreadToSupportClients(chat.id, message)
+
       console.log(`Сообщение сохранено в CRM: ${message.id}`)
 
-      // 3. Публикуем событие (чтобы обновился UI у админа)
       pubsub.publish(MESSAGE_SENT, {
         messageSent: message
       })
@@ -152,10 +302,8 @@ class BotService {
     }
   }
 
-  // Поиск или создание чата
   async findOrCreateChat(channelType, data) {
     try {
-      // 1. Ищем существующий чат по externalChatId
       let chat = await prisma.chat.findFirst({
         where: {
           channelType,
@@ -165,12 +313,12 @@ class BotService {
 
       if (chat) {
         console.log(`Найден существующий чат: ${chat.id}`)
-        
-        // Обновляем метаданные, если изменились
+
         if (data.userData) {
-          await prisma.chat.update({
+          chat = await prisma.chat.update({
             where: { id: chat.id },
             data: {
+              externalUserId: data.userId,
               botMetadata: {
                 userData: data.userData,
                 lastActivity: new Date()
@@ -178,24 +326,22 @@ class BotService {
             }
           })
         }
-        
+
         return chat
       }
 
-      // 2. Ищем чат по externalUserId (защита от дубликатов)
       chat = await prisma.chat.findFirst({
         where: {
           channelType,
           externalUserId: data.userId,
-          supportStatus: { not: "RESOLVED" } // Только незакрытые чаты
+          supportStatus: { not: "RESOLVED" }
         }
       })
 
       if (chat) {
         console.log(`Найден чат по userId, обновляем externalChatId: ${chat.id}`)
-        
-        // Обновляем externalChatId у существующего чата
-        chat = await prisma.chat.update({
+
+        return prisma.chat.update({
           where: { id: chat.id },
           data: {
             externalChatId: data.chatId,
@@ -205,13 +351,10 @@ class BotService {
             }
           }
         })
-        
-        return chat
       }
 
-      // 3. Создаем новый чат поддержки
       console.log(`Создаем новый чат для пользователя ${data.userId}`)
-      
+
       chat = await prisma.chat.create({
         data: {
           channelType,
@@ -221,13 +364,13 @@ class BotService {
           supportStatus: "OPEN",
           botMetadata: {
             userData: data.userData,
-            startedAt: new Date()
+            startedAt: new Date(),
+            lastActivity: new Date()
           }
         }
       })
 
       console.log(`Создан новый чат поддержки: ${chat.id}`)
-      
       return chat
     } catch (error) {
       console.error("Ошибка в findOrCreateChat:", error)
@@ -235,14 +378,10 @@ class BotService {
     }
   }
 
-  // Отправка сообщения пользователю в мессенджер
   async sendToUser(chatId, text, options = {}) {
     try {
       const chat = await prisma.chat.findUnique({
-        where: { id: chatId },
-        include: {
-          botConfig: true // Если есть связь с конфигом бота
-        }
+        where: { id: chatId }
       })
 
       if (!chat || !chat.externalChatId) {
@@ -254,9 +393,6 @@ class BotService {
         throw new Error(`Бот для ${chat.channelType} не активен`)
       }
 
-      console.log(`Отправка сообщения в MAX, чат: ${chat.externalChatId}`)
-
-      // Отправляем через API MAX
       if (chat.channelType === "MAX") {
         try {
           const messagePayload = {
@@ -264,24 +400,22 @@ class BotService {
               chat_id: chat.externalChatId
             },
             message: {
-              text: text,
-              format: options.format || "markdown" // markdown или html
+              text,
+              format: options.format || "markdown"
             }
           }
 
-          // Добавляем вложения если есть
           if (options.attachments && options.attachments.length > 0) {
             messagePayload.message.attachments = options.attachments
           }
 
-          const sentMessage = await bot.api.sendMessage(
+          const sentMessage = await bot.bot.api.sendMessage(
             messagePayload.recipient,
             messagePayload.message
           )
-          
+
           const messageId = sentMessage?.body?.mid || sentMessage?.message_id
           console.log(`Сообщение отправлено в MAX, ID: ${messageId}`)
-          
           return messageId
         } catch (apiError) {
           console.error("Ошибка API MAX при отправке:", apiError)
@@ -289,40 +423,50 @@ class BotService {
         }
       }
 
-      // Для других мессенджеров
+      if (chat.channelType === "TELEGRAM") {
+        const sentMessage = await sendTelegramMessage(
+          bot.token,
+          chat.externalChatId,
+          text
+        )
+        const messageId = sentMessage?.message_id?.toString() || null
+        console.log(`Сообщение отправлено в Telegram, ID: ${messageId}`)
+        return messageId
+      }
+
       throw new Error(`Отправка в ${chat.channelType} пока не реализована`)
-      
     } catch (error) {
       console.error("Ошибка отправки пользователю:", error)
       throw error
     }
   }
 
-  // Отправка сообщения с кнопками
   async sendMessageWithKeyboard(chatId, text, buttons) {
     return this.sendToUser(chatId, text, {
-      attachments: [{
-        type: "inline_keyboard",
-        payload: {
-          buttons: buttons
+      attachments: [
+        {
+          type: "inline_keyboard",
+          payload: {
+            buttons
+          }
         }
-      }]
+      ]
     })
   }
 
-  // Отправка изображения
   async sendImage(chatId, imageToken, caption = "") {
     return this.sendToUser(chatId, caption, {
-      attachments: [{
-        type: "image",
-        payload: {
-          token: imageToken
+      attachments: [
+        {
+          type: "image",
+          payload: {
+            token: imageToken
+          }
         }
-      }]
+      ]
     })
   }
 
-  // Загрузка файла в MAX
   async uploadFile(fileBuffer, fileName) {
     const bot = this.bots.get("MAX")
     if (!bot) {
@@ -330,7 +474,7 @@ class BotService {
     }
 
     try {
-      const result = await bot.api.uploadFile(fileBuffer, fileName)
+      const result = await bot.bot.api.uploadFile(fileBuffer, fileName)
       console.log(`Файл загружен в MAX, token: ${result.token}`)
       return result.token
     } catch (error) {
@@ -339,7 +483,6 @@ class BotService {
     }
   }
 
-  // Получение информации о боте
   async getBotInfo() {
     const bot = this.bots.get("MAX")
     if (!bot) {
@@ -347,7 +490,7 @@ class BotService {
     }
 
     try {
-      const info = await bot.api.getMe()
+      const info = await bot.bot.api.getMe()
       console.log("Информация о боте:", info)
       return info
     } catch (error) {
@@ -356,40 +499,46 @@ class BotService {
     }
   }
 
-  // Остановка бота
   async stopBot(channelType) {
     const bot = this.bots.get(channelType)
-    if (bot) {
-      try {
-        await bot.stopPolling()
-        this.bots.delete(channelType)
-        console.log(`Бот ${channelType} остановлен`)
-      } catch (error) {
-        console.error(`Ошибка остановки бота ${channelType}:`, error)
-        throw error
+    if (!bot) return
+
+    try {
+      if (channelType === "MAX" && bot.bot) {
+        await bot.bot.stopPolling()
       }
+
+      if (channelType === "TELEGRAM" && bot.token) {
+        await deleteTelegramWebhook(bot.token)
+      }
+
+      this.bots.delete(channelType)
+      console.log(`Бот ${channelType} остановлен`)
+    } catch (error) {
+      console.error(`Ошибка остановки бота ${channelType}:`, error)
+      throw error
     }
   }
 
-  // CRUD для конфигураций ботов
   async registerBot(channelType, name, token) {
     try {
       const config = await prisma.botConfig.create({
-        data: { 
-          channelType, 
-          name, 
+        data: {
+          channelType,
+          name,
           token,
-          isActive: true 
+          isActive: true
         }
       })
 
-      // Запускаем бота сразу после регистрации
       if (config.isActive) {
         await this.startBot(config)
       }
 
       console.log(`Бот ${name} (${channelType}) зарегистрирован`)
-      return config
+      return prisma.botConfig.findUnique({
+        where: { id: config.id }
+      })
     } catch (error) {
       console.error("Ошибка регистрации бота:", error)
       throw error
@@ -404,11 +553,9 @@ class BotService {
       })
 
       if (isActive) {
-        // Запускаем бота
         await this.startBot(config)
         console.log(`Бот ${config.name} активирован`)
       } else {
-        // Останавливаем бота
         await this.stopBot(config.channelType)
         console.log(`Бот ${config.name} деактивирован`)
       }
@@ -424,7 +571,6 @@ class BotService {
     return prisma.botConfig.findMany()
   }
 
-  // Обновление токена бота
   async updateBotToken(id, newToken) {
     try {
       const config = await prisma.botConfig.findUnique({
@@ -435,18 +581,15 @@ class BotService {
         throw new Error("Конфигурация бота не найдена")
       }
 
-      // Останавливаем текущего бота
       if (config.isActive) {
         await this.stopBot(config.channelType)
       }
 
-      // Обновляем токен
       const updatedConfig = await prisma.botConfig.update({
         where: { id },
         data: { token: newToken }
       })
 
-      // Перезапускаем бота с новым токеном
       if (updatedConfig.isActive) {
         await this.startBot(updatedConfig)
       }

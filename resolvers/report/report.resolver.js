@@ -348,7 +348,11 @@ const reportResolver = {
           where,
           include: {
             person: { include: { position: true } },
-            hotelChess: { include: { room: { include: { roomKind: true } } } },
+            hotelChess: {
+              include: {
+                room: { include: { roomKind: { include: { seasons: true } } } }
+              }
+            },
             hotel: true,
             airline: {
               include: {

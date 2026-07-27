@@ -13,6 +13,7 @@ import externalAuthResolver from "./externalAuth/externalAuth.resolver.js"
 import filePathsResolver from "./filePaths/filePaths.resolver.js"
 import globalResolver from "./global/global.resolver.js"
 import hotelResolver from "./hotel/hotel.resolver.js"
+import roomKindSeasonResolver from "./hotel/roomKindSeason.resolver.js"
 import logResolver from "./log/log.resolver.js"
 import organizationResolver from "./organization/organization.resolver.js"
 import passengerRequestResolver from "./passengerRequest/passengerRequest.resolver.js"
@@ -40,6 +41,7 @@ const mergedResolvers = mergeResolvers([
   filePathsResolver,
   globalResolver,
   hotelResolver,
+  roomKindSeasonResolver,
   logResolver,
   organizationResolver,
   passengerRequestResolver,

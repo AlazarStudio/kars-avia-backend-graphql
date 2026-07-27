@@ -7,6 +7,11 @@ import {
   resolvePriceByHotelLocation,
   getCategoryPriceFromContract
 } from "../airline/resolvePriceByHotelLocation.js"
+import {
+  getBaseHotelPricePerDay,
+  isArchivedRequestForPricing,
+  resolveWeightedPricePerDay
+} from "../hotel/roomKindSeasonPrice.js"
 
 const TECH_POS = ["Техник", "Инженер"]
 const NOT_TECH_POS = [
@@ -138,38 +143,78 @@ export const buildPositionWhere = (position) => {
   return {}
 }
 
-export const getLivingPricePerDay = (request, type) => {
+/**
+ * @param {"airline"|"hotel"} type
+ * @param {{ filterStart?: Date, filterEnd?: Date, stayStart?: Date, stayEnd?: Date }} [options]
+ */
+export const getLivingPricePerDay = (request, type, options = {}) => {
   const roomCategory = request.roomCategory
-  let pricePerDay = 0
 
   if (type === "airline") {
-    pricePerDay = getAirlinePriceForCategory(request, roomCategory)
-  } else if (type === "hotel") {
-    const hotelPriceMapping = {
-      studio: request.hotelChess[0]?.room?.price || 1,
-      apartment: request.hotelChess[0]?.room?.price || 1,
-      luxe: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      comfort: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      improvedComfort: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      onePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      twoPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      threePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      fourPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      fivePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      sixPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      sevenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      eightPlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      ninePlace: request.hotelChess[0]?.room?.roomKind?.price || 1,
-      tenPlace: request.hotelChess[0]?.room?.roomKind?.price || 1
-    }
-    pricePerDay = hotelPriceMapping[roomCategory] || 0
+    return getAirlinePriceForCategory(request, roomCategory)
   }
 
-  return pricePerDay
+  if (type !== "hotel") return 0
+
+  // Архивные заявки: зафиксированный снапшот, чтобы правки прайса не меняли отчёты
+  if (isArchivedRequestForPricing(request)) {
+    const snap = request.requestHotelPrice
+    if (snap?.pricePerDay != null && Number.isFinite(Number(snap.pricePerDay))) {
+      return Number(snap.pricePerDay)
+    }
+    if (snap?.livingCost != null) {
+      const stayStart =
+        options.stayStart ||
+        getRequestCheckInAt(request) ||
+        request.hotelChess?.[0]?.start
+      const stayEnd =
+        options.stayEnd ||
+        getRequestCheckOutAt(request) ||
+        request.hotelChess?.[0]?.end
+      if (stayStart && stayEnd) {
+        const fullDays = calculateEffectiveCostDaysWithPartial(
+          formatDateToISO(stayStart),
+          formatDateToISO(stayEnd),
+          formatDateToISO(stayStart),
+          formatDateToISO(stayEnd)
+        )
+        if (fullDays > 0) return Number(snap.livingCost) / fullDays
+      }
+    }
+  }
+
+  if (roomCategory === "studio" || roomCategory === "apartment") {
+    return Number(request.hotelChess?.[0]?.room?.price) || 0
+  }
+
+  const roomKind = request.hotelChess?.[0]?.room?.roomKind
+  const seasons = roomKind?.seasons || []
+  const stayStart =
+    options.stayStart ||
+    getRequestCheckInAt(request) ||
+    request.hotelChess?.[0]?.start
+  const stayEnd =
+    options.stayEnd ||
+    getRequestCheckOutAt(request) ||
+    request.hotelChess?.[0]?.end
+
+  if (roomKind && stayStart && stayEnd) {
+    return resolveWeightedPricePerDay(
+      roomKind,
+      seasons,
+      stayStart,
+      stayEnd,
+      options.filterStart || null,
+      options.filterEnd || null,
+      "price"
+    )
+  }
+
+  return getBaseHotelPricePerDay(request)
 }
 
-export const calculateLivingCost = (request, type, days) => {
-  const pricePerDay = getLivingPricePerDay(request, type)
+export const calculateLivingCost = (request, type, days, options = {}) => {
+  const pricePerDay = getLivingPricePerDay(request, type, options)
   return days > 0 ? days * pricePerDay : 0
 }
 
@@ -403,7 +448,12 @@ export const aggregateRequestReports = (
       formatDateToISO(filterEnd)
     )
 
-    const pricePerDay = getLivingPricePerDay(request, reportType)
+    const pricePerDay = getLivingPricePerDay(request, reportType, {
+      filterStart,
+      filterEnd,
+      stayStart: rawIn,
+      stayEnd: rawOut
+    })
     const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
 
     const {

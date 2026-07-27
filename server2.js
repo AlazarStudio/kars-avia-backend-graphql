@@ -32,6 +32,8 @@ import { logger } from "./services/infra/logger.js"
 import { getCorsOptions } from "./services/infra/corsOptions.js"
 import filesRouter from "./services/routes/files.js"
 import authRouter from "./services/routes/auth.js"
+import botWebhooks from "./botWebhooks.js"
+import { botService } from "./services/bot/botService.js"
 import {
   assertSubscriptionPubSubConfig,
   disconnectPubSubRedis
@@ -239,11 +241,14 @@ startContractArchivingJob()
 startPresenceCleanupJob()
 
 await server.start()
+await botService.initialize()
 
 /* =========================
    🌍 EXPRESS
 ========================= */
 app.use(graphqlUploadExpress())
+app.use(express.json())
+app.use("/", botWebhooks)
 
 // Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
 app.use("/graphql", (req, res, next) => {

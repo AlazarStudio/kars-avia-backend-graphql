@@ -55,7 +55,8 @@ import {
 import {
   recalculateRequestPricing,
   recalculateOverlappingRequests,
-  recalculateAffectedByRoomChange
+  recalculateAffectedByRoomChange,
+  recalculateNonArchivedForRoomKindPeriod
 } from "../../services/request/requestPricing.js"
 import {
   buildHotelPreviewAuthPayload,
@@ -1223,6 +1224,15 @@ const hotelResolver = {
                 where: { id: room.id },
                 data: updatedRoomData
               })
+
+              const priceChanged =
+                (room.price !== undefined &&
+                  room.price !== previosRoomKindData.price) ||
+                (room.priceForAirline !== undefined &&
+                  room.priceForAirline !== previosRoomKindData.priceForAirline)
+              if (priceChanged) {
+                await recalculateNonArchivedForRoomKindPeriod(room.id)
+              }
             } else {
               let imagePaths = []
               if (roomKindImages && roomKindImages.length > 0) {
