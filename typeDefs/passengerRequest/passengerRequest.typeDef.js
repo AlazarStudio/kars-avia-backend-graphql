@@ -165,6 +165,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     personType: PassengerPersonType!
     airlinePersonalId: ID
+    baggageTags: [String!]!
+    reportCost: Float
+    addressTo: String
   }
 
   type PassengerServiceDriver {
@@ -182,7 +185,6 @@ const passengerRequestTypeDef = /* GraphQL */ `
     deliveryCompletedAt: Date
     vehicleType: String
     reportCost: Float
-    baggageTags: [String!]!
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -434,6 +436,17 @@ const passengerRequestTypeDef = /* GraphQL */ `
     link: String
   }
 
+  """
+  Пассажир в поездке водителя. Инпут ОБЩИЙ для трансфера и доставки багажа,
+  но три последних поля осмысленны только у доставки багажа:
+  baggageTags — номера багажных бирок пассажира;
+  addressTo — адрес доставки именно этого пассажира;
+  reportCost — цена доставки этому пассажиру, слагаемое суммы поездки
+  (driver.reportCost у багажа производный: бэк пересчитывает его по пассажирам
+  и патчем не принимает).
+  У трансфера сумма поездки задаётся вручную на самом водителе, поэтому
+  reportCost пассажира там инертен — он сохраняется, но ни на что не влияет.
+  """
   input PassengerServiceDriverPersonInput {
     personId: ID
     fullName: String!
@@ -441,6 +454,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     phone: String
     personType: PassengerPersonType
     airlinePersonalId: ID
+    baggageTags: [String!]
+    reportCost: Float
+    addressTo: String
   }
 
   input PassengerRequestCrewMemberInput {
@@ -480,8 +496,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
   """
   Создание доставки багажа. Отдельный инпут, а не общий с трансфером:
-  доставка заводится сразу с пассажиром и бирками, тогда как трансфер добавляет
-  людей позже отдельными мутациями; вместимость и время подачи доставке не нужны.
+  доставка — это поездка водителя со списком пассажиров, у каждого свои бирки,
+  цена и адрес доставки; сумма поездки считается автоматически как сумма цен
+  пассажиров. Трансфер добавляет людей позже отдельными мутациями; вместимость
+  и время подачи доставке не нужны.
   """
   input PassengerBaggageDriverInput {
     fullName: String!
@@ -490,19 +508,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressFrom: String
     addressTo: String
     description: String
-    baggageTags: [String!]
-    person: PassengerServiceDriverPersonInput
+    people: [PassengerServiceDriverPersonInput!]
   }
 
   """
-  Правка доставки багажа. Пассажира сменить нельзя — доставка удаляется и заводится заново.
+  Правка доставки багажа. Список пассажиров правится целиком (замена).
+  Сумма поездки производная — сумма цен пассажиров, патчем не принимается.
   Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
   """
   input PassengerBaggageDriverPatchInput {
     vehicleType: String
-    reportCost: Float
     deliveryCompletedAt: Date
-    baggageTags: [String!]
+    people: [PassengerServiceDriverPersonInput!]
   }
 
   input PassengerRequestHotelReportRowInput {

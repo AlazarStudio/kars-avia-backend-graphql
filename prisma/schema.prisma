@@ -1150,6 +1150,9 @@ type PassengerServiceDriverPerson {
   personType        PassengerPersonType      @default(PASSENGER)
   personCategory    PassengerPersonCategory? @default(ADULT)
   airlinePersonalId String?                  @db.ObjectId // ссылка на сотрудника, если экипаж
+  baggageTags       String[] // номера багажных бирок этого пассажира
+  reportCost        Float? // стоимость доставки этому пассажиру
+  addressTo         String? // адрес доставки этому пассажиру
 }
 
 type PassengerServiceDriver {
@@ -1166,7 +1169,6 @@ type PassengerServiceDriver {
   deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
   vehicleType         String?
   reportCost          Float?
-  baggageTags         String[] // номера багажных бирок (услуга «Доставка багажа»)
   people              PassengerServiceDriverPerson[]
 }
 

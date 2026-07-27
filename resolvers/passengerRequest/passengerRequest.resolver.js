@@ -24,8 +24,9 @@ import {
   stripPersonFromGroups
 } from "../../services/passengerRequest/passengerGroups.js"
 import {
-  normalizeBaggageTags,
-  normalizeDriversBaggageTags,
+  normalizeDriverPerson,
+  normalizeDriversForWrite,
+  tripReportCost,
   collectBaggageDriverPatch
 } from "../../services/passengerRequest/baggageDelivery.js"
 import {
@@ -292,6 +293,12 @@ const getTransferServiceKind = (direction) => {
 }
 
 // ── Общие хелперы мутаций ФАП (единый «конверт») ──
+// ВНИМАНИЕ: мутации читают заявку ТОЛЬКО отсюда — это сырьё из Prisma, и менять
+// это на hydratePassengerRequest нельзя. Гидрация накладывает на пассажира ключ
+// seat, которого нет в composite-типе PassengerServiceDriverPerson, а
+// normalizeDriversForWrite пассажиров не фильтрует, а спредит как есть — любой
+// путь записи водителей, прочитавший заявку через гидрацию, упадёт на неизвестном
+// аргументе. Гидрация — исключительно для чтения и публикации в подписку.
 const loadRequestOrThrow = async (id) => {
   const existing = await prisma.passengerRequest.findUnique({ where: { id } })
   if (!existing) throw new GraphQLError("PassengerRequest not found")
@@ -340,14 +347,22 @@ const emptyDriversService = () => ({
   drivers: []
 })
 
-const ensureDriverPerson = (p) => ({
-  personId: p?.personId ?? null,
-  fullName: (p?.fullName?.trim?.() ?? "") || "",
-  phone: normalizeOptionalString(p?.phone),
-  personType: normalizePersonType(p?.personType),
-  personCategory: normalizePersonCategory(p?.personCategory),
-  airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId)
-})
+// Белый список полей пассажира остаётся здесь: в composite-тип не должно утечь
+// ничего лишнего. Три поля доставки багажа (бирки, цена, адрес) не нормализуем
+// повторно — отдаём сырьё в normalizeDriverPerson, чтобы правила жили в одном
+// месте (там же чинится null в baggageTags у легаси-пассажиров).
+const ensureDriverPerson = (p) =>
+  normalizeDriverPerson({
+    personId: p?.personId ?? null,
+    fullName: (p?.fullName?.trim?.() ?? "") || "",
+    phone: normalizeOptionalString(p?.phone),
+    personType: normalizePersonType(p?.personType),
+    personCategory: normalizePersonCategory(p?.personCategory),
+    airlinePersonalId: normalizeOptionalString(p?.airlinePersonalId),
+    baggageTags: p?.baggageTags,
+    reportCost: p?.reportCost,
+    addressTo: p?.addressTo
+  })
 
 const mergeSavedPassengersForRequest = (existing, snapshot) =>
   upsertSavedPassenger(existing?.savedPassengers, snapshot)
@@ -360,7 +375,6 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
   description: normalizeOptionalString(driver?.description),
-  baggageTags: normalizeBaggageTags(driver?.baggageTags),
   people: Array.isArray(driver?.people)
     ? driver.people.map(ensureDriverPerson)
     : []
@@ -463,34 +477,32 @@ function buildDriverPatchDescription(before, applied, driverIndex, direction) {
 }
 
 function buildBaggageDriverPatchDescription(before, applied, driverIndex) {
-  const passenger = before?.people?.[0]?.fullName
-  const label = passenger
-    ? `«${passenger}»`
-    : before?.fullName
-      ? `«${before.fullName}»`
-      : `#${driverIndex + 1}`
+  // Метка — по водителю: поездка теперь везёт список пассажиров, и имя первого
+  // из них в заголовке лога вводило бы в заблуждение.
+  const label = before?.fullName ? `«${before.fullName}»` : `#${driverIndex + 1}`
   const diffs = []
   if ("vehicleType" in applied) {
     diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
-  }
-  if ("reportCost" in applied) {
-    // «—», а не 0: сумму очистили, а не обнулили — это разные вещи.
-    diffs.push(
-      `сумма: ${before?.reportCost ?? "—"} → ${applied.reportCost ?? "—"}`
-    )
   }
   if ("deliveryCompletedAt" in applied) {
     diffs.push(
       `дата доставки: ${fmtPickupForLog(before?.deliveryCompletedAt)} → ${fmtPickupForLog(applied.deliveryCompletedAt)}`
     )
   }
-  if ("baggageTags" in applied) {
-    const from = (before?.baggageTags ?? []).join(", ") || "—"
-    const to = (applied.baggageTags ?? []).join(", ") || "—"
-    diffs.push(`бирки: ${from} → ${to}`)
+  if ("people" in applied) {
+    // Бирок и суммы в патче больше нет: бирки живут на пассажире, сумма поездки
+    // производная. Поэтому описываем состав пассажиров и его цену.
+    const from = (before?.people ?? []).length
+    const to = (applied.people ?? []).length
+    // «—», а не 0: у поездки без пассажиров суммы нет, считать не из чего.
+    const fromCost = tripReportCost(before?.people) ?? "—"
+    const toCost = tripReportCost(applied.people) ?? "—"
+    diffs.push(
+      `пассажиры: ${from} → ${to}, сумма поездки: ${fromCost} → ${toCost}`
+    )
   }
   // Ветки «изменений нет» здесь быть не может: collectBaggageDriverPatch отдаёт
-  // только эти 4 ключа, а пустой патч резолвер отсекает раньше.
+  // только эти 3 ключа, а пустой патч резолвер отсекает раньше.
   return {
     short: `Доставка багажа ${label}: ${diffs.join(", ")}`,
     full: `Доставка багажа ${label}. Изменения: ${diffs.join("; ")}.`
@@ -631,7 +643,12 @@ const passengerRequestResolvers = {
   },
 
   PassengerServiceDriver: {
-    people: (parent) => (Array.isArray(parent.people) ? parent.people : []),
+    people: (parent) => (Array.isArray(parent.people) ? parent.people : [])
+  },
+
+  // У пассажиров, заведённых до появления поля, Prisma отдаёт baggageTags как
+  // null, а схема обещает [String!]! — без этого резолвера запрос падает.
+  PassengerServiceDriverPerson: {
     baggageTags: (parent) =>
       Array.isArray(parent.baggageTags) ? parent.baggageTags : []
   },
@@ -1017,7 +1034,7 @@ const passengerRequestResolvers = {
           ...(transferService.plan !== undefined && {
             plan: transferService.plan
           }),
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -1040,7 +1057,7 @@ const passengerRequestResolvers = {
           ...(departureTransferService.plan !== undefined && {
             plan: departureTransferService.plan
           }),
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -1063,7 +1080,7 @@ const passengerRequestResolvers = {
           ...(intercityTransferService.plan !== undefined && {
             plan: intercityTransferService.plan
           }),
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -1086,7 +1103,7 @@ const passengerRequestResolvers = {
           ...(baggageDeliveryService.plan !== undefined && {
             plan: baggageDeliveryService.plan
           }),
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -1602,7 +1619,7 @@ const passengerRequestResolvers = {
         const prev = existing.transferService || { drivers: [] }
         data.transferService = {
           ...prev,
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1610,7 +1627,7 @@ const passengerRequestResolvers = {
         const prev = existing.departureTransferService || { drivers: [] }
         data.departureTransferService = {
           ...prev,
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1618,7 +1635,7 @@ const passengerRequestResolvers = {
         const prev = existing.intercityTransferService || { drivers: [] }
         data.intercityTransferService = {
           ...prev,
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1626,7 +1643,7 @@ const passengerRequestResolvers = {
         const prev = existing.baggageDeliveryService || { drivers: [] }
         data.baggageDeliveryService = {
           ...prev,
-          drivers: normalizeDriversBaggageTags(prev.drivers),
+          drivers: normalizeDriversForWrite(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -2582,7 +2599,7 @@ const passengerRequestResolvers = {
       }
 
       const drivers = [
-        ...normalizeDriversBaggageTags(prev.drivers),
+        ...normalizeDriversForWrite(prev.drivers),
         normalizedDriver
       ]
       const isFirstDriver = driverIndex === 0
@@ -2635,7 +2652,7 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Service is completed, no updates allowed")
       }
 
-      const drivers = normalizeDriversBaggageTags(service.drivers)
+      const drivers = normalizeDriversForWrite(service.drivers)
       assertIndex(driverIndex, drivers.length, "driverIndex")
       const before = drivers[driverIndex]
 
@@ -2757,15 +2774,12 @@ const passengerRequestResolvers = {
 
       const prev = existing.baggageDeliveryService || emptyDriversService()
 
-      // person → people[0]: пассажир хранится в общем people[], чтобы получить
-      // personId и гидрацию идентичности из ростера заявки.
-      // Ключ person в объект водителя попасть не должен — в composite-типе его нет.
-      const { person, ...driverFields } = driver
-      const normalizedDriver = normalizePassengerServiceDriver({
-        ...driverFields,
-        baggageTags: normalizeBaggageTags(driverFields.baggageTags),
-        people: person ? [person] : []
-      })
+      // Поездка заводится сразу со списком пассажиров: они хранятся в общем
+      // people[], чтобы получить personId и гидрацию идентичности из ростера
+      // заявки. Ключ people есть в composite-типе — снимать его не нужно,
+      // normalizePassengerServiceDriver прогонит каждого через ensureDriverPerson.
+      const normalizedDriver = normalizePassengerServiceDriver(driver)
+      normalizedDriver.reportCost = tripReportCost(normalizedDriver.people)
       normalizedDriver.id = newDriverId()
       const driverIndex = (prev.drivers || []).length
       const adminId =
@@ -2785,18 +2799,44 @@ const passengerRequestResolvers = {
       }
 
       const drivers = [
-        ...normalizeDriversBaggageTags(prev.drivers),
+        ...normalizeDriversForWrite(prev.drivers),
         normalizedDriver
       ]
 
       const now = new Date()
       const isFirstDriver = (prev.drivers || []).length === 0
-      const updatedStatus =
+      const acceptedStatus =
         isFirstDriver && prev.status === "NEW" ? "ACCEPTED" : prev.status
-      const updatedTimes =
+      const acceptedTimes =
         isFirstDriver && prev.status === "NEW"
           ? { ...(prev.times || {}), acceptedAt: now }
           : prev.times || {}
+
+      // Правило «первый водитель → ACCEPTED» остаётся нижней границей, но поездка
+      // заводится сразу со списком пассажиров — поэтому дальше пересчитываем статус
+      // по фактическому числу людей во ВСЁМ массиве водителей, ровно как в патче.
+      // Иначе услуга с тремя заведёнными пассажирами висела бы в ACCEPTED до
+      // следующей случайной правки. Поездка без пассажиров ничего не пересчитывает:
+      // там поведение прежнее.
+      let updatedStatus = acceptedStatus
+      let updatedTimes = acceptedTimes
+      if (normalizedDriver.people.length > 0) {
+        const totalPeopleBefore = (prev.drivers || []).reduce(
+          (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+          0
+        )
+        const totalPeopleAfter = drivers.reduce(
+          (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+          0
+        )
+        const recalc = recomputeServiceStatus(
+          { ...prev, status: acceptedStatus, times: acceptedTimes },
+          totalPeopleBefore,
+          totalPeopleAfter
+        )
+        updatedStatus = recalc.status
+        updatedTimes = recalc.times
+      }
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
@@ -2907,18 +2947,54 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Service is completed, no updates allowed")
       }
 
-      const drivers = normalizeDriversBaggageTags(prev.drivers)
+      const drivers = normalizeDriversForWrite(prev.drivers)
       assertIndex(driverIndex, drivers.length, "driverIndex")
       const before = drivers[driverIndex]
 
       const applied = collectBaggageDriverPatch(patch)
       if (Object.keys(applied).length === 0) return existing
 
-      drivers[driverIndex] = { ...before, ...applied }
+      const next = { ...before, ...applied }
+      if ("people" in applied) {
+        // Тот же белый список, что и при создании: правка и заведение поездки
+        // кладут в composite-тип одинаковый набор ключей. Нормализация внутри
+        // идемпотентна, повторный прогон безвреден.
+        next.people = applied.people.map(ensureDriverPerson)
+        // Патч говорит про пассажиров — сумму поездки пересчитываем всегда,
+        // в том числе в null на пустом списке. Молчит про пассажиров —
+        // ручную сумму легаси-поездки не трогаем.
+        next.reportCost = tripReportCost(next.people)
+      }
+      drivers[driverIndex] = next
+
+      const nextService = { ...prev, drivers }
+      if ("people" in applied) {
+        // Патч — единственный путь, которым пассажиры попадают в существующую
+        // поездку, поэтому статус услуги пересчитываем здесь же (как в
+        // addPassengerRequestDriverPeople у трансфера). Иначе услуга висела бы в
+        // ACCEPTED при любом числе заведённых пассажиров, а удаление посторонней
+        // поездки задним числом внезапно перебрасывало бы её в IN_PROGRESS.
+        // Людей считаем по ВСЕМУ массиву водителей: услуга одна на все поездки.
+        const totalPeopleBefore = (prev.drivers || []).reduce(
+          (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+          0
+        )
+        const totalPeopleAfter = drivers.reduce(
+          (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
+          0
+        )
+        const recalc = recomputeServiceStatus(
+          prev,
+          totalPeopleBefore,
+          totalPeopleAfter
+        )
+        nextService.status = recalc.status
+        nextService.times = recalc.times
+      }
 
       const passengerRequest = await prisma.passengerRequest.update({
         where: { id: requestId },
-        data: { baggageDeliveryService: { ...prev, drivers } }
+        data: { baggageDeliveryService: nextService }
       })
 
       const log = buildBaggageDriverPatchDescription(before, applied, driverIndex)
@@ -2969,7 +3045,7 @@ const passengerRequestResolvers = {
         data: {
           baggageDeliveryService: {
             ...bds,
-            drivers: normalizeDriversBaggageTags(drivers),
+            drivers: normalizeDriversForWrite(drivers),
             status: updatedStatus,
             times: updatedTimes
           }
@@ -3010,7 +3086,7 @@ const passengerRequestResolvers = {
       // Дата доставки, введённая диспетчером вручную, — источник истины для реестра.
       // Водитель из PWA, нажимая «доставлено», не должен её затирать.
       const now = new Date()
-      const updatedDrivers = normalizeDriversBaggageTags(drivers).map((d, i) =>
+      const updatedDrivers = normalizeDriversForWrite(drivers).map((d, i) =>
         i === driverIndex
           ? { ...d, deliveryCompletedAt: d.deliveryCompletedAt ?? now }
           : d
@@ -3406,7 +3482,7 @@ const passengerRequestResolvers = {
         data: {
           baggageDeliveryService: {
             ...prev,
-            drivers: normalizeDriversBaggageTags(prev.drivers),
+            drivers: normalizeDriversForWrite(prev.drivers),
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED")
           }
@@ -3447,7 +3523,7 @@ const passengerRequestResolvers = {
         data: {
           [transferField]: {
             ...prev,
-            drivers: normalizeDriversBaggageTags(prev.drivers),
+            drivers: normalizeDriversForWrite(prev.drivers),
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
             earlyCompletionReason: cleanReason,
