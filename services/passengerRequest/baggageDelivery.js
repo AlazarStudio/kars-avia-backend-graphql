@@ -38,6 +38,17 @@ const toMoney = (value) => {
   return Math.round(num * 100) / 100
 }
 
+// Ожидаемое количество пассажиров поездки: целое число ≥ 0 либо null.
+// Тот же подход, что у toMoney — нечисловое, отрицательное и дробное
+// трактуем как отсутствие значения, а не бросаем ошибку.
+const toWholeCountOrNull = (value) => {
+  if (value == null) return null
+  if (typeof value === "string" && !value.trim()) return null
+  const num = Number(value)
+  if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) return null
+  return num
+}
+
 const toTrimmedOrNull = (value) => {
   if (typeof value !== "string") return null
   return value.trim() || null
@@ -115,6 +126,9 @@ export const collectBaggageDriverPatch = (patch = {}) => {
   }
   if (has(patch, "people")) {
     applied.people = normalizePeopleForWrite(patch.people)
+  }
+  if (has(patch, "peopleCount")) {
+    applied.peopleCount = toWholeCountOrNull(patch.peopleCount)
   }
   return applied
 }

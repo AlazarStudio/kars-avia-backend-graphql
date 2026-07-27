@@ -481,6 +481,11 @@ function buildBaggageDriverPatchDescription(before, applied, driverIndex) {
   // из них в заголовке лога вводило бы в заблуждение.
   const label = before?.fullName ? `«${before.fullName}»` : `#${driverIndex + 1}`
   const diffs = []
+  if ("peopleCount" in applied) {
+    diffs.push(
+      `ожидаемое кол-во пассажиров: ${before?.peopleCount ?? "—"} → ${applied.peopleCount ?? "—"}`
+    )
+  }
   if ("vehicleType" in applied) {
     diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
   }
@@ -502,7 +507,7 @@ function buildBaggageDriverPatchDescription(before, applied, driverIndex) {
     )
   }
   // Ветки «изменений нет» здесь быть не может: collectBaggageDriverPatch отдаёт
-  // только эти 3 ключа, а пустой патч резолвер отсекает раньше.
+  // только эти ключи, а пустой патч резолвер отсекает раньше.
   return {
     short: `Доставка багажа ${label}: ${diffs.join(", ")}`,
     full: `Доставка багажа ${label}. Изменения: ${diffs.join("; ")}.`

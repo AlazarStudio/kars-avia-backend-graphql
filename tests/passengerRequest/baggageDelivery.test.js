@@ -68,6 +68,35 @@ test("collectBaggageDriverPatch: сумма поездки производна�
   assert.deepEqual(applied, {})
 })
 
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — целое проходит", () => {
+  assert.deepEqual(collectBaggageDriverPatch({ peopleCount: 10 }), { peopleCount: 10 })
+})
+
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — ноль проходит", () => {
+  assert.deepEqual(collectBaggageDriverPatch({ peopleCount: 0 }), { peopleCount: 0 })
+})
+
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — null проходит как null", () => {
+  const applied = collectBaggageDriverPatch({ peopleCount: null })
+  assert.equal(applied.peopleCount, null)
+  assert.ok("peopleCount" in applied)
+})
+
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — строка с числом приводится", () => {
+  assert.equal(collectBaggageDriverPatch({ peopleCount: "12" }).peopleCount, 12)
+})
+
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — мусор, отрицательное, дробное → null", () => {
+  assert.equal(collectBaggageDriverPatch({ peopleCount: "abc" }).peopleCount, null)
+  assert.equal(collectBaggageDriverPatch({ peopleCount: -1 }).peopleCount, null)
+  assert.equal(collectBaggageDriverPatch({ peopleCount: 1.5 }).peopleCount, null)
+})
+
+test("collectBaggageDriverPatch: ожидаемое количество пассажиров — ключа нет, в результате ключа нет", () => {
+  const applied = collectBaggageDriverPatch({ vehicleType: "Газель" })
+  assert.ok(!("peopleCount" in applied))
+})
+
 test("collectBaggageDriverPatch: пассажиры прогоняются через нормализацию", () => {
   const applied = collectBaggageDriverPatch({
     people: [

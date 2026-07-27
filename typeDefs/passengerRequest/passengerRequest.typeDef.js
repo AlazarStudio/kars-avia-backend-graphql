@@ -516,8 +516,11 @@ const passengerRequestTypeDef = /* GraphQL */ `
   Правка доставки багажа. Список пассажиров правится целиком (замена).
   Сумма поездки производная — сумма цен пассажиров, патчем не принимается.
   Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
+  peopleCount — ожидаемое количество пассажиров поездки (план), а не факт:
+  им ограничивается добавление людей на фронте, редактируется в любой момент.
   """
   input PassengerBaggageDriverPatchInput {
+    peopleCount: Int
     vehicleType: String
     deliveryCompletedAt: Date
     people: [PassengerServiceDriverPersonInput!]
