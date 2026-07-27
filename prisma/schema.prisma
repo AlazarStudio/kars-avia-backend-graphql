@@ -1153,6 +1153,7 @@ type PassengerServiceDriverPerson {
 }
 
 type PassengerServiceDriver {
+  id                  String? // устойчивый адрес водителя: индекс в drivers[] съезжает при удалении соседа
   fullName            String
   phone               String?
   peopleCount         Int?
@@ -1165,6 +1166,7 @@ type PassengerServiceDriver {
   deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
   vehicleType         String?
   reportCost          Float?
+  baggageTags         String[] // номера багажных бирок (услуга «Доставка багажа»)
   people              PassengerServiceDriverPerson[]
 }
 

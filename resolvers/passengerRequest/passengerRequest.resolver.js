@@ -23,6 +23,17 @@ import {
   removeGroup,
   stripPersonFromGroups
 } from "../../services/passengerRequest/passengerGroups.js"
+import {
+  normalizeBaggageTags,
+  normalizeDriversBaggageTags,
+  collectBaggageDriverPatch
+} from "../../services/passengerRequest/baggageDelivery.js"
+import {
+  ensureDriverIds,
+  findStaleDriverLinks,
+  newDriverId,
+  readLinkDriverIndex
+} from "../../services/passengerRequest/serviceDrivers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
@@ -56,6 +67,7 @@ import {
   buildRepresentativeExternalKey,
   issueExternalDriverPwaLink,
   issueExternalLinksForUser,
+  revokeDriverExternalAccess,
   upsertDriverExternalUser,
   upsertHotelExternalUser,
   upsertRepresentativeExternalUser
@@ -104,6 +116,7 @@ async function generateDriverLink({
   driverName,
   requestId,
   driverIndex,
+  driverId,
   adminId,
   serviceKind = "transfer"
 }) {
@@ -111,7 +124,8 @@ async function generateDriverLink({
     requestId,
     driverName,
     serviceKind,
-    driverIndex
+    driverIndex,
+    driverId
   })
 
   return issueExternalDriverPwaLink({
@@ -119,8 +133,51 @@ async function generateDriverLink({
     createdByAdminId: adminId || null,
     passengerRequestId: requestId,
     driverIndex,
+    driverId,
     serviceKind
   })
+}
+
+// После удаления водителя индексы выживших съезжают, и ссылки, выпущенные до
+// появления driverId, начинают указывать на чужую запись. Такие ссылки
+// перевыпускаем на новый адрес, а старый доступ гасим — иначе водитель
+// вернётся по прежней ссылке и снова попадёт не к себе.
+// Мутирует переданный массив: линки правим до записи в БД.
+async function reissueShiftedDriverLinks({
+  requestId,
+  serviceKind,
+  drivers,
+  removedIndex,
+  adminId
+}) {
+  for (const { index, driver } of findStaleDriverLinks(drivers, removedIndex)) {
+    const previousIndex = readLinkDriverIndex(driver.linkPWA)
+    try {
+      const linkPWA = await generateDriverLink({
+        driverName: driver.fullName,
+        requestId,
+        driverIndex: index,
+        driverId: driver.id,
+        adminId,
+        serviceKind
+      })
+      drivers[index] = { ...driver, linkPWA }
+    } catch (e) {
+      // Ссылку на чужую запись оставлять нельзя: без ссылки безопаснее.
+      drivers[index] = { ...driver, linkPWA: null }
+      continue
+    }
+    if (previousIndex == null || previousIndex === index) continue
+    try {
+      await revokeDriverExternalAccess({
+        requestId,
+        serviceKind,
+        driverIndex: previousIndex
+      })
+    } catch (e) {
+      // Новая ссылка уже выпущена — гашение старой лучшее из возможного.
+    }
+  }
 }
 
 async function generateRepresentativeLinksForRequest({
@@ -303,6 +360,7 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
   description: normalizeOptionalString(driver?.description),
+  baggageTags: normalizeBaggageTags(driver?.baggageTags),
   people: Array.isArray(driver?.people)
     ? driver.people.map(ensureDriverPerson)
     : []
@@ -401,6 +459,41 @@ function buildDriverPatchDescription(before, applied, driverIndex, direction) {
   return {
     short: `Заявка ${driverLabel} (${dirLabel}): ${diffs.join(", ")}`,
     full: `Заявка ${driverLabel} в трансфере (${dirLabel}). Изменения: ${diffs.join("; ")}.`,
+  }
+}
+
+function buildBaggageDriverPatchDescription(before, applied, driverIndex) {
+  const passenger = before?.people?.[0]?.fullName
+  const label = passenger
+    ? `«${passenger}»`
+    : before?.fullName
+      ? `«${before.fullName}»`
+      : `#${driverIndex + 1}`
+  const diffs = []
+  if ("vehicleType" in applied) {
+    diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
+  }
+  if ("reportCost" in applied) {
+    // «—», а не 0: сумму очистили, а не обнулили — это разные вещи.
+    diffs.push(
+      `сумма: ${before?.reportCost ?? "—"} → ${applied.reportCost ?? "—"}`
+    )
+  }
+  if ("deliveryCompletedAt" in applied) {
+    diffs.push(
+      `дата доставки: ${fmtPickupForLog(before?.deliveryCompletedAt)} → ${fmtPickupForLog(applied.deliveryCompletedAt)}`
+    )
+  }
+  if ("baggageTags" in applied) {
+    const from = (before?.baggageTags ?? []).join(", ") || "—"
+    const to = (applied.baggageTags ?? []).join(", ") || "—"
+    diffs.push(`бирки: ${from} → ${to}`)
+  }
+  // Ветки «изменений нет» здесь быть не может: collectBaggageDriverPatch отдаёт
+  // только эти 4 ключа, а пустой патч резолвер отсекает раньше.
+  return {
+    short: `Доставка багажа ${label}: ${diffs.join(", ")}`,
+    full: `Доставка багажа ${label}. Изменения: ${diffs.join("; ")}.`
   }
 }
 
@@ -538,7 +631,9 @@ const passengerRequestResolvers = {
   },
 
   PassengerServiceDriver: {
-    people: (parent) => (Array.isArray(parent.people) ? parent.people : [])
+    people: (parent) => (Array.isArray(parent.people) ? parent.people : []),
+    baggageTags: (parent) =>
+      Array.isArray(parent.baggageTags) ? parent.baggageTags : []
   },
 
   PassengerLivingService: {
@@ -922,6 +1017,7 @@ const passengerRequestResolvers = {
           ...(transferService.plan !== undefined && {
             plan: transferService.plan
           }),
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -944,6 +1040,7 @@ const passengerRequestResolvers = {
           ...(departureTransferService.plan !== undefined && {
             plan: departureTransferService.plan
           }),
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -966,6 +1063,7 @@ const passengerRequestResolvers = {
           ...(intercityTransferService.plan !== undefined && {
             plan: intercityTransferService.plan
           }),
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -988,6 +1086,7 @@ const passengerRequestResolvers = {
           ...(baggageDeliveryService.plan !== undefined && {
             plan: baggageDeliveryService.plan
           }),
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status: recalc.status,
           times: recalc.times
         }
@@ -1503,6 +1602,7 @@ const passengerRequestResolvers = {
         const prev = existing.transferService || { drivers: [] }
         data.transferService = {
           ...prev,
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1510,6 +1610,7 @@ const passengerRequestResolvers = {
         const prev = existing.departureTransferService || { drivers: [] }
         data.departureTransferService = {
           ...prev,
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1517,6 +1618,7 @@ const passengerRequestResolvers = {
         const prev = existing.intercityTransferService || { drivers: [] }
         data.intercityTransferService = {
           ...prev,
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -1524,6 +1626,7 @@ const passengerRequestResolvers = {
         const prev = existing.baggageDeliveryService || { drivers: [] }
         data.baggageDeliveryService = {
           ...prev,
+          drivers: normalizeDriversBaggageTags(prev.drivers),
           status,
           times: updateTimes(prev.times, status)
         }
@@ -2460,6 +2563,7 @@ const passengerRequestResolvers = {
       const prev = existing[transferField] || emptyDriversService()
 
       const normalizedDriver = normalizePassengerServiceDriver(driver)
+      normalizedDriver.id = newDriverId()
       const driverIndex = (prev.drivers || []).length
       const adminId =
         context.subjectType === "USER" ? context.subject?.id : null
@@ -2468,6 +2572,7 @@ const passengerRequestResolvers = {
           driverName: normalizedDriver.fullName,
           requestId,
           driverIndex,
+          driverId: normalizedDriver.id,
           adminId,
           serviceKind: getTransferServiceKind(direction)
         })
@@ -2476,7 +2581,10 @@ const passengerRequestResolvers = {
         normalizedDriver.linkPWA = null
       }
 
-      const drivers = [...(prev.drivers || []), normalizedDriver]
+      const drivers = [
+        ...normalizeDriversBaggageTags(prev.drivers),
+        normalizedDriver
+      ]
       const isFirstDriver = driverIndex === 0
       const nextStatus = isFirstDriver ? "ACCEPTED" : prev.status
       const nextTimes = isFirstDriver
@@ -2527,7 +2635,7 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Service is completed, no updates allowed")
       }
 
-      const drivers = [...(service.drivers ?? [])]
+      const drivers = normalizeDriversBaggageTags(service.drivers)
       assertIndex(driverIndex, drivers.length, "driverIndex")
       const before = drivers[driverIndex]
 
@@ -2584,9 +2692,18 @@ const passengerRequestResolvers = {
       const removedDriver = normalizePassengerServiceDriver(
         drivers[driverIndex]
       )
-      const nextDrivers = drivers
-        .filter((_, index) => index !== driverIndex)
-        .map(normalizePassengerServiceDriver)
+      const nextDrivers = ensureDriverIds(
+        drivers
+          .filter((_, index) => index !== driverIndex)
+          .map(normalizePassengerServiceDriver)
+      )
+      await reissueShiftedDriverLinks({
+        requestId,
+        serviceKind: getTransferServiceKind(direction),
+        drivers: nextDrivers,
+        removedIndex: driverIndex,
+        adminId: context.subjectType === "USER" ? context.subject?.id : null
+      })
       const totalPeopleBefore = drivers.reduce(
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
@@ -2640,7 +2757,16 @@ const passengerRequestResolvers = {
 
       const prev = existing.baggageDeliveryService || emptyDriversService()
 
-      const normalizedDriver = normalizePassengerServiceDriver(driver)
+      // person → people[0]: пассажир хранится в общем people[], чтобы получить
+      // personId и гидрацию идентичности из ростера заявки.
+      // Ключ person в объект водителя попасть не должен — в composite-типе его нет.
+      const { person, ...driverFields } = driver
+      const normalizedDriver = normalizePassengerServiceDriver({
+        ...driverFields,
+        baggageTags: normalizeBaggageTags(driverFields.baggageTags),
+        people: person ? [person] : []
+      })
+      normalizedDriver.id = newDriverId()
       const driverIndex = (prev.drivers || []).length
       const adminId =
         context.subjectType === "USER" ? context.subject?.id : null
@@ -2649,6 +2775,7 @@ const passengerRequestResolvers = {
           driverName: normalizedDriver.fullName,
           requestId,
           driverIndex,
+          driverId: normalizedDriver.id,
           adminId,
           serviceKind: "baggage"
         })
@@ -2657,7 +2784,10 @@ const passengerRequestResolvers = {
         normalizedDriver.linkPWA = null
       }
 
-      const drivers = [...(prev.drivers || []), normalizedDriver]
+      const drivers = [
+        ...normalizeDriversBaggageTags(prev.drivers),
+        normalizedDriver
+      ]
 
       const now = new Date()
       const isFirstDriver = (prev.drivers || []).length === 0
@@ -2710,9 +2840,18 @@ const passengerRequestResolvers = {
       const removedDriver = normalizePassengerServiceDriver(
         drivers[driverIndex]
       )
-      const nextDrivers = drivers
-        .filter((_, index) => index !== driverIndex)
-        .map(normalizePassengerServiceDriver)
+      const nextDrivers = ensureDriverIds(
+        drivers
+          .filter((_, index) => index !== driverIndex)
+          .map(normalizePassengerServiceDriver)
+      )
+      await reissueShiftedDriverLinks({
+        requestId,
+        serviceKind: "baggage",
+        drivers: nextDrivers,
+        removedIndex: driverIndex,
+        adminId: context.subjectType === "USER" ? context.subject?.id : null
+      })
       const totalPeopleBefore = drivers.reduce(
         (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
         0
@@ -2753,6 +2892,53 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    updatePassengerRequestBaggageDriver: async (
+      _,
+      { requestId, driverIndex, patch },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const prev = existing.baggageDeliveryService
+      if (!prev) throw new GraphQLError("BaggageDeliveryService not found")
+      if (!prev.plan?.enabled) throw new GraphQLError("Service is not enabled")
+      if (prev.status === "COMPLETED" || prev.status === "CANCELLED") {
+        throw new GraphQLError("Service is completed, no updates allowed")
+      }
+
+      const drivers = normalizeDriversBaggageTags(prev.drivers)
+      assertIndex(driverIndex, drivers.length, "driverIndex")
+      const before = drivers[driverIndex]
+
+      const applied = collectBaggageDriverPatch(patch)
+      if (Object.keys(applied).length === 0) return existing
+
+      drivers[driverIndex] = { ...before, ...applied }
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: { baggageDeliveryService: { ...prev, drivers } }
+      })
+
+      const log = buildBaggageDriverPatchDescription(before, applied, driverIndex)
+      await logPassengerRequestAction({
+        context,
+        action: "update_passenger_request_baggage_driver",
+        description: log.short,
+        fulldescription: log.full,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id,
+        skipEmail: true
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
     acceptPassengerRequestBaggageOrder: async (
       _,
       { requestId, driverIndex },
@@ -2783,6 +2969,7 @@ const passengerRequestResolvers = {
         data: {
           baggageDeliveryService: {
             ...bds,
+            drivers: normalizeDriversBaggageTags(drivers),
             status: updatedStatus,
             times: updatedTimes
           }
@@ -2820,9 +3007,13 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Driver index out of range")
       }
 
+      // Дата доставки, введённая диспетчером вручную, — источник истины для реестра.
+      // Водитель из PWA, нажимая «доставлено», не должен её затирать.
       const now = new Date()
-      const updatedDrivers = drivers.map((d, i) =>
-        i === driverIndex ? { ...d, deliveryCompletedAt: now } : d
+      const updatedDrivers = normalizeDriversBaggageTags(drivers).map((d, i) =>
+        i === driverIndex
+          ? { ...d, deliveryCompletedAt: d.deliveryCompletedAt ?? now }
+          : d
       )
 
       const passengerRequest = await prisma.passengerRequest.update({
@@ -3215,6 +3406,7 @@ const passengerRequestResolvers = {
         data: {
           baggageDeliveryService: {
             ...prev,
+            drivers: normalizeDriversBaggageTags(prev.drivers),
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED")
           }
@@ -3255,6 +3447,7 @@ const passengerRequestResolvers = {
         data: {
           [transferField]: {
             ...prev,
+            drivers: normalizeDriversBaggageTags(prev.drivers),
             status: "COMPLETED",
             times: updateTimes(prev.times, "COMPLETED"),
             earlyCompletionReason: cleanReason,

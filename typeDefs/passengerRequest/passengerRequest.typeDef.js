@@ -168,6 +168,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   type PassengerServiceDriver {
+    "Устойчивый адрес водителя. Индекс в drivers[] съезжает при удалении соседа, поэтому PWA-ссылка адресует водителя по id."
+    id: String
     fullName: String!
     phone: String
     peopleCount: Int
@@ -180,6 +182,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     deliveryCompletedAt: Date
     vehicleType: String
     reportCost: Float
+    baggageTags: [String!]!
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -475,6 +478,33 @@ const passengerRequestTypeDef = /* GraphQL */ `
     reportCost: Float
   }
 
+  """
+  Создание доставки багажа. Отдельный инпут, а не общий с трансфером:
+  доставка заводится сразу с пассажиром и бирками, тогда как трансфер добавляет
+  людей позже отдельными мутациями; вместимость и время подачи доставке не нужны.
+  """
+  input PassengerBaggageDriverInput {
+    fullName: String!
+    phone: String
+    link: String
+    addressFrom: String
+    addressTo: String
+    description: String
+    baggageTags: [String!]
+    person: PassengerServiceDriverPersonInput
+  }
+
+  """
+  Правка доставки багажа. Пассажира сменить нельзя — доставка удаляется и заводится заново.
+  Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
+  """
+  input PassengerBaggageDriverPatchInput {
+    vehicleType: String
+    reportCost: Float
+    deliveryCompletedAt: Date
+    baggageTags: [String!]
+  }
+
   input PassengerRequestHotelReportRowInput {
     fullName: String!
     personId: String
@@ -750,7 +780,13 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     addPassengerRequestBaggageDriver(
       requestId: ID!
-      driver: PassengerServiceDriverInput!
+      driver: PassengerBaggageDriverInput!
+    ): PassengerRequest!
+
+    updatePassengerRequestBaggageDriver(
+      requestId: ID!
+      driverIndex: Int!
+      patch: PassengerBaggageDriverPatchInput!
     ): PassengerRequest!
 
     removePassengerRequestDriver(

@@ -11,6 +11,7 @@ import {
   snapshotFromHotelPerson,
   snapshotFromDriverPerson
 } from "../services/passengerRequest/savedPassengers.js"
+import { normalizeDriversBaggageTags } from "../services/passengerRequest/baggageDelivery.js"
 
 const DRY_RUN = process.argv.includes("--dry-run")
 const DRIVER_SERVICES = [
@@ -97,7 +98,11 @@ async function main() {
     const data = { savedPassengers: { set: roster } }
     if (req.livingService) data.livingService = { set: req.livingService }
     for (const key of DRIVER_SERVICES) {
-      if (req[key]) data[key] = { set: req[key] }
+      if (req[key]) {
+        data[key] = {
+          set: { ...req[key], drivers: normalizeDriversBaggageTags(req[key].drivers) }
+        }
+      }
     }
     if (req.waterService) data.waterService = { set: req.waterService }
     if (req.mealService) data.mealService = { set: req.mealService }

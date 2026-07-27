@@ -17,6 +17,7 @@ const createMagicLinkRecord = async ({
   createdByAdminId = null,
   passengerRequestId = null,
   driverIndex,
+  driverId,
   serviceKind
 }) => {
   const { rawToken, tokenHash } = createMagicLinkTokenPair()
@@ -26,6 +27,7 @@ const createMagicLinkRecord = async ({
     linkType,
     passengerRequestId,
     driverIndex,
+    driverId,
     serviceKind
   })
 
@@ -70,6 +72,7 @@ export const issueExternalDriverPwaLink = async ({
   createdByAdminId = null,
   passengerRequestId,
   driverIndex,
+  driverId,
   serviceKind
 }) =>
   createMagicLinkRecord({
@@ -78,6 +81,7 @@ export const issueExternalDriverPwaLink = async ({
     createdByAdminId,
     passengerRequestId,
     driverIndex,
+    driverId,
     serviceKind
   })
 
@@ -134,10 +138,47 @@ export const upsertRepresentativeExternalUser = async ({
   })
 }
 
-export const upsertDriverExternalUser = async ({ requestId, driverName, serviceKind, driverIndex }) => {
-  const autoEmail = normalizeEmail(
-    `driver-${requestId}-${serviceKind}-${driverIndex}@auto.internal`
+// Ключ внешнего пользователя водителя. Для новых водителей это их id:
+// адрес по индексу схлопывает разных водителей в одного, если удалить
+// водителя из середины и добавить нового. Индексная форма оставлена для
+// ссылок, выпущенных до появления id.
+const buildDriverExternalEmail = ({ requestId, serviceKind, driverIndex, driverId }) =>
+  normalizeEmail(
+    driverId
+      ? `driver-${requestId}-${serviceKind}-${driverId}@auto.internal`
+      : `driver-${requestId}-${serviceKind}-${driverIndex}@auto.internal`
   )
+
+// Гасит доступ, выпущенный на старый адрес водителя. Ссылка одноразовая, но
+// повторный клик по использованной ссылке возвращает активную сессию
+// (см. signInExternalUserByMagicLink) и снова записывает старый адрес в PWA.
+export const revokeDriverExternalAccess = async ({
+  requestId,
+  serviceKind,
+  driverIndex
+}) => {
+  const externalUser = await prisma.externalUser.findUnique({
+    where: { email: buildDriverExternalEmail({ requestId, serviceKind, driverIndex }) }
+  })
+  if (!externalUser) return
+
+  await prisma.externalUserMagicLinkToken.updateMany({
+    where: { externalUserId: externalUser.id, usedAt: null },
+    data: { usedAt: new Date(), rawToken: null, magicLinkUrl: null }
+  })
+  await prisma.externalUser.update({
+    where: { id: externalUser.id },
+    data: { refreshToken: null, sessionExpiresAt: null }
+  })
+}
+
+export const upsertDriverExternalUser = async ({ requestId, driverName, serviceKind, driverIndex, driverId }) => {
+  const autoEmail = buildDriverExternalEmail({
+    requestId,
+    serviceKind,
+    driverIndex,
+    driverId
+  })
 
   return prisma.externalUser.upsert({
     where: { email: autoEmail },
