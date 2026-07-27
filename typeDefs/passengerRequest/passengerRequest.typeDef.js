@@ -504,6 +504,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
   input PassengerBaggageDriverInput {
     fullName: String!
     phone: String
+    peopleCount: Int
     link: String
     addressFrom: String
     addressTo: String
