@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { logger } from "./infra/logger.js"
 
 export function resolveEmailDelivery({ to, subject }) {
   if (process.env.EMAIL_ENABLED !== "true") {
@@ -27,7 +28,7 @@ export function resolveEmailDelivery({ to, subject }) {
 
 export async function sendEmail({ to, subject, html }) {
   if (!to || to === "undefined" || to === "null") {
-    console.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
+    logger.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
     return
   }
 
@@ -35,11 +36,11 @@ export async function sendEmail({ to, subject, html }) {
 
   if (delivery.skip) {
     if (delivery.reason === "test_mode") {
-      console.log(
+      logger.info(
         `[TEST MODE] Письмо не отправлено. Кому: ${to}, Тема: ${subject}`
       )
     } else if (delivery.reason === "missing_receiver") {
-      console.warn(
+      logger.warn(
         `[EMAIL SKIP] NODE_ENV=dev, EMAIL_ENABLED=true, но EMAIL_RECEIVER не задан. Тема: ${subject}`
       )
     }
@@ -49,7 +50,9 @@ export async function sendEmail({ to, subject, html }) {
   const { actualTo, actualSubject } = delivery
 
   if (delivery.redirectedFrom) {
-    console.log(`[DEV EMAIL] Перенаправление: ${delivery.redirectedFrom} → ${actualTo}`)
+    logger.info(
+      `[DEV EMAIL] Перенаправление: ${delivery.redirectedFrom} → ${actualTo}`
+    )
   }
 
   try {
@@ -70,17 +73,29 @@ export async function sendEmail({ to, subject, html }) {
       html
     })
 
-    console.log(
+    logger.info(
       `[EMAIL SENT] Письмо отправлено. Кому: ${actualTo}, Тема: ${actualSubject}`
     )
   } catch (error) {
-    console.error(
+    logger.error(
       `[EMAIL ERROR] Ошибка при отправке письма. Кому: ${actualTo}, Тема: ${actualSubject}`,
       error
     )
     throw error
   }
 }
+
+/*
+
+import { sendEmail } from "../utils/sendEmail.js";
+
+await sendEmail({
+  to: user.email,
+  subject: "Подтверждение",
+  html: "<b>Ваш код: 1234</b>"
+});
+
+*/
 
 /*
 
