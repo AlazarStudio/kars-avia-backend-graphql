@@ -205,9 +205,9 @@ function countMeals(hotelReports) {
     counts.breakfastsCount += mealCount(row, "breakfast")
     counts.lunchesCount += mealCount(row, "lunch")
     counts.dinnersCount += mealCount(row, "dinner")
-    if (row?.breakfastLunchbox) counts.lunchboxesCount += 1
-    if (row?.lunchLunchbox) counts.lunchboxesCount += 1
-    if (row?.dinnerLunchbox) counts.lunchboxesCount += 1
+    counts.lunchboxesCount += row?.lunchboxCount != null
+      ? (Number(row.lunchboxCount) || 0)
+      : ((row?.breakfastLunchbox ? 1 : 0) + (row?.lunchLunchbox ? 1 : 0) + (row?.dinnerLunchbox ? 1 : 0))
   }
   return counts
 }

@@ -3905,6 +3905,7 @@ const passengerRequestResolvers = {
         lunchLunchbox: row.lunchLunchbox ?? false,
         dinnerLunchbox: row.dinnerLunchbox ?? false,
         lunchboxPrice: row.lunchboxPrice ?? 0,
+        lunchboxCount: row.lunchboxCount ?? null,
         foodCost: row.foodCost ?? 0,
         accommodationCost: row.accommodationCost ?? 0,
         tariffName: row.tariffName ?? "",
