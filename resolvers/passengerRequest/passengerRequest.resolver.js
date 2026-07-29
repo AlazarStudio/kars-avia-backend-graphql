@@ -37,7 +37,11 @@ import {
 } from "../../services/passengerRequest/serviceDrivers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
-import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
+import {
+  recomputeServiceStatus,
+  resolveDriverCountStatus,
+  transferFactCount
+} from "../../services/passengerRequest/serviceStatus.js"
 import {
   deleteAllPassengerRequestFilesFromDisk,
   deletePassengerRequestFileFromDisk,
@@ -375,6 +379,7 @@ const normalizePassengerServiceDriver = (driver = {}) => ({
   addressFrom: normalizeOptionalString(driver?.addressFrom),
   addressTo: normalizeOptionalString(driver?.addressTo),
   description: normalizeOptionalString(driver?.description),
+  hotelItemId: normalizeOptionalString(driver?.hotelItemId),
   people: Array.isArray(driver?.people)
     ? driver.people.map(ensureDriverPerson)
     : []
@@ -463,6 +468,11 @@ function buildDriverPatchDescription(before, applied, driverIndex, direction) {
   }
   if ("reportCost" in applied) {
     diffs.push(`сумма: ${before?.reportCost ?? 0} → ${applied.reportCost ?? 0}`)
+  }
+  if ("transportedCount" in applied) {
+    diffs.push(
+      `перевезено: ${before?.transportedCount ?? "—"} → ${applied.transportedCount ?? "—"}`
+    )
   }
   if (!diffs.length) {
     return {
@@ -965,8 +975,9 @@ const passengerRequestResolvers = {
         else data.airport = { connect: { id: airportId } }
       }
 
-      const totalDriverPeople = (drivers) =>
-        (drivers || []).reduce((sum, d) => sum + (d?.people?.length || 0), 0)
+      // Факт услуги: список либо «перевезено N» на поездке (max), см. serviceStatus.js.
+      // Для багажа transportedCount пуст — поведение прежнее.
+      const totalDriverPeople = (drivers) => transferFactCount(drivers)
       const totalHotelPeople = (hotels) =>
         (hotels || []).reduce((sum, h) => sum + (h?.people?.length || 0), 0)
 
@@ -2074,6 +2085,32 @@ const passengerRequestResolvers = {
         times: recalc.times
       }
 
+      // привязка поездок к удалённой гостинице снимается — как и остальные ссылки на отель
+      // услуги без таких поездок не переписываем
+      const detachedDriverServices = {}
+      if (removedHotel?.itemId) {
+        for (const serviceField of [
+          "transferService",
+          "departureTransferService",
+          "intercityTransferService",
+          "baggageDeliveryService"
+        ]) {
+          const prevService = existing[serviceField]
+          const hasLinked = (prevService?.drivers || []).some(
+            (d) => d?.hotelItemId === removedHotel.itemId
+          )
+          if (!hasLinked) continue
+          detachedDriverServices[serviceField] = {
+            ...prevService,
+            drivers: normalizeDriversForWrite(prevService.drivers).map((d) =>
+              d.hotelItemId === removedHotel.itemId
+                ? { ...d, hotelItemId: null }
+                : d
+            )
+          }
+        }
+      }
+
       const [, , passengerRequest] = await prisma.$transaction([
         prisma.passengerRequestHotelReport.deleteMany({
           where: {
@@ -2095,7 +2132,8 @@ const passengerRequestResolvers = {
         prisma.passengerRequest.update({
           where: { id: requestId },
           data: {
-            livingService: nextLivingService
+            livingService: nextLivingService,
+            ...detachedDriverServices
           }
         })
       ])
@@ -2581,6 +2619,19 @@ const passengerRequestResolvers = {
         throw new GraphQLError("Driver fullName is required")
       }
 
+      // Привязка к гостинице — только к той, что есть в проживании этой заявки
+      const hotelItemId = normalizeOptionalString(driver?.hotelItemId)
+      const linkedHotel = hotelItemId
+        ? (existing.livingService?.hotels || []).find(
+            (h) => h?.itemId && h.itemId === hotelItemId
+          )
+        : null
+      if (hotelItemId && !linkedHotel) {
+        throw new GraphQLError(
+          "Unknown hotelItemId: no such hotel in livingService"
+        )
+      }
+
       const transferField = getTransferField(direction)
       const prev = existing[transferField] || emptyDriversService()
 
@@ -2630,7 +2681,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_driver",
         description: "Водитель добавлен в трансфер ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил водителя в трансфер ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил водителя в трансфер ФАП ${passengerRequest.flightNumber}${linkedHotel ? ` (гостиница «${linkedHotel.name}»)` : ""}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2653,8 +2704,11 @@ const passengerRequestResolvers = {
       const field = getTransferField(direction)
       const service = req[field]
       if (!service?.plan?.enabled) throw new GraphQLError("Service is not enabled")
-      if (service.status === "COMPLETED" || service.status === "CANCELLED") {
-        throw new GraphQLError("Service is completed, no updates allowed")
+      // Патч разрешён и после COMPLETED: сумму/тип ТС/«перевезено» вводят по факту
+      // поездки, а статусом управляет пересчёт (снижение факта ниже плана реоткроет
+      // услугу). Запрет остаётся только для CANCELLED.
+      if (service.status === "CANCELLED") {
+        throw new GraphQLError("Service is cancelled, no updates allowed")
       }
 
       const drivers = normalizeDriversForWrite(service.drivers)
@@ -2671,13 +2725,33 @@ const passengerRequestResolvers = {
       if (Object.prototype.hasOwnProperty.call(patch, "reportCost")) {
         applied.reportCost = patch.reportCost
       }
+      if (Object.prototype.hasOwnProperty.call(patch, "transportedCount")) {
+        const value = patch.transportedCount
+        if (value != null && (!Number.isInteger(value) || value < 0)) {
+          throw new GraphQLError("transportedCount must be a non-negative integer")
+        }
+        applied.transportedCount = value
+      }
       if (Object.keys(applied).length === 0) return req
 
+      const factBefore = transferFactCount(drivers)
       drivers[driverIndex] = { ...before, ...applied }
+
+      let nextService = { ...service, drivers }
+      if ("transportedCount" in applied) {
+        const recalc = resolveDriverCountStatus(
+          service,
+          factBefore,
+          transferFactCount(drivers)
+        )
+        if (recalc) {
+          nextService = { ...nextService, status: recalc.status, times: recalc.times }
+        }
+      }
 
       const updated = await prisma.passengerRequest.update({
         where: { id: requestId },
-        data: { [field]: { ...service, drivers } },
+        data: { [field]: nextService },
       })
 
       const log = buildDriverPatchDescription(before, applied, driverIndex, direction)
@@ -2726,14 +2800,8 @@ const passengerRequestResolvers = {
         removedIndex: driverIndex,
         adminId: context.subjectType === "USER" ? context.subject?.id : null
       })
-      const totalPeopleBefore = drivers.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
-      const totalPeopleAfter = nextDrivers.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
+      const totalPeopleBefore = transferFactCount(drivers)
+      const totalPeopleAfter = transferFactCount(nextDrivers)
       const recalc =
         nextDrivers.length === 0
           ? { status: "NEW", times: prev.times || {} }
@@ -3147,14 +3215,8 @@ const passengerRequestResolvers = {
         }
       })
 
-      const totalPeopleBefore = drivers.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
-      const totalPeopleAfter = driversClone.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
+      const totalPeopleBefore = transferFactCount(drivers)
+      const totalPeopleAfter = transferFactCount(driversClone)
       const recalc = recomputeServiceStatus(
         prev,
         totalPeopleBefore,
@@ -3222,14 +3284,8 @@ const passengerRequestResolvers = {
         }
       })
 
-      const totalPeopleBefore = drivers.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
-      const totalPeopleAfter = driversClone.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
+      const totalPeopleBefore = transferFactCount(drivers)
+      const totalPeopleAfter = transferFactCount(driversClone)
       const recalc = recomputeServiceStatus(
         prev,
         totalPeopleBefore,
@@ -3350,14 +3406,8 @@ const passengerRequestResolvers = {
         return { ...normalized, people: newPeople }
       })
 
-      const totalPeopleBefore = drivers.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
-      const totalPeopleAfter = driversClone.reduce(
-        (sum, d) => sum + (Array.isArray(d.people) ? d.people.length : 0),
-        0
-      )
+      const totalPeopleBefore = transferFactCount(drivers)
+      const totalPeopleAfter = transferFactCount(driversClone)
       const recalc = recomputeServiceStatus(
         prev,
         totalPeopleBefore,

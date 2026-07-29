@@ -1159,7 +1159,7 @@ type PassengerServiceDriver {
   id                  String? // устойчивый адрес водителя: индекс в drivers[] съезжает при удалении соседа
   fullName            String
   phone               String?
-  peopleCount         Int?
+  peopleCount         Int? // ожидаемое кол-во (план поездки); факт — transportedCount
   pickupAt            DateTime? // время подачи / выезда
   link                String? // ссылка на маршрут, вотсап и т.д.
   linkPWA             String?
@@ -1169,6 +1169,8 @@ type PassengerServiceDriver {
   deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
   vehicleType         String?
   reportCost          Float?
+  transportedCount    Int? // «перевезено N» — факт числом, когда поимённый список не ведут (только трансфер)
+  hotelItemId         String? // привязка поездки к гостинице проживания заявки (livingService.hotels[].itemId)
   people              PassengerServiceDriverPerson[]
 }
 

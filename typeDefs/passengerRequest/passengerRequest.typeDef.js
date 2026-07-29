@@ -185,6 +185,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     deliveryCompletedAt: Date
     vehicleType: String
     reportCost: Float
+    "Перевезено фактически (учёт числом). Факт поездки = max(people.length, transportedCount)."
+    transportedCount: Int
+    "Гостиница проживания этой заявки (livingService.hotels[].itemId), к которой привязана поездка. Задаётся при создании; смена привязки в V1 — пересоздание водителя."
+    hotelItemId: String
     people: [PassengerServiceDriverPerson!]!
   }
 
@@ -488,12 +492,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressFrom: String
     addressTo: String
     description: String
+    hotelItemId: String
   }
 
   input PassengerServiceDriverPatchInput {
     pickupAt: Date
     vehicleType: String
     reportCost: Float
+    transportedCount: Int
   }
 
   """
@@ -792,7 +798,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     """
     Партиал-обновление полей заявки (водителя) в услуге трансфера.
-    Сейчас покрывает только pickupAt. Другие поля добавятся вместе с UI.
+    Сейчас покрывает pickupAt, vehicleType, reportCost и transportedCount
+    («перевезено N»). Другие поля добавятся вместе с UI.
     Семантика patch: отсутствие ключа => не трогаем; null => сбрасываем поле.
     """
     updatePassengerRequestDriver(

@@ -50,3 +50,32 @@ export const recomputeServiceStatus = (prev, prevCount, nextCount) => {
   }
   return { status: nextStatus, times: nextTimes }
 }
+
+// Факт поездки: поимённый список ИЛИ введённое число «перевезено N» — что больше.
+// Именно max, а не сумма: водитель сканирует тех же людей, которых диспетчер уже
+// учёл числом — сложение давало бы двойной счёт.
+export const driverFactCount = (driver) => {
+  const listed = Array.isArray(driver?.people) ? driver.people.length : 0
+  const counted = Number.isInteger(driver?.transportedCount)
+    ? Math.max(driver.transportedCount, 0)
+    : 0
+  return Math.max(listed, counted)
+}
+
+// Факт услуги = сумма фактов поездок. Для багажа transportedCount не заполняется,
+// так что результат совпадает с прежним Σ people.length.
+export const transferFactCount = (drivers) =>
+  (Array.isArray(drivers) ? drivers : []).reduce(
+    (sum, d) => sum + driverFactCount(d),
+    0
+  )
+
+// Решение статуса при числовой правке «перевезено» (updatePassengerRequestDriver):
+// правка, не снизившая факт, статус не трогает вовсе — в т.ч. когда факт и так ниже
+// плана (досрочное завершение не реоткрывается косметической правкой числа).
+// Снижение факта идёт через общий recomputeServiceStatus — реоткрытие только при
+// падении ниже плана. null = статус/times не менять.
+export const resolveDriverCountStatus = (service, factBefore, factAfter) => {
+  if (service?.status === "COMPLETED" && factAfter >= factBefore) return null
+  return recomputeServiceStatus(service, factBefore, factAfter)
+}
