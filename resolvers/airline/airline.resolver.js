@@ -18,25 +18,23 @@ import { withFilter } from "graphql-subscriptions"
 import argon2 from "argon2"
 import { sortContractsByExpiration } from "../../services/contract/contractExpiration.js"
 import {
+  addToOccupiedByContractType,
+  assertNoAirportConflict,
   assertNoCrossPriceLevelConflict,
-  emptyOccupiedLevels,
-  loadOccupiedPriceGeography,
-  mergeOccupiedLevels,
+  emptyOccupiedByContractType,
+  getOccupiedForContractType,
+  loadOccupiedByContractType,
+  normalizeContractType,
   normalizePriceGeographyList,
   toPriceGeoCreateData
 } from "../../services/geo/normalizeGeography.js"
 import { buildAirlineWhere } from "../../services/airline/airlineFilters.js"
 
-const syncAirlinePriceGeography = async (
-  airlinePriceId,
-  geographyInput,
-  occupied
-) => {
+const syncAirlinePriceGeography = async (airlinePriceId, geographyInput) => {
   await prisma.priceGeoOnAirlinePrice.deleteMany({
     where: { airlinePriceId }
   })
   const list = await normalizePriceGeographyList(geographyInput ?? [])
-  assertNoCrossPriceLevelConflict(list, occupied)
   for (const geo of list) {
     await prisma.priceGeoOnAirlinePrice.create({
       data: {
@@ -45,7 +43,24 @@ const syncAirlinePriceGeography = async (
       }
     })
   }
-  return mergeOccupiedLevels(occupied, list)
+  return list
+}
+
+const syncAirlinePriceAirports = async (airlineId, airlinePriceId, airportIds) => {
+  await prisma.airportOnAirlinePrice.deleteMany({
+    where: { airlinePriceId }
+  })
+  const ids = airportIds || []
+  for (const airportId of ids) {
+    await prisma.airportOnAirlinePrice.create({
+      data: {
+        airlineId,
+        airportId,
+        airlinePriceId
+      }
+    })
+  }
+  return ids
 }
 
 const hasOwn = (obj, key) =>
@@ -224,27 +239,35 @@ const airlineResolver = {
       } = input
 
       const priceCreates = []
-      let occupied = emptyOccupiedLevels()
+      let occupiedByType = emptyOccupiedByContractType()
       for (const priceInput of airlinePriceData) {
+        const contractType = normalizeContractType(priceInput.contractType)
         const geoList = priceInput.geography
           ? await normalizePriceGeographyList(priceInput.geography)
           : []
+        const airportIds = priceInput.airportIds || []
+        const occupied = getOccupiedForContractType(occupiedByType, contractType)
         assertNoCrossPriceLevelConflict(geoList, occupied)
-        occupied = mergeOccupiedLevels(occupied, geoList)
+        assertNoAirportConflict(airportIds, occupied)
+        occupiedByType = addToOccupiedByContractType(
+          occupiedByType,
+          contractType,
+          geoList,
+          airportIds
+        )
         priceCreates.push({
           name: priceInput.name ?? "",
           prices: priceInput.prices,
           mealPrice: priceInput.mealPrice,
           individual: priceInput.individual ?? false,
+          contractType,
           geography: {
             create: geoList.map(toPriceGeoCreateData)
           },
           airports: {
-            create: priceInput.airportIds
-              ? priceInput.airportIds.map((airportId) => ({
-                  airport: { connect: { id: airportId } }
-                }))
-              : []
+            create: airportIds.map((airportId) => ({
+              airport: { connect: { id: airportId } }
+            }))
           }
         })
       }
@@ -376,15 +399,73 @@ const airlineResolver = {
 
         if (prices) {
           const priceIdsBeingUpdated = prices
-            .filter((p) => p.id && p.geography !== undefined)
+            .filter(
+              (p) =>
+                p.id &&
+                (p.geography !== undefined ||
+                  p.airportIds !== undefined ||
+                  p.contractType !== undefined)
+            )
             .map((p) => p.id)
 
-          let occupied = await loadOccupiedPriceGeography(id, {
+          let occupiedByType = await loadOccupiedByContractType(id, {
             excludePriceIds: priceIdsBeingUpdated
           })
 
+          const existingPrices =
+            priceIdsBeingUpdated.length > 0
+              ? await prisma.airlinePrice.findMany({
+                  where: { id: { in: priceIdsBeingUpdated } },
+                  include: {
+                    geography: true,
+                    airports: true
+                  }
+                })
+              : []
+          const existingById = new Map(existingPrices.map((p) => [p.id, p]))
+
           for (const priceInput of prices) {
             if (priceInput.id) {
+              const existing = existingById.get(priceInput.id)
+              const contractType = normalizeContractType(
+                priceInput.contractType !== undefined
+                  ? priceInput.contractType
+                  : existing?.contractType
+              )
+
+              const needsGeoSync = priceInput.geography !== undefined
+              const needsAirportSync = priceInput.airportIds !== undefined
+              const needsRevalidate =
+                needsGeoSync ||
+                needsAirportSync ||
+                priceInput.contractType !== undefined
+
+              let geoList = null
+              let airportIds = null
+
+              if (needsRevalidate) {
+                geoList = needsGeoSync
+                  ? await normalizePriceGeographyList(priceInput.geography ?? [])
+                  : (existing?.geography || []).map((row) => ({
+                      country: row.country ?? "",
+                      region: row.region ?? "",
+                      city: row.city ?? "",
+                      cityId: row.cityId,
+                      regionId: row.regionId
+                    }))
+
+                airportIds = needsAirportSync
+                  ? priceInput.airportIds || []
+                  : (existing?.airports || []).map((a) => a.airportId)
+
+                const occupied = getOccupiedForContractType(
+                  occupiedByType,
+                  contractType
+                )
+                assertNoCrossPriceLevelConflict(geoList, occupied)
+                assertNoAirportConflict(airportIds, occupied)
+              }
+
               await prisma.airlinePrice.update({
                 where: { id: priceInput.id },
                 data: {
@@ -393,41 +474,56 @@ const airlineResolver = {
                   mealPrice: priceInput.mealPrice,
                   ...(priceInput.individual !== undefined && {
                     individual: priceInput.individual
+                  }),
+                  ...(priceInput.contractType !== undefined && {
+                    contractType
                   })
                 }
               })
 
-              if (priceInput.geography !== undefined) {
-                occupied = await syncAirlinePriceGeography(
+              if (needsGeoSync) {
+                geoList = await syncAirlinePriceGeography(
                   priceInput.id,
-                  priceInput.geography,
-                  occupied
+                  priceInput.geography
                 )
               }
 
-              await prisma.airportOnAirlinePrice.deleteMany({
-                where: { airlinePriceId: priceInput.id }
-              })
+              if (needsAirportSync) {
+                airportIds = await syncAirlinePriceAirports(
+                  id,
+                  priceInput.id,
+                  priceInput.airportIds || []
+                )
+              }
 
-              if (priceInput.airportIds && priceInput.airportIds.length > 0) {
-                for (const airportId of priceInput.airportIds) {
-                  await prisma.airportOnAirlinePrice.create({
-                    data: {
-                      airlineId: id,
-                      airportId: airportId,
-                      airlinePriceId: priceInput.id
-                    }
-                  })
-                }
+              if (needsRevalidate) {
+                occupiedByType = addToOccupiedByContractType(
+                  occupiedByType,
+                  contractType,
+                  geoList,
+                  airportIds
+                )
               }
             } else {
+              const contractType = normalizeContractType(priceInput.contractType)
               const geoList =
                 priceInput.geography !== undefined
                   ? await normalizePriceGeographyList(priceInput.geography)
                   : []
+              const airportIds = priceInput.airportIds || []
 
+              const occupied = getOccupiedForContractType(
+                occupiedByType,
+                contractType
+              )
               assertNoCrossPriceLevelConflict(geoList, occupied)
-              occupied = mergeOccupiedLevels(occupied, geoList)
+              assertNoAirportConflict(airportIds, occupied)
+              occupiedByType = addToOccupiedByContractType(
+                occupiedByType,
+                contractType,
+                geoList,
+                airportIds
+              )
 
               const createdPrice = await prisma.airlinePrice.create({
                 data: {
@@ -436,22 +532,15 @@ const airlineResolver = {
                   prices: priceInput.prices,
                   mealPrice: priceInput.mealPrice,
                   individual: priceInput.individual ?? false,
+                  contractType,
                   geography: {
                     create: geoList.map(toPriceGeoCreateData)
                   }
                 }
               })
 
-              if (priceInput.airportIds && priceInput.airportIds.length > 0) {
-                for (const airportId of priceInput.airportIds) {
-                  await prisma.airportOnAirlinePrice.create({
-                    data: {
-                      airlineId: id,
-                      airportId: airportId,
-                      airlinePriceId: createdPrice.id
-                    }
-                  })
-                }
+              if (airportIds.length > 0) {
+                await syncAirlinePriceAirports(id, createdPrice.id, airportIds)
               }
             }
           }
@@ -1126,7 +1215,8 @@ const airlineResolver = {
         cityId: row.cityId,
         regionId: row.regionId
       })),
-    individual: (parent) => Boolean(parent.individual)
+    individual: (parent) => Boolean(parent.individual),
+    contractType: (parent) => parent.contractType || "request"
   },
 
   PriceGeography: {

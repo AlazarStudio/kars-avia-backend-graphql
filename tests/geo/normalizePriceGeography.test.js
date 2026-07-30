@@ -7,6 +7,7 @@ const cityFindUnique = mock.fn()
 const regionFindUnique = mock.fn()
 const regionFindFirst = mock.fn()
 const priceGeoFindMany = mock.fn()
+const airportOnPriceFindMany = mock.fn()
 
 mock.module("../../prisma.js", {
   namedExports: {
@@ -16,17 +17,25 @@ mock.module("../../prisma.js", {
         findUnique: regionFindUnique,
         findFirst: regionFindFirst
       },
-      priceGeoOnAirlinePrice: { findMany: priceGeoFindMany }
+      priceGeoOnAirlinePrice: { findMany: priceGeoFindMany },
+      airportOnAirlinePrice: { findMany: airportOnPriceFindMany }
     }
   }
 })
 
 const {
+  addToOccupiedByContractType,
+  assertNoAirportConflict,
   assertNoCrossPriceLevelConflict,
   collectOccupiedLevels,
+  conflictingContractTypes,
+  emptyOccupiedByContractType,
   emptyOccupiedLevels,
+  getOccupiedForContractType,
+  loadOccupiedByContractType,
   loadOccupiedPriceGeography,
   mergeOccupiedLevels,
+  normalizeContractType,
   normalizePriceGeography,
   normalizePriceGeographyList,
   toPriceGeoCreateData
@@ -37,6 +46,7 @@ test.beforeEach(() => {
   regionFindUnique.mock.resetCalls()
   regionFindFirst.mock.resetCalls()
   priceGeoFindMany.mock.resetCalls()
+  airportOnPriceFindMany.mock.resetCalls()
 })
 
 test("regionId resolves to region name and empty city", async () => {
@@ -336,15 +346,186 @@ test("loadOccupiedPriceGeography loads from DB excluding price ids", async () =>
     assert.equal(where.airlinePrice.airlineId, "airline-1")
     assert.deepEqual(where.airlinePrice.id, { notIn: ["price-1"] })
     return [
-      { regionId: "reg-1", cityId: null },
-      { cityId: "city-1", regionId: null }
+      {
+        regionId: "reg-1",
+        cityId: null,
+        airlinePrice: { contractType: "request" }
+      },
+      {
+        cityId: "city-1",
+        regionId: null,
+        airlinePrice: { contractType: "request" }
+      }
     ]
   })
+  airportOnPriceFindMany.mock.mockImplementation(async () => [])
 
   const occupied = await loadOccupiedPriceGeography("airline-1", {
-    excludePriceIds: ["price-1"]
+    excludePriceIds: ["price-1"],
+    contractType: "request"
   })
 
   assert.deepEqual([...occupied.regionLevelIds], ["reg-1"])
   assert.deepEqual([...occupied.cityLevelIds], ["city-1"])
+})
+
+test("conflictingContractTypes maps request/fap/all correctly", () => {
+  assert.deepEqual(conflictingContractTypes("request"), ["request", "all"])
+  assert.deepEqual(conflictingContractTypes("fap"), ["fap", "all"])
+  assert.deepEqual(conflictingContractTypes("all"), ["all", "fap", "request"])
+  assert.equal(normalizeContractType(undefined), "request")
+})
+
+test("request and fap can share the same region in batch occupied", () => {
+  let byType = emptyOccupiedByContractType()
+  byType = addToOccupiedByContractType(
+    byType,
+    "request",
+    [{ regionId: "reg-1", cityId: null, region: "Алтайский край" }]
+  )
+
+  const occupiedForFap = getOccupiedForContractType(byType, "fap")
+  assert.doesNotThrow(() =>
+    assertNoCrossPriceLevelConflict(
+      [
+        {
+          regionId: "reg-1",
+          region: "Алтайский край",
+          cityId: null,
+          city: ""
+        }
+      ],
+      occupiedForFap
+    )
+  )
+})
+
+test("request conflicts with all for the same region", () => {
+  let byType = emptyOccupiedByContractType()
+  byType = addToOccupiedByContractType(
+    byType,
+    "all",
+    [{ regionId: "reg-1", cityId: null, region: "Алтайский край" }]
+  )
+
+  const occupied = getOccupiedForContractType(byType, "request")
+  assert.throws(
+    () =>
+      assertNoCrossPriceLevelConflict(
+        [
+          {
+            regionId: "reg-1",
+            region: "Алтайский край",
+            cityId: null,
+            city: ""
+          }
+        ],
+        occupied
+      ),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Регион «Алтайский край» уже используется/)
+      return true
+    }
+  )
+})
+
+test("two request tariffs conflict on the same region", () => {
+  let byType = emptyOccupiedByContractType()
+  byType = addToOccupiedByContractType(
+    byType,
+    "request",
+    [{ regionId: "reg-1", cityId: null, region: "Алтайский край" }]
+  )
+
+  const occupied = getOccupiedForContractType(byType, "request")
+  assert.throws(
+    () =>
+      assertNoCrossPriceLevelConflict(
+        [
+          {
+            regionId: "reg-1",
+            region: "Алтайский край",
+            cityId: null,
+            city: ""
+          }
+        ],
+        occupied
+      ),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      return true
+    }
+  )
+})
+
+test("assertNoAirportConflict allows same airport for request and fap", () => {
+  let byType = emptyOccupiedByContractType()
+  byType = addToOccupiedByContractType(byType, "request", [], ["airport-1"])
+
+  const occupiedForFap = getOccupiedForContractType(byType, "fap")
+  assert.doesNotThrow(() =>
+    assertNoAirportConflict(["airport-1"], occupiedForFap)
+  )
+})
+
+test("assertNoAirportConflict rejects airport already used by all", () => {
+  let byType = emptyOccupiedByContractType()
+  byType = addToOccupiedByContractType(byType, "all", [], ["airport-1"])
+
+  const occupied = getOccupiedForContractType(byType, "request")
+  assert.throws(
+    () => assertNoAirportConflict(["airport-1"], occupied),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Аэропорт уже используется/)
+      return true
+    }
+  )
+})
+
+test("assertNoAirportConflict rejects duplicates inside one tariff", () => {
+  assert.throws(
+    () =>
+      assertNoAirportConflict(
+        ["airport-1", "airport-1"],
+        emptyOccupiedLevels()
+      ),
+    (err) => {
+      assert.equal(err.extensions?.code, "BAD_USER_INPUT")
+      assert.match(err.message, /Аэропорт уже добавлен/)
+      return true
+    }
+  )
+})
+
+test("loadOccupiedByContractType groups geography by contractType", async () => {
+  priceGeoFindMany.mock.mockImplementation(async () => [
+    {
+      regionId: "reg-1",
+      cityId: null,
+      airlinePrice: { contractType: "fap" }
+    },
+    {
+      regionId: "reg-2",
+      cityId: null,
+      airlinePrice: { contractType: "request" }
+    }
+  ])
+  airportOnPriceFindMany.mock.mockImplementation(async () => [
+    {
+      airportId: "airport-1",
+      airlinePrice: { contractType: "all" }
+    }
+  ])
+
+  const byType = await loadOccupiedByContractType("airline-1")
+  assert.deepEqual([...byType.fap.regionLevelIds], ["reg-1"])
+  assert.deepEqual([...byType.request.regionLevelIds], ["reg-2"])
+  assert.deepEqual([...byType.all.airportIds], ["airport-1"])
+
+  const forRequest = getOccupiedForContractType(byType, "request")
+  assert.ok(forRequest.regionLevelIds.has("reg-2"))
+  assert.ok(forRequest.airportIds.has("airport-1"))
+  assert.equal(forRequest.regionLevelIds.has("reg-1"), false)
 })

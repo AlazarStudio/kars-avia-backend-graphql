@@ -5,6 +5,7 @@ const airportTypeDef = /* GraphQL */ `
     name: String
     city: String
     code: String
+    address: String
   }
 
   type Query {

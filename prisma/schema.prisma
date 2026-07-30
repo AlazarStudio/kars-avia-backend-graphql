@@ -266,6 +266,7 @@ model Airport {
   name                          String?
   code                          String?
   city                          String?
+  address                       String?
   request                       Request[]
   reserve                       Reserve[]
   hotel                         Hotel[]
@@ -433,6 +434,12 @@ model AirlinePersonal {
   deviceTokens          device_tokens[]
 }
 
+enum AirlinePriceContractType {
+  all
+  fap
+  request
+}
+
 model AirlinePrice {
   id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt              DateTime                 @default(now()) @map("created_at")
@@ -449,6 +456,7 @@ model AirlinePrice {
   prices                 Price?
   mealPrice              MealPrice?
   individual             Boolean                  @default(false)
+  contractType           AirlinePriceContractType @default(request)
   // files                  String[]
 }
 
@@ -480,7 +488,7 @@ model AirportOnAirlinePrice {
   airlinePrice   AirlinePrice? @relation(fields: [airlinePriceId], references: [id])
   airlinePriceId String?       @db.ObjectId
 
-  @@unique([airlineId, airportId])
+  // Уникальность аэропорта между тарифами — в normalizeGeography (по contractType)
 }
 
 // Airline ---------------- ↑↑↑↑

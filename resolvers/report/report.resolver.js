@@ -238,7 +238,8 @@ const reportResolver = {
             firstRequestWithHotel?.airport?.id ||
             reportHotel?.airportId ||
             null,
-          skipCountryLevel: true
+          skipCountryLevel: true,
+          contractTypes: ["request", "all"]
         })
 
         if (!contract) {

@@ -342,3 +342,76 @@ test("strict priority: airport then city then region", () => {
     "region"
   )
 })
+
+test("contractTypes filter prefers request/all for Request pricing", () => {
+  const requestPrice = {
+    id: "req",
+    contractType: "request",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+  const fapPrice = {
+    id: "fap",
+    contractType: "fap",
+    createdAt: "2023-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [fapPrice, requestPrice],
+      hotelLocation: {
+        region: "Алтайский край",
+        city: "",
+        country: ""
+      },
+      contractTypes: ["request", "all"]
+    })?.id,
+    "req"
+  )
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [fapPrice, requestPrice],
+      hotelLocation: {
+        region: "Алтайский край",
+        city: "",
+        country: ""
+      },
+      contractTypes: ["fap", "all"]
+    })?.id,
+    "fap"
+  )
+})
+
+test("contractTypes filter includes all type for both scopes", () => {
+  const allPrice = {
+    id: "all",
+    contractType: "all",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+  const fapPrice = {
+    id: "fap",
+    contractType: "fap",
+    createdAt: "2023-01-01",
+    airports: [],
+    geography: [{ region: "Алтайский край", city: "", country: "" }]
+  }
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [fapPrice, allPrice],
+      hotelLocation: {
+        region: "Алтайский край",
+        city: "",
+        country: ""
+      },
+      contractTypes: ["request", "all"]
+    })?.id,
+    "all"
+  )
+})

@@ -40,6 +40,7 @@ const globalTypeDef = /* GraphQL */ `
     name: String
     code: String
     city: String
+    address: String
   }
 
   # Общие составные типы (можно вынести в общий файл)
@@ -241,6 +242,12 @@ const globalTypeDef = /* GraphQL */ `
     regionId: ID
   }
 
+  enum AirlinePriceContractType {
+    all
+    fap
+    request
+  }
+
   # Новый тип тарифного договора для авиакомпании
   type AirlinePrice {
     id: ID!
@@ -249,6 +256,7 @@ const globalTypeDef = /* GraphQL */ `
     name: String
     geography: [PriceGeography!]!
     individual: Boolean!
+    contractType: AirlinePriceContractType!
     airports: [AirportOnAirlinePrice]
     priceCategory: PriceCategory
   }
@@ -261,6 +269,7 @@ const globalTypeDef = /* GraphQL */ `
     name: String
     geography: [PriceGeographyInput!]
     individual: Boolean
+    contractType: AirlinePriceContractType
     airportIds: [ID!]
   }
 

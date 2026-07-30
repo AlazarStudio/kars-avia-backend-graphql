@@ -225,13 +225,20 @@ const resolveAirlineContractForRequest = (request) => {
     request.hotel?.airportId ||
     null
 
+  const contractTypes =
+    request._priceContractTypes ||
+    (request._priceContractType === "fap"
+      ? ["fap", "all"]
+      : ["request", "all"])
+
   return resolvePriceByHotelLocation({
     airlinePrices: request.airline?.prices,
     hotelLocation:
       request._priceSearchLocation ??
       getHotelLocation(request.hotel, request.airport),
     airportId,
-    skipCountryLevel: request._skipCountryLevel ?? false
+    skipCountryLevel: request._skipCountryLevel ?? false,
+    contractTypes
   })
 }
 

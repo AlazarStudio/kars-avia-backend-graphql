@@ -14,6 +14,22 @@ const emptyHotelLocation = {
   address: ""
 }
 
+export const DEFAULT_CONTRACT_TYPE = "request"
+
+export const normalizeContractType = (value) =>
+  value || DEFAULT_CONTRACT_TYPE
+
+/** Types that conflict with the given contractType when claiming geography/airports. */
+export const conflictingContractTypes = (contractType) => {
+  const type = normalizeContractType(contractType)
+  if (type === "all") return ["all", "fap", "request"]
+  if (type === "fap") return ["fap", "all"]
+  return ["request", "all"]
+}
+
+export const contractTypesConflict = (a, b) =>
+  conflictingContractTypes(a).includes(normalizeContractType(b))
+
 const throwInvalid = (message) => {
   throw new GraphQLError(message, {
     extensions: { code: "BAD_USER_INPUT" }
@@ -135,23 +151,35 @@ const assertNoDuplicateGeography = (list) => {
 
 export const emptyOccupiedLevels = () => ({
   regionLevelIds: new Set(),
-  cityLevelIds: new Set()
+  cityLevelIds: new Set(),
+  airportIds: new Set()
 })
 
-export const collectOccupiedLevels = (geographies) => ({
+export const emptyOccupiedByContractType = () => ({
+  all: emptyOccupiedLevels(),
+  fap: emptyOccupiedLevels(),
+  request: emptyOccupiedLevels()
+})
+
+export const collectOccupiedLevels = (geographies, airportIds = []) => ({
   regionLevelIds: new Set(
     geographies.filter((g) => g.regionId && !g.cityId).map((g) => g.regionId)
   ),
-  cityLevelIds: new Set(geographies.filter((g) => g.cityId).map((g) => g.cityId))
+  cityLevelIds: new Set(geographies.filter((g) => g.cityId).map((g) => g.cityId)),
+  airportIds: new Set(
+    (airportIds || []).filter(Boolean).map((id) => String(id))
+  )
 })
 
-export const mergeOccupiedLevels = (occupied, geographies) => {
+export const mergeOccupiedLevels = (occupied, geographies, airportIds = []) => {
   const merged = {
     regionLevelIds: new Set(occupied.regionLevelIds),
-    cityLevelIds: new Set(occupied.cityLevelIds)
+    cityLevelIds: new Set(occupied.cityLevelIds),
+    airportIds: new Set(occupied.airportIds || [])
   }
   const fromList = collectOccupiedLevels(
-    Array.isArray(geographies) ? geographies : [geographies]
+    Array.isArray(geographies) ? geographies : [geographies],
+    airportIds
   )
   for (const regionId of fromList.regionLevelIds) {
     merged.regionLevelIds.add(regionId)
@@ -159,7 +187,43 @@ export const mergeOccupiedLevels = (occupied, geographies) => {
   for (const cityId of fromList.cityLevelIds) {
     merged.cityLevelIds.add(cityId)
   }
+  for (const airportId of fromList.airportIds) {
+    merged.airportIds.add(airportId)
+  }
   return merged
+}
+
+export const getOccupiedForContractType = (byType, contractType) => {
+  let occupied = emptyOccupiedLevels()
+  for (const type of conflictingContractTypes(contractType)) {
+    const bucket = byType[type] || emptyOccupiedLevels()
+    occupied = mergeOccupiedLevels(occupied, [
+      ...[...bucket.regionLevelIds].map((regionId) => ({
+        regionId,
+        cityId: null
+      })),
+      ...[...bucket.cityLevelIds].map((cityId) => ({
+        cityId,
+        regionId: null
+      }))
+    ], [...(bucket.airportIds || [])])
+  }
+  return occupied
+}
+
+export const addToOccupiedByContractType = (
+  byType,
+  contractType,
+  geographies,
+  airportIds = []
+) => {
+  const type = normalizeContractType(contractType)
+  byType[type] = mergeOccupiedLevels(
+    byType[type] || emptyOccupiedLevels(),
+    geographies,
+    airportIds
+  )
+  return byType
 }
 
 export const assertNoCrossPriceLevelConflict = (newList, occupied) => {
@@ -177,25 +241,74 @@ export const assertNoCrossPriceLevelConflict = (newList, occupied) => {
   }
 }
 
-export const loadOccupiedPriceGeography = async (
+export const assertNoAirportConflict = (airportIds, occupied) => {
+  const ids = (airportIds || []).filter(Boolean).map((id) => String(id))
+  const seen = new Set()
+  for (const airportId of ids) {
+    if (seen.has(airportId)) {
+      throwInvalid("Аэропорт уже добавлен в тариф")
+    }
+    seen.add(airportId)
+    if (occupied.airportIds?.has(airportId)) {
+      throwInvalid("Аэропорт уже используется в другом тарифе")
+    }
+  }
+}
+
+export const loadOccupiedByContractType = async (
   airlineId,
   { excludePriceIds = [] } = {}
 ) => {
-  const rows = await prisma.priceGeoOnAirlinePrice.findMany({
-    where: {
-      airlinePrice: {
-        airlineId,
-        ...(excludePriceIds.length > 0
-          ? { id: { notIn: excludePriceIds } }
-          : {})
+  const byType = emptyOccupiedByContractType()
+  const priceWhere = {
+    airlineId,
+    ...(excludePriceIds.length > 0 ? { id: { notIn: excludePriceIds } } : {})
+  }
+
+  const [geoRows, airportRows] = await Promise.all([
+    prisma.priceGeoOnAirlinePrice.findMany({
+      where: { airlinePrice: priceWhere },
+      select: {
+        cityId: true,
+        regionId: true,
+        airlinePrice: { select: { contractType: true } }
       }
-    },
-    select: {
-      cityId: true,
-      regionId: true
-    }
+    }),
+    prisma.airportOnAirlinePrice.findMany({
+      where: {
+        airlineId,
+        airlinePrice: priceWhere
+      },
+      select: {
+        airportId: true,
+        airlinePrice: { select: { contractType: true } }
+      }
+    })
+  ])
+
+  for (const row of geoRows) {
+    const type = normalizeContractType(row.airlinePrice?.contractType)
+    byType[type] = mergeOccupiedLevels(byType[type], [
+      { cityId: row.cityId, regionId: row.regionId }
+    ])
+  }
+
+  for (const row of airportRows) {
+    const type = normalizeContractType(row.airlinePrice?.contractType)
+    byType[type] = mergeOccupiedLevels(byType[type], [], [row.airportId])
+  }
+
+  return byType
+}
+
+export const loadOccupiedPriceGeography = async (
+  airlineId,
+  { excludePriceIds = [], contractType = DEFAULT_CONTRACT_TYPE } = {}
+) => {
+  const byType = await loadOccupiedByContractType(airlineId, {
+    excludePriceIds
   })
-  return collectOccupiedLevels(rows)
+  return getOccupiedForContractType(byType, contractType)
 }
 
 export const normalizePriceGeographyList = async (inputs) => {

@@ -160,9 +160,16 @@ export const resolvePriceByHotelLocation = ({
   airlinePrices,
   hotelLocation,
   airportId,
-  skipCountryLevel = false
+  skipCountryLevel = false,
+  contractTypes = null
 }) => {
-  const prices = Array.isArray(airlinePrices) ? airlinePrices : []
+  let prices = Array.isArray(airlinePrices) ? airlinePrices : []
+  if (contractTypes?.length) {
+    const allowed = new Set(contractTypes)
+    prices = prices.filter((contract) =>
+      allowed.has(contract?.contractType || "request")
+    )
+  }
   const location = hotelLocation || {}
 
   const airportContract = resolveByAirportContract(prices, airportId)
