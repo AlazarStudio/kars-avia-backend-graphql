@@ -3960,7 +3960,9 @@ const passengerRequestResolvers = {
         accommodationCost: row.accommodationCost ?? 0,
         tariffName: row.tariffName ?? "",
         pricePerDay: row.pricePerDay ?? 0,
-        placementKind: row.placementKind ?? 0
+        placementKind: row.placementKind ?? 0,
+        accommodationDiscount: row.accommodationDiscount ?? null,
+        placementKindOverride: row.placementKindOverride ?? null
       }))
 
       const report = await prisma.passengerRequestHotelReport.upsert({

@@ -359,6 +359,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     pricePerDay: Float
     "Вид размещения: число мест в номере (1/2/3...), 0 — не определён"
     placementKind: Int
+    "Скидка на проживание в процентах, 0–100. null — не переопределена (берётся дефолт возрастной категории)"
+    accommodationDiscount: Float
+    "Ручной вид размещения номера (число мест). null — определяется автоматически"
+    placementKindOverride: Int
   }
 
   """
@@ -557,6 +561,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     tariffName: String
     pricePerDay: Float
     placementKind: Int
+    accommodationDiscount: Float
+    placementKindOverride: Int
   }
 
   input PassengerRequestCreateInput {
