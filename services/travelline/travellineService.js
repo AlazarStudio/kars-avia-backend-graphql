@@ -1515,6 +1515,20 @@ class TravellineService {
     let existingChecksum = null
     let existingGuests = [{ firstName: record.guestFirst ?? "Guest", lastName: record.guestLast ?? "Guest" }]
     let existingPlacements = []
+    let existingRoomStayIndex = null
+    let existingAdults = null
+    let existingChildAges = []
+
+    const captureStay = (stay) => {
+      existingChecksum = stay?.checksum ?? null
+      existingRoomStayIndex = stay?.roomStayIndex ?? null
+      if (Array.isArray(stay?.guests) && stay.guests.length > 0) existingGuests = stay.guests
+      if (Array.isArray(stay?.roomType?.placements)) {
+        existingPlacements = stay.roomType.placements.map((p) => p.code)
+      }
+      existingAdults = stay?.guestCount?.adultCount ?? null
+      if (Array.isArray(stay?.guestCount?.childAges)) existingChildAges = stay.guestCount.childAges
+    }
 
     try {
       const { data: currentData } = await this.requestWithRetry(
@@ -1523,30 +1537,22 @@ class TravellineService {
       )
       const currentBooking = currentData?.booking ?? currentData
       bookingVersion = currentBooking?.version ?? null
-      const currentStay = currentBooking?.roomStays?.[0] ?? currentBooking?.placements?.[0] ?? {}
-      existingChecksum = currentStay?.checksum ?? null
-      if (Array.isArray(currentStay?.guests) && currentStay.guests.length > 0) {
-        existingGuests = currentStay.guests
-      }
-      if (Array.isArray(currentStay?.roomType?.placements)) {
-        existingPlacements = currentStay.roomType.placements.map((p) => p.code)
-      }
-      logger.info(`amendReservation(${input.bookingId}): fetched live booking, version=${bookingVersion}, checksum=${existingChecksum}`)
+      captureStay(currentBooking?.roomStays?.[0] ?? currentBooking?.placements?.[0] ?? {})
+      logger.info(`amendReservation(${input.bookingId}): fetched live booking, version=${bookingVersion}, roomStayIndex=${existingRoomStayIndex}`)
     } catch (fetchErr) {
       // Fallback to stored raw if GET fails
       logger.warn(`amendReservation(${input.bookingId}): GET booking failed (${fetchErr?.message}), falling back to stored raw`)
       let rawBooking = {}
       try { rawBooking = JSON.parse(record.raw ?? "{}") } catch {}
       bookingVersion = rawBooking?.version ?? rawBooking?.booking?.version ?? null
-      const storedStay = rawBooking?.roomStays?.[0] ?? rawBooking?.booking?.roomStays?.[0] ?? {}
-      existingChecksum = storedStay?.checksum ?? null
-      if (Array.isArray(storedStay?.guests) && storedStay.guests.length > 0) existingGuests = storedStay.guests
-      if (Array.isArray(storedStay?.roomType?.placements)) existingPlacements = storedStay.roomType.placements.map((p) => p.code)
+      captureStay(rawBooking?.roomStays?.[0] ?? rawBooking?.booking?.roomStays?.[0] ?? {})
     }
 
-    const childAges = input.childAges?.length > 0 ? input.childAges : []
+    // Состав гостей при модификации должен совпадать с существующим roomStay —
+    // иначе TL отвечает 400 "RoomStay ... does not match an existing room stay".
+    const childAges = input.childAges?.length > 0 ? input.childAges : existingChildAges
     const placements = input.roomTypePlacements?.length > 0 ? input.roomTypePlacements : existingPlacements
-    const adults = input.adults ?? record.adults ?? 1
+    const adults = input.adults ?? existingAdults ?? record.adults ?? 1
 
     // Derive check-in/out times from existing booking
     let checkInTime = "15:00"
@@ -1589,10 +1595,12 @@ class TravellineService {
       // У брони с РЗПВ в raw лежат переопределённые времена (напр. 12:30/18:30).
       // Дефолтные времена тарифа берём из поиска — иначе TL отвечает 400
       // "Check-in time should be the default time" при снятии/смене РЗПВ.
-      if (!input.checkInTime && matchingStay?.stayDates?.arrivalDateTime) {
+      // Поиск приоритетнее input: UI передаёт времена из брони, а у брони
+      // с РЗПВ они уже переопределённые (не дефолтные).
+      if (matchingStay?.stayDates?.arrivalDateTime) {
         checkInTime = matchingStay.stayDates.arrivalDateTime.slice(11, 16)
       }
-      if (!input.checkOutTime && matchingStay?.stayDates?.departureDateTime) {
+      if (matchingStay?.stayDates?.departureDateTime) {
         checkOutTime = matchingStay.stayDates.departureDateTime.slice(11, 16)
       }
     } catch (searchErr) {
@@ -1617,6 +1625,9 @@ class TravellineService {
       })
 
     const roomStayBody = {
+      // roomStayIndex привязывает запрос к существующему roomStay брони — без
+      // него TL отвечает 400 "RoomStay ... does not match an existing room stay".
+      ...(existingRoomStayIndex != null ? { roomStayIndex: existingRoomStayIndex } : {}),
       roomType: {
         id: record.roomTypeId,
         placements: placements.map((code) => ({ code }))
@@ -1633,41 +1644,7 @@ class TravellineService {
     }
 
     // При РЗПВ checksum из поиска не включает доплату — /modify отвечает
-    // 400 NotEnoughRoomStays. Прогоняем verify: он пересчитывает стоимость
-    // с extraStay и возвращает checksum с учётом доплаты (как в create, №9).
-    if (amendExtraStay) {
-      try {
-        const { data: verifyData } = await this.requestWithRetry(
-          "POST",
-          `${PREFIX_RESERVATION}/v1/bookings/verify`,
-          {
-            booking: {
-              propertyId: record.propertyId,
-              roomStays: [roomStayBody],
-              customer: {
-                firstName: record.guestFirst ?? "Guest",
-                lastName: record.guestLast ?? "Guest",
-                contacts: {
-                  phones: record.guestPhone ? [{ phoneNumber: record.guestPhone }] : [],
-                  emails: record.guestEmail ? [{ emailAddress: record.guestEmail }] : []
-                }
-              },
-              ...(input.corporateId ?? record.corporateId
-                ? { corporateId: input.corporateId ?? record.corporateId }
-                : {})
-            }
-          }
-        )
-        const verifiedChecksum = verifyData?.booking?.roomStays?.[0]?.checksum
-        if (verifiedChecksum) {
-          roomStayBody.checksum = verifiedChecksum
-          logger.info(`amendReservation(${input.bookingId}): checksum updated via verify (extraStay)`)
-        }
-      } catch (verifyErr) {
-        logger.warn(`amendReservation(${input.bookingId}): verify for extraStay failed (${verifyErr?.message}), keeping search checksum`)
-      }
-    }
-
+    // 400 NotEnoughRoomStays.
     const amendBody = {
       booking: {
         propertyId: record.propertyId,
@@ -1684,6 +1661,26 @@ class TravellineService {
         ...(input.corporateId ?? record.corporateId ? { corporateId: input.corporateId ?? record.corporateId } : {}),
         ...(input.comment ? { bookingComments: [input.comment] } : {})
       }
+    }
+
+    // Проверка возможности модификации: POST /v1/bookings/{number}/verify —
+    // verify В КОНТЕКСТЕ существующей брони. Возвращает checksum, пригодный для
+    // /modify (общий /bookings/verify выдаёт checksum новой брони — /modify
+    // отвечает 400 "RoomStay ... does not match an existing room stay").
+    try {
+      const { data: verifyData } = await this.requestWithRetry(
+        "POST",
+        `${PREFIX_RESERVATION}/v1/bookings/${input.bookingId}/verify`,
+        amendBody
+      )
+      const verifiedStay =
+        verifyData?.booking?.roomStays?.[0] ?? verifyData?.roomStays?.[0] ?? null
+      if (verifiedStay?.checksum) {
+        roomStayBody.checksum = verifiedStay.checksum
+        logger.info(`amendReservation(${input.bookingId}): checksum updated via modification verify`)
+      }
+    } catch (verifyErr) {
+      logger.warn(`amendReservation(${input.bookingId}): modification verify failed (${verifyErr?.message}), keeping search checksum`)
     }
 
     // POST /api/reservation/v1/bookings/{number}/modify
