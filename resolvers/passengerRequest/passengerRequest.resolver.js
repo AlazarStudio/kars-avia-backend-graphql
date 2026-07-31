@@ -1938,6 +1938,69 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    // массовое удаление получателей воды/питания
+    removePassengerRequestPeople: async (
+      _,
+      { requestId, service, personIndexes },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      if (service !== "WATER" && service !== "MEAL") {
+        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+      }
+      const serviceField = service === "WATER" ? "waterService" : "mealService"
+
+      const prev = existing[serviceField] || emptyPeopleService()
+      const prevPeople = prev.people || []
+
+      // Валидация ДО изменений: пачка применяется целиком либо не применяется вовсе.
+      const indexes = normalizeBulkIndexes(personIndexes)
+      if (indexes.length === 0) {
+        throw new GraphQLError("Не выбран ни один получатель")
+      }
+      for (const idx of indexes) {
+        assertIndex(idx, prevPeople.length, "personIndex")
+      }
+
+      const { next: people } = spliceAtIndexes(prevPeople, indexes)
+
+      // Статус услуги пересчитываем ОДИН раз по итогу всей пачки.
+      const recalc = recomputeServiceStatus(
+        prev,
+        prevPeople.length,
+        people.length
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [serviceField]: {
+            ...prev,
+            people,
+            status: recalc.status,
+            times: recalc.times
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_people",
+        description: `Получатели удалены из сервиса: ${service}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателей (${indexes.length}) в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
       // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
@@ -3435,6 +3498,73 @@ const passengerRequestResolvers = {
         action: "remove_passenger_request_driver_person",
         description: "Пассажир удален у водителя трансфера ФАП",
         fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира #${personIndex} у водителя #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
+    removePassengerRequestDriverPeople: async (
+      _,
+      { requestId, driverIndex, personIndexes, direction = "ARRIVAL" },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
+      const existing = await loadRequestOrThrow(requestId)
+
+      const transferField = getTransferField(direction)
+      const prev = existing[transferField] || emptyDriversService()
+      const drivers = prev.drivers || []
+      assertIndex(driverIndex, drivers.length, "driverIndex")
+      const people = drivers[driverIndex].people || []
+
+      const indexes = normalizeBulkIndexes(personIndexes)
+      if (indexes.length === 0) {
+        throw new GraphQLError("Не выбран ни один пассажир")
+      }
+      for (const idx of indexes) {
+        assertIndex(idx, people.length, "personIndex")
+      }
+
+      const driversClone = drivers.map((d, i) => {
+        const normalized = normalizePassengerServiceDriver(d)
+        if (i !== driverIndex) return normalized
+        const { next } = spliceAtIndexes(normalized.people || [], indexes)
+        return { ...normalized, people: next }
+      })
+
+      // Факт поездки = max(список, transportedCount), поэтому итог считаем
+      // через transferFactCount, а не по длине people. Пересчёт один на пачку.
+      const totalPeopleBefore = transferFactCount(drivers)
+      const totalPeopleAfter = transferFactCount(driversClone)
+      const recalc = recomputeServiceStatus(
+        prev,
+        totalPeopleBefore,
+        totalPeopleAfter
+      )
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          [transferField]: {
+            ...prev,
+            drivers: driversClone,
+            status: recalc.status,
+            times: recalc.times
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "remove_passenger_request_driver_people",
+        description: "Пассажиры удалены у водителя трансфера ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажиров (${indexes.length}) у водителя #${driverIndex} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,

@@ -754,6 +754,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       personIndex: Int!
     ): PassengerRequest!
 
+    """
+    Массовое удаление получателей из воды/питания. Вся пачка за один проход:
+    поштучный вызов в цикле множит записи в логе и ломается на съезжающих индексах.
+    """
+    removePassengerRequestPeople(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      personIndexes: [Int!]!
+    ): PassengerRequest!
+
     addPassengerRequestHotel(
       requestId: ID!
       hotel: PassengerServiceHotelInput!
@@ -884,6 +894,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       driverIndex: Int!
       personIndex: Int!
+      direction: TransferDirection = ARRIVAL
+    ): PassengerRequest!
+
+    """
+    Массовое удаление пассажиров у водителя трансфера.
+    """
+    removePassengerRequestDriverPeople(
+      requestId: ID!
+      driverIndex: Int!
+      personIndexes: [Int!]!
       direction: TransferDirection = ARRIVAL
     ): PassengerRequest!
 
