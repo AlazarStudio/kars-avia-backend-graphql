@@ -2553,6 +2553,10 @@ const passengerRequestResolvers = {
         const newPeople = [...(h.people || [])]
         const previousPerson = newPeople[personIndex]
         newPeople[personIndex] = {
+          // Прежний гость — база, инпут накладывается поверх. Клиенты шлют неполный
+          // набор полей, и без базы всё, чего нет в инпуте (arrival, departure,
+          // roomCategory, roomKind), пропадало бы из документа.
+          ...ensureHotelPerson(previousPerson, i, h.name),
           ...person,
           personId: person?.personId ?? previousPerson?.personId ?? null,
           personType: normalizePersonType(
