@@ -924,10 +924,34 @@ const passengerRequestTypeDef = /* GraphQL */ `
       movedAt: Date
     ): PassengerRequest!
 
+    """
+    Массовое переселение пассажиров в другую гостиницу заявки.
+    """
+    relocatePassengerRequestHotelPeople(
+      requestId: ID!
+      fromHotelIndex: Int!
+      toHotelIndex: Int!
+      personIndexes: [Int!]!
+      reason: String!
+      movedAt: Date
+    ): PassengerRequest!
+
     evictPassengerRequestHotelPerson(
       requestId: ID!
       hotelIndex: Int!
       personIndex: Int!
+      reason: String!
+      evictedAt: Date
+    ): PassengerRequest!
+
+    """
+    Массовое выселение пассажиров из отеля. Вся пачка обрабатывается за один проход:
+    поштучный вызов в цикле множит записи в логе и уведомления и ломается на съезжающих индексах.
+    """
+    evictPassengerRequestHotelPeople(
+      requestId: ID!
+      hotelIndex: Int!
+      personIndexes: [Int!]!
       reason: String!
       evictedAt: Date
     ): PassengerRequest!
