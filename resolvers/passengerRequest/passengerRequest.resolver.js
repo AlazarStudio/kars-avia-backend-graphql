@@ -2603,6 +2603,80 @@ const passengerRequestResolvers = {
       return passengerRequest
     },
 
+    assignPassengerRequestHotelRoom: async (
+      _,
+      { requestId, hotelIndex, personIndexes, roomNumber },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const living = existing.livingService || emptyLivingService()
+      const hotels = living.hotels || []
+      assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      const people = hotels[hotelIndex].people || []
+
+      // Индексы здесь не съезжают (это update, а не удаление), нормализация нужна
+      // ради дедупа и предсказуемого порядка.
+      const indexes = normalizeBulkIndexes(personIndexes)
+      if (indexes.length === 0) {
+        throw new GraphQLError("Не выбран ни один гость")
+      }
+      for (const idx of indexes) {
+        assertIndex(idx, people.length, "personIndex")
+      }
+
+      const room = normalizeOptionalString(roomNumber)
+      const target = new Set(indexes)
+
+      const hotelsClone = hotels.map((h, i) => {
+        if (i !== hotelIndex) {
+          return {
+            ...h,
+            people: (h.people || []).map((item) =>
+              ensureHotelPerson(item, i, h.name)
+            )
+          }
+        }
+        return {
+          ...h,
+          people: (h.people || []).map((item, personIndex) => {
+            const normalized = ensureHotelPerson(item, i, h.name)
+            // Меняем ОДНО поле у существующего объекта: остальные (arrival,
+            // departure, roomCategory, roomKind…) остаются нетронутыми.
+            return target.has(personIndex)
+              ? { ...normalized, roomNumber: room }
+              : normalized
+          })
+        }
+      })
+
+      const passengerRequest = await prisma.passengerRequest.update({
+        where: { id: requestId },
+        data: {
+          livingService: {
+            ...living,
+            hotels: hotelsClone
+          }
+        }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "assign_passenger_request_hotel_room",
+        description: "Присвоен номер комнаты в отеле ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} присвоил номер «${room ?? "—"}» гостям (${indexes.length}) в отеле #${hotelIndex} ФАП ${passengerRequest.flightNumber}`,
+        oldData: existing,
+        newData: passengerRequest,
+        airlineId: passengerRequest.airlineId,
+        passengerRequestId: passengerRequest.id
+      })
+
+      publishPassengerRequestUpdated(passengerRequest)
+
+      return passengerRequest
+    },
+
     removePassengerRequestHotelPerson: async (
       _,
       { requestId, hotelIndex, personIndex },

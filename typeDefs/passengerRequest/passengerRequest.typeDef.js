@@ -808,6 +808,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
       person: PassengerServiceHotelPersonInput!
     ): PassengerRequest!
 
+    """
+    Присвоить номер комнаты пачке гостей. Трогает ТОЛЬКО roomNumber — в отличие от
+    updatePassengerRequestHotelPerson, который заменяет объект гостя целиком и теряет
+    поля, не переданные клиентом. null снимает номер.
+    """
+    assignPassengerRequestHotelRoom(
+      requestId: ID!
+      hotelIndex: Int!
+      personIndexes: [Int!]!
+      roomNumber: String
+    ): PassengerRequest!
+
     addPassengerRequestDriver(
       requestId: ID!
       driver: PassengerServiceDriverInput!
