@@ -4061,6 +4061,46 @@ const passengerRequestResolvers = {
       })
 
       return updated
+    },
+
+    hidePassengerRequestHotelReport: async (
+      _,
+      { requestId, hotelIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+
+      const report = await prisma.passengerRequestHotelReport.findUnique({
+        where: {
+          passengerRequestId_hotelIndex: {
+            passengerRequestId: requestId,
+            hotelIndex
+          }
+        }
+      })
+      if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
+
+      const updated = await prisma.passengerRequestHotelReport.update({
+        where: { id: report.id },
+        data: { submittedAt: null }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "hide_passenger_request_hotel_report",
+        description: "Отчет по отелю ФАП скрыт от авиакомпании",
+        fulldescription: `Пользователь ${getSubjectName(context)} скрыл отчет по отелю #${hotelIndex} от авиакомпании в ФАП ${existing.flightNumber}`,
+        newData: updated,
+        airlineId: existing.airlineId,
+        passengerRequestId: requestId
+      })
+
+      // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
+      // и отчёт скроется без перезагрузки.
+      publishPassengerRequestUpdated(existing)
+
+      return updated
     }
   },
 

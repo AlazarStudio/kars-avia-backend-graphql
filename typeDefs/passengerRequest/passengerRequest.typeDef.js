@@ -948,6 +948,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       hotelIndex: Int!
     ): PassengerRequestHotelReport!
+
+    """
+    Скрыть отчёт по отелю от авиакомпании (снять отправку на проверку).
+    """
+    hidePassengerRequestHotelReport(
+      requestId: ID!
+      hotelIndex: Int!
+    ): PassengerRequestHotelReport!
   }
 
   type Subscription {
