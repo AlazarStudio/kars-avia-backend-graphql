@@ -36,6 +36,7 @@ import {
   readLinkDriverIndex
 } from "../../services/passengerRequest/serviceDrivers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
+import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
 import {
   recomputeServiceStatus,
@@ -3965,6 +3966,19 @@ const passengerRequestResolvers = {
         placementKindOverride: row.placementKindOverride ?? null
       }))
 
+      // Флаг отправки сбрасываем ТОЛЬКО если строки реально изменились: автосейв
+      // дёргается ещё и флашем на размонтировании страницы и перед выгрузкой Excel,
+      // и без этой проверки флаг слетал бы от простого захода в отчёт.
+      const prev = await prisma.passengerRequestHotelReport.findUnique({
+        where: {
+          passengerRequestId_hotelIndex: {
+            passengerRequestId: requestId,
+            hotelIndex
+          }
+        }
+      })
+      const rowsChanged = !reportRowsEqual(rows, prev?.reportRows)
+
       const report = await prisma.passengerRequestHotelReport.upsert({
         where: {
           passengerRequestId_hotelIndex: {
@@ -3977,7 +3991,10 @@ const passengerRequestResolvers = {
           hotelIndex,
           reportRows: rows
         },
-        update: { reportRows: rows }
+        update: {
+          reportRows: rows,
+          ...(rowsChanged && { submittedAt: null })
+        }
       })
       await logPassengerRequestAction({
         context,
@@ -3994,6 +4011,56 @@ const passengerRequestResolvers = {
       publishPassengerRequestUpdated(existing)
 
       return report
+    },
+
+    submitPassengerRequestHotelReport: async (
+      _,
+      { requestId, hotelIndex },
+      context
+    ) => {
+      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      const existing = await loadRequestOrThrow(requestId)
+      const hotel = existing.livingService?.hotels?.[hotelIndex]
+
+      const report = await prisma.passengerRequestHotelReport.findUnique({
+        where: {
+          passengerRequestId_hotelIndex: {
+            passengerRequestId: requestId,
+            hotelIndex
+          }
+        }
+      })
+      if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
+
+      const updated = await prisma.passengerRequestHotelReport.update({
+        where: { id: report.id },
+        data: { submittedAt: new Date() }
+      })
+
+      await logPassengerRequestAction({
+        context,
+        action: "submit_passenger_request_hotel_report",
+        description: "Отчет по отелю ФАП отправлен на проверку",
+        fulldescription: `Пользователь ${getSubjectName(context)} отправил отчет по отелю #${hotelIndex} на проверку в ФАП ${existing.flightNumber}`,
+        newData: updated,
+        airlineId: existing.airlineId,
+        passengerRequestId: requestId
+      })
+
+      // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
+      // и отчёт появится без перезагрузки.
+      publishPassengerRequestUpdated(existing)
+
+      await notifyPassengerRequestSite({
+        action: "submit_passenger_request_hotel_report",
+        passengerRequestId: existing.id,
+        airlineId: existing.airlineId,
+        hotelId: hotel?.hotelId || undefined,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "#" + hotelIndex}</span> отправлен на проверку`,
+        __typename: "PassengerRequestUpdatedNotification"
+      })
+
+      return updated
     }
   },
 

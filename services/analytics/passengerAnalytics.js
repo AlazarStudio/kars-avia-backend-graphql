@@ -14,7 +14,7 @@ const PASSENGER_ANALYTICS_INCLUDE = {
 }
 
 export async function computePassengerAnalytics(input, options = {}) {
-  const { scopedAirlineId = null } = options
+  const { scopedAirlineId = null, viewerIsAirline = false } = options
   const { dateFrom, dateTo } = resolvePeriodBounds(input.dateFrom, input.dateTo)
 
   const airlineId = scopedAirlineId || input.airlineId || null
@@ -49,7 +49,7 @@ export async function computePassengerAnalytics(input, options = {}) {
     orderBy: { createdAt: "desc" }
   })
 
-  const rows = requests.map(aggregatePassengerRequest)
+  const rows = requests.map((r) => aggregatePassengerRequest(r, { viewerIsAirline }))
   // Сколько показанных заявок попало по дате создания (без даты рейса) — информативно.
   const noFlightDateCount = rows.filter((r) => !r.flightDate).length
   const totals = { ...buildPassengerAnalyticsTotals(rows), noFlightDateCount }

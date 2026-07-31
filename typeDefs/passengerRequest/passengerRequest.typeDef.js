@@ -375,6 +375,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     passengerRequestId: ID!
     hotelIndex: Int!
     reportRows: [PassengerRequestHotelReportRow!]!
+    "Когда диспетчер отправил отчёт авиакомпании на проверку. null — отчёт ещё не открыт авиакомпании"
+    submittedAt: Date
   }
 
   """
@@ -937,6 +939,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       hotelIndex: Int!
       reportRows: [PassengerRequestHotelReportRowInput!]!
+    ): PassengerRequestHotelReport!
+
+    """
+    Отправить отчёт по отелю авиакомпании на проверку. До этого авиакомпания отчёт не видит.
+    """
+    submitPassengerRequestHotelReport(
+      requestId: ID!
+      hotelIndex: Int!
     ): PassengerRequestHotelReport!
   }
 

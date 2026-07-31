@@ -135,7 +135,10 @@ const analyticsResolver = {
       const { user } = context
       // АК видит только свои заявки; диспетчер/суперадмин — по input.airlineId (или все)
       const scopedAirlineId = user?.airlineId || input.airlineId || null
-      return await computePassengerAnalytics(input, { scopedAirlineId })
+      // Признак «зритель — авиакомпания» считаем ОТДЕЛЬНО: scopedAirlineId непуст и когда
+      // диспетчер просто отфильтровал аналитику по авиакомпании.
+      const viewerIsAirline = !!user?.airlineId
+      return await computePassengerAnalytics(input, { scopedAirlineId, viewerIsAirline })
     }
   }
 }

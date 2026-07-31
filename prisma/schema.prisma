@@ -1399,6 +1399,7 @@ model PassengerRequestHotelReport {
   passengerRequestId String           @db.ObjectId
   hotelIndex         Int
   reportRows         Json /// массив строк: fullName, roomNumber, roomCategory, daysCount, breakfast, lunch, dinner, foodCost, accommodationCost
+  submittedAt        DateTime? /// когда диспетчер отправил отчёт авиакомпании на проверку; null — не отправлен
 
   @@unique([passengerRequestId, hotelIndex])
 }

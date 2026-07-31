@@ -63,12 +63,23 @@ function computeCostMissing(request, hasGuestRow) {
   return hasLivingPlanned && !hasGuestRow
 }
 
-export function aggregatePassengerRequest(request) {
-  const { living, meal, hasGuestRow } = sumHotelReportsCost(request?.hotelReports)
+// Отчёты, которые вправе видеть текущий зритель. Авиакомпании — только отправленные
+// на проверку (submittedAt заполнен): до отправки отчёт считается черновиком и в
+// аналитику не попадает. Диспетчеру и суперадмину видно всё.
+export function visibleHotelReports(hotelReports, viewerIsAirline) {
+  const list = Array.isArray(hotelReports) ? hotelReports : []
+  if (!viewerIsAirline) return list
+  return list.filter((rep) => rep?.submittedAt != null)
+}
+
+export function aggregatePassengerRequest(request, options = {}) {
+  const { viewerIsAirline = false } = options
+  const reports = visibleHotelReports(request?.hotelReports, viewerIsAirline)
+  const { living, meal, hasGuestRow } = sumHotelReportsCost(reports)
   const transfer = sumTransferCost(request)
   const costMissing = computeCostMissing(request, hasGuestRow)
   const total = roundMoney(living + meal + transfer)
-  const roomNights = sumRoomNights(request?.hotelReports)
+  const roomNights = sumRoomNights(reports)
   const water = serviceCounts(request?.waterService)
   const mealSvc = serviceCounts(request?.mealService)
   return {
@@ -93,12 +104,12 @@ export function aggregatePassengerRequest(request) {
     transferDeparture: sumTransferField(request, "departureTransferService"),
     transferBaggage: sumTransferField(request, "baggageDeliveryService"),
     transferIntercity: sumTransferField(request, "intercityTransferService"),
-    ...countMeals(request?.hotelReports),
+    ...countMeals(reports),
     waterPlanned: water.planned,
     waterServed: water.served,
     mealServicePlanned: mealSvc.planned,
     mealServiceServed: mealSvc.served,
-    hotels: buildHotelsBreakdown(request),
+    hotels: buildHotelsBreakdown(request, reports),
     living,
     meal,
     transfer,
@@ -219,10 +230,10 @@ function serviceCounts(svc) {
   }
 }
 
-function buildHotelsBreakdown(request) {
-  const reports = request?.hotelReports || []
+function buildHotelsBreakdown(request, reports) {
+  const list = Array.isArray(reports) ? reports : []
   return (request?.livingService?.hotels || []).map((h, i) => {
-    const rep = reports.find((r) => r?.hotelIndex === i)
+    const rep = list.find((r) => r?.hotelIndex === i)
     const rows = Array.isArray(rep?.reportRows) ? rep.reportRows.filter(isGuestRow) : []
     return {
       hotelName: h?.name || "",
