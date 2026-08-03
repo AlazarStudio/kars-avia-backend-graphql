@@ -5,9 +5,10 @@ import { updateTimes } from "./utils.js"
  *
  * Правила:
  * - CANCELLED — не меняем.
- * - COMPLETED + добавили человека (nextCount > prevCount) → IN_PROGRESS (сброс finishedAt).
- * - COMPLETED + факт стал меньше плана (nextCount < planCount) → IN_PROGRESS
- *   (удаление ниже плана либо поднятие плана выше факта).
+ * - COMPLETED без плана + добавили человека → IN_PROGRESS (сброс finishedAt).
+ * - COMPLETED с планом → IN_PROGRESS только когда факт стал МЕНЬШЕ плана
+ *   (удаление ниже плана либо поднятие плана выше факта). Добавление сверх плана
+ *   статус не трогает.
  * - COMPLETED в остальных случаях — не меняем.
  * - NEW/ACCEPTED при наличии людей → IN_PROGRESS.
  * - факт >= план → COMPLETED (автозавершение).
@@ -28,7 +29,10 @@ export const recomputeServiceStatus = (prev, prevCount, nextCount) => {
   }
 
   if (status === "COMPLETED") {
-    const reopen = added || (planCount != null && nextCount < planCount)
+    // Перевыполнение плана НЕ «расзавершает» услугу: при плане COMPLETED переоткрывается
+    // только если факт упал ниже плана. Без этого заселение сверх заявки заставляло статус
+    // мигать COMPLETED↔IN_PROGRESS через одного гостя. Без плана — прежнее поведение.
+    const reopen = planCount == null ? added : nextCount < planCount
     if (reopen) {
       return {
         status: "IN_PROGRESS",

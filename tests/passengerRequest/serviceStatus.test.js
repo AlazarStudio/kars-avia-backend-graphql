@@ -40,14 +40,13 @@ test("IN_PROGRESS + достигли плана → COMPLETED", () => {
   assert.ok(r.times.finishedAt)
 })
 
-test("COMPLETED + добавили человека (выше плана) → IN_PROGRESS, finishedAt сброшен", () => {
+test("COMPLETED + добавили сверх плана → остаётся COMPLETED (перебор не расзавершает)", () => {
   const r = recomputeServiceStatus(
     { status: "COMPLETED", times: { finishedAt: new Date() }, plan: { peopleCount: 3 } },
     3,
     4
   )
-  assert.equal(r.status, "IN_PROGRESS")
-  assert.equal(r.times.finishedAt, null)
+  assert.equal(r.status, "COMPLETED")
 })
 
 test("COMPLETED + добавили человека без плана → IN_PROGRESS (кейс из репорта)", () => {
@@ -102,6 +101,15 @@ test("правка полей без изменения числа: COMPLETED �
     { status: "COMPLETED", times: { finishedAt: new Date() }, plan: { peopleCount: 3 } },
     3,
     3
+  )
+  assert.equal(r.status, "COMPLETED")
+})
+
+test("COMPLETED + ещё один сверх плана → COMPLETED (нет мигания статуса)", () => {
+  const r = recomputeServiceStatus(
+    { status: "COMPLETED", times: { finishedAt: new Date() }, plan: { peopleCount: 3 } },
+    4,
+    5
   )
   assert.equal(r.status, "COMPLETED")
 })

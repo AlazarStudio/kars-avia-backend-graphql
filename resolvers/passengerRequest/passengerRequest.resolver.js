@@ -2259,20 +2259,6 @@ const passengerRequestResolvers = {
         )
       }
 
-      // Валидация: сумма мест по всем отелям не должна превышать план услуги
-      const planCap = living?.plan?.peopleCount
-      if (typeof planCap === "number" && typeof hotel.peopleCount === "number") {
-        const sumOthers = hotels.reduce(
-          (s, h, i) => s + (i === hotelIndex ? 0 : Number(h?.peopleCount) || 0),
-          0
-        )
-        if (sumOthers + hotel.peopleCount > planCap) {
-          throw new GraphQLError(
-            `Превышен план услуги. Максимум для этого отеля: ${Math.max(0, planCap - sumOthers)}`
-          )
-        }
-      }
-
       const updatedHotel = {
         ...prevHotel,
         name: hotel.name ?? prevHotel.name,
@@ -2337,6 +2323,12 @@ const passengerRequestResolvers = {
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
       assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      // Порог перебора считаем по КОНКРЕТНОЙ гостинице: totalPeopleBefore/After ниже
+      // считаются по всей услуге и для этого не годятся.
+      const overbookHotel = hotels[hotelIndex] || {}
+      const overbookCapacity = Number(overbookHotel.peopleCount) || 0
+      const overbookPlacedBefore = (overbookHotel.people || []).length
+      const overbookPlacedAfter = overbookPlacedBefore + 1
       if (
         context.subjectType === "EXTERNAL_USER" &&
         context.subject?.scope === "HOTEL" &&
@@ -2429,6 +2421,29 @@ const passengerRequestResolvers = {
 
       publishPassengerRequestUpdated(passengerRequest)
 
+      // Уведомляем ТОЛЬКО при переходе через порог, иначе каждый следующий гость сверх
+      // заявки плодит новую запись.
+      if (
+        overbookCapacity > 0 &&
+        overbookPlacedBefore <= overbookCapacity &&
+        overbookPlacedAfter > overbookCapacity
+      ) {
+        // Уведомление не должно ронять уже совершённое добавление: гость записан,
+        // и ошибка на этом шаге заставила бы оператора отсканировать его повторно.
+        try {
+          await notifyPassengerRequestSite({
+            action: "passenger_request_hotel_overbooked",
+            passengerRequestId: passengerRequest.id,
+            airlineId: passengerRequest.airlineId,
+            hotelId: overbookHotel.hotelId || undefined,
+            descriptionHtml: `В гостинице <span style='color:#545873'>${overbookHotel.name || `#${hotelIndex}`}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
+            __typename: "PassengerRequestUpdatedNotification"
+          })
+        } catch (error) {
+          console.error(`Ошибка уведомления об overbooked ФАП (requestId=${requestId}, hotelIndex=${hotelIndex}):`, error)
+        }
+      }
+
       return passengerRequest
     },
 
@@ -2447,6 +2462,10 @@ const passengerRequestResolvers = {
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
       assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      const overbookHotel = hotels[hotelIndex] || {}
+      const overbookCapacity = Number(overbookHotel.peopleCount) || 0
+      const overbookPlacedBefore = (overbookHotel.people || []).length
+      const overbookPlacedAfter = overbookPlacedBefore + peopleWithId.length
       if (
         context.subjectType === "EXTERNAL_USER" &&
         context.subject?.scope === "HOTEL" &&
@@ -2523,6 +2542,29 @@ const passengerRequestResolvers = {
       })
 
       publishPassengerRequestUpdated(passengerRequest)
+
+      // Уведомляем ТОЛЬКО при переходе через порог, иначе каждый следующий гость сверх
+      // заявки плодит новую запись.
+      if (
+        overbookCapacity > 0 &&
+        overbookPlacedBefore <= overbookCapacity &&
+        overbookPlacedAfter > overbookCapacity
+      ) {
+        // Уведомление не должно ронять уже совершённое добавление: гости записаны,
+        // и ошибка на этом шаге заставила бы оператора отсканировать их повторно.
+        try {
+          await notifyPassengerRequestSite({
+            action: "passenger_request_hotel_overbooked",
+            passengerRequestId: passengerRequest.id,
+            airlineId: passengerRequest.airlineId,
+            hotelId: overbookHotel.hotelId || undefined,
+            descriptionHtml: `В гостинице <span style='color:#545873'>${overbookHotel.name || `#${hotelIndex}`}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
+            __typename: "PassengerRequestUpdatedNotification"
+          })
+        } catch (error) {
+          console.error(`Ошибка уведомления об overbooked ФАП (requestId=${requestId}, hotelIndex=${hotelIndex}):`, error)
+        }
+      }
 
       return passengerRequest
     },
@@ -3913,14 +3955,9 @@ const passengerRequestResolvers = {
       const sourceHotel = hotels[fromHotelIndex]
       const targetHotel = hotels[toHotelIndex]
 
-      // Проверка вместимости целевого отеля
-      const targetCapacity = Number(targetHotel?.peopleCount) || 0
-      const targetPlaced = (targetHotel?.people || []).length
-      if (targetCapacity > 0 && targetPlaced >= targetCapacity) {
-        throw new GraphQLError(
-          `В гостинице «${targetHotel?.name || `#${toHotelIndex}`}» нет свободных мест (${targetPlaced}/${targetCapacity})`
-        )
-      }
+      // Лимит вместимости при переселении снят сознательно: фактическое заселение
+      // может превышать заказ, и перебор надо иметь возможность перераспределить
+      // между гостиницами, а не только выселять.
       const person = ensureHotelPerson(
         sourcePeople[personIndex],
         fromHotelIndex,
@@ -4045,15 +4082,9 @@ const passengerRequestResolvers = {
         assertIndex(idx, sourcePeople.length, "personIndex")
       }
 
-      // Вместимость проверяем на ВСЮ пачку и до начала изменений: проверка
-      // «по одному» от исходного состояния пропустила бы перебор.
-      const targetCapacity = Number(targetHotel?.peopleCount) || 0
-      const targetPlaced = (targetHotel?.people || []).length
-      if (targetCapacity > 0 && targetPlaced + indexes.length > targetCapacity) {
-        throw new GraphQLError(
-          `В гостинице «${targetHotel?.name || `#${toHotelIndex}`}» свободно ${Math.max(0, targetCapacity - targetPlaced)} мест, а переселяется ${indexes.length}`
-        )
-      }
+      // Лимит вместимости при переселении снят сознательно: фактическое заселение
+      // может превышать заказ, и перебор надо иметь возможность перераспределить
+      // между гостиницами, а не только выселять.
 
       const relocationDate = movedAt ? new Date(movedAt) : new Date()
       const { next: nextSource, removed } = spliceAtIndexes(sourcePeople, indexes)
