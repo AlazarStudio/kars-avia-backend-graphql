@@ -2049,7 +2049,7 @@ const passengerRequestResolvers = {
         context,
         action: "add_passenger_request_hotel",
         description: `Отель добавлен в ФАП: ${hotelWithItemId.name}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил отель ${hotelWithItemId.name} в ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил гостиницу ${hotelWithItemId.name} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2064,7 +2064,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: hotelWithItemId.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> добавлен отель <span style='color:#545873'>${hotelWithItemId.name}</span>`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> добавлена гостиница <span style='color:#545873'>${hotelWithItemId.name}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -2210,7 +2210,7 @@ const passengerRequestResolvers = {
         context,
         action: "remove_passenger_request_hotel",
         description: `Отель удален из ФАП: ${removedHotel?.name || hotelIndex}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил отель ${removedHotel?.name || `#${hotelIndex}`} из ФАП ${passengerRequest.flightNumber}`,
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил гостиницу ${removedHotel?.name || "без названия"} из ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2225,7 +2225,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: removedHotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> удален отель <span style='color:#545873'>${removedHotel?.name || `#${hotelIndex}`}</span>`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> удалена гостиница <span style='color:#545873'>${removedHotel?.name || "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -2289,7 +2289,7 @@ const passengerRequestResolvers = {
         context,
         action: "update_passenger_request_hotel",
         description: `Отель обновлён в ФАП: ${updatedHotel.name || hotelIndex}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил отель ${updatedHotel.name || `#${hotelIndex}`} в ФАП ${passengerRequest.flightNumber} (мест: ${updatedHotel.peopleCount})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил гостиницу ${updatedHotel.name || "без названия"} в ФАП ${passengerRequest.flightNumber} (мест: ${updatedHotel.peopleCount})`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2304,7 +2304,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: updatedHotel.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> обновлён отель <span style='color:#545873'>${updatedHotel.name || `#${hotelIndex}`}</span>`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> обновлена гостиница <span style='color:#545873'>${updatedHotel.name || "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -2403,8 +2403,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_hotel_person",
-        description: "Пассажир добавлен в отель ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в отель ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир добавлен в гостиницу ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в гостиницу ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2436,7 +2436,7 @@ const passengerRequestResolvers = {
             passengerRequestId: passengerRequest.id,
             airlineId: passengerRequest.airlineId,
             hotelId: overbookHotel.hotelId || undefined,
-            descriptionHtml: `В гостинице <span style='color:#545873'>${overbookHotel.name || `#${hotelIndex}`}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
+            descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> в гостинице <span style='color:#545873'>${overbookHotel.name || "без названия"}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
             __typename: "PassengerRequestUpdatedNotification"
           })
         } catch (error) {
@@ -2533,8 +2533,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_hotel_people",
-        description: `Пакетно добавлены пассажиры в отель ФАП (${people.length})`,
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в отель ФАП ${passengerRequest.flightNumber}`,
+        description: `Пакетно добавлены пассажиры в гостиницу ФАП (${people.length})`,
+        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в гостиницу ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2558,7 +2558,7 @@ const passengerRequestResolvers = {
             passengerRequestId: passengerRequest.id,
             airlineId: passengerRequest.airlineId,
             hotelId: overbookHotel.hotelId || undefined,
-            descriptionHtml: `В гостинице <span style='color:#545873'>${overbookHotel.name || `#${hotelIndex}`}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
+            descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> в гостинице <span style='color:#545873'>${overbookHotel.name || "без названия"}</span> заселено <span style='color:#545873'>${overbookPlacedAfter}</span> при <span style='color:#545873'>${overbookCapacity}</span> местах по заявке`,
             __typename: "PassengerRequestUpdatedNotification"
           })
         } catch (error) {
@@ -2636,8 +2636,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request_hotel_person",
-        description: "Данные пассажира в отеле ФАП обновлены",
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил данные пассажира в отеле ФАП ${passengerRequest.flightNumber}`,
+        description: "Данные пассажира в гостинице ФАП обновлены",
+        fulldescription: `Пользователь ${getSubjectName(context)} обновил данные пассажира в гостинице ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2710,8 +2710,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "assign_passenger_request_hotel_room",
-        description: "Присвоен номер комнаты в отеле ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} присвоил номер «${room ?? "—"}» гостям (${indexes.length}) в отеле #${hotelIndex} ФАП ${passengerRequest.flightNumber}`,
+        description: "Присвоен номер комнаты в гостинице ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} присвоил номер «${room ?? "—"}» гостям (${indexes.length}) в гостинице ${hotels[hotelIndex]?.name || "без названия"} ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -2782,8 +2782,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "remove_passenger_request_hotel_person",
-        description: "Пассажир удален из отеля ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из отеля ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир удалён из гостиницы ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} удалил пассажира из гостиницы ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -4025,8 +4025,8 @@ const passengerRequestResolvers = {
         context,
         action: "relocate_passenger_request_hotel_person",
         reason: cleanReason,
-        description: "Пассажир переселен между отелями ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} переселил пассажира в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
+        description: "Пассажир переселён между гостиницами ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} переселил пассажира в ФАП ${passengerRequest.flightNumber} из гостиницы ${sourceHotel?.name || "без названия"} в ${targetHotel?.name || "без названия"}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -4044,7 +4044,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: targetHotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> переселение пассажира: отель #${fromHotelIndex} → #${toHotelIndex}`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> пассажир переселён: <span style='color:#545873'>${sourceHotel?.name || "без названия"}</span> → <span style='color:#545873'>${targetHotel?.name || "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -4149,8 +4149,8 @@ const passengerRequestResolvers = {
         context,
         action: "relocate_passenger_request_hotel_people",
         reason: cleanReason,
-        description: "Массовое переселение между отелями ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} переселил пассажиров (${moved.length}) в ФАП ${passengerRequest.flightNumber} из отеля #${fromHotelIndex} в отель #${toHotelIndex}`,
+        description: "Массовое переселение между гостиницами ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} переселил пассажиров (${moved.length}) в ФАП ${passengerRequest.flightNumber} из гостиницы ${sourceHotel?.name || "без названия"} в ${targetHotel?.name || "без названия"}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -4168,7 +4168,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: targetHotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> переселение пассажиров (${moved.length}): отель #${fromHotelIndex} → #${toHotelIndex}`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> переселено пассажиров: <span style='color:#545873'>${moved.length}</span>. <span style='color:#545873'>${sourceHotel?.name || "без названия"}</span> → <span style='color:#545873'>${targetHotel?.name || "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -4278,8 +4278,8 @@ const passengerRequestResolvers = {
         context,
         action: "evict_passenger_request_hotel_person",
         reason: cleanReason,
-        description: "Пассажир выселен из отеля ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} выселил пассажира из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
+        description: "Пассажир выселен из гостиницы ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} выселил пассажира из гостиницы ${hotel?.name || "без названия"} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -4297,7 +4297,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: hotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> выселение пассажира из отеля <span style='color:#545873'>${hotel?.name ?? "#" + hotelIndex}</span>`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> пассажир выселен из гостиницы <span style='color:#545873'>${hotel?.name ?? "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -4409,8 +4409,8 @@ const passengerRequestResolvers = {
         context,
         action: "evict_passenger_request_hotel_people",
         reason: cleanReason,
-        description: "Массовое выселение из отеля ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} выселил пассажиров (${evicted.length}) из отеля #${hotelIndex} в ФАП ${passengerRequest.flightNumber}`,
+        description: "Массовое выселение из гостиницы ФАП",
+        fulldescription: `Пользователь ${getSubjectName(context)} выселил пассажиров (${evicted.length}) из гостиницы ${hotel?.name || "без названия"} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
         airlineId: passengerRequest.airlineId,
@@ -4428,7 +4428,7 @@ const passengerRequestResolvers = {
         passengerRequestId: passengerRequest.id,
         airlineId: passengerRequest.airlineId,
         hotelId: hotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> выселение пассажиров (${evicted.length}) из отеля <span style='color:#545873'>${hotel?.name ?? "#" + hotelIndex}</span>`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span> выселено пассажиров: <span style='color:#545873'>${evicted.length}</span>. Гостиница <span style='color:#545873'>${hotel?.name ?? "без названия"}</span>`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
@@ -4560,7 +4560,7 @@ const passengerRequestResolvers = {
         passengerRequestId: existing.id,
         airlineId: existing.airlineId,
         hotelId: hotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "#" + hotelIndex}</span> отправлен на проверку`,
+        descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> отправлен на проверку`,
         __typename: "PassengerRequestUpdatedNotification"
       })
 
