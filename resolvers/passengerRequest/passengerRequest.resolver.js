@@ -2048,7 +2048,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "add_passenger_request_hotel",
-        description: `Отель добавлен в ФАП: ${hotelWithItemId.name}`,
+        description: `Гостиница добавлена в ФАП: ${hotelWithItemId.name}`,
         fulldescription: `Пользователь ${getSubjectName(context)} добавил гостиницу ${hotelWithItemId.name} в ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
@@ -2209,7 +2209,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "remove_passenger_request_hotel",
-        description: `Отель удален из ФАП: ${removedHotel?.name || hotelIndex}`,
+        description: `Гостиница удалена из ФАП: ${removedHotel?.name || "без названия"}`,
         fulldescription: `Пользователь ${getSubjectName(context)} удалил гостиницу ${removedHotel?.name || "без названия"} из ФАП ${passengerRequest.flightNumber}`,
         oldData: existing,
         newData: passengerRequest,
@@ -2288,7 +2288,7 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "update_passenger_request_hotel",
-        description: `Отель обновлён в ФАП: ${updatedHotel.name || hotelIndex}`,
+        description: `Гостиница обновлена в ФАП: ${updatedHotel.name || "без названия"}`,
         fulldescription: `Пользователь ${getSubjectName(context)} обновил гостиницу ${updatedHotel.name || "без названия"} в ФАП ${passengerRequest.flightNumber} (мест: ${updatedHotel.peopleCount})`,
         oldData: existing,
         newData: passengerRequest,
@@ -4503,8 +4503,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "save_passenger_request_hotel_report",
-        description: "Отчет по отелю ФАП сохранен",
-        fulldescription: `Пользователь ${getSubjectName(context)} сохранил отчет по отелю #${hotelIndex} для ФАП ${existing.flightNumber}`,
+        description: "Отчёт по гостинице ФАП сохранён",
+        fulldescription: `Пользователь ${getSubjectName(context)} сохранил отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} для ФАП ${existing.flightNumber}`,
         newData: report,
         airlineId: existing.airlineId,
         passengerRequestId: requestId
@@ -4544,8 +4544,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "submit_passenger_request_hotel_report",
-        description: "Отчет по отелю ФАП отправлен на проверку",
-        fulldescription: `Пользователь ${getSubjectName(context)} отправил отчет по отелю #${hotelIndex} на проверку в ФАП ${existing.flightNumber}`,
+        description: "Отчёт по гостинице ФАП отправлен на проверку",
+        fulldescription: `Пользователь ${getSubjectName(context)} отправил отчёт по гостинице ${hotel?.name || "без названия"} на проверку в ФАП ${existing.flightNumber}`,
         newData: updated,
         airlineId: existing.airlineId,
         passengerRequestId: requestId
@@ -4593,8 +4593,8 @@ const passengerRequestResolvers = {
       await logPassengerRequestAction({
         context,
         action: "hide_passenger_request_hotel_report",
-        description: "Отчет по отелю ФАП скрыт от авиакомпании",
-        fulldescription: `Пользователь ${getSubjectName(context)} скрыл отчет по отелю #${hotelIndex} от авиакомпании в ФАП ${existing.flightNumber}`,
+        description: "Отчёт по гостинице ФАП скрыт от авиакомпании",
+        fulldescription: `Пользователь ${getSubjectName(context)} скрыл отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} от авиакомпании в ФАП ${existing.flightNumber}`,
         newData: updated,
         airlineId: existing.airlineId,
         passengerRequestId: requestId
