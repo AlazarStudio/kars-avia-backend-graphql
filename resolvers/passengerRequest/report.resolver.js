@@ -118,8 +118,13 @@ export default {
       // и отчёт появится без перезагрузки.
       await finishPassengerRequestMutation({
         context,
-        newData: updated,
-        publishData: existing,
+        // В журнал заявки уходит ЗАЯВКА, а не запись отчёта. Раньше здесь был
+        // отчёт, и это давало две беды: summarizePassengerRequest в logaction
+        // получал чужой документ и выдавал сводку из одних null, а почтовая
+        // ветка брала passengerRequest = newData и искала заявку по
+        // идентификатору ОТЧЁТА. Сама запись отчёта возвращается мутацией и
+        // доступна через hotelReport, терять её незачем.
+        newData: existing,
         log: {
           action: "submit_passenger_request_hotel_report",
           description: "Отчёт по гостинице ФАП отправлен на проверку",
@@ -162,8 +167,13 @@ export default {
       // и отчёт скроется без перезагрузки.
       await finishPassengerRequestMutation({
         context,
-        newData: updated,
-        publishData: existing,
+        // В журнал заявки уходит ЗАЯВКА, а не запись отчёта. Раньше здесь был
+        // отчёт, и это давало две беды: summarizePassengerRequest в logaction
+        // получал чужой документ и выдавал сводку из одних null, а почтовая
+        // ветка брала passengerRequest = newData и искала заявку по
+        // идентификатору ОТЧЁТА. Сама запись отчёта возвращается мутацией и
+        // доступна через hotelReport, терять её незачем.
+        newData: existing,
         log: {
           action: "hide_passenger_request_hotel_report",
           description: "Отчёт по гостинице ФАП скрыт от авиакомпании",

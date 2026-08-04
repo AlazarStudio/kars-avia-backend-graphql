@@ -281,12 +281,15 @@ test("savePassengerRequestHotelReport: один лог, публикация о�
   )
 })
 
-test("ДЕФЕКТ №2: в лог сохранения отчёта уходит запись ОТЧЁТА, а не заявка", async () => {
-  // logPassengerRequestAction получает newData = report. Отсюда два следствия:
-  // 1) в журнале действий по заявке лежит сводка отчёта;
-  // 2) resolveCreatorAirlineDepartment («кому слать письмо») получает
-  //    entityId = id ОТЧЁТА и ищет по нему заявку.
-  // Реестр дефектов спеки, №2. При починке этот тест обязан измениться.
+test("в лог сохранения отчёта осознанно уходит запись отчёта, а не заявка", async () => {
+  // Это НЕ дефект, вопреки первоначальной записи №2 в реестре. У слага
+  // save_passenger_request_hotel_report есть собственная ветка в
+  // services/infra/logaction.js: она ждёт именно запись отчёта и достаёт из неё
+  // rowsCount, а стоит раньше общей ветки passenger_request. Передача заявки
+  // дала бы вырожденную сводку с нулями вместо числа строк.
+  //
+  // Почтовое последствие, из-за которого №2 и завели, у сохранения устранено
+  // отдельно: лог зовётся со skipEmail, в почту оно не идёт.
   const run = await runReport(
     "savePassengerRequestHotelReport",
     saveArgs([{ fullName: "Иванов Иван" }])
@@ -309,11 +312,17 @@ test("ДЕФЕКТ №2: в лог сохранения отчёта уходи�
   assert.deepEqual(run.requestLookups, ["req-1"], "почтовой ветки у save больше нет")
 })
 
-test("ДЕФЕКТ №2: submit и hide тоже логируют отчёт — в newData заявки нет ни следа", async () => {
-  // Для submit/hide слаг лога содержит «passenger_request», поэтому logaction
-  // прогоняет newData через summarizePassengerRequest — и на записи отчёта
-  // сводка выходит пустой: flightNumber/status/airlineId равны null, хотя в
-  // тексте лога номер рейса присутствует. Реестр дефектов спеки, №2.
+test("submit и hide логируют ЗАЯВКУ: сводка заполнена, письмо ищет по её id", async () => {
+  // Было дефектом №2 реестра: в newData уходила запись отчёта. Своей ветки в
+  // logaction у этих слагов нет, поэтому они попадали в общую, где
+  // summarizePassengerRequest получал чужой документ и выдавал сводку из одних
+  // null — при том что в тексте лога номер рейса присутствовал. Заодно
+  // почтовая ветка брала passengerRequest = newData и искала заявку по
+  // идентификатору ОТЧЁТА.
+  //
+  // У savePassengerRequestHotelReport поведение другое и НЕ дефектное: у её
+  // слага в logaction есть собственная ветка, которая ждёт именно запись
+  // отчёта и достаёт из неё rowsCount.
   for (const name of [
     "submitPassengerRequestHotelReport",
     "hidePassengerRequestHotelReport"
@@ -325,21 +334,21 @@ test("ДЕФЕКТ №2: submit и hide тоже логируют отчёт —
     )
 
     const newData = JSON.parse(run.logged[0].newData)
-    assert.equal(newData.id, "report-1", `${name}: в логе id отчёта`)
-    assert.equal(newData.flightNumber, null, `${name}: рейса в сводке нет`)
-    assert.equal(newData.status, null, `${name}: статуса заявки в сводке нет`)
-    assert.equal(newData.airlineId, null, `${name}: авиакомпании в сводке нет`)
-    assert.equal(newData.hotelsCount, 0, `${name}: гостиниц в сводке нет`)
+    assert.equal(newData.id, "req-1", `${name}: в логе id заявки`)
+    assert.equal(newData.flightNumber, "TEST001", `${name}: рейс в сводке есть`)
+    assert.equal(newData.status, "CREATED", `${name}: статус заявки в сводке есть`)
+    assert.equal(newData.airlineId, "airline-1", `${name}: авиакомпания в сводке есть`)
+    assert.equal(newData.hotelsCount, 2, `${name}: гостиницы в сводке есть`)
     assert.match(
       run.logged[0].fulldescription,
       /ФАП TEST001/,
-      `${name}: при этом текст лога про заявку знает`
+      `${name}: текст лога по-прежнему про заявку`
     )
 
     assert.deepEqual(
       run.requestLookups,
-      ["req-1", "report-1"],
-      `${name}: заявку ищут по идентификатору отчёта`
+      ["req-1", "req-1"],
+      `${name}: почтовая ветка ищет заявку по ЕЁ идентификатору, а не по id отчёта`
     )
   }
 })
