@@ -42,6 +42,8 @@ import {
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
+import { recognitionRateLimiter } from "../../services/docRecognition/recognitionRateLimit.js"
+import { logger } from "../../services/infra/logger.js"
 import {
   recomputeServiceStatus,
   resolveDriverCountStatus,
@@ -53,10 +55,7 @@ import {
   findPassengerRequestFileIndex,
   uploadPassengerRequestFiles
 } from "../../services/passengerRequest/files.js"
-import {
-  allMiddleware,
-  representativeMiddleware
-} from "../../middlewares/authMiddleware.js"
+import { withFapAuthGuard } from "../../services/passengerRequest/fapAccess.js"
 import { withFilter } from "graphql-subscriptions"
 import {
   pubsub,
@@ -585,6 +584,27 @@ async function notifyPassengerRequestSite({
   })
 }
 
+// АУТЕНТИФИКАЦИЯ. Query, мутации и подписки этого модуля защищены обёрткой
+// withFapAuthGuard на экспорте (services/passengerRequest/fapAccess.js): она
+// требует, чтобы у вызывающего был субъект допустимого типа. Секции полей
+// типов обёрткой не покрыты. Почти все они достижимы только через уже
+// защищённые корневые поля модуля; исключение — Notification.passengerRequest
+// (dispatcher.resolver.js), но тот путь закрыт активным allMiddleware и
+// доступен только субъектам USER.
+//
+// АВТОРИЗАЦИИ здесь нет: ни ролевых проверок, ни изоляции по авиакомпании.
+// Роль проверить нечем — у ExternalUser нет поля role, и любая ролевая
+// проверка отбила бы весь PWA, который живёт на магик-линках. Раньше на этом
+// месте было 50 закомментированных вызовов middleware, рассыпанных по всему
+// модулю; они удалены как вводящие в заблуждение — включение любого из них
+// ломает магик-линк.
+//
+// У подписок проверка одноразовая, в момент subscribe: уже открытый поток
+// не перепроверяется, когда токен протухает.
+//
+// Полноценная авторизация запланирована отдельно. Для гостиниц и водителей
+// данные уже есть (ExternalUser.scope/hotelId/driverId), для изоляции по
+// авиакомпании — нет.
 const passengerRequestResolvers = {
   // --------- поля связей ---------
   PassengerRequest: {
@@ -681,7 +701,6 @@ const passengerRequestResolvers = {
   // --------- запросы ---------
   Query: {
     passengerRequests: async (_, args, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const { filter, skip, take } = args || {}
       const where = {}
 
@@ -736,7 +755,6 @@ const passengerRequestResolvers = {
     },
 
     passengerRequest: async (_, { id }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const req = await prisma.passengerRequest.findUnique({ where: { id } })
       return req ? hydratePassengerRequest(req) : null
     }
@@ -746,7 +764,6 @@ const passengerRequestResolvers = {
   Mutation: {
     // создание
     createPassengerRequest: async (_, { input, files }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const {
         airlineId,
         airportId,
@@ -944,7 +961,6 @@ const passengerRequestResolvers = {
 
     // обновление шапки + планов
     updatePassengerRequest: async (_, { id, input }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
 
       const {
@@ -1259,7 +1275,6 @@ const passengerRequestResolvers = {
     },
 
     deletePassengerRequest: async (_, { id }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
 
       await deleteAllPassengerRequestFilesFromDisk(existing.files)
@@ -1284,7 +1299,6 @@ const passengerRequestResolvers = {
 
     // общий статус заявки
     setPassengerRequestStatus: async (_, { id, status }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
 
       const statusTimes = updateTimes(existing.statusTimes, status)
@@ -1319,7 +1333,6 @@ const passengerRequestResolvers = {
       { requestId, crewMembers },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const normalizedCrew = Array.isArray(crewMembers)
@@ -1562,7 +1575,6 @@ const passengerRequestResolvers = {
 
     // общий статус заявки
     cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
       const status = "CANCELLED"
       const statusTimes = updateTimes(existing.statusTimes, status)
@@ -1609,7 +1621,6 @@ const passengerRequestResolvers = {
       { id, service, status },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
 
       const data = {}
@@ -1691,7 +1702,21 @@ const passengerRequestResolvers = {
     },
 
     recognizePassengerDocument: async (_, { image }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
+      // Каждый вызов стоит двух платных обращений в Yandex Cloud, поэтому
+      // считаем по субъекту. Анонимных вызовов здесь уже не бывает — их
+      // отбивает withFapAuthGuard на экспорте модуля.
+      //
+      // http-статус намеренно НЕ ставим: Apollo Client на любом статусе ≥300
+      // бросает ServerError с пустым graphQLErrors, и текст сообщения до
+      // клиента не доходит вовсе. Обычная GraphQL-ошибка с кодом читается.
+      if (!recognitionRateLimiter.check(context?.subject?.id)) {
+        logger.warn(
+          `[FAP] Распознавание документа отклонено лимитом, субъект ${context?.subject?.id}`
+        )
+        throw new GraphQLError("Слишком много запросов на распознавание", {
+          extensions: { code: "TOO_MANY_REQUESTS" }
+        })
+      }
       return await recognizeDocumentService(image)
     },
 
@@ -1701,7 +1726,6 @@ const passengerRequestResolvers = {
       { requestId, service, person },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const personWithId = {
         ...ensurePersonId(person),
@@ -1772,7 +1796,6 @@ const passengerRequestResolvers = {
       { requestId, service, people },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       if (!Array.isArray(people) || people.length === 0) {
         throw new GraphQLError("people must be a non-empty array")
       }
@@ -1839,7 +1862,6 @@ const passengerRequestResolvers = {
       { requestId, service, personIndex, person },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const data = {}
@@ -1892,7 +1914,6 @@ const passengerRequestResolvers = {
       { requestId, service, personIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const data = {}
@@ -1944,7 +1965,6 @@ const passengerRequestResolvers = {
       { requestId, service, personIndexes },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       if (service !== "WATER" && service !== "MEAL") {
@@ -2003,7 +2023,6 @@ const passengerRequestResolvers = {
 
     // добавить отель
     addPassengerRequestHotel: async (_, { requestId, hotel }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const prev = existing.livingService || emptyLivingService()
@@ -2076,7 +2095,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const living = existing.livingService || emptyLivingService()
@@ -2239,7 +2257,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, hotel },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const living = existing.livingService || emptyLivingService()
@@ -2316,7 +2333,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, person },
       context
     ) => {
-      // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
       const existing = await loadRequestOrThrow(requestId)
       const personWithId = ensurePersonId(person)
 
@@ -2452,7 +2468,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, people },
       context
     ) => {
-      // await representativeMiddleware(context) // временно отключено для ФАП (magic link)
       if (!Array.isArray(people) || people.length === 0) {
         throw new GraphQLError("people must be a non-empty array")
       }
@@ -2574,7 +2589,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, person },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const living = existing.livingService || emptyLivingService()
@@ -2654,7 +2668,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndexes, roomNumber },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const living = existing.livingService || emptyLivingService()
@@ -2728,7 +2741,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const living = existing.livingService || emptyLivingService()
@@ -2801,7 +2813,6 @@ const passengerRequestResolvers = {
       { requestId, driver, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       if (!driver?.fullName?.trim()) {
         throw new GraphQLError("Driver fullName is required")
@@ -2886,7 +2897,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, patch, direction },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const req = await loadRequestOrThrow(requestId)
 
       const field = getTransferField(direction)
@@ -2965,7 +2975,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const transferField = getTransferField(direction)
@@ -3027,7 +3036,6 @@ const passengerRequestResolvers = {
       { requestId, driver },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       if (!driver?.fullName?.trim()) {
         throw new GraphQLError("Driver fullName is required")
@@ -3131,7 +3139,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const prev = existing.baggageDeliveryService || emptyDriversService()
@@ -3198,7 +3205,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, patch },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const prev = existing.baggageDeliveryService
@@ -3335,7 +3341,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
 
       const bds = existing.baggageDeliveryService
@@ -3385,7 +3390,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, person, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
       const personWithId = ensurePersonId(person)
 
@@ -3450,7 +3454,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, people, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       if (!Array.isArray(people) || people.length === 0) {
         throw new GraphQLError("people must be a non-empty array")
       }
@@ -3523,7 +3526,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, personIndex, person, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
 
       const transferField = getTransferField(direction)
@@ -3576,7 +3578,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, personIndex, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
 
       const transferField = getTransferField(direction)
@@ -3634,7 +3635,6 @@ const passengerRequestResolvers = {
       { requestId, driverIndex, personIndexes, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link)
       const existing = await loadRequestOrThrow(requestId)
 
       const transferField = getTransferField(direction)
@@ -3701,7 +3701,6 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -3741,7 +3740,6 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -3781,7 +3779,6 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -3821,7 +3818,6 @@ const passengerRequestResolvers = {
       { requestId, reason, direction = "ARRIVAL" },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -3863,7 +3859,6 @@ const passengerRequestResolvers = {
       { requestId, reason },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -3899,7 +3894,6 @@ const passengerRequestResolvers = {
     },
 
     completePassengerRequestEarly: async (_, { id, reason }, context) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(id)
       const cleanReason = assertReason(reason)
 
@@ -3934,7 +3928,6 @@ const passengerRequestResolvers = {
       { requestId, fromHotelIndex, toHotelIndex, personIndex, reason, movedAt },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -4056,7 +4049,6 @@ const passengerRequestResolvers = {
       { requestId, fromHotelIndex, toHotelIndex, personIndexes, reason, movedAt },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -4180,7 +4172,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndex, reason, evictedAt },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -4309,7 +4300,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, personIndexes, reason, evictedAt },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const cleanReason = assertReason(reason)
 
@@ -4440,7 +4430,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex, reportRows },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const rows = reportRows.map((row) => ({
@@ -4522,7 +4511,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
       const hotel = existing.livingService?.hotels?.[hotelIndex]
 
@@ -4572,7 +4560,6 @@ const passengerRequestResolvers = {
       { requestId, hotelIndex },
       context
     ) => {
-      // await allMiddleware(context) // временно отключено для ФАП (PWA magic link) // MIDDLEWARE_REVIEW: allMiddleware
       const existing = await loadRequestOrThrow(requestId)
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
@@ -4613,10 +4600,10 @@ const passengerRequestResolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_CREATED]),
         (payload, variables, context) => {
-          // const { subject, subjectType } = context
-          // if (!subject || subjectType !== "USER") return false
-          // return representativeMiddleware(context).then(() => true).catch(() => false)
-          return true // временно отключена проверка для ФАП
+          // Фильтр пропускает всё осознанно: субъект проверяется выше, в
+          // subscribe (withFapAuthGuard), а адресной рассылки по получателю
+          // в ФАП нет — событие уходит всем подписчикам.
+          return true
         }
       )
     },
@@ -4625,14 +4612,14 @@ const passengerRequestResolvers = {
       subscribe: withFilter(
         () => pubsub.asyncIterator([PASSENGER_REQUEST_UPDATED]),
         (payload, variables, context) => {
-          // const { subject, subjectType } = context
-          // if (!subject || subjectType !== "USER") return false
-          // return representativeMiddleware(context).then(() => true).catch(() => false)
-          return true // временно отключена проверка для ФАП
+          // Фильтр пропускает всё осознанно: субъект проверяется выше, в
+          // subscribe (withFapAuthGuard), а адресной рассылки по получателю
+          // в ФАП нет — событие уходит всем подписчикам.
+          return true
         }
       )
     }
   }
 }
 
-export default passengerRequestResolvers
+export default withFapAuthGuard(passengerRequestResolvers)
