@@ -5,6 +5,8 @@ import { GraphQLError } from "graphql"
 import { prisma } from "../../prisma.js"
 import { pubsub, PASSENGER_REQUEST_UPDATED } from "../infra/pubsub.js"
 import { hydratePassengerRequest } from "./hydratePassengerRequest.js"
+import { logPassengerRequestAction } from "./logging.js"
+import { notifyPassengerRequestSite } from "./notify.js"
 
 export const getSubjectName = (context) => {
   if (context.user?.name) return context.user.name
@@ -70,3 +72,92 @@ export const emptyDriversService = () => ({
   times: null,
   drivers: []
 })
+
+// Хвост любой мутации ФАП: история заявки → публикация в подписку → сайтовое
+// уведомление. Вынесен ОТДЕЛЬНО от полного конверта, потому что мутации отчёта
+// пишут не заявку, а запись PassengerRequestHotelReport, и полный конверт им не
+// подходит — а хвост у них тот же самый.
+//
+// Хелпер намеренно механический: он подставляет только context, oldData и
+// newData (они всегда одни и те же), а всё остальное переносит из log как есть,
+// включая необязательные поля. Ничего не выводит и не подставляет по умолчанию —
+// иначе рефактор незаметно изменил бы маршрутизацию писем.
+//
+// channels существует только ради тестов: в бою используются настоящие каналы.
+export async function finishPassengerRequestMutation({
+  context,
+  oldData,
+  newData,
+  log,
+  notify = null,
+  notifyBeforePublish = false,
+  channels = {}
+}) {
+  const logAction = channels.logAction ?? logPassengerRequestAction
+  const publish = channels.publish ?? publishPassengerRequestUpdated
+  const notifySite = channels.notifySite ?? notifyPassengerRequestSite
+
+  await logAction({ context, oldData, newData, ...log })
+
+  const runNotify = async () => {
+    if (!notify) return
+    await notifySite(notify)
+  }
+
+  // Порядок notify относительно publish в модуле неоднороден: у
+  // updatePassengerRequest уведомление идёт первым, у cancelPassengerRequest —
+  // последним. Оба воспроизводятся дословно, приведение к единому порядку —
+  // отдельный пункт реестра дефектов, а не часть этого рефактора.
+  if (notifyBeforePublish) {
+    await runNotify()
+    publish(newData)
+    return
+  }
+
+  publish(newData)
+  await runNotify()
+}
+
+// Полный конверт мутации ФАП: загрузить заявку → применить изменение →
+// записать → хвост. Подходит восьми модулям из одиннадцати. Не подходит
+// отчёту (пишет не заявку), deletePassengerRequest (удаляет запись) и
+// removePassengerRequestHotel (идёт через $transaction) — им остаётся хвост.
+//
+// apply(existing) возвращает либо { data, log, notify?, notifyBeforePublish? },
+// либо null — сигнал «изменений нет». Второе нужно для двух update-мутаций
+// водителей: при пустом патче они возвращают заявку нетронутой, без записи,
+// без истории и без публикации.
+export async function withPassengerRequest({
+  requestId,
+  context,
+  apply,
+  channels = {}
+}) {
+  const existing = await loadRequestOrThrow(requestId)
+  const applied = await apply(existing)
+  if (!applied) return existing
+
+  const passengerRequest = await prisma.passengerRequest.update({
+    where: { id: requestId },
+    data: applied.data
+  })
+
+  // log и notify можно вернуть функцией от результата записи. Это нужно ровно
+  // одной мутации — updatePassengerRequest: только она способна изменить
+  // airlineId, поэтому у неё значение обязано браться из записанного документа,
+  // а не из существующего. Остальным достаточно объекта.
+  const resolve = (value) =>
+    typeof value === "function" ? value(passengerRequest) : value
+
+  await finishPassengerRequestMutation({
+    context,
+    oldData: existing,
+    newData: passengerRequest,
+    log: resolve(applied.log),
+    notify: resolve(applied.notify) ?? null,
+    notifyBeforePublish: applied.notifyBeforePublish ?? false,
+    channels
+  })
+
+  return passengerRequest
+}
