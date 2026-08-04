@@ -17,3 +17,4 @@ fbk.json
 /generated/prisma
 service_account.json
 graphify-out/
+.claude/
