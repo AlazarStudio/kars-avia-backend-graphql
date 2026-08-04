@@ -3,6 +3,7 @@
 import { prisma } from "../../prisma.js"
 import { dedupeSavedPassengers } from "../../services/passengerRequest/savedPassengers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
+import { reportWhere } from "../../services/passengerRequest/envelope.js"
 
 export default {
   // --------- поля связей ---------
@@ -29,12 +30,7 @@ export default {
 
     hotelReport: async (parent, { hotelIndex }) => {
       const report = await prisma.passengerRequestHotelReport.findUnique({
-        where: {
-          passengerRequestId_hotelIndex: {
-            passengerRequestId: parent.id,
-            hotelIndex
-          }
-        }
+        where: reportWhere(parent.id, hotelIndex)
       })
       return report ?? null
     },

@@ -1,6 +1,5 @@
 // Получатели воды и питания.
 
-import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 import {
   ensurePersonId,
@@ -17,11 +16,19 @@ import {
   assertIndex,
   emptyPeopleService,
   getSubjectName,
-  loadRequestOrThrow,
-  publishPassengerRequestUpdated
+  withPassengerRequest
 } from "../../services/passengerRequest/envelope.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
-import { logPassengerRequestAction } from "../../services/passengerRequest/logging.js"
+
+// Вход service — строка энума; embedded-полей у неё ровно два. Проверка и
+// выбор поля идут вместе: разъехавшись, они дают запись в чужую услугу вместо
+// отказа.
+const assertWaterMealField = (service) => {
+  if (service !== "WATER" && service !== "MEAL") {
+    throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
+  }
+  return service === "WATER" ? "waterService" : "mealService"
+}
 
 export default {
   Mutation: {
@@ -30,135 +37,108 @@ export default {
       _,
       { requestId, service, person },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
-      const personWithId = {
-        ...ensurePersonId(person),
-        personCategory: normalizePersonCategory(person?.personCategory),
-      }
-
-      const data = {}
-
-      if (service === "WATER") {
-        const prev = existing.waterService || emptyPeopleService()
-        const people = [...(prev.people || []), personWithId]
-        const recalc = recomputeServiceStatus(
-          prev,
-          (prev.people || []).length,
-          people.length
-        )
-        data.waterService = {
-          ...prev,
-          people,
-          status: recalc.status,
-          times: recalc.times
-        }
-      } else if (service === "MEAL") {
-        const prev = existing.mealService || emptyPeopleService()
-        const people = [...(prev.people || []), personWithId]
-        const recalc = recomputeServiceStatus(
-          prev,
-          (prev.people || []).length,
-          people.length
-        )
-        data.mealService = {
-          ...prev,
-          people,
-          status: recalc.status,
-          times: recalc.times
-        }
-      } else {
-        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
-      }
-
-      data.savedPassengers = upsertSavedPassenger(
-        existing?.savedPassengers,
-        snapshotFromServicePerson(personWithId)
-      )
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data
-      })
-      await logPassengerRequestAction({
+    ) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "add_passenger_request_person",
-        description: `Пассажир добавлен в сервис: ${service}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: (existing) => {
+          const personWithId = {
+            ...ensurePersonId(person),
+            personCategory: normalizePersonCategory(person?.personCategory)
+          }
+          const serviceField = assertWaterMealField(service)
 
-      publishPassengerRequestUpdated(passengerRequest)
+          const prev = existing[serviceField] || emptyPeopleService()
+          const people = [...(prev.people || []), personWithId]
+          const recalc = recomputeServiceStatus(
+            prev,
+            (prev.people || []).length,
+            people.length
+          )
 
-      return passengerRequest
-    },
+          return {
+            data: {
+              [serviceField]: {
+                ...prev,
+                people,
+                status: recalc.status,
+                times: recalc.times
+              },
+              savedPassengers: upsertSavedPassenger(
+                existing?.savedPassengers,
+                snapshotFromServicePerson(personWithId)
+              )
+            },
+            log: {
+              action: "add_passenger_request_person",
+              description: `Пассажир добавлен в сервис: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} добавил пассажира в сервис ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
+        }
+      }),
 
     addPassengerRequestPeople: async (
       _,
       { requestId, service, people },
       context
     ) => {
+      // Проверки входа стоят ДО конверта намеренно: пакетная версия отбивает
+      // пустой список и чужую услугу, вообще не сходив в базу, тогда как
+      // одиночная сначала грузит заявку. Асимметрия закреплена
+      // характеризационным тестом.
       if (!Array.isArray(people) || people.length === 0) {
         throw new GraphQLError("people must be a non-empty array")
       }
-      if (service !== "WATER" && service !== "MEAL") {
-        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
-      }
-      const existing = await loadRequestOrThrow(requestId)
-      const peopleWithId = people.map((p) => ({
-        ...ensurePersonId(p),
-        personCategory: normalizePersonCategory(p?.personCategory),
-      }))
+      const serviceField = assertWaterMealField(service)
 
-      const serviceField = service === "WATER" ? "waterService" : "mealService"
-      const prev = existing[serviceField] || emptyPeopleService()
-      const nextPeople = [...(prev.people || []), ...peopleWithId]
+      return withPassengerRequest({
+        requestId,
+        context,
+        apply: (existing) => {
+          const peopleWithId = people.map((p) => ({
+            ...ensurePersonId(p),
+            personCategory: normalizePersonCategory(p?.personCategory)
+          }))
 
-      const recalc = recomputeServiceStatus(
-        prev,
-        (prev.people || []).length,
-        nextPeople.length
-      )
-      const nextStatus = recalc.status
-      const nextTimes = recalc.times
+          const prev = existing[serviceField] || emptyPeopleService()
+          const nextPeople = [...(prev.people || []), ...peopleWithId]
+          const recalc = recomputeServiceStatus(
+            prev,
+            (prev.people || []).length,
+            nextPeople.length
+          )
 
-      let savedPassengers = existing.savedPassengers
-      for (const p of peopleWithId) {
-        savedPassengers = upsertSavedPassenger(
-          savedPassengers,
-          snapshotFromServicePerson(p)
-        )
-      }
+          let savedPassengers = existing.savedPassengers
+          for (const p of peopleWithId) {
+            savedPassengers = upsertSavedPassenger(
+              savedPassengers,
+              snapshotFromServicePerson(p)
+            )
+          }
 
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data: {
-          [serviceField]: {
-            ...prev,
-            people: nextPeople,
-            status: nextStatus,
-            times: nextTimes
-          },
-          savedPassengers
+          return {
+            data: {
+              [serviceField]: {
+                ...prev,
+                people: nextPeople,
+                status: recalc.status,
+                times: recalc.times
+              },
+              savedPassengers
+            },
+            log: {
+              action: "add_passenger_request_people",
+              description: `Пакетно добавлены пассажиры в сервис ${service} (${people.length})`,
+              fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в сервис ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
         }
       })
-      await logPassengerRequestAction({
-        context,
-        action: "add_passenger_request_people",
-        description: `Пакетно добавлены пассажиры в сервис ${service} (${people.length})`,
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${people.length} пассажиров в сервис ${service} ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
-
-      publishPassengerRequestUpdated(passengerRequest)
-
-      return passengerRequest
     },
 
     // обновление получателя воды/питания
@@ -166,164 +146,139 @@ export default {
       _,
       { requestId, service, personIndex, person },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
-
-      const data = {}
-      const serviceField = service === "WATER" ? "waterService" : "mealService"
-      if (service !== "WATER" && service !== "MEAL") {
-        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
-      }
-
-      const prev = existing[serviceField] || emptyPeopleService()
-      const people = [...(prev.people || [])]
-      assertIndex(personIndex, people.length, "personIndex")
-      // keep existing issuedAt unless explicitly provided
-      people[personIndex] = {
-        ...people[personIndex],
-        ...person,
-        personCategory: normalizePersonCategory(
-          person?.personCategory ?? people[personIndex]?.personCategory
-        ),
-        issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
-      }
-      data[serviceField] = { ...prev, people }
-      data.savedPassengers = patchSavedPersonIdentity(
-        existing.savedPassengers,
-        people[personIndex]
-      )
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data
-      })
-      await logPassengerRequestAction({
+    ) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "update_passenger_request_person",
-        description: `Получатель обновлён в сервисе: ${service}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: (existing) => {
+          const serviceField = assertWaterMealField(service)
 
-      publishPassengerRequestUpdated(passengerRequest)
+          const prev = existing[serviceField] || emptyPeopleService()
+          const people = [...(prev.people || [])]
+          assertIndex(personIndex, people.length, "personIndex")
+          // keep existing issuedAt unless explicitly provided
+          people[personIndex] = {
+            ...people[personIndex],
+            ...person,
+            personCategory: normalizePersonCategory(
+              person?.personCategory ?? people[personIndex]?.personCategory
+            ),
+            issuedAt: person?.issuedAt ?? people[personIndex]?.issuedAt ?? null
+          }
 
-      return passengerRequest
-    },
+          return {
+            data: {
+              [serviceField]: { ...prev, people },
+              savedPassengers: patchSavedPersonIdentity(
+                existing.savedPassengers,
+                people[personIndex]
+              )
+            },
+            log: {
+              action: "update_passenger_request_person",
+              description: `Получатель обновлён в сервисе: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} обновил получателя #${personIndex} в сервисе ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
+        }
+      }),
 
     // удаление получателя воды/питания
     removePassengerRequestPerson: async (
       _,
       { requestId, service, personIndex },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
-
-      const data = {}
-      const serviceField = service === "WATER" ? "waterService" : "mealService"
-      if (service !== "WATER" && service !== "MEAL") {
-        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
-      }
-
-      const prev = existing[serviceField] || emptyPeopleService()
-      const people = [...(prev.people || [])]
-      assertIndex(personIndex, people.length, "personIndex")
-      people.splice(personIndex, 1)
-
-      const recalc = recomputeServiceStatus(
-        prev,
-        (prev.people || []).length,
-        people.length
-      )
-      data[serviceField] = {
-        ...prev,
-        people,
-        status: recalc.status,
-        times: recalc.times
-      }
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data
-      })
-      await logPassengerRequestAction({
+    ) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "remove_passenger_request_person",
-        description: `Получатель удалён из сервиса: ${service}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателя #${personIndex} в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: (existing) => {
+          const serviceField = assertWaterMealField(service)
 
-      publishPassengerRequestUpdated(passengerRequest)
+          const prev = existing[serviceField] || emptyPeopleService()
+          const people = [...(prev.people || [])]
+          assertIndex(personIndex, people.length, "personIndex")
+          people.splice(personIndex, 1)
 
-      return passengerRequest
-    },
+          const recalc = recomputeServiceStatus(
+            prev,
+            (prev.people || []).length,
+            people.length
+          )
+
+          return {
+            data: {
+              [serviceField]: {
+                ...prev,
+                people,
+                status: recalc.status,
+                times: recalc.times
+              }
+            },
+            log: {
+              action: "remove_passenger_request_person",
+              description: `Получатель удалён из сервиса: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} удалил получателя #${personIndex} в сервисе ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
+        }
+      }),
 
     // массовое удаление получателей воды/питания
     removePassengerRequestPeople: async (
       _,
       { requestId, service, personIndexes },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
+    ) =>
+      withPassengerRequest({
+        requestId,
+        context,
+        apply: (existing) => {
+          const serviceField = assertWaterMealField(service)
 
-      if (service !== "WATER" && service !== "MEAL") {
-        throw new GraphQLError("PassengerWaterFoodKind must be WATER or MEAL")
-      }
-      const serviceField = service === "WATER" ? "waterService" : "mealService"
+          const prev = existing[serviceField] || emptyPeopleService()
+          const prevPeople = prev.people || []
 
-      const prev = existing[serviceField] || emptyPeopleService()
-      const prevPeople = prev.people || []
+          // Валидация ДО изменений: пачка применяется целиком либо не применяется вовсе.
+          const indexes = normalizeBulkIndexes(personIndexes)
+          if (indexes.length === 0) {
+            throw new GraphQLError("Не выбран ни один получатель")
+          }
+          for (const idx of indexes) {
+            assertIndex(idx, prevPeople.length, "personIndex")
+          }
 
-      // Валидация ДО изменений: пачка применяется целиком либо не применяется вовсе.
-      const indexes = normalizeBulkIndexes(personIndexes)
-      if (indexes.length === 0) {
-        throw new GraphQLError("Не выбран ни один получатель")
-      }
-      for (const idx of indexes) {
-        assertIndex(idx, prevPeople.length, "personIndex")
-      }
+          const { next: people } = spliceAtIndexes(prevPeople, indexes)
 
-      const { next: people } = spliceAtIndexes(prevPeople, indexes)
+          // Статус услуги пересчитываем ОДИН раз по итогу всей пачки.
+          const recalc = recomputeServiceStatus(
+            prev,
+            prevPeople.length,
+            people.length
+          )
 
-      // Статус услуги пересчитываем ОДИН раз по итогу всей пачки.
-      const recalc = recomputeServiceStatus(
-        prev,
-        prevPeople.length,
-        people.length
-      )
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data: {
-          [serviceField]: {
-            ...prev,
-            people,
-            status: recalc.status,
-            times: recalc.times
+          return {
+            data: {
+              [serviceField]: {
+                ...prev,
+                people,
+                status: recalc.status,
+                times: recalc.times
+              }
+            },
+            log: {
+              action: "remove_passenger_request_people",
+              description: `Получатели удалены из сервиса: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} удалил получателей (${indexes.length}) в сервисе ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
           }
         }
       })
-
-      await logPassengerRequestAction({
-        context,
-        action: "remove_passenger_request_people",
-        description: `Получатели удалены из сервиса: ${service}`,
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил получателей (${indexes.length}) в сервисе ${service} ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
-
-      publishPassengerRequestUpdated(passengerRequest)
-
-      return passengerRequest
-    }
   }
 }

@@ -4,13 +4,12 @@ import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 import { makeRoomCategoryLabel } from "../../services/passengerRequest/normalizers.js"
 import {
+  finishPassengerRequestMutation,
   getSubjectName,
   loadRequestOrThrow,
-  publishPassengerRequestUpdated
+  reportWhere
 } from "../../services/passengerRequest/envelope.js"
 import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
-import { logPassengerRequestAction } from "../../services/passengerRequest/logging.js"
-import { notifyPassengerRequestSite } from "../../services/passengerRequest/notify.js"
 
 export default {
   Mutation: {
@@ -52,22 +51,12 @@ export default {
       // дёргается ещё и флашем на размонтировании страницы и перед выгрузкой Excel,
       // и без этой проверки флаг слетал бы от простого захода в отчёт.
       const prev = await prisma.passengerRequestHotelReport.findUnique({
-        where: {
-          passengerRequestId_hotelIndex: {
-            passengerRequestId: requestId,
-            hotelIndex
-          }
-        }
+        where: reportWhere(requestId, hotelIndex)
       })
       const rowsChanged = !reportRowsEqual(rows, prev?.reportRows)
 
       const report = await prisma.passengerRequestHotelReport.upsert({
-        where: {
-          passengerRequestId_hotelIndex: {
-            passengerRequestId: requestId,
-            hotelIndex
-          }
-        },
+        where: reportWhere(requestId, hotelIndex),
         create: {
           passengerRequestId: requestId,
           hotelIndex,
@@ -78,19 +67,21 @@ export default {
           ...(rowsChanged && { submittedAt: null })
         }
       })
-      await logPassengerRequestAction({
-        context,
-        action: "save_passenger_request_hotel_report",
-        description: "Отчёт по гостинице ФАП сохранён",
-        fulldescription: `Пользователь ${getSubjectName(context)} сохранил отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} для ФАП ${existing.flightNumber}`,
-        newData: report,
-        airlineId: existing.airlineId,
-        passengerRequestId: requestId
-      })
 
       // Уведомляем подписчиков: другие открытые клиенты перечитают заявку и
       // увидят обновлённый отчёт/тарифы (раньше сейв отчёта событие не публиковал).
-      publishPassengerRequestUpdated(existing)
+      await finishPassengerRequestMutation({
+        context,
+        newData: report,
+        publishData: existing,
+        log: {
+          action: "save_passenger_request_hotel_report",
+          description: "Отчёт по гостинице ФАП сохранён",
+          fulldescription: `Пользователь ${getSubjectName(context)} сохранил отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} для ФАП ${existing.flightNumber}`,
+          airlineId: existing.airlineId,
+          passengerRequestId: requestId
+        }
+      })
 
       return report
     },
@@ -104,12 +95,7 @@ export default {
       const hotel = existing.livingService?.hotels?.[hotelIndex]
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
-        where: {
-          passengerRequestId_hotelIndex: {
-            passengerRequestId: requestId,
-            hotelIndex
-          }
-        }
+        where: reportWhere(requestId, hotelIndex)
       })
       if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
 
@@ -118,27 +104,27 @@ export default {
         data: { submittedAt: new Date() }
       })
 
-      await logPassengerRequestAction({
-        context,
-        action: "submit_passenger_request_hotel_report",
-        description: "Отчёт по гостинице ФАП отправлен на проверку",
-        fulldescription: `Пользователь ${getSubjectName(context)} отправил отчёт по гостинице ${hotel?.name || "без названия"} на проверку в ФАП ${existing.flightNumber}`,
-        newData: updated,
-        airlineId: existing.airlineId,
-        passengerRequestId: requestId
-      })
-
       // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
       // и отчёт появится без перезагрузки.
-      publishPassengerRequestUpdated(existing)
-
-      await notifyPassengerRequestSite({
-        action: "submit_passenger_request_hotel_report",
-        passengerRequestId: existing.id,
-        airlineId: existing.airlineId,
-        hotelId: hotel?.hotelId || undefined,
-        descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> отправлен на проверку`,
-        __typename: "PassengerRequestUpdatedNotification"
+      await finishPassengerRequestMutation({
+        context,
+        newData: updated,
+        publishData: existing,
+        log: {
+          action: "submit_passenger_request_hotel_report",
+          description: "Отчёт по гостинице ФАП отправлен на проверку",
+          fulldescription: `Пользователь ${getSubjectName(context)} отправил отчёт по гостинице ${hotel?.name || "без названия"} на проверку в ФАП ${existing.flightNumber}`,
+          airlineId: existing.airlineId,
+          passengerRequestId: requestId
+        },
+        notify: {
+          action: "submit_passenger_request_hotel_report",
+          passengerRequestId: existing.id,
+          airlineId: existing.airlineId,
+          hotelId: hotel?.hotelId || undefined,
+          descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> отправлен на проверку`,
+          __typename: "PassengerRequestUpdatedNotification"
+        }
       })
 
       return updated
@@ -152,12 +138,7 @@ export default {
       const existing = await loadRequestOrThrow(requestId)
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
-        where: {
-          passengerRequestId_hotelIndex: {
-            passengerRequestId: requestId,
-            hotelIndex
-          }
-        }
+        where: reportWhere(requestId, hotelIndex)
       })
       if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
 
@@ -166,19 +147,20 @@ export default {
         data: { submittedAt: null }
       })
 
-      await logPassengerRequestAction({
-        context,
-        action: "hide_passenger_request_hotel_report",
-        description: "Отчёт по гостинице ФАП скрыт от авиакомпании",
-        fulldescription: `Пользователь ${getSubjectName(context)} скрыл отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} от авиакомпании в ФАП ${existing.flightNumber}`,
-        newData: updated,
-        airlineId: existing.airlineId,
-        passengerRequestId: requestId
-      })
-
       // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
       // и отчёт скроется без перезагрузки.
-      publishPassengerRequestUpdated(existing)
+      await finishPassengerRequestMutation({
+        context,
+        newData: updated,
+        publishData: existing,
+        log: {
+          action: "hide_passenger_request_hotel_report",
+          description: "Отчёт по гостинице ФАП скрыт от авиакомпании",
+          fulldescription: `Пользователь ${getSubjectName(context)} скрыл отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} от авиакомпании в ФАП ${existing.flightNumber}`,
+          airlineId: existing.airlineId,
+          passengerRequestId: requestId
+        }
+      })
 
       return updated
     }

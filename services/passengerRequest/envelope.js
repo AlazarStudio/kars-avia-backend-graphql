@@ -48,6 +48,12 @@ export const assertReason = (reason) => {
   return trimmed
 }
 
+// Составной ключ записи отчёта. Пять дословных повторов на два файла; ошибка
+// в нём молча уводит чтение или запись на отчёт другой гостиницы.
+export const reportWhere = (passengerRequestId, hotelIndex) => ({
+  passengerRequestId_hotelIndex: { passengerRequestId, hotelIndex }
+})
+
 // Дефолты embedded-сервисов, когда сервис ещё не создан
 export const emptyPeopleService = () => ({
   plan: null,
@@ -88,6 +94,13 @@ export async function finishPassengerRequestMutation({
   context,
   oldData,
   newData,
+  // Расхождение «что логируем» и «что публикуем» есть ровно у трёх мутаций
+  // отчёта: в лог у них уходит запись PassengerRequestHotelReport (дефект №2
+  // реестра), а в подписку — сама заявка в до-состоянии. И то и другое
+  // наблюдаемо и закреплено характеризационными тестами, поэтому расхождение
+  // выражено отдельным параметром, а не спрятано в newData. Всем остальным
+  // мутациям publishData не нужен: у них публикуется тот же newData.
+  publishData = null,
   log,
   notify = null,
   notifyBeforePublish = false,
@@ -98,6 +111,8 @@ export async function finishPassengerRequestMutation({
   const notifySite = channels.notifySite ?? notifyPassengerRequestSite
 
   await logAction({ context, oldData, newData, ...log })
+
+  const toPublish = publishData ?? newData
 
   const runNotify = async () => {
     if (!notify) return
@@ -110,11 +125,11 @@ export async function finishPassengerRequestMutation({
   // отдельный пункт реестра дефектов, а не часть этого рефактора.
   if (notifyBeforePublish) {
     await runNotify()
-    publish(newData)
+    publish(toPublish)
     return
   }
 
-  publish(newData)
+  publish(toPublish)
   await runNotify()
 }
 
@@ -146,15 +161,19 @@ export async function withPassengerRequest({
   // одной мутации — updatePassengerRequest: только она способна изменить
   // airlineId, поэтому у неё значение обязано браться из записанного документа,
   // а не из существующего. Остальным достаточно объекта.
-  const resolve = (value) =>
+  // Билдер лога/уведомления может быть async: у updatePassengerRequest он читает
+  // авиакомпанию из базы, и это чтение обязано идти ПОСЛЕ записи заявки — как
+  // было до конверта. Без await промис ушёл бы в спред `...log`, у промиса нет
+  // собственных перечислимых свойств, и все поля лога исчезли бы молча.
+  const resolve = async (value) =>
     typeof value === "function" ? value(passengerRequest) : value
 
   await finishPassengerRequestMutation({
     context,
     oldData: existing,
     newData: passengerRequest,
-    log: resolve(applied.log),
-    notify: resolve(applied.notify) ?? null,
+    log: await resolve(applied.log),
+    notify: (await resolve(applied.notify)) ?? null,
     notifyBeforePublish: applied.notifyBeforePublish ?? false,
     channels
   })

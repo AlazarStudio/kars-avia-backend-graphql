@@ -9,17 +9,20 @@ import {
 import { normalizeDriversForWrite } from "../../services/passengerRequest/baggageDelivery.js"
 import { normalizeCrewMember } from "../../services/passengerRequest/normalizers.js"
 import {
+  finishPassengerRequestMutation,
   getSubjectName,
   loadRequestOrThrow,
-  publishPassengerRequestUpdated
+  withPassengerRequest
 } from "../../services/passengerRequest/envelope.js"
+import {
+  findPassengerService,
+  PASSENGER_SERVICE_FIELDS,
+  PASSENGER_SERVICE_TABLE
+} from "../../services/passengerRequest/serviceTable.js"
 import { recognizePassengerDocument as recognizeDocumentService } from "../../services/docRecognition/recognizePassengerDocument.js"
 import { recognitionRateLimiter } from "../../services/docRecognition/recognitionRateLimit.js"
 import { logger } from "../../services/infra/logger.js"
-import {
-  recomputeServiceStatus,
-  transferFactCount
-} from "../../services/passengerRequest/serviceStatus.js"
+import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
 import {
   deleteAllPassengerRequestFilesFromDisk,
   deletePassengerRequestFileFromDisk,
@@ -45,13 +48,6 @@ export default {
       const {
         airlineId,
         airportId,
-        waterService,
-        mealService,
-        livingService,
-        transferService,
-        departureTransferService,
-        intercityTransferService,
-        baggageDeliveryService,
         crewMembers,
         status,
         createdById: inputCreatorId,
@@ -66,11 +62,14 @@ export default {
         throw new GraphQLError("airlineId and airportId are required")
       }
 
-      const data = {
-        ...rest,
-        airline: { connect: { id: airlineId } },
-        createdBy: { connect: { id: createdById } }
+      // Услуги в остатке входа тоже лежат, но уходить в документ как есть не
+      // должны: у каждой свой дефолт, он собирается ниже по таблице.
+      const data = {}
+      for (const [key, value] of Object.entries(rest)) {
+        if (!PASSENGER_SERVICE_FIELDS.has(key)) data[key] = value
       }
+      data.airline = { connect: { id: airlineId } }
+      data.createdBy = { connect: { id: createdById } }
 
       data.airport = { connect: { id: airportId } }
       if (status) data.status = status
@@ -79,71 +78,13 @@ export default {
         data.crewMembers = crewMembers.map(normalizeCrewMember)
       }
 
-      if (waterService) {
-        data.waterService = {
-          plan: waterService.plan || null,
-          status: "NEW",
-          times: null,
-          earlyCompletionReason: null,
-          earlyCompletedAt: null,
-          people: []
-        }
-      }
-
-      if (mealService) {
-        data.mealService = {
-          plan: mealService.plan || null,
-          status: "NEW",
-          times: null,
-          earlyCompletionReason: null,
-          earlyCompletedAt: null,
-          people: []
-        }
-      }
-
-      if (livingService) {
-        data.livingService = {
-          plan: livingService.plan || null,
-          status: "NEW",
-          times: null,
-          hotels: [],
-          evictions: []
-        }
-      }
-
-      if (transferService) {
-        data.transferService = {
-          plan: transferService.plan || null,
-          status: "NEW",
-          times: null,
-          drivers: []
-        }
-      }
-
-      if (departureTransferService) {
-        data.departureTransferService = {
-          plan: departureTransferService.plan || null,
-          status: "NEW",
-          times: null,
-          drivers: []
-        }
-      }
-
-      if (intercityTransferService) {
-        data.intercityTransferService = {
-          plan: intercityTransferService.plan || null,
-          status: "NEW",
-          times: null,
-          drivers: []
-        }
-      }
-
-      if (baggageDeliveryService) {
-        data.baggageDeliveryService = {
-          plan: baggageDeliveryService.plan || null,
-          status: "NEW",
-          times: null,
-          drivers: []
+      // Услуга заводится, только если пришла во входе. Из входа берётся один
+      // план, остальное — дефолт услуги: статус и отметки времени услуги
+      // рождаются пустыми независимо от того, что прислал клиент.
+      for (const entry of PASSENGER_SERVICE_TABLE) {
+        const service = input[entry.field]
+        if (service) {
+          data[entry.field] = { ...entry.empty(), plan: service.plan || null }
         }
       }
       // Формирование уникального requestNumber: {seq4}{airportCode}{MM}{YY}f
@@ -196,6 +137,8 @@ export default {
         }
       }
 
+      // Хвост конверта здесь неприменим: он публикует гидрированную заявку в
+      // топик обновления, а создание уходит СЫРЫМ в собственный топик.
       await logPassengerRequestAction({
         context,
         action: "create_passenger_request",
@@ -238,533 +181,349 @@ export default {
     },
 
     // обновление шапки + планов
-    updatePassengerRequest: async (_, { id, input }, context) => {
-      const existing = await loadRequestOrThrow(id)
-
-      const {
-        airlineId,
-        airportId,
-        waterService,
-        mealService,
-        livingService,
-        transferService,
-        departureTransferService,
-        intercityTransferService,
-        baggageDeliveryService,
-        crewMembers,
-        ...rest
-      } = input
-
-      const data = {}
-
-      Object.entries(rest).forEach(([key, value]) => {
-        if (value !== undefined) data[key] = value
-      })
-
-      if (Array.isArray(crewMembers)) {
-        data.crewMembers = crewMembers.map(normalizeCrewMember)
-      }
-
-      if (airlineId) {
-        data.airline = { connect: { id: airlineId } }
-      }
-
-      if (airportId !== undefined) {
-        if (airportId === null) data.airport = { disconnect: true }
-        else data.airport = { connect: { id: airportId } }
-      }
-
-      // Факт услуги: список либо «перевезено N» на поездке (max), см. serviceStatus.js.
-      // Для багажа transportedCount пуст — поведение прежнее.
-      const totalDriverPeople = (drivers) => transferFactCount(drivers)
-      const totalHotelPeople = (hotels) =>
-        (hotels || []).reduce((sum, h) => sum + (h?.people?.length || 0), 0)
-
-      if (waterService) {
-        const prev = existing.waterService || {}
-        const mergedPlan =
-          waterService.plan !== undefined ? waterService.plan : prev.plan
-        const current = (prev.people || []).length
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.waterService = {
-          ...prev,
-          ...(waterService.plan !== undefined && { plan: waterService.plan }),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (mealService) {
-        const prev = existing.mealService || {}
-        const mergedPlan =
-          mealService.plan !== undefined ? mealService.plan : prev.plan
-        const current = (prev.people || []).length
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.mealService = {
-          ...prev,
-          ...(mealService.plan !== undefined && { plan: mealService.plan }),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (livingService) {
-        const prev = existing.livingService || {}
-        const mergedPlan =
-          livingService.plan !== undefined ? livingService.plan : prev.plan
-        const current = totalHotelPeople(prev.hotels)
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.livingService = {
-          ...prev,
-          ...(livingService.plan !== undefined && { plan: livingService.plan }),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (transferService) {
-        const prev = existing.transferService || {}
-        const mergedPlan =
-          transferService.plan !== undefined ? transferService.plan : prev.plan
-        const current = totalDriverPeople(prev.drivers)
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.transferService = {
-          ...prev,
-          ...(transferService.plan !== undefined && {
-            plan: transferService.plan
-          }),
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (departureTransferService) {
-        const prev = existing.departureTransferService || {}
-        const mergedPlan =
-          departureTransferService.plan !== undefined
-            ? departureTransferService.plan
-            : prev.plan
-        const current = totalDriverPeople(prev.drivers)
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.departureTransferService = {
-          ...prev,
-          ...(departureTransferService.plan !== undefined && {
-            plan: departureTransferService.plan
-          }),
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (intercityTransferService) {
-        const prev = existing.intercityTransferService || {}
-        const mergedPlan =
-          intercityTransferService.plan !== undefined
-            ? intercityTransferService.plan
-            : prev.plan
-        const current = totalDriverPeople(prev.drivers)
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.intercityTransferService = {
-          ...prev,
-          ...(intercityTransferService.plan !== undefined && {
-            plan: intercityTransferService.plan
-          }),
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-
-      if (baggageDeliveryService) {
-        const prev = existing.baggageDeliveryService || {}
-        const mergedPlan =
-          baggageDeliveryService.plan !== undefined
-            ? baggageDeliveryService.plan
-            : prev.plan
-        const current = totalDriverPeople(prev.drivers)
-        const recalc = recomputeServiceStatus(
-          { ...prev, plan: mergedPlan },
-          current,
-          current
-        )
-        data.baggageDeliveryService = {
-          ...prev,
-          ...(baggageDeliveryService.plan !== undefined && {
-            plan: baggageDeliveryService.plan
-          }),
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status: recalc.status,
-          times: recalc.times
-        }
-      }
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id },
-        data
-      })
-
-      const isDateChange = passengerRequestFlightDateChanged(
-        existing.flightDate,
-        rest.flightDate
-      )
-      let emailExtras = {}
-      let emailAction = "update_passenger_request"
-      if (isDateChange) {
-        emailAction = "passenger_request_dates_change"
-        const airline = passengerRequest.airlineId
-          ? await prisma.airline.findUnique({
-              where: { id: passengerRequest.airlineId },
-              select: { name: true }
-            })
-          : null
-        emailExtras = {
-          oldFlightDate: formatDate(existing.flightDate),
-          newFlightDate: formatDate(passengerRequest.flightDate),
-          airlineName: airline?.name
-        }
-      }
-
-      await logPassengerRequestAction({
+    updatePassengerRequest: async (_, { id, input }, context) =>
+      withPassengerRequest({
+        requestId: id,
         context,
-        action: "update_passenger_request",
-        description: "ФАП обновлен",
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id,
-        emailAction,
-        emailExtras
-      })
+        apply: async (existing) => {
+          const { airlineId, airportId, crewMembers, ...rest } = input
 
-      if (Object.keys(data).length > 0) {
-        await notifyPassengerRequestSite({
-          action: isDateChange
+          const data = {}
+
+          Object.entries(rest).forEach(([key, value]) => {
+            if (value === undefined) return
+            // Услуги разбираются ниже поштучно; попав сюда, сервисный объект
+            // уехал бы в документ как есть — без пересчёта статуса и без
+            // нормализации водителей.
+            if (PASSENGER_SERVICE_FIELDS.has(key)) return
+            data[key] = value
+          })
+
+          if (Array.isArray(crewMembers)) {
+            data.crewMembers = crewMembers.map(normalizeCrewMember)
+          }
+
+          if (airlineId) {
+            data.airline = { connect: { id: airlineId } }
+          }
+
+          if (airportId !== undefined) {
+            if (airportId === null) data.airport = { disconnect: true }
+            else data.airport = { connect: { id: airportId } }
+          }
+
+          // Правка плана меняет статус, не меняя факта: число людей до и после
+          // одно и то же, поэтому пересчёт зовётся с одинаковыми счётчиками —
+          // сработать может только правило «факт >= плана» и обратное ему.
+          // Чем именно меряется факт у каждой услуги — в serviceTable.js.
+          for (const entry of PASSENGER_SERVICE_TABLE) {
+            const service = input[entry.field]
+            if (!service) continue
+
+            const prev = existing[entry.field] || {}
+            const mergedPlan =
+              service.plan !== undefined ? service.plan : prev.plan
+            const current = entry.factCount(prev)
+            const recalc = recomputeServiceStatus(
+              { ...prev, plan: mergedPlan },
+              current,
+              current
+            )
+            data[entry.field] = {
+              ...prev,
+              ...(service.plan !== undefined && { plan: service.plan }),
+              // Пассажиров чинят только водительские услуги; вода, питание и
+              // проживание уносят своих людей из prev как есть.
+              ...(entry.hasDrivers && {
+                drivers: normalizeDriversForWrite(prev.drivers)
+              }),
+              status: recalc.status,
+              times: recalc.times
+            }
+          }
+
+          const isDateChange = passengerRequestFlightDateChanged(
+            existing.flightDate,
+            rest.flightDate
+          )
+          const emailAction = isDateChange
             ? "passenger_request_dates_change"
-            : "update_passenger_request",
-          passengerRequestId: passengerRequest.id,
-          airlineId: passengerRequest.airlineId,
-          descriptionHtml: `Обновлён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
-          __typename: "PassengerRequestUpdatedNotification"
-        })
-      }
+            : "update_passenger_request"
 
-      publishPassengerRequestUpdated(passengerRequest)
-
-      return passengerRequest
-    },
-
-    addPassengerRequestFiles: async (_, { requestId, files }, context) => {
-      const existing = await loadRequestOrThrow(requestId)
-      if (!files?.length) {
-        throw new GraphQLError("At least one file is required")
-      }
-
-      const uploadedPaths = await uploadPassengerRequestFiles(requestId, files)
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data: {
-          files: [...(existing.files || []), ...uploadedPaths]
+          return {
+            data,
+            // Единственная мутация модуля, способная сменить airlineId, поэтому
+            // лог собирается по ЗАПИСАННОМУ документу, а не по прочитанному.
+            // Билдер асинхронный: название авиакомпании для письма о переносе
+            // даты читается ПОСЛЕ записи заявки, как было до конверта.
+            log: async (passengerRequest) => {
+              let emailExtras = {}
+              if (isDateChange) {
+                const airline = passengerRequest.airlineId
+                  ? await prisma.airline.findUnique({
+                      where: { id: passengerRequest.airlineId },
+                      select: { name: true }
+                    })
+                  : null
+                emailExtras = {
+                  oldFlightDate: formatDate(existing.flightDate),
+                  newFlightDate: formatDate(passengerRequest.flightDate),
+                  airlineName: airline?.name
+                }
+              }
+              return {
+                action: "update_passenger_request",
+                description: "ФАП обновлен",
+                fulldescription: `Пользователь ${getSubjectName(context)} обновил ФАП ${passengerRequest.flightNumber}`,
+                airlineId: passengerRequest.airlineId,
+                passengerRequestId: passengerRequest.id,
+                emailAction,
+                emailExtras
+              }
+            },
+            // Условие «есть что писать» стоит только на уведомлении: пустой
+            // патч всё равно доходит до записи и до истории.
+            notify:
+              Object.keys(data).length > 0
+                ? (passengerRequest) => ({
+                    action: emailAction,
+                    passengerRequestId: passengerRequest.id,
+                    airlineId: passengerRequest.airlineId,
+                    descriptionHtml: `Обновлён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
+                    __typename: "PassengerRequestUpdatedNotification"
+                  })
+                : null,
+            // Здесь уведомление уходит ПЕРЕД публикацией — в отличие от
+            // соседнего cancelPassengerRequest. Расхождение наблюдаемо.
+            notifyBeforePublish: true
+          }
         }
-      })
+      }),
 
-      await logPassengerRequestAction({
+    addPassengerRequestFiles: async (_, { requestId, files }, context) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "add_passenger_request_files",
-        description: "Файлы добавлены в ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} добавил ${uploadedPaths.length} файл(ов) в ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: async (existing) => {
+          // Проверка стоит уже ПОСЛЕ чтения заявки: пустой список отбивается,
+          // сходив в базу. Асимметрия с пакетными мутациями закреплена тестом.
+          if (!files?.length) {
+            throw new GraphQLError("At least one file is required")
+          }
 
-      publishPassengerRequestUpdated(passengerRequest)
+          // Файлы кладутся на диск ДО записи документа и без транзакции:
+          // упавшая загрузка роняет мутацию, не оставив ни записи, ни истории.
+          const uploadedPaths = await uploadPassengerRequestFiles(
+            requestId,
+            files
+          )
 
-      return passengerRequest
-    },
+          return {
+            data: { files: [...(existing.files || []), ...uploadedPaths] },
+            log: (passengerRequest) => ({
+              action: "add_passenger_request_files",
+              description: "Файлы добавлены в ФАП",
+              fulldescription: `Пользователь ${getSubjectName(context)} добавил ${uploadedPaths.length} файл(ов) в ФАП ${passengerRequest.flightNumber}`,
+              airlineId: passengerRequest.airlineId,
+              passengerRequestId: passengerRequest.id
+            })
+          }
+        }
+      }),
 
-    removePassengerRequestFile: async (
-      _,
-      { requestId, filePath },
-      context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
-
-      const fileIndex = findPassengerRequestFileIndex(
-        existing.files,
-        filePath
-      )
-      if (fileIndex < 0) {
-        throw new GraphQLError("File not found on this passenger request")
-      }
-
-      const removedPath = existing.files[fileIndex]
-      await deletePassengerRequestFileFromDisk(removedPath)
-
-      const nextFiles = (existing.files || []).filter(
-        (_, index) => index !== fileIndex
-      )
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data: { files: nextFiles }
-      })
-
-      await logPassengerRequestAction({
+    removePassengerRequestFile: async (_, { requestId, filePath }, context) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "remove_passenger_request_file",
-        description: "Файл удалён из ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил файл из ФАП ${passengerRequest.flightNumber}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: async (existing) => {
+          const fileIndex = findPassengerRequestFileIndex(
+            existing.files,
+            filePath
+          )
+          if (fileIndex < 0) {
+            throw new GraphQLError("File not found on this passenger request")
+          }
 
-      publishPassengerRequestUpdated(passengerRequest)
+          // С диска файл стирается ДО записи документа — порядок закреплён
+          // тестом, менять его нельзя.
+          const removedPath = existing.files[fileIndex]
+          await deletePassengerRequestFileFromDisk(removedPath)
 
-      return passengerRequest
-    },
+          return {
+            data: {
+              files: (existing.files || []).filter(
+                (_, index) => index !== fileIndex
+              )
+            },
+            log: (passengerRequest) => ({
+              action: "remove_passenger_request_file",
+              description: "Файл удалён из ФАП",
+              fulldescription: `Пользователь ${getSubjectName(context)} удалил файл из ФАП ${passengerRequest.flightNumber}`,
+              airlineId: passengerRequest.airlineId,
+              passengerRequestId: passengerRequest.id
+            })
+          }
+        }
+      }),
 
     deletePassengerRequest: async (_, { id }, context) => {
       const existing = await loadRequestOrThrow(id)
 
       await deleteAllPassengerRequestFilesFromDisk(existing.files)
 
+      // Полный конверт неприменим: документ не обновляется, а удаляется.
+      // Остаётся хвост — история и публикация.
       const passengerRequest = await prisma.passengerRequest.delete({
         where: { id }
       })
-      await logPassengerRequestAction({
-        context,
-        action: "delete_passenger_request",
-        description: "ФАП удален",
-        fulldescription: `Пользователь ${getSubjectName(context)} удалил ФАП ${passengerRequest.flightNumber}`,
-        oldData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
 
-      publishPassengerRequestUpdated(passengerRequest)
+      await finishPassengerRequestMutation({
+        context,
+        oldData: passengerRequest,
+        // newData у удаления нет вовсе, а в подписку тем не менее уезжает
+        // удалённый документ: топика PASSENGER_REQUEST_DELETED не существует.
+        newData: undefined,
+        publishData: passengerRequest,
+        log: {
+          action: "delete_passenger_request",
+          description: "ФАП удален",
+          fulldescription: `Пользователь ${getSubjectName(context)} удалил ФАП ${passengerRequest.flightNumber}`,
+          airlineId: passengerRequest.airlineId,
+          passengerRequestId: passengerRequest.id
+        }
+      })
 
       return true
     },
 
     // общий статус заявки
-    setPassengerRequestStatus: async (_, { id, status }, context) => {
-      const existing = await loadRequestOrThrow(id)
-
-      const statusTimes = updateTimes(existing.statusTimes, status)
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id },
-        data: {
-          status,
-          statusTimes
-        }
-      })
-
-      await logPassengerRequestAction({
+    setPassengerRequestStatus: async (_, { id, status }, context) =>
+      withPassengerRequest({
+        requestId: id,
         context,
-        action: "update_passenger_request_status",
-        description: "Статус ФАП обновлен",
-        fulldescription: `Пользователь ${getSubjectName(context)} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
-
-      publishPassengerRequestUpdated(passengerRequest)
-
-      return passengerRequest
-    },
+        apply: (existing) => ({
+          data: {
+            status,
+            statusTimes: updateTimes(existing.statusTimes, status)
+          },
+          log: (passengerRequest) => ({
+            action: "update_passenger_request_status",
+            description: "Статус ФАП обновлен",
+            fulldescription: `Пользователь ${getSubjectName(context)} сменил статус ФАП ${passengerRequest.flightNumber} на ${status}`,
+            airlineId: passengerRequest.airlineId,
+            passengerRequestId: passengerRequest.id
+          })
+        })
+      }),
 
     // ростер экипажа заявки
     updatePassengerRequestCrew: async (
       _,
       { requestId, crewMembers },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(requestId)
-
-      const normalizedCrew = Array.isArray(crewMembers)
-        ? crewMembers.map(normalizeCrewMember)
-        : []
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id: requestId },
-        data: { crewMembers: normalizedCrew }
-      })
-
-      await logPassengerRequestAction({
+    ) =>
+      withPassengerRequest({
+        requestId,
         context,
-        action: "update_passenger_request_crew",
-        description: "Обновлён ростер экипажа ФАП",
-        fulldescription: `Пользователь ${getSubjectName(context)} обновил ростер экипажа ФАП ${passengerRequest.flightNumber} (${normalizedCrew.length} чел.)`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: () => {
+          // Не массив стирает ростер: пустой список — это тоже результат.
+          const normalizedCrew = Array.isArray(crewMembers)
+            ? crewMembers.map(normalizeCrewMember)
+            : []
 
-      publishPassengerRequestUpdated(passengerRequest)
-
-      return passengerRequest
-    },
+          return {
+            data: { crewMembers: normalizedCrew },
+            log: (passengerRequest) => ({
+              action: "update_passenger_request_crew",
+              description: "Обновлён ростер экипажа ФАП",
+              fulldescription: `Пользователь ${getSubjectName(context)} обновил ростер экипажа ФАП ${passengerRequest.flightNumber} (${normalizedCrew.length} чел.)`,
+              airlineId: passengerRequest.airlineId,
+              passengerRequestId: passengerRequest.id
+            })
+          }
+        }
+      }),
 
     // общий статус заявки
-    cancelPassengerRequest: async (_, { id, cancelReason }, context) => {
-      const existing = await loadRequestOrThrow(id)
-      const status = "CANCELLED"
-      const statusTimes = updateTimes(existing.statusTimes, status)
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id },
-        data: {
-          status,
-          statusTimes,
-          cancelReason
-        }
-      })
-
-      await logPassengerRequestAction({
+    cancelPassengerRequest: async (_, { id, cancelReason }, context) =>
+      withPassengerRequest({
+        requestId: id,
         context,
-        action: "update_passenger_request_status",
-        description: "Заявка по ФАП отменена",
-        fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
-        reason: cancelReason,
-        cancelReason,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id,
-        emailAction: "cancel_passenger_request"
-      })
+        apply: (existing) => {
+          const status = "CANCELLED"
 
-      publishPassengerRequestUpdated(passengerRequest)
-
-      await notifyPassengerRequestSite({
-        action: "cancel_passenger_request",
-        passengerRequestId: passengerRequest.id,
-        airlineId: passengerRequest.airlineId,
-        descriptionHtml: `Отменён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
-        __typename: "PassengerRequestUpdatedNotification"
-      })
-
-      return passengerRequest
-    },
+          return {
+            data: {
+              status,
+              statusTimes: updateTimes(existing.statusTimes, status),
+              cancelReason
+            },
+            // Слаг лога тот же, что у обычной смены статуса: отмену видно
+            // только по description и reason.
+            log: (passengerRequest) => ({
+              action: "update_passenger_request_status",
+              description: "Заявка по ФАП отменена",
+              fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
+              reason: cancelReason,
+              cancelReason,
+              airlineId: passengerRequest.airlineId,
+              passengerRequestId: passengerRequest.id,
+              emailAction: "cancel_passenger_request"
+            }),
+            notify: (passengerRequest) => ({
+              action: "cancel_passenger_request",
+              passengerRequestId: passengerRequest.id,
+              airlineId: passengerRequest.airlineId,
+              descriptionHtml: `Отменён ФАП <span style='color:#545873'>${passengerRequest.flightNumber}</span>`,
+              __typename: "PassengerRequestUpdatedNotification"
+            })
+          }
+        }
+      }),
 
     // статус конкретного сервиса
     setPassengerRequestServiceStatus: async (
       _,
       { id, service, status },
       context
-    ) => {
-      const existing = await loadRequestOrThrow(id)
-
-      const data = {}
-
-      if (service === "WATER") {
-        const prev = existing.waterService || { people: [] }
-        data.waterService = {
-          ...prev,
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "MEAL") {
-        const prev = existing.mealService || { people: [] }
-        data.mealService = {
-          ...prev,
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "LIVING") {
-        const prev = existing.livingService || { hotels: [], evictions: [] }
-        data.livingService = {
-          ...prev,
-          evictions: prev.evictions || [],
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "TRANSFER") {
-        const prev = existing.transferService || { drivers: [] }
-        data.transferService = {
-          ...prev,
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "DEPARTURE_TRANSFER") {
-        const prev = existing.departureTransferService || { drivers: [] }
-        data.departureTransferService = {
-          ...prev,
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "INTERCITY_TRANSFER") {
-        const prev = existing.intercityTransferService || { drivers: [] }
-        data.intercityTransferService = {
-          ...prev,
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      } else if (service === "BAGGAGE_DELIVERY") {
-        const prev = existing.baggageDeliveryService || { drivers: [] }
-        data.baggageDeliveryService = {
-          ...prev,
-          drivers: normalizeDriversForWrite(prev.drivers),
-          status,
-          times: updateTimes(prev.times, status)
-        }
-      }
-
-      const passengerRequest = await prisma.passengerRequest.update({
-        where: { id },
-        data
-      })
-      await logPassengerRequestAction({
+    ) =>
+      withPassengerRequest({
+        requestId: id,
         context,
-        action: "update_passenger_request_service_status",
-        description: `Статус сервиса обновлен: ${service}`,
-        fulldescription: `Пользователь ${context?.user?.name ?? "Пользователь"} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
-        oldData: existing,
-        newData: passengerRequest,
-        airlineId: passengerRequest.airlineId,
-        passengerRequestId: passengerRequest.id
-      })
+        apply: (existing) => {
+          const entry = findPassengerService(service)
 
-      publishPassengerRequestUpdated(passengerRequest)
+          // Валидации имени услуги нет: неизвестная услуга даёт пустой апдейт,
+          // но лог и публикация всё равно случаются.
+          const data = {}
+          if (entry) {
+            const prev = existing[entry.field] || entry.statusFallback()
+            data[entry.field] = {
+              ...prev,
+              ...(entry.hasDrivers && {
+                drivers: normalizeDriversForWrite(prev.drivers)
+              }),
+              ...(entry.statusExtra && entry.statusExtra(prev)),
+              status,
+              times: updateTimes(prev.times, status)
+            }
+          }
 
-      return passengerRequest
-    },
+          return {
+            data,
+            log: (passengerRequest) => ({
+              action: "update_passenger_request_service_status",
+              description: `Статус сервиса обновлен: ${service}`,
+              // Единственная в модуле подстановка context?.user?.name вместо
+              // getSubjectName: у внешнего пользователя (PWA гостиницы) user
+              // отсутствует, и в истории остаётся безымянный «Пользователь».
+              fulldescription: `Пользователь ${context?.user?.name ?? "Пользователь"} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
+              airlineId: passengerRequest.airlineId,
+              passengerRequestId: passengerRequest.id
+            })
+          }
+        }
+      }),
 
     recognizePassengerDocument: async (_, { image }, context) => {
       // Каждый вызов стоит двух платных обращений в Yandex Cloud, поэтому
