@@ -117,7 +117,9 @@ export const buildRepresentativeExternalKey = ({
 
 export const upsertRepresentativeExternalUser = async ({
   representativeKey,
-  name
+  name,
+  airlineId = null,
+  airportId = null
 }) => {
   const autoEmail = normalizeEmail(`representative-${representativeKey}@auto.internal`)
 
@@ -128,12 +130,18 @@ export const upsertRepresentativeExternalUser = async ({
       name: name || null,
       scope: "REPRESENTATIVE",
       accessType: "CRM",
-      active: true
+      active: true,
+      // Принадлежность записываем явно: правило видимости ФАП читает поля,
+      // а не разбирает email.
+      airlineId,
+      airportId
     },
     update: {
       name: name || undefined,
       scope: "REPRESENTATIVE",
-      active: true
+      active: true,
+      airlineId: airlineId || undefined,
+      airportId: airportId || undefined
     }
   })
 }
@@ -187,11 +195,17 @@ export const upsertDriverExternalUser = async ({ requestId, driverName, serviceK
       name: driverName || null,
       scope: "DRIVER",
       accessType: "CRM",
-      active: true
+      active: true,
+      // Принадлежность записываем явно: правило видимости ФАП читает поля,
+      // а не разбирает email. driverId сюда не пишем: приходящий id — uuid
+      // водителя внутри embedded-сервиса (newDriverId), а ExternalUser.driverId
+      // — ObjectId-связь на модель Driver, и запись uuid туда падает.
+      passengerRequestId: requestId || null
     },
     update: {
       name: driverName || undefined,
-      active: true
+      active: true,
+      passengerRequestId: requestId || undefined
     }
   })
 }

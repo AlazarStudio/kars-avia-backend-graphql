@@ -40,6 +40,7 @@ import {
   passengerRequestFlightDateChanged
 } from "../../services/passengerRequest/notify.js"
 import { generateRepresentativeLinksForRequest } from "../../services/passengerRequest/externalLinks.js"
+import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 
 export default {
   Mutation: {
@@ -53,6 +54,15 @@ export default {
         createdById: inputCreatorId,
         ...rest
       } = input
+
+      // Заявки ещё нет, поэтому проверяем то, чем она станет: субъект не должен
+      // заводить заявку чужой авиакомпании.
+      assertCanAccessRequest(context, {
+        id: null,
+        airlineId: airlineId ?? null,
+        airportId: airportId ?? null,
+        livingService: null
+      })
 
       const createdById = resolveUserId(context, inputCreatorId)
       if (!createdById) {
@@ -368,6 +378,7 @@ export default {
 
     deletePassengerRequest: async (_, { id }, context) => {
       const existing = await loadRequestOrThrow(id)
+      assertCanAccessRequest(context, existing)
 
       await deleteAllPassengerRequestFilesFromDisk(existing.files)
 

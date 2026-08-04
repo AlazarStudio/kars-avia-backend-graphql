@@ -60,9 +60,13 @@ export function assertFapSubject(context) {
 // не меняет их контракт. Для graphql-js разницы нет: синхронный бросок и
 // отклонённый промис он обрабатывает одинаково. Подписка ниже, наоборот,
 // синхронна — там отказать нужно ДО создания итератора.
-const guardResolver = (fn) =>
+const guardResolver = (fn, operationName) =>
   async function guarded(parent, args, context, info) {
     assertFapSubject(context)
+    // Имя операции кладём в контекст здесь: обёртка — единственное место, где
+    // оно известно даром. Иначе пришлось бы протаскивать его через все 48
+    // вызовов конверта мутации ради одной строки лога.
+    if (context) context.fapOperation = operationName
     return fn.call(this, parent, args, context, info)
   }
 
@@ -77,7 +81,7 @@ const guardSection = (section, sectionName) =>
           `ФАП, ${sectionName}.${name}: ожидалась функция-резолвер, получено ${typeof value}`
         )
       }
-      return [name, guardResolver(value)]
+      return [name, guardResolver(value, `${sectionName}.${name}`)]
     })
   )
 

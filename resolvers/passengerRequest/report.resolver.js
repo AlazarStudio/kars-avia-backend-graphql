@@ -10,6 +10,7 @@ import {
   reportWhere
 } from "../../services/passengerRequest/envelope.js"
 import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
+import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 
 export default {
   Mutation: {
@@ -19,6 +20,7 @@ export default {
       context
     ) => {
       const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
 
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",
@@ -92,6 +94,7 @@ export default {
       context
     ) => {
       const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
       const hotel = existing.livingService?.hotels?.[hotelIndex]
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
@@ -136,6 +139,7 @@ export default {
       context
     ) => {
       const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
         where: reportWhere(requestId, hotelIndex)

@@ -124,7 +124,9 @@ export async function generateRepresentativeLinksForRequest({
   try {
     const externalUser = await upsertRepresentativeExternalUser({
       representativeKey,
-      name: null
+      name: null,
+      airlineId,
+      airportId
     })
     const generatedLinks = await issueExternalLinksForUser({
       externalUserId: externalUser.id,

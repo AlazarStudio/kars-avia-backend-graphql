@@ -4,6 +4,10 @@ import { prisma } from "../../prisma.js"
 import { dedupeSavedPassengers } from "../../services/passengerRequest/savedPassengers.js"
 import { hydratePassengerRequest } from "../../services/passengerRequest/hydratePassengerRequest.js"
 import { reportWhere } from "../../services/passengerRequest/envelope.js"
+import {
+  scopeFilterForQuery,
+  evaluateRequestAccess
+} from "../../services/passengerRequest/fapScopeGuard.js"
 
 export default {
   // --------- поля связей ---------
@@ -138,6 +142,13 @@ export default {
         })
       }
 
+      // Скоуп субъекта кладём в тот же AND, а не в корень where: там уже лежат
+      // поиск и период, и запись в корень затёрла бы пользовательский фильтр
+      // либо была бы затёрта им.
+      const scope = scopeFilterForQuery(context)
+      if (scope.denyAll) return []
+      if (scope.filter) and.push(scope.filter)
+
       if (and.length) where.AND = and
 
       const list = await prisma.passengerRequest.findMany({
@@ -151,7 +162,11 @@ export default {
 
     passengerRequest: async (_, { id }, context) => {
       const req = await prisma.passengerRequest.findUnique({ where: { id } })
-      return req ? hydratePassengerRequest(req) : null
+      if (!req) return null
+      // null, а не FORBIDDEN: код отказа подтвердил бы, что заявка с таким
+      // идентификатором существует.
+      if (!evaluateRequestAccess(context, req).allowed) return null
+      return hydratePassengerRequest(req)
     }
   }
 }

@@ -35,6 +35,7 @@ import {
   withPassengerRequest
 } from "../../services/passengerRequest/envelope.js"
 import { generateHotelLinks } from "../../services/passengerRequest/externalLinks.js"
+import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 
 export default {
   Mutation: {
@@ -108,6 +109,7 @@ export default {
       context
     ) => {
       const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
 
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []

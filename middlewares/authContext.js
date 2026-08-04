@@ -229,7 +229,13 @@ export async function buildAuthContext(authHeader) {
       where: { id: airlinePersonalId },
       select: {
         id: true,
-        refreshToken: true
+        refreshToken: true,
+        // Нужны правилу видимости ФАП (services/passengerRequest/fapScope.js):
+        // без airlineId субъект получает отказ, а не полный доступ.
+        airlineId: true,
+        departmentId: true,
+        role: true,
+        positionId: true
       }
     })
     subject = personal

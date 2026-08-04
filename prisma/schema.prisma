@@ -1843,6 +1843,12 @@ model ExternalUser {
   hotelId          String?                      @db.ObjectId
   driver           Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
   driverId         String?                      @db.ObjectId
+  // Принадлежность внешнего пользователя. Раньше выводилась разбором
+  // автогенерируемого email; вынесена в поля, потому что на неё опирается
+  // правило видимости заявок ФАП.
+  airlineId          String?                      @db.ObjectId
+  airportId          String?                      @db.ObjectId
+  passengerRequestId String?                      @db.ObjectId
   active           Boolean                      @default(true)
   refreshToken     String?
   sessionExpiresAt DateTime?
