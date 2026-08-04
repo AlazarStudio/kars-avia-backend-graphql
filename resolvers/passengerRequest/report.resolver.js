@@ -81,7 +81,14 @@ export default {
           description: "Отчёт по гостинице ФАП сохранён",
           fulldescription: `Пользователь ${getSubjectName(context)} сохранил отчёт по гостинице ${existing.livingService?.hotels?.[hotelIndex]?.name || "без названия"} для ФАП ${existing.flightNumber}`,
           airlineId: existing.airlineId,
-          passengerRequestId: requestId
+          passengerRequestId: requestId,
+          // Автосохранение отчёта дёргается флашем при уходе со страницы и перед
+          // выгрузкой Excel, то есть многократно за один сеанс работы. Своего
+          // почтового действия у этого слага нет — resolveEmailActionForLog
+          // отдаёт общее «update_passenger_request», поэтому каждый заход в
+          // отчёт рассылал участникам письмо «заявка обновлена». Осмысленное
+          // событие здесь — submit («отправлен на проверку»), он письмо и шлёт.
+          skipEmail: true
         }
       })
 
