@@ -1,0 +1,682 @@
+// Характеризационные тесты группы «Каркас заявки»: создание, обновление,
+// файлы, удаление, статусы, ростер экипажа, отмена, статус услуги и
+// распознавание документа.
+//
+// Фиксируют поведение КАК ЕСТЬ, включая дефекты. Тест, закрепляющий дефект,
+// помечен номером из реестра спеки — при починке дефекта обязан измениться
+// именно он.
+
+import test from "node:test"
+import assert from "node:assert/strict"
+import resolvers from "../../../resolvers/passengerRequest/passengerRequest.resolver.js"
+import { installPrismaDouble } from "../../helpers/prismaDouble.js"
+import { installPubsubSpy, releasePubsubAfterTests } from "../../helpers/fapHarness.js"
+import { runFapMutation } from "../../helpers/runFapMutation.js"
+import { recognitionRateLimiter } from "../../../services/docRecognition/recognitionRateLimit.js"
+import {
+  makeRequest,
+  makeContext,
+  makeHotelContext
+} from "../fixtures/passengerRequest.js"
+
+// Обязательно в каждом файле, импортирующем резолвер: иначе при заданном
+// REDIS_URL клиенты Redis удержат процесс и раннер не завершится.
+releasePubsubAfterTests()
+
+// Общий хелпер отдаёт срез, которого хватает почти всем тестам. Части тестов
+// этой группы нужен более сырой доступ: аргументы create/delete, полезная
+// нагрузка публикации и следы УПАВШЕЙ мутации. Форму runFapMutation ради них
+// не расширяем — она общая на все группы, поэтому стенд ставим здесь.
+async function runRaw(
+  name,
+  args,
+  { request = makeRequest(), context = makeContext() } = {}
+) {
+  const double = installPrismaDouble({ documents: { passengerRequest: request } })
+  const spy = installPubsubSpy()
+  let result = null
+  let error = null
+  try {
+    result = await resolvers.Mutation[name](null, args, context)
+  } catch (e) {
+    error = e
+  } finally {
+    spy.restore()
+    double.restore()
+  }
+  return { result, error, double, published: spy.published }
+}
+
+// ─────────────────────────── createPassengerRequest ───────────────────────────
+
+test("createPassengerRequest: один create, один апдейт ссылок, лог, уведомление, публикация", async () => {
+  const run = await runFapMutation("createPassengerRequest", {
+    input: {
+      airlineId: "airline-1",
+      airportId: "airport-1",
+      flightNumber: "TEST001"
+    }
+  })
+
+  // Документ пишется в два приёма: create, затем апдейт представительских ссылок.
+  assert.deepEqual(run.order.slice(0, 3), [
+    "passengerRequest.findFirst",
+    "airport.findUnique",
+    "passengerRequest.create"
+  ])
+  assert.equal(run.written.length, 1)
+  assert.deepEqual(Object.keys(run.written[0]), ["representativeLinks"])
+  assert.equal(run.written[0].representativeLinks.length, 1)
+
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "create_passenger_request")
+  assert.equal(run.notified.length, 1)
+  assert.equal(
+    run.notified[0].description.action,
+    "create_passenger_request"
+  )
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_CREATED", "NOTIFICATION"])
+
+  // Номер: {seq+1}{код аэропорта или XXX}{MM}{YY}f. Аэропорта в стенде нет,
+  // поэтому код — заглушка; порядковый берётся из последней заявки (0001).
+  assert.match(run.result.requestNumber, /^0002XXX\d{4}f$/)
+})
+
+test("createPassengerRequest публикует СЫРУЮ заявку, а подписка обновления — гидрированную", async () => {
+  // Ростер savedPassengers — источник истины идентичности, гидрация накладывает
+  // его на сервис-персон. В PASSENGER_REQUEST_CREATED уходит документ до
+  // гидрации, поэтому подписчик видит устаревшее имя.
+  const request = makeRequest()
+  request.waterService.people[0].fullName = "Старое Имя"
+
+  const created = await runRaw(
+    "createPassengerRequest",
+    {
+      input: {
+        airlineId: "airline-1",
+        airportId: "airport-1",
+        flightNumber: "TEST001"
+      }
+    },
+    { request }
+  )
+  assert.equal(created.published[0].topic, "PASSENGER_REQUEST_CREATED")
+  assert.equal(
+    created.published[0].payload.passengerRequestCreated.waterService.people[0]
+      .fullName,
+    "Старое Имя"
+  )
+
+  const updated = await runRaw(
+    "setPassengerRequestStatus",
+    { id: "req-1", status: "ACCEPTED" },
+    { request: makeRequest({ waterService: request.waterService }) }
+  )
+  assert.equal(updated.published[0].topic, "PASSENGER_REQUEST_UPDATED")
+  assert.equal(
+    updated.published[0].payload.passengerRequestUpdated.waterService.people[0]
+      .fullName,
+    "Иванов Иван"
+  )
+})
+
+test("ДЕФЕКТ №5: createPassengerRequest пишет status, не заполняя statusTimes", async () => {
+  // Статус из input попадает в документ, а отметки времени статуса не
+  // создаются вовсе — в отличие от setPassengerRequestStatus, где updateTimes
+  // вызывается всегда. Реестр дефектов спеки, №5.
+  const run = await runRaw("createPassengerRequest", {
+    input: {
+      airlineId: "airline-1",
+      airportId: "airport-1",
+      flightNumber: "TEST001",
+      status: "ACCEPTED"
+    }
+  })
+
+  const created = run.double.callsTo("passengerRequest", "create")
+  assert.equal(created.length, 1)
+  assert.equal(created[0].args.data.status, "ACCEPTED")
+  assert.equal("statusTimes" in created[0].args.data, false)
+})
+
+// ─────────────────────────── updatePassengerRequest ───────────────────────────
+
+test("updatePassengerRequest: семь блоков услуг дают одну и ту же форму { ...prev, plan, status, times }", async () => {
+  // Это ровно тот код, который в рефакторе схлопнут в таблицу, — отпечаток
+  // подробный. План (6 человек) выше факта во всех семи услугах, поэтому
+  // автозавершения нет и статус ведёт только число людей.
+  const plan = { enabled: true, peopleCount: 6 }
+  const run = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: {
+      waterService: { plan },
+      mealService: { plan },
+      livingService: { plan },
+      transferService: { plan },
+      departureTransferService: { plan },
+      intercityTransferService: { plan },
+      baggageDeliveryService: { plan }
+    }
+  })
+
+  assert.equal(run.written.length, 1, "все семь блоков уходят одним апдейтом")
+  const data = run.written[0]
+
+  const expected = [
+    // поле, статус, отметки времени, ключ факта, есть ли drivers
+    ["waterService", "IN_PROGRESS", { createdAt: "<DATE>" }, "people", false],
+    ["mealService", "NEW", {}, "people", false],
+    ["livingService", "IN_PROGRESS", { createdAt: "<DATE>" }, "hotels", false],
+    ["transferService", "NEW", {}, "drivers", true],
+    ["departureTransferService", "NEW", {}, "drivers", true],
+    ["intercityTransferService", "NEW", {}, "drivers", true],
+    ["baggageDeliveryService", "NEW", {}, "drivers", true]
+  ]
+
+  for (const [field, status, times, factKey, hasDrivers] of expected) {
+    const service = data[field]
+    assert.ok(service, `${field} записан`)
+    assert.deepEqual(service.plan, plan, `${field}: план перезаписан`)
+    assert.equal(service.status, status, `${field}: статус`)
+    assert.deepEqual(service.times, times, `${field}: времена`)
+    assert.ok(factKey in service, `${field}: поле факта сохранено из prev`)
+    assert.equal(
+      Array.isArray(service.drivers),
+      hasDrivers,
+      `${field}: drivers есть только у водительских услуг`
+    )
+  }
+
+  // Вода, питание и проживание своих людей через нормализатор НЕ прогоняют —
+  // просто уносят prev как есть.
+  assert.equal(data.waterService.drivers, undefined)
+  assert.equal(data.mealService.drivers, undefined)
+  assert.equal(data.livingService.drivers, undefined)
+  assert.deepEqual(data.livingService.evictions, [])
+
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "update_passenger_request")
+  assert.equal(run.notified.length, 1)
+  assert.deepEqual(run.published, ["NOTIFICATION", "PASSENGER_REQUEST_UPDATED"])
+})
+
+test("updatePassengerRequest: только водительские блоки чинят пассажиров через normalizeDriversForWrite", async () => {
+  const request = makeRequest()
+  const brokenPerson = {
+    personId: "aaaaaaaa-0000-4000-8000-000000000001",
+    fullName: "Иванов Иван",
+    baggageTags: null,
+    reportCost: -5,
+    addressTo: "  ул. Мира  "
+  }
+  request.transferService.drivers = [
+    { fullName: "Водитель", people: [structuredClone(brokenPerson)] }
+  ]
+  // Тот же «сломанный» набор полей у воды — чтобы разница была видна.
+  request.waterService.people = [structuredClone(brokenPerson)]
+
+  const run = await runFapMutation(
+    "updatePassengerRequest",
+    {
+      id: "req-1",
+      input: {
+        transferService: { plan: { enabled: true, peopleCount: 6 } },
+        waterService: { plan: { enabled: true, peopleCount: 6 } }
+      }
+    },
+    { request }
+  )
+
+  const driverPerson = run.written[0].transferService.drivers[0].people[0]
+  assert.deepEqual(driverPerson.baggageTags, [], "null → пустой список")
+  assert.equal(driverPerson.reportCost, null, "отрицательная цена → null")
+  assert.equal(driverPerson.addressTo, "ул. Мира", "адрес обрезан")
+
+  const waterPerson = run.written[0].waterService.people[0]
+  assert.equal(waterPerson.baggageTags, null, "у воды пассажир уходит как есть")
+  assert.equal(waterPerson.reportCost, -5)
+  assert.equal(waterPerson.addressTo, "  ул. Мира  ")
+
+  // Появившийся факт поездки поднимает статус услуги трансфера.
+  assert.equal(run.written[0].transferService.status, "IN_PROGRESS")
+  assert.equal(run.written[0].transferService.times.inProgressAt, "<DATE>")
+})
+
+test("ловушка именования: движок статусов видит только plan.peopleCount, ключ count игнорирует", async () => {
+  // Это не дефект продукта, а ловушка для тестов: recomputeServiceStatus
+  // читает plan.peopleCount, и план с любым другим ключом для него всё равно
+  // что отсутствует. Оба варианта плана собраны здесь явно, а не взяты из
+  // фикстуры, — иначе тест молча проверял бы не ту ветку.
+  const byPeopleCount = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { waterService: { plan: { enabled: true, peopleCount: 1 } } }
+  })
+  // Факт (1 человек) достиг плана — услуга автозавершилась.
+  assert.equal(byPeopleCount.written[0].waterService.status, "COMPLETED")
+  assert.equal(byPeopleCount.written[0].waterService.times.finishedAt, "<DATE>")
+
+  // Тот же план по смыслу, но ключом count — и в документе, и во входе.
+  const brokenPlan = { enabled: true, count: 1 }
+  const request = makeRequest()
+  request.waterService.plan = { ...brokenPlan }
+
+  const byCount = await runFapMutation(
+    "updatePassengerRequest",
+    { id: "req-1", input: { waterService: { plan: { ...brokenPlan } } } },
+    { request }
+  )
+  assert.deepEqual(byCount.written[0].waterService.plan, brokenPlan)
+  assert.equal(byCount.written[0].waterService.status, "IN_PROGRESS")
+  assert.equal(byCount.written[0].waterService.times.finishedAt, undefined)
+})
+
+test("ДЕФЕКТ №5: updatePassengerRequest меняет status, не трогая statusTimes", async () => {
+  // Статус заявки правится как обычное поле шапки, отметки времени статуса не
+  // пересчитываются. Реестр дефектов спеки, №5.
+  const run = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { status: "COMPLETED" }
+  })
+
+  assert.deepEqual(run.written[0], { status: "COMPLETED" })
+  assert.equal("statusTimes" in run.written[0], false)
+})
+
+test("ДЕФЕКТ №19: пустой патч даёт лог, но не даёт сайтового уведомления", async () => {
+  // Условие «есть что писать» стоит только на уведомлении: апдейт с пустым
+  // data выполняется, лог пишется, уведомления нет. Реестр дефектов спеки, №19.
+  const run = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { flightNumber: undefined, routeFrom: undefined, status: undefined }
+  })
+
+  assert.deepEqual(run.written, [{}])
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "update_passenger_request")
+  assert.equal(run.notified.length, 0)
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("ДЕФЕКТ №20: в updatePassengerRequest сначала уведомление, потом публикация", async () => {
+  // Порядок побочных каналов у двух соседних мутаций противоположный.
+  // Реестр дефектов спеки, №20. Вторая половина — в следующем тесте.
+  const run = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { flightNumber: "TEST002" }
+  })
+
+  assert.deepEqual(run.published, ["NOTIFICATION", "PASSENGER_REQUEST_UPDATED"])
+  assert.ok(
+    run.order.indexOf("notification.create") <
+      run.order.indexOf("publish:PASSENGER_REQUEST_UPDATED")
+  )
+})
+
+test("ДЕФЕКТ №20: в cancelPassengerRequest наоборот — сначала публикация, потом уведомление", async () => {
+  const run = await runFapMutation("cancelPassengerRequest", {
+    id: "req-1",
+    cancelReason: "рейс отменён"
+  })
+
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
+  assert.ok(
+    run.order.indexOf("publish:PASSENGER_REQUEST_UPDATED") <
+      run.order.indexOf("notification.create")
+  )
+})
+
+// ─────────────────────── файлы заявки ───────────────────────
+// Обе файловые мутации ходят на диск через services/passengerRequest/files.js.
+// Реальных файлов тесты не создают: addPassengerRequestFiles покрыт только
+// путями, на которых загрузка до диска не доходит.
+
+test("addPassengerRequestFiles: пустой список отбивается после чтения заявки и до записи", async () => {
+  const run = await runRaw("addPassengerRequestFiles", {
+    requestId: "req-1",
+    files: []
+  })
+
+  assert.match(run.error.message, /At least one file is required/)
+  // Заявка успела прочитаться — проверка списка стоит ПОСЛЕ загрузки документа.
+  assert.equal(run.double.callsTo("passengerRequest", "findUnique").length, 1)
+  assert.equal(run.double.callsTo("passengerRequest", "update").length, 0)
+  assert.equal(run.double.callsTo("log", "create").length, 0)
+  assert.equal(run.published.length, 0)
+})
+
+test("addPassengerRequestFiles: сбой загрузки не оставляет следов — записи, лога и публикации нет", async () => {
+  // Загрузка идёт ДО апдейта документа и без транзакции: упавший файл просто
+  // роняет мутацию. Поток обрывается раньше, чем uploadFiles создаёт каталог,
+  // поэтому диск не затрагивается.
+  const brokenUpload = {
+    filename: "manifest.pdf",
+    createReadStream: () => {
+      throw new Error("stream failed")
+    }
+  }
+
+  const run = await runRaw("addPassengerRequestFiles", {
+    requestId: "req-1",
+    files: [brokenUpload]
+  })
+
+  assert.equal(run.error.message, "stream failed")
+  assert.equal(run.double.callsTo("passengerRequest", "update").length, 0)
+  assert.equal(run.double.callsTo("log", "create").length, 0)
+  assert.equal(run.published.length, 0)
+})
+
+test("removePassengerRequestFile: чужой путь отбивается до диска и до записи", async () => {
+  const request = makeRequest({
+    files: ["/files/uploads/passenger-requests/__characterization__/a.pdf"]
+  })
+
+  const run = await runRaw(
+    "removePassengerRequestFile",
+    {
+      requestId: "req-1",
+      filePath: "/files/uploads/passenger-requests/__characterization__/b.pdf"
+    },
+    { request }
+  )
+
+  assert.match(run.error.message, /File not found on this passenger request/)
+  assert.equal(run.double.callsTo("passengerRequest", "update").length, 0)
+  assert.equal(run.double.callsTo("log", "create").length, 0)
+  assert.equal(run.published.length, 0)
+})
+
+test("removePassengerRequestFile: путь сравнивается канонически, удаляется из списка, пишется лог", async () => {
+  // Пути ведут в заведомо несуществующий каталог: deleteFiles глотает ENOENT,
+  // так что с диска ничего не удаляется, а поведение мутации видно целиком.
+  const kept = "/files/uploads/passenger-requests/__characterization__/kept.pdf"
+  const request = makeRequest({
+    files: [
+      "/files/uploads/passenger-requests/__characterization__/gone.pdf",
+      kept
+    ]
+  })
+
+  const run = await runFapMutation(
+    "removePassengerRequestFile",
+    {
+      requestId: "req-1",
+      // Без префикса /files — canonicalFilePath приводит обе стороны к одному виду.
+      filePath: "uploads/passenger-requests/__characterization__/gone.pdf"
+    },
+    { request }
+  )
+
+  assert.deepEqual(run.written, [{ files: [kept] }])
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "remove_passenger_request_file")
+  assert.equal(run.notified.length, 0, "сайтового уведомления по файлам нет")
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+// ─────────────────────────── deletePassengerRequest ───────────────────────────
+
+test("deletePassengerRequest удаляет документ, пишет лог и не уведомляет", async () => {
+  const run = await runFapMutation("deletePassengerRequest", { id: "req-1" })
+
+  assert.equal(run.result, true)
+  assert.equal(run.written.length, 0, "апдейта нет — только delete")
+  assert.ok(run.order.includes("passengerRequest.delete"))
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "delete_passenger_request")
+  assert.equal(run.notified.length, 0)
+})
+
+test("ДЕФЕКТ №8: deletePassengerRequest публикует удалённый документ в топик обновления", async () => {
+  // Топика PASSENGER_REQUEST_DELETED не существует, поэтому удаление уезжает
+  // подписчикам как очередное обновление. Реестр дефектов спеки, №8.
+  const run = await runRaw("deletePassengerRequest", { id: "req-1" })
+
+  assert.equal(run.published.length, 1)
+  assert.equal(run.published[0].topic, "PASSENGER_REQUEST_UPDATED")
+  assert.equal(run.published[0].payload.passengerRequestUpdated.id, "req-1")
+})
+
+// ────────────────────── setPassengerRequestStatus / cancel ─────────────────────
+
+test("setPassengerRequestStatus пишет статус и отметку времени статуса", async () => {
+  const run = await runFapMutation("setPassengerRequestStatus", {
+    id: "req-1",
+    status: "ACCEPTED"
+  })
+
+  assert.deepEqual(run.written, [
+    {
+      status: "ACCEPTED",
+      statusTimes: { acceptedAt: "<DATE>", createdAt: "<DATE>" }
+    }
+  ])
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "update_passenger_request_status")
+  assert.equal(run.notified.length, 0, "сайтового уведомления о смене статуса нет")
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("ДЕФЕКТ №6: setPassengerRequestStatus принимает CANCELLED без причины и без уведомления", async () => {
+  // Отмена через общий сеттер статуса: статус записывается, cancelReason не
+  // пишется вовсе, сайтового уведомления об отмене нет. Реестр дефектов
+  // спеки, №6. Сравнение с cancelPassengerRequest — в следующем тесте.
+  const run = await runFapMutation("setPassengerRequestStatus", {
+    id: "req-1",
+    status: "CANCELLED"
+  })
+
+  assert.deepEqual(run.written, [
+    {
+      status: "CANCELLED",
+      statusTimes: { cancelledAt: "<DATE>", createdAt: "<DATE>" }
+    }
+  ])
+  assert.equal("cancelReason" in run.written[0], false)
+  assert.equal(run.notified.length, 0)
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("cancelPassengerRequest пишет причину, статус, лог с reason и уведомление", async () => {
+  const run = await runFapMutation("cancelPassengerRequest", {
+    id: "req-1",
+    cancelReason: "рейс отменён"
+  })
+
+  assert.deepEqual(run.written, [
+    {
+      cancelReason: "рейс отменён",
+      status: "CANCELLED",
+      statusTimes: { cancelledAt: "<DATE>", createdAt: "<DATE>" }
+    }
+  ])
+  assert.equal(run.logged.length, 1)
+  // Слаг лога тот же, что у обычной смены статуса: различить отмену можно
+  // только по description и reason.
+  assert.equal(run.logged[0].action, "update_passenger_request_status")
+  assert.equal(run.logged[0].description, "Заявка по ФАП отменена")
+  assert.equal(run.logged[0].reason, "рейс отменён")
+  assert.equal(run.notified.length, 1)
+  assert.equal(run.notified[0].description.action, "cancel_passenger_request")
+})
+
+test("cancelPassengerRequest НЕ требует причину: без неё мутация проходит", async () => {
+  // ДЕФЕКТ №23: assertReason здесь не вызывается (в отличие от мутаций
+  // *Early), а в схеме аргумент необязательный — заявка отменяется без
+  // объяснения, в лог уходит reason: null. Вместе с дефектом №6 это два
+  // разных пути отмены заявки без причины. При починке этот тест обязан
+  // измениться.
+  const run = await runFapMutation("cancelPassengerRequest", { id: "req-1" })
+
+  assert.equal(run.written[0].status, "CANCELLED")
+  assert.equal(run.written[0].cancelReason, undefined)
+  assert.equal(run.logged[0].reason, null)
+  assert.equal(run.notified.length, 1)
+})
+
+// ─────────────────────── updatePassengerRequestCrew ───────────────────────
+
+test("updatePassengerRequestCrew пишет нормализованный ростер", async () => {
+  const run = await runFapMutation("updatePassengerRequestCrew", {
+    requestId: "req-1",
+    crewMembers: [
+      {
+        airlinePersonalId: "  ap-1  ",
+        fullName: "  Сидоров Сидор  ",
+        position: "   ",
+        phone: " +7900 ",
+        extraFieldIgnored: "нет в белом списке"
+      }
+    ]
+  })
+
+  assert.deepEqual(run.written, [
+    {
+      crewMembers: [
+        {
+          airlinePersonalId: "ap-1",
+          fullName: "Сидоров Сидор",
+          gender: null,
+          phone: "+7900",
+          position: null
+        }
+      ]
+    }
+  ])
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "update_passenger_request_crew")
+  assert.equal(run.notified.length, 0)
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("updatePassengerRequestCrew: не массив стирает ростер", async () => {
+  const run = await runFapMutation("updatePassengerRequestCrew", {
+    requestId: "req-1",
+    crewMembers: null
+  })
+
+  assert.deepEqual(run.written, [{ crewMembers: [] }])
+})
+
+// ─────────────────── setPassengerRequestServiceStatus ───────────────────
+
+test("setPassengerRequestServiceStatus пишет статус ровно в одно поле услуги", async () => {
+  const cases = [
+    ["WATER", "waterService"],
+    ["MEAL", "mealService"],
+    ["LIVING", "livingService"],
+    ["TRANSFER", "transferService"],
+    ["DEPARTURE_TRANSFER", "departureTransferService"],
+    ["INTERCITY_TRANSFER", "intercityTransferService"],
+    ["BAGGAGE_DELIVERY", "baggageDeliveryService"]
+  ]
+
+  for (const [service, field] of cases) {
+    const run = await runFapMutation("setPassengerRequestServiceStatus", {
+      id: "req-1",
+      service,
+      status: "ACCEPTED"
+    })
+
+    assert.deepEqual(Object.keys(run.written[0]), [field], `${service}: одно поле`)
+    assert.equal(run.written[0][field].status, "ACCEPTED", `${service}: статус`)
+    assert.equal(
+      run.written[0][field].times.acceptedAt,
+      "<DATE>",
+      `${service}: отметка времени`
+    )
+    assert.equal(run.logged[0].action, "update_passenger_request_service_status")
+    assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+    assert.equal(run.notified.length, 0)
+  }
+})
+
+test("setPassengerRequestServiceStatus: неизвестная услуга даёт пустой апдейт, но лог и публикацию — нет", async () => {
+  // Валидации имени услуги нет: ни одна ветка не сработала, апдейт ушёл с
+  // пустым data, лог и публикация всё равно случились.
+  const run = await runFapMutation("setPassengerRequestServiceStatus", {
+    id: "req-1",
+    service: "UNKNOWN_SERVICE",
+    status: "ACCEPTED"
+  })
+
+  assert.deepEqual(run.written, [{}])
+  assert.equal(run.logged.length, 1)
+  assert.equal(
+    run.logged[0].description,
+    "Статус сервиса обновлен: UNKNOWN_SERVICE"
+  )
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("ДЕФЕКТ №17: setPassengerRequestServiceStatus пишет автора как «Пользователь»", async () => {
+  // Здесь единственная в модуле подстановка context?.user?.name вместо
+  // getSubjectName: у внешнего пользователя (PWA гостиницы) user отсутствует,
+  // и в логе остаётся безымянный «Пользователь». Реестр дефектов спеки, №17.
+  const context = makeHotelContext()
+
+  const service = await runFapMutation(
+    "setPassengerRequestServiceStatus",
+    { id: "req-1", service: "WATER", status: "ACCEPTED" },
+    { context }
+  )
+  assert.equal(
+    service.logged[0].fulldescription,
+    "Пользователь Пользователь сменил статус сервиса WATER в ФАП TEST001 на ACCEPTED"
+  )
+
+  // Тот же контекст в соседней мутации даёт осмысленное имя.
+  const request = await runFapMutation(
+    "setPassengerRequestStatus",
+    { id: "req-1", status: "ACCEPTED" },
+    { context }
+  )
+  assert.equal(
+    request.logged[0].fulldescription,
+    "Пользователь Гостиница Азия сменил статус ФАП TEST001 на ACCEPTED"
+  )
+
+  // ДЕФЕКТ №22: автор лога в обоих случаях пустой — logAction берёт только
+  // context.user.id, которого у EXTERNAL_USER нет. Это шире дефекта №17:
+  // у истории заявок нет автора для всего PWA-сценария ФАП, а не только для
+  // этой мутации. При починке этот тест обязан измениться.
+  assert.equal(service.logged[0].userId, null)
+  assert.equal(request.logged[0].userId, null)
+})
+
+// ─────────────────────── recognizePassengerDocument ───────────────────────
+
+test("recognizePassengerDocument: превышение лимита даёт TOO_MANY_REQUESTS", async () => {
+  // Ограничитель — модульный синглтон, состояние общее на процесс. Чтобы тест
+  // не зависел от порядка выполнения, субъект уникальный, а окно выбирается
+  // прямыми вызовами check() — через мутацию это стоило бы 40 обращений в
+  // Yandex Cloud.
+  const subjectId = `characterization-recognize-${process.pid}-${Date.now()}`
+  for (let i = 0; i < 40; i += 1) {
+    assert.equal(recognitionRateLimiter.check(subjectId), true, `попытка ${i + 1}`)
+  }
+
+  const run = await runRaw(
+    "recognizePassengerDocument",
+    { image: { filename: "doc.jpg" } },
+    { context: makeContext({ subject: { id: subjectId, name: "Диспетчер" } }) }
+  )
+
+  assert.equal(run.error.extensions.code, "TOO_MANY_REQUESTS")
+  assert.match(run.error.message, /Слишком много запросов на распознавание/)
+  // Отказ случается до всего остального: ни чтения заявки, ни публикаций.
+  assert.equal(run.double.calls.length, 0)
+  assert.equal(run.published.length, 0)
+})
+
+test("recognizePassengerDocument: субъект без id получает тот же TOO_MANY_REQUESTS", async () => {
+  // check(undefined) возвращает false, и безымянный субъект получает отказ
+  // «слишком много запросов», а не отказ аутентификации.
+  const run = await runRaw(
+    "recognizePassengerDocument",
+    { image: { filename: "doc.jpg" } },
+    { context: makeContext({ subject: { name: "Без идентификатора" } }) }
+  )
+
+  assert.equal(run.error.extensions.code, "TOO_MANY_REQUESTS")
+})
