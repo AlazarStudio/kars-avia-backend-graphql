@@ -332,32 +332,75 @@ test("passengerRequest отдаёт null, когда заявки нет", async
 
 // --------- границы модуля ---------
 
-test("ни одна Query не скоупится по субъекту вызывающего", async () => {
-  // ЗАКРЕПЛЕНО КАК ЕСТЬ, НЕ ДЕФЕКТ К ПОЧИНКЕ ЗДЕСЬ. Обе Query читают только
-  // args: context объявлен в сигнатуре и не используется. Администратор одной
-  // авиакомпании без filter.airlineId получает заявки ВСЕХ авиакомпаний, а по
-  // чужому airlineId — чужие. Межорганизационной изоляции в модуле нет вовсе;
-  // это отдельная запланированная работа по авторизации (см. fapAccess.js:
-  // там сознательно стоит только аутентификация). При её появлении этот тест
-  // обязан измениться.
+test("Query скоупится по субъекту: в наблюдении нет, под флагом да", async () => {
+  // Раньше этот тест закреплял ОТСУТСТВИЕ изоляции и в комментарии предписывал
+  // себя изменить, когда авторизация появится. Она появилась: правило живёт в
+  // services/passengerRequest/fapScope.js и применяется через fapScopeGuard.js.
+  //
+  // Оба режима проверяются ЯВНО, потому что выкат двухступенчатый: релиз 1 идёт
+  // с выключенным флагом и только собирает лог, релиз 2 включает отклонение.
+  // Тест сам управляет флагом, а не полагается на окружение прогона — иначе он
+  // означал бы разное в разных прогонах.
   const foreign = makeContext({
     subject: { id: "u-2", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-999" },
     user: { id: "u-2", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-999" }
   })
+  const alienDoc = { passengerRequest: { id: "req-1", airlineId: "airline-1" } }
 
-  const list = await runList({}, { context: foreign })
-  assert.deepEqual(list.where, {}, "airlineId субъекта в where не подмешивается")
-  assert.deepEqual(
-    list.touched,
-    ["passengerRequest.findMany"],
-    "принадлежность субъекта нигде не выясняется"
-  )
+  const withEnforce = async (value, fn) => {
+    const prev = process.env.FAP_SCOPE_ENFORCE
+    if (value === undefined) delete process.env.FAP_SCOPE_ENFORCE
+    else process.env.FAP_SCOPE_ENFORCE = value
+    try {
+      return await fn()
+    } finally {
+      if (prev === undefined) delete process.env.FAP_SCOPE_ENFORCE
+      else process.env.FAP_SCOPE_ENFORCE = prev
+    }
+  }
 
-  const alien = await runList({ filter: { airlineId: "airline-1" } }, { context: foreign })
-  assert.deepEqual(alien.where, { airlineId: "airline-1" }, "чужой airlineId проходит")
+  // --- режим наблюдения: выдача не сужается ---
+  await withEnforce(undefined, async () => {
+    const list = await runList({}, { context: foreign })
+    assert.deepEqual(list.where, {}, "в наблюдении скоуп в where не подмешивается")
 
-  const one = await runOne({ id: "req-1" }, { context: foreign })
-  assert.deepEqual(one.args, { where: { id: "req-1" } }, "заявка читается без сверки владельца")
+    const one = await runOne({ id: "req-1" }, { context: foreign, documents: alienDoc })
+    assert.equal(one.result?.id, "req-1", "в наблюдении чужая заявка ещё отдаётся")
+  })
+
+  // --- жёсткий режим: скоуп применяется ---
+  await withEnforce("true", async () => {
+    const list = await runList({}, { context: foreign })
+    assert.deepEqual(
+      list.where,
+      { AND: [{ airlineId: "airline-999" }] },
+      "скоуп субъекта уходит в AND, а не в корень where"
+    )
+    assert.deepEqual(
+      list.touched,
+      ["passengerRequest.findMany"],
+      "проверка скоупа не стоит лишнего обращения в базу"
+    )
+
+    const alien = await runList({ filter: { airlineId: "airline-1" } }, { context: foreign })
+    assert.deepEqual(
+      alien.where,
+      { airlineId: "airline-1", AND: [{ airlineId: "airline-999" }] },
+      "запрошенный чужой airlineId остаётся, но поверх ложится собственный скоуп — пересечение пусто"
+    )
+
+    const one = await runOne({ id: "req-1" }, { context: foreign, documents: alienDoc })
+    assert.deepEqual(
+      one.args,
+      { where: { id: "req-1" } },
+      "заявка по-прежнему читается одним findUnique"
+    )
+    assert.equal(
+      one.result,
+      null,
+      "чужая заявка отдаётся как null, а не как FORBIDDEN: код отказа подтвердил бы её существование"
+    )
+  })
 })
 
 test("аутентификация: обе Query без субъекта отбиваются", async () => {

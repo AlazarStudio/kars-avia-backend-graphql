@@ -4,6 +4,17 @@ import { prisma } from "../../prisma.js"
 import { withPassengerRequest } from "../../services/passengerRequest/envelope.js"
 import { installPrismaDouble } from "../helpers/prismaDouble.js"
 
+// Правило видимости заявок ФАП (services/passengerRequest/fapScope.js) работает
+// по белому списку типов субъекта, а конверт проверяет его на каждой мутации.
+// Тесты сантехники конверта авторизацию не проверяют, поэтому им нужен субъект,
+// правилом не ограниченный, — диспетчер. С болванкой без subjectType они падали
+// бы при включённом FAP_SCOPE_ENFORCE.
+const DISPATCHER = {
+  subjectType: "USER",
+  subject: { id: "u", name: "Диспетчер Тестовый", role: "SUPERADMIN" },
+  user: { id: "u", name: "Диспетчер Тестовый", role: "SUPERADMIN" }
+}
+
 function makeChannels() {
   const calls = []
   return {
@@ -24,7 +35,7 @@ test("загружает заявку, применяет apply, пишет data
   try {
     const result = await withPassengerRequest({
       requestId: "r1",
-      context: { subject: { id: "u" } },
+      context: DISPATCHER,
       apply: (existing) => ({
         data: { status: "DONE" },
         log: {
@@ -59,7 +70,7 @@ test("apply получает загруженную заявку", async () => {
   try {
     await withPassengerRequest({
       requestId: "r1",
-      context: {},
+      context: DISPATCHER,
       apply: (existing) => {
         seen = existing
         return { data: {}, log: { action: "a", description: "d", fulldescription: "f" } }
@@ -82,7 +93,7 @@ test("сигнал «изменений нет» возвращает заявк
   try {
     const result = await withPassengerRequest({
       requestId: "r1",
-      context: {},
+      context: DISPATCHER,
       apply: () => null,
       channels
     })
@@ -102,7 +113,7 @@ test("apply может попросить уведомление и порядо
   try {
     await withPassengerRequest({
       requestId: "r1",
-      context: {},
+      context: DISPATCHER,
       apply: () => ({
         data: { status: "X" },
         log: { action: "a", description: "d", fulldescription: "f" },
@@ -124,7 +135,7 @@ test("несуществующая заявка отбивается до apply"
     await assert.rejects(() =>
       withPassengerRequest({
         requestId: "нет-такой",
-        context: {},
+        context: DISPATCHER,
         apply: () => {
           applyCalled = true
           return { data: {}, log: { action: "a", description: "d", fulldescription: "f" } }
@@ -148,7 +159,7 @@ test("log можно вернуть функцией от результата �
   try {
     await withPassengerRequest({
       requestId: "r1",
-      context: {},
+      context: DISPATCHER,
       apply: () => ({
         data: { airlineId: "НОВАЯ" },
         log: (passengerRequest) => ({
@@ -175,7 +186,7 @@ test("apply может быть асинхронным", async () => {
   try {
     const result = await withPassengerRequest({
       requestId: "r1",
-      context: {},
+      context: DISPATCHER,
       apply: async () => ({
         data: { status: "ИЗ АСИНХРОННОГО" },
         log: { action: "a", description: "d", fulldescription: "f" }
