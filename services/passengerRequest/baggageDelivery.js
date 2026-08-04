@@ -81,7 +81,7 @@ const normalizePeopleForWrite = (people) =>
 // (в резолвере — loadRequestOrThrow). hydratePassengerRequest добавляет
 // пассажиру ключ seat, которого нет в composite-типе PassengerServiceDriverPerson,
 // и такой пассажир уронит запись на неизвестном аргументе. См. предупреждение
-// у loadRequestOrThrow в resolvers/passengerRequest/passengerRequest.resolver.js.
+// у loadRequestOrThrow в services/passengerRequest/envelope.js.
 export const normalizeDriversForWrite = (drivers) => {
   if (!Array.isArray(drivers)) return []
   return drivers.map((driver) => ({
