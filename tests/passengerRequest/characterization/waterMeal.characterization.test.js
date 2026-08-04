@@ -596,13 +596,17 @@ test("updatePassengerRequestPerson НЕ пересчитывает статус 
   })
 })
 
-test("ДЕФЕКТ №13: правка получателя без категории затирает ростерный CHILD на ADULT", async () => {
-  // Резолвер нормализует отсутствующую категорию к ADULT
+test("правка получателя не понижает категорию в реестре", async () => {
+  // Было: резолвер нормализует отсутствующую категорию к ADULT
   // (normalizePersonCategory: всё, кроме CHILD/INFANT, — взрослый) и отдаёт
-  // получившийся объект в patchSavedPersonIdentity, где incoming-wins.
-  // В итоге правка телефона молча понижает ребёнка до взрослого в реестре
-  // заявки. Реестр дефектов спеки, №13. При починке этот тест обязан
-  // измениться.
+  // получившийся объект в patchSavedPersonIdentity, где incoming-wins, —
+  // правка телефона молча понижала ребёнка до взрослого в реестре заявки, а
+  // категория даёт скидку на проживание (CHILD 50 %, INFANT 100 %).
+  // Стало: источник истины по категории — реестр. Сервис-персона несёт
+  // personCategory ВСЕГДА, а форма правки получателя в CRM предзаполняется
+  // категорией сервис-персоны, поэтому «пользователь выбрал ADULT» и «поле не
+  // указано» на бэке неразличимы. Категорию из услуги реестр принимает только
+  // когда своей у него ещё нет; явная правка — мутацией реестра.
   const request = makeRequest()
   // Петров Пётр в savedPassengers — CHILD; в услуге категории нет вовсе.
   request.waterService.people = [
@@ -623,14 +627,17 @@ test("ДЕФЕКТ №13: правка получателя без катего�
     { request }
   )
 
+  // Получатель услуги по-прежнему нормализуется к ADULT — резолвер не менялся.
   assert.equal(run.written[0].waterService.people[0].personCategory, "ADULT")
   const roster = run.written[0].savedPassengers
   assert.equal(roster.length, 2)
   assert.equal(roster[1].fullName, "Петров Пётр")
-  assert.equal(roster[1].personCategory, "ADULT", "ростерный CHILD затёрт")
+  assert.equal(roster[1].personCategory, "CHILD", "ростерный CHILD уцелел")
+  assert.equal(roster[1].phone, "+79990001122", "прочие поля правки доехали")
 
-  // Если категорию передать явно — она доезжает; затирание случается ровно
-  // на пропуске поля.
+  // Явно переданная категория тоже не доезжает до реестра, пока у реестра есть
+  // своя: правило про наличие значения в реестре, а не про конкретный ADULT.
+  // В самой услуге правка при этом применяется.
   const explicit = await runFapMutation(
     "updatePassengerRequestPerson",
     {
@@ -640,11 +647,12 @@ test("ДЕФЕКТ №13: правка получателя без катего�
       person: {
         fullName: "Петров Пётр",
         phone: "+79990001122",
-        personCategory: "CHILD"
+        personCategory: "INFANT"
       }
     },
     { request: makeRequest({ waterService: request.waterService }) }
   )
+  assert.equal(explicit.written[0].waterService.people[0].personCategory, "INFANT")
   assert.equal(explicit.written[0].savedPassengers[1].personCategory, "CHILD")
 })
 

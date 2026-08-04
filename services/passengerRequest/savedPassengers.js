@@ -158,7 +158,25 @@ export const patchSavedPersonIdentity = (roster, servicePerson) => {
   const idx = list.findIndex((p) => p?.personId === personId)
   const base = idx === -1 ? {} : list[idx]
   const merged = normalizeSavedPerson(
-    { ...base, ...servicePerson, personId },
+    {
+      ...base,
+      ...servicePerson,
+      // Категорию из услуги в реестр НЕ переносим, если в реестре она уже есть.
+      // Сервис-персона несёт personCategory ВСЕГДА (normalizePersonCategory
+      // сводит undefined к ADULT), а форма правки получателя в CRM
+      // предзаполняется категорией сервис-персоны — у легаси-гостя это ADULT, и
+      // он уезжает на бэк как явный выбор. Отличить его от «не указано» нельзя,
+      // поэтому источником истины считается реестр: то же правило уже действует
+      // в mergeSavedPerson. Явная правка категории — отдельной мутацией реестра
+      // updatePassengerRequestSavedPerson, где спред патча делает явное
+      // победителем.
+      //
+      // Цена прежнего поведения: правка телефона получателя воды понижала
+      // CHILD/INFANT до ADULT, а категория даёт скидку на проживание
+      // (CHILD 50 %, INFANT 100 %) — ребёнок молча терял её в отчёте.
+      personCategory: base?.personCategory ?? servicePerson?.personCategory,
+      personId
+    },
     { isNew: idx === -1 }
   )
   if (idx === -1) return [...list, merged]
