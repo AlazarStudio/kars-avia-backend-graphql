@@ -322,13 +322,13 @@ test("removePassengerRequestHotel сдвигает выселения и отц�
   assert.equal(run.written[0].transferService.drivers[0].hotelItemId, null)
 })
 
-test("ДЕФЕКТ №9: при удалении первой из ТРЁХ гостиниц легаси-гость третьей получает чужую гостиницу в размещении", async () => {
-  // ensureHotelPerson достраивает отсутствующий accommodationChesses уже по
-  // НОВОМУ индексу гостиницы, а следом та же запись прогоняется через карту
-  // сдвига индексов — сдвиг применяется дважды. В результате гость «Сибири»
-  // (новый индекс 1) получает запись размещения с индексом 0 и названием
-  // «Чаплан». Реестр дефектов спеки, №9. При починке этот тест обязан
-  // измениться.
+test("removePassengerRequestHotel: при удалении первой из ТРЁХ гостиниц легаси-гость третьей сохраняет своё размещение", async () => {
+  // Раньше ensureHotelPerson достраивал отсутствующий accommodationChesses по
+  // НОВОМУ индексу гостиницы (индексу в уже отфильтрованном массиве), а следом
+  // та же запись прогонялась через карту сдвига, которая ждёт СТАРЫЙ индекс, —
+  // сдвиг применялся дважды, и гость «Сибири» получал индекс 0 с названием
+  // «Чаплан». Теперь синтез идёт по старому индексу (2), карта переводит его
+  // ровно один раз (2 → 1), и гость остаётся в своей гостинице.
   const run = await runRaw(
     "removePassengerRequestHotel",
     { requestId: "req-1", hotelIndex: 0 },
@@ -341,14 +341,17 @@ test("ДЕФЕКТ №9: при удалении первой из ТРЁХ го
 
   const chesses = hotels[1].people[0].accommodationChesses
   assert.equal(chesses.length, 1)
-  assert.equal(chesses[0].hotelIndex, 0, "указывает на «Чаплан», а не на «Сибирь»")
-  assert.equal(chesses[0].hotelName, "Чаплан")
+  assert.equal(chesses[0].hotelIndex, 1, "указывает на «Сибирь», а не на «Чаплан»")
+  assert.equal(chesses[0].hotelName, "Сибирь")
+  // Интервал открытый: гость заселён, а не выселен.
+  assert.equal(chesses[0].endAt, null)
 })
 
-test("ДЕФЕКТ №9 (вторая грань): при ДВУХ гостиницах легаси-гость остаётся вовсе без размещения", async () => {
-  // Та же двойная нормализация, другой исход: достроенная запись получает
-  // индекс 0 и тут же отсеивается фильтром «записи удалённой гостиницы».
-  // Реестр дефектов спеки, №9.
+test("removePassengerRequestHotel: при ДВУХ гостиницах легаси-гость оставшейся сохраняет своё размещение", async () => {
+  // Вторая грань того же двойного перевода: достроенная запись получала индекс
+  // 0, численно совпадала с удалённой гостиницей и тут же отсеивалась фильтром
+  // «записи удалённой гостиницы» — гость оставался вовсе без размещения.
+  // Синтез по старому индексу (1) фильтр проходит, карта переводит 1 → 0.
   const run = await runRaw(
     "removePassengerRequestHotel",
     { requestId: "req-1", hotelIndex: 0 },
@@ -356,7 +359,11 @@ test("ДЕФЕКТ №9 (вторая грань): при ДВУХ гостин�
   )
 
   const guest = run.result.livingService.hotels[0].people[0]
-  assert.deepEqual(guest.accommodationChesses, [])
+  const chesses = guest.accommodationChesses
+  assert.equal(chesses.length, 1)
+  assert.equal(chesses[0].hotelIndex, 0)
+  assert.equal(chesses[0].hotelName, "Чаплан")
+  assert.equal(chesses[0].endAt, null)
 })
 
 test("removePassengerRequestHotel: удаление ПОСЛЕДНЕЙ по счёту гостиницы размещения не портит", async () => {

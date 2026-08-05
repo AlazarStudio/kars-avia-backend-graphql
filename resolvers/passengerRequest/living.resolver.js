@@ -125,11 +125,23 @@ export default {
       })
 
       const nextHotels = hotels
-        .filter((_, idx) => idx !== hotelIndex)
-        .map((hotel, idx) => {
+        .map((hotel, oldIndex) => ({ hotel, oldIndex }))
+        .filter(({ oldIndex }) => oldIndex !== hotelIndex)
+        .map(({ hotel, oldIndex }) => {
           const hotelName = hotel?.name ?? null
           const nextPeople = (hotel?.people || []).map((person) => {
-            const normalizedPerson = ensureHotelPerson(person, idx, hotelName)
+            // ⚠️ Синтез недостающего интервала идёт по СТАРОМУ индексу гостиницы.
+            // Раньше сюда передавался индекс в уже отфильтрованном массиве, то
+            // есть НОВЫЙ, и синтезированная запись следом проходила через
+            // indexMap, который переводит старые индексы в новые, — перевод
+            // случался дважды. Легаси-гость получал либо чужую гостиницу с её
+            // именем, либо пустое размещение, если новый индекс численно совпал
+            // с удалённым.
+            const normalizedPerson = ensureHotelPerson(
+              person,
+              oldIndex,
+              hotelName
+            )
             const nextChesses = (normalizedPerson.accommodationChesses || [])
               .filter((item) => item?.hotelIndex !== hotelIndex)
               .map((item) => {
