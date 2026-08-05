@@ -673,14 +673,17 @@ test("ДЕФЕКТ №21: у гостя без accommodationChesses пересе
   assert.equal(chesses[1].startAt.toISOString(), pastMovedAt)
 })
 
-// ───────────────────────── маршрутизация письма (ДЕФЕКТ №4) ───────────────────
+// ───────────────────────── маршрутизация письма ──────────────────────────────
 
-test("ДЕФЕКТ №4: пакетные экшены переселения и выселения не попадают в HOTEL_CHESS_LOG_ACTIONS", async () => {
-  // resolveEmailActionForLog — чистая функция, оснастки не требует. Одиночные
-  // экшены дают ветку письма «шахматка гостиницы», пакетные — общую ветку
-  // «обновление ФАП», где emailExtras (hotelName / personName) выбрасываются.
-  // Фронт зовёт ТОЛЬКО пакетные мутации, то есть в проде живёт именно вторая
-  // ветка. Реестр дефектов спеки, №4. При починке этот тест обязан измениться.
+test("пакетные экшены переселения и выселения входят в HOTEL_CHESS_LOG_ACTIONS наравне с одиночными", async () => {
+  // resolveEmailActionForLog — чистая функция, оснастки не требует. Раньше в
+  // множестве лежали только ОДИНОЧНЫЕ экшены, а пакетные уходили общей веткой
+  // «обновление ФАП»: не тот шаблон письма (emailExtras с hotelName /
+  // personName выбрасывались) и, что существеннее, не тот флаг меню при
+  // фильтрации получателей — отдел, отключивший обновления, но оставивший
+  // изменение размещения, писем о переселении не получал вовсе. Фронт зовёт
+  // ТОЛЬКО пакетные мутации, так что это касалось всех боевых переселений и
+  // выселений. Теперь обе формы дают ветку «шахматка гостиницы».
   assert.equal(
     resolveEmailActionForLog("relocate_passenger_request_hotel_person"),
     "update_hotel_chess_passenger_request"
@@ -692,18 +695,20 @@ test("ДЕФЕКТ №4: пакетные экшены переселения и
 
   assert.equal(
     resolveEmailActionForLog("relocate_passenger_request_hotel_people"),
-    "update_passenger_request"
+    "update_hotel_chess_passenger_request"
   )
   assert.equal(
     resolveEmailActionForLog("evict_passenger_request_hotel_people"),
-    "update_passenger_request"
+    "update_hotel_chess_passenger_request"
   )
 })
 
-test("ДЕФЕКТ №4: САЙТОВОЕ уведомление у обеих пар одинаковое — расходится только письмо", async () => {
-  // Здесь же фиксируем границу дефекта: в prisma.notification.create и
-  // одиночная, и пакетная кладут action update_hotel_chess_passenger_request.
-  // Разъезжается только маршрут письма, собираемый из слага ЛОГА.
+test("у одиночной и пакетной пары совпадают и САЙТОВОЕ уведомление, и маршрут письма", async () => {
+  // Сайтовые уведомления не расходились никогда: в prisma.notification.create и
+  // одиночная, и пакетная кладут action update_hotel_chess_passenger_request
+  // захардкоженным. Разъезжался только маршрут ПИСЬМА — он собирается из слага
+  // ЛОГА, а слаги логов у пары разные, и пакетного в HOTEL_CHESS_LOG_ACTIONS не
+  // было. Теперь есть: слаги логов по-прежнему разные, но оба канала сходятся.
   const single = await runFapMutation("evictPassengerRequestHotelPerson", {
     requestId: "req-1",
     hotelIndex: 0,
@@ -722,7 +727,7 @@ test("ДЕФЕКТ №4: САЙТОВОЕ уведомление у обеих �
     bulk.notified[0].description.action
   )
   assert.notEqual(single.logged[0].action, bulk.logged[0].action)
-  assert.notEqual(
+  assert.equal(
     resolveEmailActionForLog(single.logged[0].action),
     resolveEmailActionForLog(bulk.logged[0].action)
   )

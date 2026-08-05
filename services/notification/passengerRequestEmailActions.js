@@ -5,7 +5,15 @@ const HOTEL_CHESS_LOG_ACTIONS = new Set([
   "update_passenger_request_hotel_person",
   "remove_passenger_request_hotel_person",
   "relocate_passenger_request_hotel_person",
-  "evict_passenger_request_hotel_person"
+  "evict_passenger_request_hotel_person",
+  // Пакетные операции размещения. Их не было в множестве, и письма о них шли
+  // общим маршрутом «обновление заявки»: не тот шаблон и, что важнее, не тот
+  // флаг меню при фильтрации получателей — отдел, отключивший обновления, но
+  // оставивший изменение размещения, писем о переселении не получал вовсе.
+  // Во фронте живут ТОЛЬКО пакетные версии, одиночные не вызываются.
+  "relocate_passenger_request_hotel_people",
+  "evict_passenger_request_hotel_people",
+  "add_passenger_request_hotel_people"
 ])
 
 const KARS_FALLBACK_ACTIONS = new Set([
