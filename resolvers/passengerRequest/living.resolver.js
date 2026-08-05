@@ -636,7 +636,15 @@ export default {
               description: "Присвоен номер комнаты в гостинице ФАП",
               fulldescription: `Пользователь ${getSubjectName(context)} присвоил номер «${room ?? "—"}» гостям (${indexes.length}) в гостинице ${hotels[hotelIndex]?.name || "без названия"} ФАП ${passengerRequest.flightNumber}`,
               airlineId: passengerRequest.airlineId,
-              passengerRequestId: passengerRequest.id
+              passengerRequestId: passengerRequest.id,
+              emailExtras: {
+                hotelName: hotels[hotelIndex]?.name,
+                personName: indexes
+                  .map((idx) => people[idx]?.fullName)
+                  .filter(Boolean)
+                  .join(", "),
+                roomName: room
+              }
             })
           }
         }

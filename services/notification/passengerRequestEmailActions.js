@@ -13,7 +13,10 @@ const HOTEL_CHESS_LOG_ACTIONS = new Set([
   // Во фронте живут ТОЛЬКО пакетные версии, одиночные не вызываются.
   "relocate_passenger_request_hotel_people",
   "evict_passenger_request_hotel_people",
-  "add_passenger_request_hotel_people"
+  "add_passenger_request_hotel_people",
+  // Присвоение номера комнаты — тоже изменение размещения: письмо должно идти
+  // тем же маршрутом и фильтроваться тем же флагом меню.
+  "assign_passenger_request_hotel_room"
 ])
 
 const KARS_FALLBACK_ACTIONS = new Set([
