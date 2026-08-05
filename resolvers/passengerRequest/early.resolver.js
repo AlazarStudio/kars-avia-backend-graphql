@@ -97,15 +97,15 @@ export default {
 
           const prev = existing.baggageDeliveryService || emptyDriversService()
 
-          // Причина и дата досрочного завершения в документ НЕ пишутся —
-          // дефект №1 реестра, закреплён характеризационным тестом.
           return {
             data: {
               baggageDeliveryService: {
                 ...prev,
                 drivers: normalizeDriversForWrite(prev.drivers),
                 status: "COMPLETED",
-                times: updateTimes(prev.times, "COMPLETED")
+                times: updateTimes(prev.times, "COMPLETED"),
+                earlyCompletionReason: cleanReason,
+                earlyCompletedAt: new Date()
               }
             },
             log: {

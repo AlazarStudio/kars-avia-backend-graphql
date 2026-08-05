@@ -45,10 +45,15 @@ test("completePassengerRequestWaterEarly пишет один лог и одну 
   assert.equal(run.notified.length, 0, "сайтового уведомления у *Early нет")
 })
 
-test("ДЕФЕКТ №1: completePassengerRequestBaggageEarly НЕ сохраняет причину и дату", async () => {
-  // Причина принимается, проходит assertReason, попадает в лог и письмо —
-  // и теряется в документе. Остальные четыре *Early её пишут.
-  // Реестр дефектов спеки, №1. При починке этот тест обязан измениться.
+test("completePassengerRequestBaggageEarly пишет статус, время, причину и дату", async () => {
+  // Дефект №1 реестра починен: багаж писал в документ только статус и времена,
+  // а причину и дату терял — в отличие от остальных четырёх *Early.
+  // ⚠️ Причина в ПИСЬМО не попадает и никогда не попадала: у слага
+  // complete_passenger_request_baggage_early нет своего почтового действия,
+  // resolveEmailActionForLog отдаёт общее "update_passenger_request", а тело
+  // письма строится как `description || fulldescription` — description
+  // непустой всегда, поэтому строку «Причина: …» из fulldescription никто не
+  // читает. Пользователю причина видна через Log.reason в истории заявки.
   const run = await runMutation("completePassengerRequestBaggageEarly", {
     requestId: "req-1",
     reason: "багаж выдан"
@@ -56,9 +61,16 @@ test("ДЕФЕКТ №1: completePassengerRequestBaggageEarly НЕ сохран�
 
   const baggage = run.written[0].baggageDeliveryService
   assert.equal(baggage.status, "COMPLETED")
-  assert.equal(baggage.earlyCompletionReason, undefined)
-  assert.equal(baggage.earlyCompletedAt, undefined)
+  assert.equal(baggage.earlyCompletionReason, "багаж выдан")
+  assert.equal(baggage.earlyCompletedAt, "<DATE>")
+  // Обратная проверка: правка добавила два поля и не задела остальные —
+  // список поездок, план и времена остаются такими же, как до починки.
+  assert.deepEqual(baggage.drivers, [])
+  // У багажной фикстуры, в отличие от водяной, createdAt в times нет —
+  // updateTimes только дописывает finishedAt и ничего не выдумывает.
+  assert.deepEqual(baggage.times, { finishedAt: "<DATE>" })
   assert.equal(run.logged[0].action, "complete_passenger_request_baggage_early")
+  assert.equal(run.logged[0].reason, "багаж выдан")
 })
 
 test("completePassengerRequestTransferEarly пишет в поле по direction", async () => {
