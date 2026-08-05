@@ -145,6 +145,9 @@ test("applyServiceRecalc отдаёт status и times ровно от recomputeS
 
   const recalc = applyServiceRecalc(living, before, after)
 
+  // Сравнение с повторным вызовом безопасно ТОЛЬКО здесь: план 4 не достигнут,
+  // статус остаётся IN_PROGRESS, и updateTimes ни одной отметки не ставит.
+  // В тестах автозавершения так делать нельзя — там штампуется new Date().
   assert.deepEqual(recalc, recomputeServiceStatus(living, 1, 2))
   assert.deepEqual(Object.keys(recalc), ["status", "times"])
 })
@@ -161,7 +164,18 @@ test("applyServiceRecalc автозавершает услугу при дост
   const recalc = applyServiceRecalc(living, before, after)
 
   assert.equal(recalc.status, "COMPLETED")
-  assert.deepEqual(recalc, recomputeServiceStatus(living, 1, 2))
+  // Сравнивать результат с ПОВТОРНЫМ вызовом recomputeServiceStatus целиком
+  // нельзя: updateTimes штампует finishedAt как new Date(), и два независимых
+  // вызова расходятся на границе миллисекунды. Сверяем статус и набор
+  // проставленных отметок, а не сами значения времени.
+  assert.deepEqual(Object.keys(recalc), ["status", "times"])
+  assert.deepEqual(Object.keys(recalc.times).sort(), ["createdAt", "finishedAt"])
+  assert.equal(
+    recalc.times.createdAt,
+    "2026-08-01T10:00:00.000Z",
+    "прежние отметки не тронуты"
+  )
+  assert.ok(recalc.times.finishedAt instanceof Date, "finishedAt проставлен")
 })
 
 test("applyServiceRecalc считает факт по ВСЕМ гостиницам, а не по изменённой", () => {
@@ -172,10 +186,14 @@ test("applyServiceRecalc считает факт по ВСЕМ гостиниц�
     hotel("Чаплан", [legacyGuest("B"), legacyGuest("C")])
   ]
 
-  assert.deepEqual(
-    applyServiceRecalc(living, before, after),
-    recomputeServiceStatus(living, 2, 3)
-  )
+  const recalc = applyServiceRecalc(living, before, after)
+
+  // План 3, факт по ВСЕМ гостиницам 2 → 3, значит услуга автозавершается.
+  // Если бы считалась только изменённая гостиница (1 → 2), плана бы не достигли
+  // и статус остался бы IN_PROGRESS — именно это тест и различает.
+  assert.equal(recalc.status, "COMPLETED")
+  // Время с повторным вызовом не сверяем: updateTimes штампует new Date().
+  assert.deepEqual(Object.keys(recalc.times).sort(), ["finishedAt", "inProgressAt"])
 })
 
 test("applyServiceRecalc не трогает отменённую услугу", () => {
