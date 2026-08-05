@@ -8,6 +8,13 @@ import {
   scopeFilterForQuery,
   evaluateRequestAccess
 } from "../../services/passengerRequest/fapScopeGuard.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
+import { visibleHotelReports } from "../../services/analytics/passengerAnalyticsUtils.js"
+
+// Зритель-авиакомпания. Берём канонический предикат модуля, а не
+// `context.user?.airlineId`: resolveScope знает все типы субъекта ФАП, включая
+// персонал авиакомпании, у которого своего `user` в контексте нет.
+const viewerIsAirline = (context) => resolveScope(context).kind === "airline"
 
 export default {
   // --------- поля связей ---------
@@ -32,18 +39,29 @@ export default {
     chats: async (parent) =>
       prisma.chat.findMany({ where: { passengerRequestId: parent.id } }),
 
-    hotelReport: async (parent, { hotelIndex }) => {
+    // Правило «авиакомпания видит только ОТПРАВЛЕННЫЙ на проверку отчёт» до
+    // сих пор жило в двух видах: серверно — в аналитике (visibleHotelReports),
+    // а для самого отчёта только на клиенте (FapHotelPage рисует заглушку
+    // «Отчёт формируется»). Строки при этом уезжали в браузер авиакомпании
+    // целиком и читались в devtools. Здесь то же правило и тот же хелпер, что
+    // в аналитике, — чтобы оно было ОДНО, а не два.
+    // Флаг FAP_SCOPE_ENFORCE тут ни при чём: это не межорганизационная
+    // изоляция, а видимость черновика, и в аналитике она тоже безусловна.
+    hotelReport: async (parent, { hotelIndex }, context) => {
       const report = await prisma.passengerRequestHotelReport.findUnique({
         where: reportWhere(parent.id, hotelIndex)
       })
-      return report ?? null
+      if (!report) return null
+      return visibleHotelReports([report], viewerIsAirline(context))[0] ?? null
     },
 
-    hotelReports: async (parent) =>
-      prisma.passengerRequestHotelReport.findMany({
+    hotelReports: async (parent, _args, context) => {
+      const reports = await prisma.passengerRequestHotelReport.findMany({
         where: { passengerRequestId: parent.id },
         orderBy: { hotelIndex: "asc" }
-      }),
+      })
+      return visibleHotelReports(reports, viewerIsAirline(context))
+    },
 
     logs: async (parent, { pagination }) => {
       const { skip, take } = pagination || {}
