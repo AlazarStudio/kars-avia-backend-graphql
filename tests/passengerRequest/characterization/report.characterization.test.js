@@ -385,34 +385,49 @@ test("сохранение отчёта НЕ идёт в почту: автос�
   assert.equal(first.logged.length, 1, "история пишется по-прежнему")
 })
 
-test("ДЕФЕКТ №15: hotelIndex вне диапазона не отбивается — отчёт создаётся для несуществующей гостиницы", async () => {
-  // assertIndex в этой мутации просто не вызван (в соседних мутациях
-  // проживания он есть). В фикстуре две гостиницы, индекс 99 — заведомо чужой:
-  // запись отчёта создаётся, а в тексте лога гостиница вырождается в
-  // «без названия». Реестр дефектов спеки, №15.
-  const run = await runReport(
-    "savePassengerRequestHotelReport",
-    saveArgs([{ fullName: "Иванов Иван" }], 99)
-  )
+test("сохранение отчёта отбивает hotelIndex вне диапазона", async () => {
+  // Раньше assertIndex в этой мутации не вызывался вовсе, хотя в соседних
+  // мутациях проживания он стоит. Индекс приходит из URL страницы отчёта и на
+  // фронте не проверяется, поэтому чужое число доходило до базы: составной ключ
+  // принимал что угодно, запись отчёта создавалась для несуществующей
+  // гостиницы, а в тексте истории гостиница вырождалась в «без названия».
+  // Проверка стоит ПОСЛЕ проверки доступа: субъект, которому заявка не видна,
+  // не должен по коду ошибки узнавать, сколько в ней гостиниц.
+  // В фикстуре две гостиницы, значит валидны только индексы 0 и 1.
+  for (const index of [99, -1]) {
+    const run = await runReport(
+      "savePassengerRequestHotelReport",
+      saveArgs([{ fullName: "Иванов Иван" }], index)
+    )
 
-  assert.equal(run.error, null, "ошибки Invalid hotelIndex нет")
-  assert.deepEqual(run.upserted[0].where, {
-    passengerRequestId_hotelIndex: { passengerRequestId: "req-1", hotelIndex: 99 }
-  })
-  assert.equal(run.upserted[0].create.hotelIndex, 99)
-  assert.equal(
-    run.logged[0].fulldescription,
-    "Пользователь Диспетчер Тестовый сохранил отчёт по гостинице без названия для ФАП TEST001"
-  )
-  assert.equal(JSON.parse(run.logged[0].newData).hotelIndex, 99)
+    assert.match(run.error.message, /Invalid hotelIndex/, `индекс ${index}: текст ошибки`)
+    assert.equal(run.upserted.length, 0, `индекс ${index}: записи отчёта нет`)
+    assert.equal(run.logged.length, 0, `индекс ${index}: в историю ничего не пишется`)
+    assert.equal(run.notified.length, 0, `индекс ${index}: уведомления нет`)
+    assert.equal(run.published.length, 0, `индекс ${index}: публикации нет`)
+    // Заявка при этом уже прочитана: проверка индекса стоит после её загрузки.
+    assert.deepEqual(
+      run.requestLookups,
+      ["req-1"],
+      `индекс ${index}: заявку успели прочитать`
+    )
+  }
 
-  // Отрицательный индекс проходит так же — проверки нет ни с какой стороны.
-  const negative = await runReport(
-    "savePassengerRequestHotelReport",
-    saveArgs([{ fullName: "Иванов Иван" }], -1)
-  )
-  assert.equal(negative.error, null)
-  assert.equal(negative.upserted[0].create.hotelIndex, -1)
+  // Обратная проверка: валидные индексы по-прежнему сохраняются. Без неё тест
+  // доказывал бы только то, что мутация перестала работать вообще.
+  for (const index of [0, 1]) {
+    const run = await runReport(
+      "savePassengerRequestHotelReport",
+      saveArgs([{ fullName: "Иванов Иван" }], index)
+    )
+
+    assert.equal(run.error, null, `индекс ${index}: ошибки нет`)
+    assert.deepEqual(run.upserted[0].where, {
+      passengerRequestId_hotelIndex: { passengerRequestId: "req-1", hotelIndex: index }
+    })
+    assert.equal(run.upserted[0].create.hotelIndex, index)
+    assert.equal(run.logged.length, 1, `индекс ${index}: история пишется`)
+  }
 })
 
 // ───────────────────── submit / hide ─────────────────────

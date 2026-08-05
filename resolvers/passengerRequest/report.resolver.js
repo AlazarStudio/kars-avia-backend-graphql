@@ -4,6 +4,7 @@ import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
 import { makeRoomCategoryLabel } from "../../services/passengerRequest/normalizers.js"
 import {
+  assertIndex,
   finishPassengerRequestMutation,
   getSubjectName,
   loadRequestOrThrow,
@@ -21,6 +22,12 @@ export default {
     ) => {
       const existing = await loadRequestOrThrow(requestId)
       assertCanAccessRequest(context, existing)
+      // Индекс приходит из URL страницы отчёта и на фронте не проверяется. Без
+      // этой строки запись отчёта создавалась для несуществующей гостиницы:
+      // составной ключ принимал любое число, а в тексте истории гостиница
+      // вырождалась в «без названия». Соседние мутации проживания проверяют
+      // индекс именно так.
+      assertIndex(hotelIndex, existing.livingService?.hotels?.length ?? 0, "hotelIndex")
 
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",
