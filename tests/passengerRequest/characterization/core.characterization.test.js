@@ -285,19 +285,41 @@ test("ловушка именования: движок статусов вид�
 
   // Тот же план по смыслу, но ключом count. План в документе оставлен
   // фикстурный (peopleCount: 4) намеренно: патч обязан отличаться от документа,
-  // иначе мутация справедливо сочтёт его пустым и не запишет ничего. Заодно
-  // нагляднее: подмена ключа ТЕРЯЕТ план — факт достиг единицы, а услуга не
-  // завершилась, хотя с ключом peopleCount завершилась бы (первая половина).
+  // иначе мутация справедливо сочтёт его пустым и не запишет ничего.
+  // ⚠️ План теперь СЛИВАЕТСЯ с документом, а не заменяет его: присланный
+  // мусорный ключ `count` в документ попадает, но настоящий `peopleCount: 4`
+  // из фикстуры уцелевает. Раньше вход заменял план целиком и peopleCount
+  // терялся — из-за этого выключение услуги (`{ enabled: false }`) обнуляло
+  // количество и плановые даты безвозвратно.
+  // Различающая сила теста от этого только выросла: движок идёт за
+  // peopleCount (4), а не за count (1). Читай он count, факт 1 достиг бы плана
+  // 1 и услуга завершилась бы — она осталась IN_PROGRESS.
   const byCount = await runFapMutation("updatePassengerRequest", {
     id: "req-1",
     input: { waterService: { plan: { enabled: true, count: 1 } } }
   })
   assert.deepEqual(byCount.written[0].waterService.plan, {
     enabled: true,
+    peopleCount: 4,
     count: 1
   })
   assert.equal(byCount.written[0].waterService.status, "IN_PROGRESS")
   assert.equal(byCount.written[0].waterService.times.finishedAt, undefined)
+})
+
+test("выключение услуги сохраняет количество и плановые даты", async () => {
+  // Обратная проверка к слиянию плана: клиент шлёт `{ enabled: false }` и
+  // ничего больше, и всё остальное обязано уцелеть. Прежняя семантика замены
+  // оставляла в документе ровно `{ enabled: false }`.
+  const run = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { waterService: { plan: { enabled: false } } }
+  })
+
+  assert.deepEqual(run.written[0].waterService.plan, {
+    enabled: false,
+    peopleCount: 4
+  })
 })
 
 test("updatePassengerRequest штампует statusTimes при смене статуса", async () => {

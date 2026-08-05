@@ -243,8 +243,20 @@ export default {
             if (!service) continue
 
             const prev = existing[entry.field] || {}
+            // План — embedded composite, а composite Prisma ЗАМЕНЯЕТ целиком, а
+            // не сливает по полям. Клиент присылает подмножество: при
+            // выключении услуги это `{ enabled: false }`, и без слияния
+            // peopleCount и плановые даты обнулялись безвозвратно. Для
+            // проживания это особенно больно: плановый период — единственный
+            // источник суток у гостя, который сейчас в гостинице (его интервал
+            // размещения открыт, а закрытого нет), поэтому весь ещё не
+            // сохранённый отчёт начинал считать ноль суток.
+            // Присланные ключи по-прежнему побеждают, в том числе явный null —
+            // слияние защищает только те поля, которых во входе НЕТ.
             const mergedPlan =
-              service.plan !== undefined ? service.plan : prev.plan
+              service.plan !== undefined
+                ? { ...(prev.plan || {}), ...service.plan }
+                : prev.plan
             const current = entry.factCount(prev)
             const recalc = recomputeServiceStatus(
               { ...prev, plan: mergedPlan },
@@ -253,7 +265,7 @@ export default {
             )
             data[entry.field] = {
               ...prev,
-              ...(service.plan !== undefined && { plan: service.plan }),
+              ...(service.plan !== undefined && { plan: mergedPlan }),
               // Пассажиров чинят только водительские услуги; вода, питание и
               // проживание уносят своих людей из prev как есть.
               ...(entry.hasDrivers && {
