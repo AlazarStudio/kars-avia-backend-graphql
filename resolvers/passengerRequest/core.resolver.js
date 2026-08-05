@@ -8,6 +8,7 @@ import {
 } from "../../services/passengerRequest/utils.js"
 import { normalizeDriversForWrite } from "../../services/passengerRequest/baggageDelivery.js"
 import { normalizeCrewMember } from "../../services/passengerRequest/normalizers.js"
+import { patchIsNoop } from "../../services/passengerRequest/patchIsNoop.js"
 import {
   finishPassengerRequestMutation,
   getSubjectName,
@@ -251,6 +252,13 @@ export default {
               times: recalc.times
             }
           }
+
+          // Ничего не изменилось — выходим без записи, истории, публикации и
+          // письма. Условие «в патче есть хоть один ключ» этого не ловило: форма
+          // CRM шлёт все пять сервисных блоков безусловно, поэтому сохранение без
+          // правок писало историю и рассылало участникам письмо об обновлении,
+          // которого не было.
+          if (patchIsNoop(existing, data)) return null
 
           const isDateChange = passengerRequestFlightDateChanged(
             existing.flightDate,

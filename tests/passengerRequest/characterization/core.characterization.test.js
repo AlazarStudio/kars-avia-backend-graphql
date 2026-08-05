@@ -245,8 +245,8 @@ test("updatePassengerRequest: только водительские блоки �
 test("ловушка именования: движок статусов видит только plan.peopleCount, ключ count игнорирует", async () => {
   // Это не дефект продукта, а ловушка для тестов: recomputeServiceStatus
   // читает plan.peopleCount, и план с любым другим ключом для него всё равно
-  // что отсутствует. Оба варианта плана собраны здесь явно, а не взяты из
-  // фикстуры, — иначе тест молча проверял бы не ту ветку.
+  // что отсутствует. Вход обеих половин собран здесь явно, а план документа
+  // берётся из фикстуры — чтобы патч отличался от документа и запись случилась.
   const byPeopleCount = await runFapMutation("updatePassengerRequest", {
     id: "req-1",
     input: { waterService: { plan: { enabled: true, peopleCount: 1 } } }
@@ -255,17 +255,19 @@ test("ловушка именования: движок статусов вид�
   assert.equal(byPeopleCount.written[0].waterService.status, "COMPLETED")
   assert.equal(byPeopleCount.written[0].waterService.times.finishedAt, "<DATE>")
 
-  // Тот же план по смыслу, но ключом count — и в документе, и во входе.
-  const brokenPlan = { enabled: true, count: 1 }
-  const request = makeRequest()
-  request.waterService.plan = { ...brokenPlan }
-
-  const byCount = await runFapMutation(
-    "updatePassengerRequest",
-    { id: "req-1", input: { waterService: { plan: { ...brokenPlan } } } },
-    { request }
-  )
-  assert.deepEqual(byCount.written[0].waterService.plan, brokenPlan)
+  // Тот же план по смыслу, но ключом count. План в документе оставлен
+  // фикстурный (peopleCount: 4) намеренно: патч обязан отличаться от документа,
+  // иначе мутация справедливо сочтёт его пустым и не запишет ничего. Заодно
+  // нагляднее: подмена ключа ТЕРЯЕТ план — факт достиг единицы, а услуга не
+  // завершилась, хотя с ключом peopleCount завершилась бы (первая половина).
+  const byCount = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { waterService: { plan: { enabled: true, count: 1 } } }
+  })
+  assert.deepEqual(byCount.written[0].waterService.plan, {
+    enabled: true,
+    count: 1
+  })
   assert.equal(byCount.written[0].waterService.status, "IN_PROGRESS")
   assert.equal(byCount.written[0].waterService.times.finishedAt, undefined)
 })
@@ -282,19 +284,50 @@ test("ДЕФЕКТ №5: updatePassengerRequest меняет status, не тро
   assert.equal("statusTimes" in run.written[0], false)
 })
 
-test("ДЕФЕКТ №19: пустой патч даёт лог, но не даёт сайтового уведомления", async () => {
-  // Условие «есть что писать» стоит только на уведомлении: апдейт с пустым
-  // data выполняется, лог пишется, уведомления нет. Реестр дефектов спеки, №19.
-  const run = await runFapMutation("updatePassengerRequest", {
+test("updatePassengerRequest: патч, ничего не меняющий, не пишет, не логирует и не рассылает", async () => {
+  // Раньше запись, история и письмо участникам случались безусловно, а условие
+  // стояло только на уведомлении — и толку от него не было: форма CRM собирает
+  // input из всех пяти сервисных блоков без единого if, поэтому ключи в патче
+  // есть ВСЕГДА. «Сохранить», не изменив ничего, писало строку в историю заявки
+  // и рассылало участникам письмо об обновлении, которого не было. Теперь
+  // совпадение патча с документом ловится сравнением (patchIsNoop), и мутация
+  // выходит, не тронув ни один канал.
+  //
+  // Патч здесь намеренно НЕ пустой: три ключа, и каждый повторяет то, что уже
+  // лежит в заявке, — ровно тот случай, который прежнее условие пропускало.
+  const unchanged = await runFapMutation("updatePassengerRequest", {
     id: "req-1",
-    input: { flightNumber: undefined, routeFrom: undefined, status: undefined }
+    input: {
+      flightNumber: "TEST001",
+      status: "CREATED",
+      waterService: { plan: { enabled: true, peopleCount: 4 } }
+    }
   })
 
-  assert.deepEqual(run.written, [{}])
-  assert.equal(run.logged.length, 1)
-  assert.equal(run.logged[0].action, "update_passenger_request")
-  assert.equal(run.notified.length, 0)
-  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+  assert.deepEqual(unchanged.order, ["passengerRequest.findUnique"])
+  assert.deepEqual(unchanged.written, [], "ни записи")
+  assert.deepEqual(unchanged.logged, [], "ни истории")
+  assert.deepEqual(unchanged.notified, [], "ни уведомления")
+  assert.deepEqual(unchanged.published, [], "ни публикации")
+  // Мутация всё равно обязана вернуть заявку — клиент читает ответ.
+  assert.equal(unchanged.result.id, "req-1")
+  assert.equal(unchanged.result.flightNumber, "TEST001")
+
+  // Обратная половина: настоящая правка по-прежнему доходит до всех каналов.
+  // Без неё тест доказывал бы только то, что мутация перестала работать.
+  const changed = await runFapMutation("updatePassengerRequest", {
+    id: "req-1",
+    input: { flightNumber: "TEST002" }
+  })
+
+  assert.deepEqual(changed.written, [{ flightNumber: "TEST002" }])
+  assert.equal(changed.logged.length, 1)
+  assert.equal(changed.logged[0].action, "update_passenger_request")
+  assert.equal(changed.notified.length, 1)
+  assert.deepEqual(changed.published, [
+    "NOTIFICATION",
+    "PASSENGER_REQUEST_UPDATED"
+  ])
 })
 
 test("ДЕФЕКТ №20: в updatePassengerRequest сначала уведомление, потом публикация", async () => {
