@@ -490,24 +490,27 @@ test("setPassengerRequestStatus пишет статус и отметку вре
   assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
 })
 
-test("ДЕФЕКТ №6: setPassengerRequestStatus принимает CANCELLED без причины и без уведомления", async () => {
-  // Отмена через общий сеттер статуса: статус записывается, cancelReason не
-  // пишется вовсе, сайтового уведомления об отмене нет. Реестр дефектов
-  // спеки, №6. Сравнение с cancelPassengerRequest — в следующем тесте.
-  const run = await runFapMutation("setPassengerRequestStatus", {
+test("setPassengerRequestStatus отбивает CANCELLED и отправляет к cancelPassengerRequest", async () => {
+  // Дефект №6 реестра починен. Было: общий сеттер принимал CANCELLED, писал
+  // статус, НЕ писал cancelReason, слал письмо «Обновлён ФАП» вместо письма об
+  // отмене и не создавал сайтового уведомления. Своего аргумента под причину у
+  // сеттера в схеме нет, поэтому единственная честная форма — отказ.
+  // Обратная проверка — соседний тест «пишет статус и отметку времени статуса»:
+  // на любом другом статусе сеттер работает как раньше.
+  // ⚠️ Дверь закрыта не вся: updatePassengerRequest пропускает status в патч и
+  // остаётся вторым путём к CANCELLED без причины — дефект №5.
+  const run = await runRaw("setPassengerRequestStatus", {
     id: "req-1",
     status: "CANCELLED"
   })
 
-  assert.deepEqual(run.written, [
-    {
-      status: "CANCELLED",
-      statusTimes: { cancelledAt: "<DATE>", createdAt: "<DATE>" }
-    }
-  ])
-  assert.equal("cancelReason" in run.written[0], false)
-  assert.equal(run.notified.length, 0)
-  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+  assert.ok(run.error, "мутация отбита")
+  assert.match(run.error.message, /cancelPassengerRequest/)
+  assert.equal(run.error.extensions?.code, "BAD_USER_INPUT")
+  // Проверка стоит до конверта, поэтому в базу не ходили вовсе — ни чтения,
+  // ни записи, ни истории.
+  assert.deepEqual(run.double.calls, [])
+  assert.deepEqual(run.published, [])
 })
 
 test("cancelPassengerRequest пишет причину, статус, лог с reason и уведомление", async () => {

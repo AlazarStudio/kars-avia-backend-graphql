@@ -256,29 +256,47 @@ test("removePassengerRequestDriver: сбой перевыпуска гасит �
   assert.equal(rawWritten(run.double)[0].transferService.drivers[0].linkPWA, null)
 })
 
-test("ДЕФЕКТ №11: водитель в CANCELLED-услуге возвращает её в ACCEPTED", async () => {
-  // Условие подъёма статуса — только driverIndex === 0, текущий статус не
-  // проверяется. Отменённая услуга оживает от добавления первого водителя.
-  // Багажный близнец (addPassengerRequestBaggageDriver) от этого прикрыт
-  // дополнительной проверкой prev.status === "NEW". Реестр дефектов спеки, №11.
-  // При починке этот тест обязан измениться.
-  const request = withTransfer({
-    status: "CANCELLED",
-    times: { cancelledAt: "2026-08-02T10:00:00.000Z" },
-    drivers: []
-  })
+test("водитель в непустом статусе услугу не переоткрывает", async () => {
+  // Дефект №11 реестра починен. Было: условием подъёма служил только
+  // driverIndex === 0, поэтому заведение поездки в пустой список возвращало в
+  // ACCEPTED услугу ЛЮБОГО статуса. Стало: гвард prev.status === "NEW", как у
+  // багажного близнеца. Водитель при этом добавляется — меняться перестали
+  // только статус и времена.
+  for (const [status, times] of [
+    ["CANCELLED", { cancelledAt: "2026-08-02T10:00:00.000Z" }],
+    ["COMPLETED", { finishedAt: "2026-08-02T10:00:00.000Z" }],
+    ["IN_PROGRESS", { inProgressAt: "2026-08-02T10:00:00.000Z" }]
+  ]) {
+    const run = await runFapMutation(
+      "addPassengerRequestDriver",
+      { requestId: "req-1", driver: { fullName: "Водитель" } },
+      { request: withTransfer({ status, times, drivers: [] }) }
+    )
 
+    const service = run.written[0].transferService
+    assert.equal(service.status, status, `${status} не переоткрывается`)
+    assert.equal(
+      service.times.acceptedAt,
+      undefined,
+      `${status}: отметка приёма не проставляется`
+    )
+    assert.equal(service.drivers.length, 1, `${status}: водитель добавлен`)
+  }
+})
+
+test("первый водитель по-прежнему поднимает услугу из NEW в ACCEPTED", async () => {
+  // Обратная проверка к №11: гвард закрыл только переоткрытие, законный
+  // переход NEW → ACCEPTED цел.
   const run = await runFapMutation(
     "addPassengerRequestDriver",
     { requestId: "req-1", driver: { fullName: "Водитель" } },
-    { request }
+    { request: withTransfer({ status: "NEW", times: {}, drivers: [] }) }
   )
 
-  assert.equal(run.written[0].transferService.status, "ACCEPTED")
-  assert.deepEqual(run.written[0].transferService.times, {
-    acceptedAt: "<DATE>",
-    cancelledAt: "<DATE>"
-  })
+  const service = run.written[0].transferService
+  assert.equal(service.status, "ACCEPTED")
+  assert.equal(service.times.acceptedAt, "<DATE>")
+  assert.equal(service.drivers.length, 1)
 })
 
 test("addPassengerRequestDriver: второй водитель не трогает ни статус, ни времена", async () => {

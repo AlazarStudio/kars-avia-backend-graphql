@@ -416,8 +416,26 @@ export default {
     },
 
     // общий статус заявки
-    setPassengerRequestStatus: async (_, { id, status }, context) =>
-      withPassengerRequest({
+    setPassengerRequestStatus: async (_, { id, status }, context) => {
+      // Отмена идёт ТОЛЬКО через cancelPassengerRequest: там пишется
+      // cancelReason, письмо уходит маршрутом cancel_passenger_request и
+      // создаётся сайтовое уведомление об отмене. Общий сеттер не делает
+      // ничего из этого, поэтому принятый им CANCELLED давал отменённую
+      // заявку без причины, с письмом «Обновлён ФАП» и вовсе без уведомления —
+      // дефект №6 реестра. Своего аргумента под причину у сеттера в схеме нет,
+      // так что единственная честная форма — отказ.
+      // ⚠️ Дверь закрыта не вся: updatePassengerRequest тоже пропускает status
+      // в патч и остаётся вторым путём к CANCELLED без причины (дефект №5).
+      if (status === "CANCELLED") {
+        throw new GraphQLError(
+          "Use cancelPassengerRequest to cancel a passenger request",
+          { extensions: { code: "BAD_USER_INPUT" } }
+        )
+      }
+
+      // Проверка стоит ДО конверта сознательно: она не стоит обращения в базу
+      // и не должна зависеть от охраны скоупа внутри него.
+      return withPassengerRequest({
         requestId: id,
         context,
         apply: (existing) => ({
@@ -433,7 +451,8 @@ export default {
             passengerRequestId: passengerRequest.id
           })
         })
-      }),
+      })
+    },
 
     // ростер экипажа заявки
     updatePassengerRequestCrew: async (

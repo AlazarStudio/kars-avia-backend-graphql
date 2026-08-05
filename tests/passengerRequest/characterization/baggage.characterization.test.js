@@ -250,10 +250,12 @@ test("гвард status === NEW ограничивает ветку приёма
   assert.deepEqual(run.data.baggageDeliveryService.times, { acceptedAt: OLD })
 })
 
-test("расхождение гвардов: багаж не откатывает IN_PROGRESS, трансфер откатывает в ACCEPTED", async () => {
-  // Багаж гвардит isFirstDriver && prev.status === "NEW", трансфер — только
-  // driverIndex === 0. Услуга, уже находящаяся в работе, но оставшаяся без
-  // поездок, у трансфера регрессирует в ACCEPTED, а у багажа нет.
+test("гварды сошлись: ни багаж, ни трансфер не откатывают IN_PROGRESS", async () => {
+  // Раньше здесь фиксировалось РАСХОЖДЕНИЕ: багаж гвардил
+  // isFirstDriver && prev.status === "NEW", а трансфер — только
+  // driverIndex === 0, и услуга в работе, оставшаяся без поездок, у трансфера
+  // регрессировала в ACCEPTED. Дефект №11 реестра починен, гвард у трансфера
+  // теперь дословно тот же, и обе услуги ведут себя одинаково.
   const inProgress = {
     plan: { enabled: true, peopleCount: 4 },
     status: "IN_PROGRESS",
@@ -274,8 +276,8 @@ test("расхождение гвардов: багаж не откатывае�
     { requestId: "req-1", driver: { fullName: "Водитель Трансфер" } },
     { request: makeRequest({ transferService: inProgress }) }
   )
-  assert.equal(transfer.data.transferService.status, "ACCEPTED")
-  assert.ok(transfer.data.transferService.times.acceptedAt instanceof Date)
+  assert.equal(transfer.data.transferService.status, "IN_PROGRESS")
+  assert.deepEqual(transfer.data.transferService.times, { inProgressAt: OLD })
 })
 
 test("поездка с пассажирами пересчитывает статус услуги прямо при заведении", async () => {

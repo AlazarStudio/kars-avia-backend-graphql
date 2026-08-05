@@ -100,9 +100,17 @@ export default {
             ...normalizeDriversForWrite(prev.drivers),
             normalizedDriver
           ]
+          // Первый водитель поднимает услугу до ACCEPTED только ИЗ NEW. Раньше
+          // гварда по статусу не было, и заведение поездки в пустой список
+          // возвращало в ACCEPTED услугу любого статуса — дефект №11 реестра.
+          // Больнее всего это било по досрочно завершённой: документ получал
+          // status ACCEPTED при непустом earlyCompletedAt, а такого состояния
+          // ни один законный переход не даёт. Гвард дословно тот же, что у
+          // багажного близнеца, — две копии одного правила снова сходятся.
           const isFirstDriver = driverIndex === 0
-          const nextStatus = isFirstDriver ? "ACCEPTED" : prev.status
-          const nextTimes = isFirstDriver
+          const accept = isFirstDriver && prev.status === "NEW"
+          const nextStatus = accept ? "ACCEPTED" : prev.status
+          const nextTimes = accept
             ? updateTimes(prev.times, "ACCEPTED")
             : prev.times
 
