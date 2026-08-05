@@ -120,10 +120,10 @@ test("createPassengerRequest публикует СЫРУЮ заявку, а по
   )
 })
 
-test("ДЕФЕКТ №5: createPassengerRequest пишет status, не заполняя statusTimes", async () => {
-  // Статус из input попадает в документ, а отметки времени статуса не
-  // создаются вовсе — в отличие от setPassengerRequestStatus, где updateTimes
-  // вызывается всегда. Реестр дефектов спеки, №5.
+test("createPassengerRequest штампует statusTimes вместе со статусом", async () => {
+  // Дефект №5 реестра починен: из пяти путей к статусу заявки штамповали
+  // только три, а createPassengerRequest и updatePassengerRequest писали
+  // status и оставляли отметки пустыми.
   const run = await runRaw("createPassengerRequest", {
     input: {
       airlineId: "airline-1",
@@ -136,7 +136,35 @@ test("ДЕФЕКТ №5: createPassengerRequest пишет status, не запо
   const created = run.double.callsTo("passengerRequest", "create")
   assert.equal(created.length, 1)
   assert.equal(created[0].args.data.status, "ACCEPTED")
-  assert.equal("statusTimes" in created[0].args.data, false)
+  assert.ok(created[0].args.data.statusTimes.acceptedAt instanceof Date)
+})
+
+test("createPassengerRequest без статуса и в CREATED пустой composite не пишет", async () => {
+  // Обратная проверка к №5. У CREATED отметки нет по построению — в
+  // updateTimes для него ветки нет, и класть в документ пустой composite
+  // незачем. Заявка без статуса во входе ведёт себя как раньше.
+  const created = await runRaw("createPassengerRequest", {
+    input: {
+      airlineId: "airline-1",
+      airportId: "airport-1",
+      flightNumber: "TEST001",
+      status: "CREATED"
+    }
+  })
+  const withCreated = created.double.callsTo("passengerRequest", "create")[0]
+  assert.equal(withCreated.args.data.status, "CREATED")
+  assert.equal("statusTimes" in withCreated.args.data, false)
+
+  const none = await runRaw("createPassengerRequest", {
+    input: {
+      airlineId: "airline-1",
+      airportId: "airport-1",
+      flightNumber: "TEST001"
+    }
+  })
+  const withoutStatus = none.double.callsTo("passengerRequest", "create")[0]
+  assert.equal("status" in withoutStatus.args.data, false)
+  assert.equal("statusTimes" in withoutStatus.args.data, false)
 })
 
 // ─────────────────────────── updatePassengerRequest ───────────────────────────
@@ -272,15 +300,32 @@ test("ловушка именования: движок статусов вид�
   assert.equal(byCount.written[0].waterService.times.finishedAt, undefined)
 })
 
-test("ДЕФЕКТ №5: updatePassengerRequest меняет status, не трогая statusTimes", async () => {
-  // Статус заявки правится как обычное поле шапки, отметки времени статуса не
-  // пересчитываются. Реестр дефектов спеки, №5.
+test("updatePassengerRequest штампует statusTimes при смене статуса", async () => {
+  // Дефект №5 реестра починен: статус правится здесь как обычное поле шапки,
+  // и раньше отметки времени не пересчитывались вовсе — один и тот же переход
+  // давал разный документ в зависимости от выбранной мутации.
   const run = await runFapMutation("updatePassengerRequest", {
     id: "req-1",
     input: { status: "COMPLETED" }
   })
 
-  assert.deepEqual(run.written[0], { status: "COMPLETED" })
+  assert.equal(run.written[0].status, "COMPLETED")
+  assert.equal(run.written[0].statusTimes.finishedAt, "<DATE>")
+})
+
+test("updatePassengerRequest: тот же статус отметок не трогает", async () => {
+  // Обратная проверка к №5, и одновременно страж защиты от пустого сохранения:
+  // statusTimes в патче не приходит никогда, поэтому штамп обязан стоять ПОСЛЕ
+  // patchIsNoop и только при РЕАЛЬНОЙ смене. Иначе повтор текущего статуса
+  // выглядел бы изменением и воскресил бы письмо на каждое «Сохранить».
+  const request = makeRequest({ status: "ACCEPTED" })
+  const run = await runFapMutation(
+    "updatePassengerRequest",
+    { id: "req-1", input: { status: "ACCEPTED", flightNumber: "TEST002" } },
+    { request }
+  )
+
+  assert.equal(run.written[0].flightNumber, "TEST002")
   assert.equal("statusTimes" in run.written[0], false)
 })
 

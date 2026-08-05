@@ -83,7 +83,18 @@ export default {
       data.createdBy = { connect: { id: createdById } }
 
       data.airport = { connect: { id: airportId } }
-      if (status) data.status = status
+      if (status) {
+        data.status = status
+        // Тот же штамп, что у setPassengerRequestStatus: заявка, созданная
+        // сразу в ACCEPTED или IN_PROGRESS, обязана нести отметку перехода.
+        // Раньше её не было — дефект №5 реестра: из пяти путей к статусу
+        // штамповали только три. У CREATED отметки нет по построению
+        // (в updateTimes для него ветки нет), поэтому пустой composite в
+        // документ не пишем. null вместо existing.statusTimes намеренно:
+        // документа ещё не существует.
+        const statusTimes = updateTimes(null, status)
+        if (Object.keys(statusTimes).length > 0) data.statusTimes = statusTimes
+      }
 
       if (Array.isArray(crewMembers)) {
         data.crewMembers = crewMembers.map(normalizeCrewMember)
@@ -259,6 +270,19 @@ export default {
           // правок писало историю и рассылало участникам письмо об обновлении,
           // которого не было.
           if (patchIsNoop(existing, data)) return null
+
+          // Статус заявки правится здесь как обычное поле шапки, поэтому
+          // переход штампуем тем же updateTimes, что и
+          // setPassengerRequestStatus, — иначе один и тот же переход даёт
+          // разный документ в зависимости от того, какой мутацией его сделали
+          // (дефект №5 реестра).
+          // ⚠️ Порядок относительно patchIsNoop несущий: statusTimes в
+          // присланном патче не приходит никогда, и внутри проверки такой ключ
+          // всегда читался бы как «изменилось» — штамп до неё убил бы защиту от
+          // сохранения без правок.
+          if (data.status && data.status !== existing.status) {
+            data.statusTimes = updateTimes(existing.statusTimes, data.status)
+          }
 
           const isDateChange = passengerRequestFlightDateChanged(
             existing.flightDate,
