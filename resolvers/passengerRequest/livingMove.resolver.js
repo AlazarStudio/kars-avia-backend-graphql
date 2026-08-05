@@ -96,6 +96,7 @@ export default {
                 hotels: hotelsClone
               }
             },
+            unsubmitReports: [fromHotelIndex, toHotelIndex],
             log: (passengerRequest) => ({
               action: "relocate_passenger_request_hotel_person",
               reason: cleanReason,
@@ -210,6 +211,7 @@ export default {
                 hotels: hotelsClone
               }
             },
+            unsubmitReports: [fromHotelIndex, toHotelIndex],
             log: (passengerRequest) => ({
               action: "relocate_passenger_request_hotel_people",
               reason: cleanReason,
@@ -326,6 +328,7 @@ export default {
                 times: recalc.times
               }
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "evict_passenger_request_hotel_person",
               reason: cleanReason,
@@ -447,6 +450,7 @@ export default {
                 times: recalc.times
               }
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "evict_passenger_request_hotel_people",
               reason: cleanReason,

@@ -403,6 +403,7 @@ export default {
                 snapshotFromHotelPerson(normalizedHotelPerson)
               )
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "add_passenger_request_hotel_person",
               description: "Пассажир добавлен в гостиницу ФАП",
@@ -495,6 +496,7 @@ export default {
               },
               savedPassengers
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "add_passenger_request_hotel_people",
               description: `Пакетно добавлены пассажиры в гостиницу ФАП (${people.length})`,
@@ -573,6 +575,7 @@ export default {
                 hotelsClone[hotelIndex].people[personIndex]
               )
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "update_passenger_request_hotel_person",
               description: "Данные пассажира в гостинице ФАП обновлены",
@@ -631,6 +634,7 @@ export default {
                 hotels: hotelsClone
               }
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "assign_passenger_request_hotel_room",
               description: "Присвоен номер комнаты в гостинице ФАП",
@@ -686,6 +690,7 @@ export default {
                 times: recalc.times
               }
             },
+            unsubmitReports: [hotelIndex],
             log: (passengerRequest) => ({
               action: "remove_passenger_request_hotel_person",
               description: "Пассажир удалён из гостиницы ФАП",
