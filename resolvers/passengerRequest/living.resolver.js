@@ -313,6 +313,14 @@ export default {
             i === hotelIndex ? updatedHotel : h
           )
 
+          // Подмена самой гостиницы меняет и прайс, и номерной фонд, из которых
+          // считается отчёт: тарифы берутся по hotelId, а вид размещения — по
+          // совпадению номера гостя с реальным номером фонда. Значит отчёт больше
+          // не соответствует отправленному. Имя, адрес и вместимость на его числа
+          // не влияют, поэтому на них отметку не трогаем.
+          const hotelIdChanged =
+            (updatedHotel.hotelId ?? null) !== (prevHotel.hotelId ?? null)
+
           return {
             data: {
               livingService: {
@@ -320,6 +328,7 @@ export default {
                 hotels: nextHotels
               }
             },
+            unsubmitReports: hotelIdChanged ? [hotelIndex] : [],
             log: (passengerRequest) => ({
               action: "update_passenger_request_hotel",
               description: `Гостиница обновлена в ФАП: ${updatedHotel.name || "без названия"}`,

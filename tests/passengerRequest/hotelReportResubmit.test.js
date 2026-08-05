@@ -114,6 +114,24 @@ test("сброс идёт ДО публикации в подписку", async 
   )
 })
 
+test("подмена гостиницы гасит отметку, переименование — нет", async () => {
+  // Тарифы и номерной фонд отчёта берутся по hotelId: сменили гостиницу —
+  // сменились и цены, и вид размещения. А имя с адресом на числа не влияют.
+  const swapped = await runRaw("updatePassengerRequestHotel", {
+    requestId: "req-1",
+    hotelIndex: 0,
+    hotel: { hotelId: "hotel-99" }
+  })
+  assert.deepEqual(resets(swapped.double)[0]?.where.hotelIndex, { in: [0] })
+
+  const renamed = await runRaw("updatePassengerRequestHotel", {
+    requestId: "req-1",
+    hotelIndex: 0,
+    hotel: { name: "Азия (корпус 2)" }
+  })
+  assert.deepEqual(resets(renamed.double), [], "переименование отчёт не роняет")
+})
+
 test("обратная проверка: мутация не про проживание отчётов не трогает", async () => {
   // Правило узкое: гасит отметку только изменение состава и размещения в
   // гостинице. Вода, питание, трансфер и багаж к отчёту по проживанию
