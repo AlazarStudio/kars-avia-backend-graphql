@@ -533,10 +533,7 @@ export default {
             log: (passengerRequest) => ({
               action: "update_passenger_request_service_status",
               description: `Статус сервиса обновлен: ${service}`,
-              // Единственная в модуле подстановка context?.user?.name вместо
-              // getSubjectName: у внешнего пользователя (PWA гостиницы) user
-              // отсутствует, и в истории остаётся безымянный «Пользователь».
-              fulldescription: `Пользователь ${context?.user?.name ?? "Пользователь"} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} сменил статус сервиса ${service} в ФАП ${passengerRequest.flightNumber} на ${status}`,
               airlineId: passengerRequest.airlineId,
               passengerRequestId: passengerRequest.id
             })

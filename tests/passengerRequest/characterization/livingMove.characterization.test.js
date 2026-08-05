@@ -626,13 +626,13 @@ test("closeOpenChess: закрывается ПОСЛЕДНИЙ интервал
   )
 })
 
-test("ДЕФЕКТ №21: у гостя без accommodationChesses переселение задним числом открывает интервал временем мутации", async () => {
-  // Ветка «chesses.length === 0 → создать интервал со startAt = relocationDate»
-  // недостижима: ensureHotelPerson прогоняет гостя через
-  // ensureAccommodationChesses, а тот всегда возвращает массив длиной ≥ 1 и
-  // проставляет startAt = new Date() — время мутации. В итоге у переселения
-  // задним числом открывающий интервал НАЧИНАЕТСЯ позже, чем ЗАКАНЧИВАЕТСЯ.
-  // Реестр дефектов спеки, №21. При починке этот тест обязан измениться.
+test("у гостя без accommodationChesses переселение задним числом открывает интервал датой операции", async () => {
+  // Дефект №21 реестра починен. Было: ensureAccommodationChesses синтезировал
+  // интервал с захардкоженным startAt = new Date(), поэтому у переселения
+  // задним числом открывающий интервал НАЧИНАЛСЯ позже, чем ЗАКАНЧИВАЛСЯ.
+  // Стало: четыре мутации, двигающие самого гостя, передают дату операции
+  // четвёртым аргументом, и вырожденный интервал получается таким же, какой
+  // кладёт closeOpenChess, когда открытого интервала нет вовсе.
   const pastMovedAt = "2026-07-01T09:00:00.000Z"
   const request = requestWithLiving({
     peopleByHotel: [[makePerson(1, { chesses: null })], []]
@@ -654,23 +654,50 @@ test("ДЕФЕКТ №21: у гостя без accommodationChesses пересе
   const chesses = run.living.hotels[1].people[0].accommodationChesses
   assert.equal(chesses.length, 2)
   assert.equal(chesses[0].hotelIndex, 0)
-  assert.notEqual(
+  assert.equal(
     chesses[0].startAt.toISOString(),
     pastMovedAt,
-    "открывающая дата НЕ равна movedAt"
-  )
-  assert.ok(
-    Date.now() - chesses[0].startAt.getTime() < 60_000,
-    "открывающая дата равна времени мутации"
+    "открывающая дата равна movedAt"
   )
   assert.equal(chesses[0].endAt.toISOString(), pastMovedAt)
   assert.ok(
-    chesses[0].endAt.getTime() < chesses[0].startAt.getTime(),
-    "интервал закрыт раньше, чем начат"
+    chesses[0].endAt.getTime() === chesses[0].startAt.getTime(),
+    "интервал вырожденный, а не перевёрнутый"
   )
-  // Второй интервал (целевая гостиница) датирован корректно — дефект только в
-  // синтезированном первом.
   assert.equal(chesses[1].startAt.toISOString(), pastMovedAt)
+})
+
+test("без movedAt синтезированный интервал по-прежнему открывается временем мутации", async () => {
+  // Обратная проверка к №21: правка не подменила поведение обычного случая.
+  // Когда даты операции нет, relocationDate = new Date(), и синтезированный
+  // интервал открывается тем же временем, что и раньше.
+  const request = requestWithLiving({
+    peopleByHotel: [[makePerson(1, { chesses: null })], []]
+  })
+
+  const run = await runRaw(
+    "relocatePassengerRequestHotelPerson",
+    {
+      requestId: "req-1",
+      fromHotelIndex: 0,
+      toHotelIndex: 1,
+      personIndex: 0,
+      reason: "переезд"
+    },
+    { request }
+  )
+
+  const chesses = run.living.hotels[1].people[0].accommodationChesses
+  assert.equal(chesses.length, 2)
+  assert.ok(
+    Date.now() - chesses[0].startAt.getTime() < 60_000,
+    "открывающая дата — время мутации"
+  )
+  assert.equal(
+    chesses[0].endAt.getTime(),
+    chesses[0].startAt.getTime(),
+    "открыт и закрыт одной и той же датой операции"
+  )
 })
 
 // ───────────────────────── маршрутизация письма ──────────────────────────────

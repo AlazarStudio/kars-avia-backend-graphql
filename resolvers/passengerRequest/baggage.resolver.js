@@ -1,6 +1,7 @@
 // Доставка багажа: водители, приём заказа, отметка доставки.
 
 import { GraphQLError } from "graphql"
+import { updateTimes } from "../../services/passengerRequest/utils.js"
 import {
   normalizeDriversForWrite,
   tripReportCost,
@@ -76,16 +77,18 @@ export default {
             normalizedDriver
           ]
 
-          const now = new Date()
           const isFirstDriver = (prev.drivers || []).length === 0
           const acceptedStatus =
             isFirstDriver && prev.status === "NEW" ? "ACCEPTED" : prev.status
-          // Дефект №12 реестра: acceptedAt перезаписывается безусловно, а
-          // трансферный близнец зовёт updateTimes и старую отметку бережёт.
-          // Расхождение закреплено тестом — выравнивать его здесь нельзя.
+          // updateTimes ставит acceptedAt, только если его ещё нет. Раньше здесь
+          // стоял безусловный `acceptedAt: now` — дефект №12 реестра, и он был
+          // достижим рутинной правкой: removePassengerRequestBaggageDriver при
+          // удалении последней поездки возвращает статус в NEW, но times
+          // сохраняет, поэтому цикл «добавил → удалил → добавил» затирал
+          // исходную отметку приёма заказа.
           const acceptedTimes =
             isFirstDriver && prev.status === "NEW"
-              ? { ...(prev.times || {}), acceptedAt: now }
+              ? updateTimes(prev.times, "ACCEPTED")
               : prev.times || {}
 
           // Правило «первый водитель → ACCEPTED» остаётся нижней границей, но поездка

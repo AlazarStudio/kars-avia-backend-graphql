@@ -115,9 +115,20 @@ export async function finishPassengerRequestMutation({
 
   const toPublish = publishData ?? newData
 
+  // Сайтовое уведомление — такой же побочный канал, как история и письмо выше,
+  // и те давно обёрнуты (logging.js). Это был единственный незащищённый шаг
+  // хвоста: notifyPassengerRequestSite делает два обращения в базу, и его
+  // бросок ронял всю мутацию по УЖЕ ЗАПИСАННОЙ заявке, а при
+  // notifyBeforePublish съедал ещё и публикацию — подписчики не узнавали об
+  // изменении никогда, потому что повторное сохранение отсекает patchIsNoop.
+  // Дефект №20 реестра.
   const runNotify = async () => {
     if (!notify) return
-    await notifySite(notify)
+    try {
+      await notifySite(notify)
+    } catch (error) {
+      console.error("Ошибка сайтового уведомления ФАП:", error)
+    }
   }
 
   // Порядок notify относительно publish в модуле неоднороден: у

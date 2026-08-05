@@ -160,11 +160,15 @@ test("addPassengerRequestBaggageDriver требует имя водителя �
   assert.equal(run.published.length, 0)
 })
 
-test("ДЕФЕКТ №12: багажный add безусловно перезаписывает acceptedAt, трансферный — нет", async () => {
-  // Багаж собирает times вручную ({ ...prev.times, acceptedAt: now }), трансфер
-  // зовёт updateTimes, который ставит отметку только если её ещё нет. На одном
-  // и том же входе получаются разные документы. Реестр дефектов спеки, №12.
-  // При починке (переход багажа на updateTimes) этот тест обязан измениться.
+test("багажный add бережёт существующий acceptedAt наравне с трансферным", async () => {
+  // Дефект №12 реестра починен: багаж собирал times вручную
+  // ({ ...prev.times, acceptedAt: now }) и затирал отметку, трансфер звал
+  // updateTimes и ставил её только при отсутствии. Теперь оба зовут updateTimes
+  // и на одном входе дают одинаковый документ.
+  // ⚠️ Дефект был достижим рутинно, вопреки прежнему комментарию:
+  // removePassengerRequestBaggageDriver при удалении последней поездки
+  // возвращает статус в NEW, но times сохраняет — цикл «добавил → удалил →
+  // добавил» заходил в эту ветку с непустым acceptedAt.
   const baggage = await runRaw(
     "addPassengerRequestBaggageDriver",
     { requestId: "req-1", driver: { fullName: "Водитель Багаж" } },
@@ -178,8 +182,7 @@ test("ДЕФЕКТ №12: багажный add безусловно переза
   )
 
   const times = baggage.data.baggageDeliveryService.times
-  assert.ok(times.acceptedAt instanceof Date, "старая отметка заменена свежим Date")
-  assert.notEqual(times.acceptedAt, OLD)
+  assert.equal(times.acceptedAt, OLD, "старая отметка сохранена")
   assert.equal(times.createdAt, OLD, "остальные отметки уцелели")
 
   const transfer = await runRaw(
@@ -204,11 +207,33 @@ test("ДЕФЕКТ №12: багажный add безусловно переза
   )
 })
 
-test("гвард status === NEW маскирует дефект №12", async () => {
-  // Перезапись acceptedAt случается только на ветке isFirstDriver && NEW.
-  // Из любого другого статуса ветка не берётся, и times уходят как есть —
-  // поэтому в проде дефект №12 почти не виден. Гвард закрепляем отдельно:
-  // после починки дефекта он останется, а тест выше изменится.
+test("багажный add ставит acceptedAt, когда отметки ещё нет", async () => {
+  // Обратная проверка к №12: правка бережёт существующую отметку и при этом
+  // не разучилась ставить новую. Первый водитель у услуги в NEW без acceptedAt
+  // обязан перевести её в ACCEPTED и проставить время.
+  const run = await runRaw(
+    "addPassengerRequestBaggageDriver",
+    { requestId: "req-1", driver: { fullName: "Водитель Багаж" } },
+    {
+      request: withBaggage({
+        status: "NEW",
+        times: { createdAt: OLD },
+        drivers: []
+      })
+    }
+  )
+
+  const times = run.data.baggageDeliveryService.times
+  assert.equal(run.data.baggageDeliveryService.status, "ACCEPTED")
+  assert.ok(times.acceptedAt instanceof Date, "отметка проставлена")
+  assert.notEqual(times.acceptedAt, OLD)
+  assert.equal(times.createdAt, OLD, "остальные отметки уцелели")
+})
+
+test("гвард status === NEW ограничивает ветку приёма заказа", async () => {
+  // Ветка isFirstDriver && NEW — единственная, которая трогает acceptedAt.
+  // Из любого другого статуса она не берётся, и times уходят как есть.
+  // Гвард закрепляем отдельно: починка дефекта №12 его не трогала.
   const run = await runRaw(
     "addPassengerRequestBaggageDriver",
     { requestId: "req-1", driver: { fullName: "Водитель Багаж" } },

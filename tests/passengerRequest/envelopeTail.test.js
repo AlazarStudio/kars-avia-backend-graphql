@@ -49,6 +49,55 @@ test("notifyBeforePublish меняет порядок хвоста", async () =>
   assert.deepEqual(calls.map((c) => c.kind), ["log", "notify", "publish"])
 })
 
+test("сбой уведомления не роняет хвост и не съедает публикацию", async () => {
+  // Дефект №20 реестра. Уведомление — побочный канал, как история и письмо, но
+  // единственный незащищённый: notifyPassengerRequestSite делает два обращения
+  // в базу. Его бросок ронял мутацию по УЖЕ ЗАПИСАННОЙ заявке, а при
+  // notifyBeforePublish отменял ещё и публикацию — подписчики не узнавали об
+  // изменении никогда, потому что повторное сохранение отсекает patchIsNoop.
+  // Проверяем ОБА порядка: в опасном публикация обязана состояться.
+  for (const notifyBeforePublish of [false, true]) {
+    const { calls, channels } = makeChannels()
+    channels.notifySite = async () => {
+      calls.push({ kind: "notify-throw" })
+      throw new Error("база уведомлений недоступна")
+    }
+
+    await finishPassengerRequestMutation({
+      context: {},
+      oldData: { id: "r1" },
+      newData: { id: "r1" },
+      log: { action: "act", description: "d", fulldescription: "f", airlineId: "a1", passengerRequestId: "r1" },
+      notify: { action: "act", passengerRequestId: "r1", airlineId: "a1", descriptionHtml: "x", __typename: "T" },
+      notifyBeforePublish,
+      channels
+    })
+
+    assert.ok(
+      calls.some((c) => c.kind === "publish"),
+      `публикация состоялась при notifyBeforePublish=${notifyBeforePublish}`
+    )
+    assert.ok(
+      calls.some((c) => c.kind === "log"),
+      `история записана при notifyBeforePublish=${notifyBeforePublish}`
+    )
+  }
+})
+
+test("успешное уведомление по-прежнему доходит", async () => {
+  // Обратная проверка к №20: try/catch глушит только отказ, рабочий путь цел.
+  const { calls, channels } = makeChannels()
+  await finishPassengerRequestMutation({
+    context: {},
+    oldData: { id: "r1" },
+    newData: { id: "r1" },
+    log: { action: "act", description: "d", fulldescription: "f", airlineId: "a1", passengerRequestId: "r1" },
+    notify: { action: "act", passengerRequestId: "r1", airlineId: "a1", descriptionHtml: "x", __typename: "T" },
+    channels
+  })
+  assert.deepEqual(calls.map((c) => c.kind), ["log", "publish", "notify"])
+})
+
 test("без notify уведомления нет вовсе", async () => {
   const { calls, channels } = makeChannels()
   await finishPassengerRequestMutation({

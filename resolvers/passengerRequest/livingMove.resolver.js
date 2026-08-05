@@ -52,7 +52,8 @@ export default {
           const person = ensureHotelPerson(
             sourcePeople[personIndex],
             fromHotelIndex,
-            sourceHotel?.name
+            sourceHotel?.name,
+            relocationDate
           )
 
           const chesses = closeOpenChess(
@@ -166,7 +167,8 @@ export default {
             const person = ensureHotelPerson(
               raw,
               fromHotelIndex,
-              sourceHotel?.name
+              sourceHotel?.name,
+              relocationDate
             )
             const chesses = closeOpenChess(
               person.accommodationChesses,
@@ -254,7 +256,8 @@ export default {
           const person = ensureHotelPerson(
             people[personIndex],
             hotelIndex,
-            hotel?.name
+            hotel?.name,
+            evictionDate
           )
 
           const chesses = closeOpenChess(
@@ -377,7 +380,12 @@ export default {
           const { next: nextPeople, removed } = spliceAtIndexes(people, indexes)
 
           const evicted = removed.map((raw) => {
-            const person = ensureHotelPerson(raw, hotelIndex, hotel?.name)
+            const person = ensureHotelPerson(
+              raw,
+              hotelIndex,
+              hotel?.name,
+              evictionDate
+            )
             const chesses = closeOpenChess(
               person.accommodationChesses,
               evictionDate,

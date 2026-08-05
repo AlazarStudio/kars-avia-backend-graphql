@@ -17,7 +17,20 @@ export const normalizeOptionalString = (value) => {
   return trimmed || null
 }
 
-export const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
+// startAt — дата, которой открывается СИНТЕЗИРОВАННЫЙ интервал легаси-гостя.
+// По умолчанию это момент вызова, но мутация, знающая дату операции
+// (переселение или выселение, в том числе задним числом), обязана передать её:
+// иначе интервал открывается позже, чем закрывается. Так и получался дефект
+// №21 реестра — интервал вида { startAt: сейчас, endAt: прошлое }.
+// Значение не выдумано: closeOpenChess для случая «открытого интервала нет»
+// уже кладёт вырожденный { startAt: at, endAt: at }, и после этой правки оба
+// пути «когда заселился — неизвестно» дают одну и ту же запись.
+export const ensureAccommodationChesses = (
+  person,
+  hotelIndex,
+  hotelName,
+  startAt = new Date()
+) => {
   const existing = Array.isArray(person?.accommodationChesses)
     ? person.accommodationChesses
     : []
@@ -26,14 +39,18 @@ export const ensureAccommodationChesses = (person, hotelIndex, hotelName) => {
     {
       hotelIndex,
       hotelName: hotelName || null,
-      startAt: new Date(),
+      startAt,
       endAt: null,
       reason: null
     }
   ]
 }
 
-export const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
+// ⚠️ startAt передают ТОЛЬКО те четыре вызова, которые двигают самого гостя.
+// Вызовы внутри hotels.map нормализуют посторонних — им дату операции ставить
+// нельзя, это была бы новая ложь вместо старой. Они остаются трёхаргументными
+// и получают new Date() по умолчанию.
+export const ensureHotelPerson = (person, hotelIndex, hotelName, startAt) => ({
   ...person,
   arrival: person.arrival ?? null,
   departure: person.departure ?? null,
@@ -45,7 +62,8 @@ export const ensureHotelPerson = (person, hotelIndex, hotelName) => ({
   accommodationChesses: ensureAccommodationChesses(
     person,
     hotelIndex,
-    hotelName
+    hotelName,
+    startAt
   )
 })
 

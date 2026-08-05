@@ -642,10 +642,14 @@ test("setPassengerRequestServiceStatus: неизвестная услуга да
   assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
 })
 
-test("ДЕФЕКТ №17: setPassengerRequestServiceStatus пишет автора как «Пользователь»", async () => {
-  // Здесь единственная в модуле подстановка context?.user?.name вместо
-  // getSubjectName: у внешнего пользователя (PWA гостиницы) user отсутствует,
-  // и в логе остаётся безымянный «Пользователь». Реестр дефектов спеки, №17.
+test("setPassengerRequestServiceStatus подписывает автора через getSubjectName", async () => {
+  // Дефект №17 реестра починен: здесь была единственная в модуле подстановка
+  // context?.user?.name вместо getSubjectName, а у внешнего пользователя (PWA
+  // гостиницы) user отсутствует — в логе оставался безымянный «Пользователь»,
+  // причём соседняя мутация на том же экране писала осмысленное имя.
+  // ⚠️ Наблюдаемого последствия у этого не было: fulldescription не читает ни
+  // UI (PassengerRequestLogs рендерит description), ни почта (description ||
+  // fulldescription, а description непустой всегда). Правка — согласованность.
   const context = makeHotelContext()
 
   const service = await runFapMutation(
@@ -655,7 +659,7 @@ test("ДЕФЕКТ №17: setPassengerRequestServiceStatus пишет автор
   )
   assert.equal(
     service.logged[0].fulldescription,
-    "Пользователь Пользователь сменил статус сервиса WATER в ФАП TEST001 на ACCEPTED"
+    "Пользователь Гостиница Азия сменил статус сервиса WATER в ФАП TEST001 на ACCEPTED"
   )
 
   // Тот же контекст в соседней мутации даёт осмысленное имя.
@@ -675,6 +679,21 @@ test("ДЕФЕКТ №17: setPassengerRequestServiceStatus пишет автор
   // этой мутации. При починке этот тест обязан измениться.
   assert.equal(service.logged[0].userId, null)
   assert.equal(request.logged[0].userId, null)
+})
+
+test("setPassengerRequestServiceStatus: у диспетчера подпись не изменилась", async () => {
+  // Обратная проверка к №17: getSubjectName первой веткой отдаёт
+  // context.user.name, поэтому для subjectType USER строка байт в байт та же,
+  // что была до правки. Расходятся только внешние субъекты.
+  const run = await runFapMutation("setPassengerRequestServiceStatus", {
+    id: "req-1",
+    service: "WATER",
+    status: "ACCEPTED"
+  })
+  assert.equal(
+    run.logged[0].fulldescription,
+    "Пользователь Диспетчер Тестовый сменил статус сервиса WATER в ФАП TEST001 на ACCEPTED"
+  )
 })
 
 // ─────────────────────── recognizePassengerDocument ───────────────────────
