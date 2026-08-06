@@ -12,6 +12,7 @@ import {
   isArchivedRequestForPricing,
   resolveWeightedPricePerDay
 } from "../hotel/roomKindSeasonPrice.js"
+import { rulesToCalcConfig } from "./partialDaySettings.js"
 
 const TECH_POS = ["Техник", "Инженер"]
 const NOT_TECH_POS = [
@@ -159,7 +160,10 @@ export const getLivingPricePerDay = (request, type, options = {}) => {
   // Архивные заявки: зафиксированный снапшот, чтобы правки прайса не меняли отчёты
   if (isArchivedRequestForPricing(request)) {
     const snap = request.requestHotelPrice
-    if (snap?.pricePerDay != null && Number.isFinite(Number(snap.pricePerDay))) {
+    if (
+      snap?.pricePerDay != null &&
+      Number.isFinite(Number(snap.pricePerDay))
+    ) {
       return Number(snap.pricePerDay)
     }
     if (snap?.livingCost != null) {
@@ -227,9 +231,7 @@ const resolveAirlineContractForRequest = (request) => {
 
   const contractTypes =
     request._priceContractTypes ||
-    (request._priceContractType === "fap"
-      ? ["fap", "all"]
-      : ["request", "all"])
+    (request._priceContractType === "fap" ? ["fap", "all"] : ["request", "all"])
 
   return resolvePriceByHotelLocation({
     airlinePrices: request.airline?.prices,
@@ -372,7 +374,8 @@ export const aggregateRequestReports = (
   requests,
   reportType,
   filterStart,
-  filterEnd
+  filterEnd,
+  rules
 ) => {
   const filtered = requests.filter((r) => {
     const pos = r.person?.position?.name
@@ -421,55 +424,58 @@ export const aggregateRequestReports = (
     return nameA.localeCompare(nameB, "ru")
   })
 
-  return filtered.map((request, index) => {
-    const hotelChess = request.hotelChess?.[0] || {}
-    const rawIn = getRequestCheckInAt(request)
-    const rawOut = getRequestCheckOutAt(request)
+  return filtered
+    .map((request, index) => {
+      const hotelChess = request.hotelChess?.[0] || {}
+      const rawIn = getRequestCheckInAt(request)
+      const rawOut = getRequestCheckOutAt(request)
 
-    const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
-    const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
+      const effectiveArrival = rawIn < filterStart ? filterStart : rawIn
+      const effectiveDeparture = rawOut > filterEnd ? filterEnd : rawOut
 
-    const categoryMapping = {
-      studio: "Студия",
-      apartment: "Апартаменты",
-      luxe: "Люкс",
-      comfort: "Комфорт",
-      improvedComfort: "Улучшенный комфорт",
-      onePlace: "Одноместный",
-      twoPlace: "Двухместный",
-      threePlace: "Трёхместный",
-      fourPlace: "Четырёхместный",
-      fivePlace: "Пятиместный",
-      sixPlace: "Шестиместный",
-      sevenPlace: "Семиместный",
-      eightPlace: "Восьмиместный",
-      ninePlace: "Девятиместный",
-      tenPlace: "Десятиместный"
-    }
+      const categoryMapping = {
+        studio: "Студия",
+        apartment: "Апартаменты",
+        luxe: "Люкс",
+        comfort: "Комфорт",
+        improvedComfort: "Улучшенный комфорт",
+        onePlace: "Одноместный",
+        twoPlace: "Двухместный",
+        threePlace: "Трёхместный",
+        fourPlace: "Четырёхместный",
+        fivePlace: "Пятиместный",
+        sixPlace: "Шестиместный",
+        sevenPlace: "Семиместный",
+        eightPlace: "Восьмиместный",
+        ninePlace: "Девятиместный",
+        tenPlace: "Десятиместный"
+      }
 
-    const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
-    const effectiveDays = calculateEffectiveCostDaysWithPartial(
-      formatDateToISO(effectiveArrival),
-      formatDateToISO(effectiveDeparture),
-      formatDateToISO(filterStart),
-      formatDateToISO(filterEnd)
-    )
+      const fullDays = calculateTotalDays(effectiveArrival, effectiveDeparture)
+      const effectiveDays = calculateEffectiveCostDaysWithPartial(
+        formatDateToISO(effectiveArrival),
+        formatDateToISO(effectiveDeparture),
+        formatDateToISO(filterStart),
+        formatDateToISO(filterEnd),
+        rules
+      )
 
-    const pricePerDay = getLivingPricePerDay(request, reportType, {
-      filterStart,
-      filterEnd,
-      stayStart: rawIn,
-      stayEnd: rawOut
-    })
-    const totalLivingCost = effectiveDays > 0 ? pricePerDay * effectiveDays : 0
+      const pricePerDay = getLivingPricePerDay(request, reportType, {
+        filterStart,
+        filterEnd,
+        stayStart: rawIn,
+        stayEnd: rawOut
+      })
+      const totalLivingCost =
+        effectiveDays > 0 ? pricePerDay * effectiveDays : 0
 
-    const {
-      totalMealCost,
-      breakfastCount,
-      lunchCount,
-      dinnerCount,
-      breakfastIncludedInPrice
-    } = calculateMealCostForReportDays(
+      const {
+        totalMealCost,
+        breakfastCount,
+        lunchCount,
+        dinnerCount,
+        breakfastIncludedInPrice
+      } = calculateMealCostForReportDays(
         request,
         reportType,
         effectiveDays,
@@ -479,30 +485,31 @@ export const aggregateRequestReports = (
         effectiveDeparture
       )
 
-    if (!totalLivingCost && !totalMealCost) return null
+      if (!totalLivingCost && !totalMealCost) return null
 
-    return {
-      index: index + 1,
-      id: request.id,
-      hotelName: request.hotel?.name || "Не указано",
-      arrival: formatLocalDate(effectiveArrival),
-      departure: formatLocalDate(effectiveDeparture),
-      totalDays: effectiveDays,
-      category: categoryMapping[request.roomCategory] || request.roomCategory,
-      personName: request.person?.name || "Не указано",
-      personPosition: request.person?.position?.name || "Не указано",
-      roomName: hotelChess.room?.name || "",
-      roomId: hotelChess.room?.id || "",
-      breakfastCount,
-      lunchCount,
-      dinnerCount,
-      breakfastIncludedInPrice,
-      totalMealCost,
-      totalLivingCost,
-      pricePerDay,
-      totalDebt: totalLivingCost + totalMealCost
-    }
-  }).filter(Boolean)
+      return {
+        index: index + 1,
+        id: request.id,
+        hotelName: request.hotel?.name || "Не указано",
+        arrival: formatLocalDate(effectiveArrival),
+        departure: formatLocalDate(effectiveDeparture),
+        totalDays: effectiveDays,
+        category: categoryMapping[request.roomCategory] || request.roomCategory,
+        personName: request.person?.name || "Не указано",
+        personPosition: request.person?.position?.name || "Не указано",
+        roomName: hotelChess.room?.name || "",
+        roomId: hotelChess.room?.id || "",
+        breakfastCount,
+        lunchCount,
+        dinnerCount,
+        breakfastIncludedInPrice,
+        totalMealCost,
+        totalLivingCost,
+        pricePerDay,
+        totalDebt: totalLivingCost + totalMealCost
+      }
+    })
+    .filter(Boolean)
 }
 
 export const calculateTotalDays = (start, end) => {
@@ -515,7 +522,8 @@ export const calculateEffectiveCostDaysWithPartial = (
   arrivalStr,
   departureStr,
   _reportStart,
-  _reportEnd
+  _reportEnd,
+  rules
 ) => {
   const parseDateTime = (str) => {
     if (!str || typeof str !== "string") return null
@@ -562,26 +570,28 @@ export const calculateEffectiveCostDaysWithPartial = (
     Math.floor((departureYMD - arrivalYMD) / MS_PER_DAY)
   )
 
+  const cfg = rulesToCalcConfig(rules)
+
   let arrivalAdjust = 0
   const arrivalMinutes = arrival.getHours() * 60 + arrival.getMinutes()
 
   if (arrival.getHours() === 0 && arrival.getMinutes() === 10) {
     arrivalAdjust = 0
-  } else if (arrivalMinutes < 6 * 60) {
-    arrivalAdjust = 1
-  } else if (arrivalMinutes < 14 * 60) {
-    arrivalAdjust = 0.5
+  } else if (arrivalMinutes < cfg.arrivalFullBeforeMin) {
+    arrivalAdjust = cfg.arrivalFullDays
+  } else if (arrivalMinutes < cfg.arrivalHalfBeforeMin) {
+    arrivalAdjust = cfg.arrivalHalfDays
   }
 
   let departureAdjust = 0
   const departureMinutes = departure.getHours() * 60 + departure.getMinutes()
 
   if (departure.getHours() === 23 && departure.getMinutes() === 50) {
-    departureAdjust = 1
-  } else if (departureMinutes >= 18 * 60) {
-    departureAdjust = 1
-  } else if (departureMinutes > 12 * 60) {
-    departureAdjust = 0.5
+    departureAdjust = cfg.departureFullDays
+  } else if (departureMinutes >= cfg.departureFullAfterMin) {
+    departureAdjust = cfg.departureFullDays
+  } else if (departureMinutes > cfg.departureHalfAfterMin) {
+    departureAdjust = cfg.departureHalfDays
   }
 
   const total = baseDays + arrivalAdjust + departureAdjust
@@ -635,26 +645,36 @@ export const parseNum = (v) => {
 
 // Эффективные сутки для одного сегмента шкалы.
 // Partial-day корректировки применяются ТОЛЬКО на реальный заезд/выезд кластера.
-const calcSegmentDays = (t1, t2, isClusterArrival, isClusterDeparture) => {
+const calcSegmentDays = (
+  t1,
+  t2,
+  isClusterArrival,
+  isClusterDeparture,
+  rules
+) => {
   const MS_PER_DAY = 86400000
   const d1 = new Date(t1.getFullYear(), t1.getMonth(), t1.getDate())
   const d2 = new Date(t2.getFullYear(), t2.getMonth(), t2.getDate())
   const baseDays = Math.max(0, Math.floor((d2 - d1) / MS_PER_DAY))
+  const cfg = rulesToCalcConfig(rules)
 
   let arrivalAdjust = 0
   if (isClusterArrival) {
     const m = t1.getHours() * 60 + t1.getMinutes()
     if (t1.getHours() === 0 && t1.getMinutes() === 10) arrivalAdjust = 0
-    else if (m < 6 * 60) arrivalAdjust = 1
-    else if (m < 14 * 60) arrivalAdjust = 0.5
+    else if (m < cfg.arrivalFullBeforeMin) arrivalAdjust = cfg.arrivalFullDays
+    else if (m < cfg.arrivalHalfBeforeMin) arrivalAdjust = cfg.arrivalHalfDays
   }
 
   let departureAdjust = 0
   if (isClusterDeparture) {
     const m = t2.getHours() * 60 + t2.getMinutes()
-    if (t2.getHours() === 23 && t2.getMinutes() === 50) departureAdjust = 1
-    else if (m >= 18 * 60) departureAdjust = 1
-    else if (m > 12 * 60) departureAdjust = 0.5
+    if (t2.getHours() === 23 && t2.getMinutes() === 50)
+      departureAdjust = cfg.departureFullDays
+    else if (m >= cfg.departureFullAfterMin)
+      departureAdjust = cfg.departureFullDays
+    else if (m > cfg.departureHalfAfterMin)
+      departureAdjust = cfg.departureHalfDays
   }
 
   return baseDays + arrivalAdjust + departureAdjust
@@ -679,7 +699,9 @@ const findOverlapClusters = (guests) => {
         const cand = guests[j]
         const overlaps = cluster.some((idx) => {
           const g = guests[idx]
-          return g.arrivalTS < cand.departureTS && g.departureTS > cand.arrivalTS
+          return (
+            g.arrivalTS < cand.departureTS && g.departureTS > cand.arrivalTS
+          )
         })
         if (overlaps) {
           cluster.push(j)
@@ -695,7 +717,7 @@ const findOverlapClusters = (guests) => {
   return clusters
 }
 
-export const buildAllocation = (data) => {
+export const buildAllocation = (data, rules) => {
   if (!Array.isArray(data) || !data.length) return []
 
   const parseLocalDT = (s) => {
@@ -741,10 +763,15 @@ export const buildAllocation = (data) => {
     const clusters = findOverlapClusters(valid)
 
     for (const cluster of clusters) {
-      const pricePerDay = cluster.find((g) => g.pricePerDay > 0)?.pricePerDay || 0
+      const pricePerDay =
+        cluster.find((g) => g.pricePerDay > 0)?.pricePerDay || 0
 
-      const clusterArrival = new Date(Math.min(...cluster.map((g) => +g.arrivalTS)))
-      const clusterDeparture = new Date(Math.max(...cluster.map((g) => +g.departureTS)))
+      const clusterArrival = new Date(
+        Math.min(...cluster.map((g) => +g.arrivalTS))
+      )
+      const clusterDeparture = new Date(
+        Math.max(...cluster.map((g) => +g.departureTS))
+      )
 
       const eventSet = new Set()
       for (const g of cluster) {
@@ -765,18 +792,22 @@ export const buildAllocation = (data) => {
         if (!present.length) continue
 
         const days = calcSegmentDays(
-          t1, t2,
+          t1,
+          t2,
           +t1 === +clusterArrival,
-          +t2 === +clusterDeparture
+          +t2 === +clusterDeparture,
+          rules
         )
         if (days <= 0) continue
 
         const costPerPerson = (pricePerDay * days) / present.length
-        for (const g of present) guestCosts.set(g, guestCosts.get(g) + costPerPerson)
+        for (const g of present)
+          guestCosts.set(g, guestCosts.get(g) + costPerPerson)
       }
 
       const totalClusterCost =
-        pricePerDay * calcSegmentDays(clusterArrival, clusterDeparture, true, true)
+        pricePerDay *
+        calcSegmentDays(clusterArrival, clusterDeparture, true, true, rules)
 
       const roundedCosts = new Map()
       for (const [g, cost] of guestCosts) roundedCosts.set(g, Math.round(cost))
@@ -835,6 +866,7 @@ export const buildAllocation = (data) => {
 
       out.push({
         index: index++,
+        requestId: g.id || g.requestId || null,
         arrival: g.arrival,
         departure: g.departure,
         totalDays: g.totalDays,
@@ -850,6 +882,7 @@ export const buildAllocation = (data) => {
         breakfastIncludedInPrice: g.breakfastIncludedInPrice,
         totalMealCost: g.totalMealCost,
         totalLivingCost: livingCost,
+        pricePerDay: g.pricePerDay ?? null,
         totalDebt: livingCost + g.totalMealCost,
         hotelName: g.hotelName
       })
