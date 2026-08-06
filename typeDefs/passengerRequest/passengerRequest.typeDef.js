@@ -947,6 +947,12 @@ const passengerRequestTypeDef = /* GraphQL */ `
 
     completePassengerRequestEarly(id: ID!, reason: String!): PassengerRequest!
 
+    reopenPassengerRequestService(
+      requestId: ID!
+      service: PassengerServiceKind!
+      reason: String!
+    ): PassengerRequest!
+
     relocatePassengerRequestHotelPerson(
       requestId: ID!
       fromHotelIndex: Int!

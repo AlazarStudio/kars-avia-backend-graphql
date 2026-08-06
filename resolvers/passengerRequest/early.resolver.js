@@ -1,8 +1,15 @@
-// Досрочное завершение услуг и заявки целиком.
+// Досрочное завершение услуг и заявки целиком, а также обратное действие —
+// переоткрытие завершённой услуги.
+//
+// Переоткрытие живёт здесь, а не рядом с setPassengerRequestServiceStatus:
+// оно обязано снять ровно то, что ставит досрочное завершение, и держать эти
+// два места вместе дешевле, чем сверять их через файл.
 
+import { GraphQLError } from "graphql"
 import { updateTimes } from "../../services/passengerRequest/utils.js"
 import { normalizeDriversForWrite } from "../../services/passengerRequest/baggageDelivery.js"
 import { getTransferField } from "../../services/passengerRequest/normalizers.js"
+import { findPassengerService } from "../../services/passengerRequest/serviceTable.js"
 import {
   assertReason,
   emptyDriversService,
@@ -211,6 +218,72 @@ export default {
               reason: cleanReason,
               description: "ФАП завершен досрочно",
               fulldescription: `Пользователь ${getSubjectName(context)} досрочно завершил ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
+        }
+      }),
+
+    // Обратное действие к досрочному завершению: услугу, закрытую по ошибке,
+    // надо уметь вернуть в работу. Отдельная мутация, а не
+    // setPassengerRequestServiceStatus, по двум причинам: та не снимает
+    // finishedAt (updateTimes только ДОБАВЛЯЕТ отметки) и не гасит признаки
+    // досрочного завершения, поэтому карточка осталась бы с датой и причиной
+    // закрытия при статусе «в работе».
+    reopenPassengerRequestService: async (
+      _,
+      { requestId, service, reason },
+      context
+    ) =>
+      withPassengerRequest({
+        requestId,
+        context,
+        apply: (existing) => {
+          const cleanReason = assertReason(reason)
+
+          const entry = findPassengerService(service)
+          // В отличие от setPassengerRequestServiceStatus, неизвестная услуга
+          // здесь отбивается: у новой мутации нет обратной совместимости,
+          // которую надо беречь, а пустой апдейт с записью в историю — худший
+          // из возможных ответов.
+          if (!entry) {
+            throw new GraphQLError(`Unknown service: ${service}`, {
+              extensions: { code: "BAD_USER_INPUT" }
+            })
+          }
+
+          const prev = existing[entry.field]
+          // Переоткрывать можно только завершённое. Отменённая услуга — не тот
+          // случай: её возвращают в работу другим решением, и молча путать эти
+          // два перехода нельзя.
+          if (prev?.status !== "COMPLETED") {
+            throw new GraphQLError("Service is not completed", {
+              extensions: { code: "BAD_USER_INPUT" }
+            })
+          }
+
+          return {
+            data: {
+              [entry.field]: {
+                ...prev,
+                ...(entry.hasDrivers && {
+                  drivers: normalizeDriversForWrite(prev.drivers)
+                }),
+                ...(entry.statusExtra && entry.statusExtra(prev)),
+                status: "IN_PROGRESS",
+                // finishedAt снимаем явно — ровно так же, как это делает сам
+                // движок на своём переоткрытии (serviceStatus.js).
+                times: { ...updateTimes(prev.times, "IN_PROGRESS"), finishedAt: null },
+                earlyCompletionReason: null,
+                earlyCompletedAt: null
+              }
+            },
+            log: {
+              action: "reopen_passenger_request_service",
+              reason: cleanReason,
+              description: `Услуга ФАП возвращена в работу: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} вернул в работу завершённую услугу ${service} в ФАП ${existing.flightNumber}. Причина: ${cleanReason}`,
               airlineId: existing.airlineId,
               passengerRequestId: existing.id
             }

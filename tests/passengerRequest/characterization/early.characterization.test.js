@@ -268,3 +268,114 @@ test("completePassengerRequestLivingEarly пишет один лог и одну
   assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
   assert.equal(run.notified.length, 0, "сайтового уведомления у *Early нет")
 })
+
+// ─────────────────── reopenPassengerRequestService ───────────────────
+// Не характеризация, а новое поведение: обратное действие к досрочному
+// завершению. Живёт в этом файле, потому что обязано снимать ровно то, что
+// ставят мутации выше, — расхождение будет видно в одном экране.
+//
+// ⚠️ Поведения не было вовсе. Тесты проверены КРАСНЫМИ со снятой правкой.
+
+// Заявка с уже завершённой услугой: досрочное завершение и переоткрытие
+// проверяются по одному и тому же документу.
+const completedWater = () =>
+  makeRequest({
+    waterService: {
+      plan: { enabled: true, peopleCount: 4 },
+      status: "COMPLETED",
+      times: { createdAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
+      earlyCompletionReason: "рейс вылетел",
+      earlyCompletedAt: "2026-08-02T10:00:00.000Z",
+      people: []
+    }
+  })
+
+test("reopenPassengerRequestService возвращает услугу в работу и гасит следы завершения", async () => {
+  const run = await runMutation(
+    "reopenPassengerRequestService",
+    { requestId: "req-1", service: "WATER", reason: "закрыли по ошибке" },
+    { request: completedWater() }
+  )
+
+  const water = run.written[0].waterService
+  assert.equal(water.status, "IN_PROGRESS")
+  assert.equal(water.earlyCompletionReason, null)
+  assert.equal(water.earlyCompletedAt, null)
+  // finishedAt снят: без этого карточка показывала бы дату завершения у
+  // услуги «в работе». updateTimes сам его не трогает.
+  assert.deepEqual(water.times, {
+    createdAt: "<DATE>",
+    finishedAt: null,
+    inProgressAt: "<DATE>"
+  })
+  assert.deepEqual(water.plan, { enabled: true, peopleCount: 4 }, "план не тронут")
+})
+
+test("reopenPassengerRequestService пишет историю с причиной", async () => {
+  const run = await runMutation(
+    "reopenPassengerRequestService",
+    { requestId: "req-1", service: "WATER", reason: "закрыли по ошибке" },
+    { request: completedWater() }
+  )
+
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "reopen_passenger_request_service")
+  assert.equal(run.logged[0].reason, "закрыли по ошибке")
+  assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("reopenPassengerRequestService отбивает незавершённую услугу", async () => {
+  // Фикстура: вода в NEW. Переоткрывать нечего, и молча писать историю
+  // об этом нельзя.
+  await assert.rejects(() =>
+    runMutation("reopenPassengerRequestService", {
+      requestId: "req-1",
+      service: "WATER",
+      reason: "просто так"
+    })
+  )
+})
+
+test("reopenPassengerRequestService отбивает пустую причину и неизвестную услугу", async () => {
+  await assert.rejects(() =>
+    runMutation(
+      "reopenPassengerRequestService",
+      { requestId: "req-1", service: "WATER", reason: "   " },
+      { request: completedWater() }
+    )
+  )
+  await assert.rejects(() =>
+    runMutation(
+      "reopenPassengerRequestService",
+      { requestId: "req-1", service: "НЕТ ТАКОЙ", reason: "закрыли по ошибке" },
+      { request: completedWater() }
+    )
+  )
+})
+
+test("reopenPassengerRequestService работает для водительской услуги", async () => {
+  // У трансфера и багажа своя ветка записи (drivers нормализуются), поэтому
+  // одной проверки на воде мало.
+  const request = makeRequest({
+    transferService: {
+      plan: { enabled: true, peopleCount: 4 },
+      status: "COMPLETED",
+      times: { finishedAt: "2026-08-02T10:00:00.000Z" },
+      earlyCompletionReason: "ошибка",
+      earlyCompletedAt: "2026-08-02T10:00:00.000Z",
+      drivers: []
+    }
+  })
+
+  const run = await runMutation(
+    "reopenPassengerRequestService",
+    { requestId: "req-1", service: "TRANSFER", reason: "вернуть в работу" },
+    { request }
+  )
+
+  const transfer = run.written[0].transferService
+  assert.equal(transfer.status, "IN_PROGRESS")
+  assert.equal(transfer.times.finishedAt, null)
+  assert.equal(transfer.earlyCompletionReason, null)
+  assert.deepEqual(transfer.drivers, [], "список водителей не потерян")
+})

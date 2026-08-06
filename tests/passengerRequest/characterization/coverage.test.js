@@ -27,8 +27,8 @@ function characterizationSources() {
     .map((file) => fs.readFileSync(path.join(here, file), "utf8"))
 }
 
-test("в резолвере ровно 55 мутаций, 2 Query и 2 подписки", () => {
-  assert.equal(Object.keys(resolvers.Mutation).length, 55)
+test("в резолвере ровно 56 мутаций, 2 Query и 2 подписки", () => {
+  assert.equal(Object.keys(resolvers.Mutation).length, 56)
   assert.equal(Object.keys(resolvers.Query).length, 2)
   assert.equal(Object.keys(resolvers.Subscription).length, 2)
 })
