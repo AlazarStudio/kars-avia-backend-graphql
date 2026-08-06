@@ -8,7 +8,10 @@ export function normalizeFields(raw = {}) {
     to: collapse(raw.to).toUpperCase(),
     carrier: collapse(raw.carrier).toUpperCase(),
     seat: collapse(raw.seat).toUpperCase(),
-    date: collapse(raw.date)
+    date: collapse(raw.date),
+    // Формат оставляем клиенту: он приводит номер к своей маске. Здесь только
+    // отбрасываем разделители, чтобы не гадать над «+7 (918) …» против «8918…».
+    phone: collapse(raw.phone).replace(/\D/g, "")
   }
 }
 

@@ -11,6 +11,7 @@ export const EMPTY_RESULT = {
   carrier: "",
   seat: "",
   date: "",
+  phone: "",
   confidence: 0,
   rawText: ""
 }

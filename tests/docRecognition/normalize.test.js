@@ -23,7 +23,7 @@ test("normalizeFields схлопывает пробелы и приводит р
 
 test("normalizeFields подставляет пустые строки для отсутствующих полей", () => {
   const f = normalizeFields({})
-  assert.deepEqual(f, { fullName: "", flight: "", from: "", to: "", carrier: "", seat: "", date: "" })
+  assert.deepEqual(f, { fullName: "", flight: "", from: "", to: "", carrier: "", seat: "", date: "", phone: "" })
 })
 
 test("computeConfidence: имя + валидный рейс = 1", () => {
@@ -36,4 +36,20 @@ test("computeConfidence: только имя = 0.6", () => {
 
 test("computeConfidence: пусто = 0", () => {
   assert.equal(computeConfidence({ fullName: "", flight: "" }), 0)
+})
+
+test("normalizeFields оставляет от телефона только цифры", () => {
+  // Форматирование — забота клиента: он приводит номер к своей маске. Здесь важно
+  // лишь снять разделители, чтобы «+7 (918) 609-43-07» и «8 918 609 43 07» не
+  // считались разными строками.
+  assert.equal(normalizeFields({ phone: "+7 (918) 609-43-07" }).phone, "79186094307")
+  assert.equal(normalizeFields({ phone: "8 918 609 43 07" }).phone, "89186094307")
+  assert.equal(normalizeFields({ phone: "79186094307" }).phone, "79186094307")
+})
+
+test("normalizeFields не выдумывает телефон, которого нет", () => {
+  // На посадочном талоне телефона не бывает вовсе — поле обязано остаться пустым.
+  assert.equal(normalizeFields({}).phone, "")
+  assert.equal(normalizeFields({ phone: null }).phone, "")
+  assert.equal(normalizeFields({ phone: "телефон не указан" }).phone, "")
 })

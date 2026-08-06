@@ -637,6 +637,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     carrier: String
     seat: String
     date: String
+    "Телефон пассажира, только цифры. Есть в квитанциях и билетах, на посадочном талоне отсутствует"
+    phone: String
     confidence: Float
     rawText: String
   }
