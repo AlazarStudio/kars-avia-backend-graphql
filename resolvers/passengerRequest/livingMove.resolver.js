@@ -9,6 +9,7 @@ import { ensureHotelPerson } from "../../services/passengerRequest/normalizers.j
 import { closeOpenChess } from "../../services/passengerRequest/chessHelpers.js"
 import {
   assertIndex,
+  assertMoment,
   assertReason,
   emptyLivingService,
   getSubjectName,
@@ -42,7 +43,7 @@ export default {
           const sourcePeople = hotels[fromHotelIndex].people || []
           assertIndex(personIndex, sourcePeople.length, "personIndex")
 
-          const relocationDate = movedAt ? new Date(movedAt) : new Date()
+          const relocationDate = assertMoment(movedAt, "movedAt") ?? new Date()
           const sourceHotel = hotels[fromHotelIndex]
           const targetHotel = hotels[toHotelIndex]
 
@@ -158,7 +159,7 @@ export default {
           // может превышать заказ, и перебор надо иметь возможность перераспределить
           // между гостиницами, а не только выселять.
 
-          const relocationDate = movedAt ? new Date(movedAt) : new Date()
+          const relocationDate = assertMoment(movedAt, "movedAt") ?? new Date()
           const { next: nextSource, removed } = spliceAtIndexes(
             sourcePeople,
             indexes
@@ -253,7 +254,7 @@ export default {
           const people = hotels[hotelIndex].people || []
           assertIndex(personIndex, people.length, "personIndex")
 
-          const evictionDate = evictedAt ? new Date(evictedAt) : new Date()
+          const evictionDate = assertMoment(evictedAt, "evictedAt") ?? new Date()
           const hotel = hotels[hotelIndex]
           const person = ensureHotelPerson(
             people[personIndex],
@@ -379,7 +380,7 @@ export default {
             assertIndex(idx, people.length, "personIndex")
           }
 
-          const evictionDate = evictedAt ? new Date(evictedAt) : new Date()
+          const evictionDate = assertMoment(evictedAt, "evictedAt") ?? new Date()
           const { next: nextPeople, removed } = spliceAtIndexes(people, indexes)
 
           const evicted = removed.map((raw) => {

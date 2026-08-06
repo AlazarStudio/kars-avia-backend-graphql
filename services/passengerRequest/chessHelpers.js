@@ -1,3 +1,5 @@
+import { GraphQLError } from "graphql"
+
 // Закрытие интервала размещения пассажира.
 //
 // Логика «найти последний интервал без endAt и закрыть его» была инлайнена
@@ -6,8 +8,19 @@
 // интервал, если открытых не осталось. Оба поведения сохранены параметрами, а
 // не сведены к одному: они наблюдаемы и закреплены тестами.
 //
+// Закрыть интервал раньше его начала нельзя: получается перевёрнутый
+// {startAt > endAt}, а по нему считаются сутки проживания. Неразбираемый
+// startAt легаси-документа проверку не включает — отбивать из-за него живую
+// операцию было бы новой бедой вместо старой.
+//
 // Поиск идёт с КОНЦА: у гостя может висеть несколько интервалов без endAt
 // (легаси-аномалия), и закрывается ровно последний из них, а не все.
+
+const closesBeforeStart = (chess, at) => {
+  const start = chess?.startAt ? new Date(chess.startAt).getTime() : NaN
+  const end = at instanceof Date ? at.getTime() : new Date(at).getTime()
+  return Number.isFinite(start) && Number.isFinite(end) && end < start
+}
 
 // reason === null — признак переселения: ключ reason в закрываемый интервал не
 // пишется вовсе, а не пишется со значением null. Разница наблюдаема — у
@@ -22,6 +35,11 @@ export function closeOpenChess(chesses, at, { reason = null, degenerate = null }
   const openIndex = [...list].reverse().findIndex((item) => !item?.endAt)
   if (openIndex !== -1) {
     const idx = list.length - 1 - openIndex
+    if (closesBeforeStart(list[idx], at)) {
+      throw new GraphQLError("Date is earlier than the accommodation start", {
+        extensions: { code: "BAD_USER_INPUT" }
+      })
+    }
     list[idx] =
       reason === null
         ? { ...list[idx], endAt: at }

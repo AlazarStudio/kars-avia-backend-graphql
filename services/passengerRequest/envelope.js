@@ -43,6 +43,39 @@ export const assertIndex = (index, length, label) => {
   }
 }
 
+// Даты переселения и выселения приходят сквозным скаляром Date: у него нет ни
+// резолвера, ни разбора, поэтому в резолвер попадает ровно то, что прислал
+// клиент. new Date("мусор") даёт Invalid Date, и Prisma отбивает запись сырой
+// ошибкой; new Date(true) молча даёт эпоху — отсюда проверка типа, а не только
+// разбора.
+//
+// Будущее запрещено: отметка описывает уже случившееся, а интервал размещения
+// считается деньгами — дата вперёд удлиняет проживание. Допуск оставлен на
+// расхождение часов клиента и сервера.
+const CLOCK_SKEW_MS = 5 * 60 * 1000
+
+export const assertMoment = (value, label) => {
+  // Пустая строка означает «не прислали», как и раньше: вызывающий подставит
+  // время операции. Без этой ветки "" стало бы Invalid Date и отказом.
+  if (value === null || value === undefined || value === "") return null
+
+  const supported =
+    value instanceof Date || typeof value === "string" || typeof value === "number"
+  const date = supported ? new Date(value) : new Date(NaN)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new GraphQLError(`Invalid ${label}`, {
+      extensions: { code: "BAD_USER_INPUT" }
+    })
+  }
+  if (date.getTime() > Date.now() + CLOCK_SKEW_MS) {
+    throw new GraphQLError(`${label} is in the future`, {
+      extensions: { code: "BAD_USER_INPUT" }
+    })
+  }
+  return date
+}
+
 export const assertReason = (reason) => {
   const trimmed = reason?.trim()
   if (!trimmed) throw new GraphQLError("Reason is required")

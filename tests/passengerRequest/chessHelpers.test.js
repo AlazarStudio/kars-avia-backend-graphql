@@ -122,3 +122,29 @@ test("исходный массив и его элементы не мутиру
   assert.equal(list[0], open, "элемент подменён не был")
   assert.deepEqual(open, snapshot, "элемент не изменён на месте")
 })
+
+test("закрыть интервал раньше его начала нельзя", () => {
+  // Перевёрнутый {startAt > endAt} — это не косметика: по интервалу считаются
+  // сутки проживания, то есть деньги.
+  assert.throws(
+    () =>
+      closeOpenChess(
+        [chess({ startAt: new Date("2026-08-05T10:00:00.000Z") })],
+        new Date("2026-08-04T10:00:00.000Z")
+      ),
+    (error) => error?.extensions?.code === "BAD_USER_INPUT"
+  )
+})
+
+test("закрытие ровно в дату начала разрешено: интервал вырожденный, а не перевёрнутый", () => {
+  const start = new Date("2026-08-05T10:00:00.000Z")
+  const next = closeOpenChess([chess({ startAt: start })], start)
+
+  assert.equal(next[0].endAt, start)
+})
+
+test("нечитаемый startAt легаси-документа операцию не блокирует", () => {
+  const next = closeOpenChess([chess({ startAt: "не дата" })], AT)
+
+  assert.equal(next[0].endAt, AT)
+})

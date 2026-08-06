@@ -99,7 +99,9 @@ function requestWithLiving({ peopleByHotel = [], ...serviceOverrides } = {}) {
   })
 }
 
-const MOVED_AT = "2026-08-10T08:00:00.000Z"
+// Дата операции обязана быть ПОЗЖЕ startAt фикстуры (2026-08-04T12:00) и
+// не в будущем: обе границы проверяются (assertMoment и closeOpenChess).
+const MOVED_AT = "2026-08-05T08:00:00.000Z"
 
 // ───────────────────── relocatePassengerRequestHotelPerson ────────────────────
 
