@@ -251,6 +251,12 @@ export async function buildAuthContext(authHeader) {
         scope: true,
         hotelId: true,
         driverId: true,
+        // Принадлежность внешнего пользователя. Читается правилом видимости
+        // ФАП (services/passengerRequest/fapScope.js): без этих полей scope
+        // DRIVER и REPRESENTATIVE получают отказ, а не свою заявку.
+        airlineId: true,
+        airportId: true,
+        passengerRequestId: true,
         active: true,
         refreshToken: true,
         sessionExpiresAt: true
