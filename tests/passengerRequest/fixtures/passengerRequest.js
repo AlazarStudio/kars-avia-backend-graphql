@@ -18,7 +18,10 @@ export function makeRequest(overrides = {}) {
     airlineId: "airline-1",
     airportId: "airport-1",
     status: "CREATED",
-    statusTimes: { createdAt: "2026-08-01T10:00:00.000Z" },
+    // Композит PassengerStatusTimes несёт только acceptedAt/inProgressAt/
+    // finishedAt/cancelledAt. У заявки в CREATED отметок нет вовсе: ветки
+    // CREATED у updateTimes не существует.
+    statusTimes: {},
     savedPassengers: [
       {
         personId: "aaaaaaaa-0000-4000-8000-000000000001",
@@ -37,7 +40,7 @@ export function makeRequest(overrides = {}) {
     waterService: {
       plan: { enabled: true, peopleCount: 4 },
       status: "IN_PROGRESS",
-      times: { createdAt: "2026-08-01T10:00:00.000Z" },
+      times: { acceptedAt: "2026-08-01T10:00:00.000Z" },
       people: [
         {
           personId: "aaaaaaaa-0000-4000-8000-000000000001",
@@ -56,7 +59,7 @@ export function makeRequest(overrides = {}) {
     livingService: {
       plan: { enabled: true, peopleCount: 4 },
       status: "IN_PROGRESS",
-      times: { createdAt: "2026-08-01T10:00:00.000Z" },
+      times: { acceptedAt: "2026-08-01T10:00:00.000Z" },
       evictions: [],
       hotels: [
         {

@@ -175,7 +175,7 @@ test("багажный add бережёт существующий acceptedAt н
     {
       request: withBaggage({
         status: "NEW",
-        times: { createdAt: OLD, acceptedAt: OLD },
+        times: { inProgressAt: OLD, acceptedAt: OLD },
         drivers: []
       })
     }
@@ -183,7 +183,7 @@ test("багажный add бережёт существующий acceptedAt н
 
   const times = baggage.data.baggageDeliveryService.times
   assert.equal(times.acceptedAt, OLD, "старая отметка сохранена")
-  assert.equal(times.createdAt, OLD, "остальные отметки уцелели")
+  assert.equal(times.inProgressAt, OLD, "остальные отметки уцелели")
 
   const transfer = await runRaw(
     "addPassengerRequestDriver",
@@ -193,7 +193,7 @@ test("багажный add бережёт существующий acceptedAt н
         transferService: {
           plan: { enabled: true, peopleCount: 4 },
           status: "NEW",
-          times: { createdAt: OLD, acceptedAt: OLD },
+          times: { inProgressAt: OLD, acceptedAt: OLD },
           drivers: []
         }
       })
@@ -217,7 +217,7 @@ test("багажный add ставит acceptedAt, когда отметки е
     {
       request: withBaggage({
         status: "NEW",
-        times: { createdAt: OLD },
+        times: { inProgressAt: OLD },
         drivers: []
       })
     }
@@ -227,7 +227,7 @@ test("багажный add ставит acceptedAt, когда отметки е
   assert.equal(run.data.baggageDeliveryService.status, "ACCEPTED")
   assert.ok(times.acceptedAt instanceof Date, "отметка проставлена")
   assert.notEqual(times.acceptedAt, OLD)
-  assert.equal(times.createdAt, OLD, "остальные отметки уцелели")
+  assert.equal(times.inProgressAt, OLD, "остальные отметки уцелели")
 })
 
 test("гвард status === NEW ограничивает ветку приёма заказа", async () => {

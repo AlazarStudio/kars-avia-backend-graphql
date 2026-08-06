@@ -123,7 +123,7 @@ test("addPassengerRequestHotel: гостиница дописывается в �
   assert.equal(living.hotels.length, 3)
   // Гостиница в фикстуре не первая, поэтому статус и отметки услуги не трогаются.
   assert.equal(living.status, "IN_PROGRESS")
-  assert.deepEqual(living.times, { createdAt: "<DATE>" })
+  assert.deepEqual(living.times, { acceptedAt: "<DATE>" })
 
   const added = living.hotels[2]
   assert.equal(added.name, "Сибирь")
@@ -256,7 +256,7 @@ test("removePassengerRequestHotel: удаление ПОСЛЕДНЕЙ гост�
   assert.deepEqual(living.hotels, [])
   assert.equal(living.status, "NEW")
   // Отметки времени при сбросе в NEW не пересчитываются — уносятся как были.
-  assert.deepEqual(living.times, { createdAt: "<DATE>" })
+  assert.deepEqual(living.times, { acceptedAt: "<DATE>" })
 })
 
 test("removePassengerRequestHotel идёт через $transaction и сдвигает отчёты по гостиницам", async () => {
@@ -430,7 +430,7 @@ test("updatePassengerRequestHotel: лог, отсутствие статусны
   assert.deepEqual(Object.keys(run.written[0]), ["livingService"])
   // Статус и отметки услуги уносятся из prev без пересчёта.
   assert.equal(run.written[0].livingService.status, "IN_PROGRESS")
-  assert.deepEqual(run.written[0].livingService.times, { createdAt: "<DATE>" })
+  assert.deepEqual(run.written[0].livingService.times, { acceptedAt: "<DATE>" })
 
   assert.equal(run.logged.length, 1)
   assert.equal(run.logged[0].action, "update_passenger_request_hotel")
@@ -934,7 +934,7 @@ test("removePassengerRequestHotelPerson: падение факта ниже пл
   request.livingService.plan = { enabled: true, peopleCount: 1 }
   request.livingService.status = "COMPLETED"
   request.livingService.times = {
-    createdAt: "2026-08-01T10:00:00.000Z",
+    acceptedAt: "2026-08-01T10:00:00.000Z",
     finishedAt: "2026-08-04T12:00:00.000Z"
   }
 

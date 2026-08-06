@@ -30,7 +30,7 @@ test("completePassengerRequestWaterEarly пишет статус, время, п
   )
   assert.equal(water.people.length, 1, "список получателей не трогается")
   // updateTimes только дописывает finishedAt, ранее проставленное не переписывает.
-  assert.deepEqual(water.times, { createdAt: "<DATE>", finishedAt: "<DATE>" })
+  assert.deepEqual(water.times, { acceptedAt: "<DATE>", finishedAt: "<DATE>" })
 })
 
 test("completePassengerRequestWaterEarly пишет один лог и одну публикацию", async () => {
@@ -66,7 +66,7 @@ test("completePassengerRequestBaggageEarly пишет статус, время, 
   // Обратная проверка: правка добавила два поля и не задела остальные —
   // список поездок, план и времена остаются такими же, как до починки.
   assert.deepEqual(baggage.drivers, [])
-  // У багажной фикстуры, в отличие от водяной, createdAt в times нет —
+  // У багажной фикстуры, в отличие от водяной, прежних отметок в times нет —
   // updateTimes только дописывает finishedAt и ничего не выдумывает.
   assert.deepEqual(baggage.times, { finishedAt: "<DATE>" })
   assert.equal(run.logged[0].action, "complete_passenger_request_baggage_early")
@@ -200,7 +200,7 @@ test("completePassengerRequestLivingEarly пишет статус, время, �
     "план услуги не трогается"
   )
   // updateTimes только дописывает finishedAt, ранее проставленное не переписывает.
-  assert.deepEqual(living.times, { createdAt: "<DATE>", finishedAt: "<DATE>" })
+  assert.deepEqual(living.times, { acceptedAt: "<DATE>", finishedAt: "<DATE>" })
   assert.deepEqual(Object.keys(run.written[0]), ["livingService"])
 })
 
@@ -283,7 +283,7 @@ const completedWater = () =>
     waterService: {
       plan: { enabled: true, peopleCount: 4 },
       status: "COMPLETED",
-      times: { createdAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
+      times: { acceptedAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
       earlyCompletionReason: "рейс вылетел",
       earlyCompletedAt: "2026-08-02T10:00:00.000Z",
       people: []
@@ -304,7 +304,7 @@ test("reopenPassengerRequestService возвращает услугу в раб�
   // finishedAt снят: без этого карточка показывала бы дату завершения у
   // услуги «в работе». updateTimes сам его не трогает.
   assert.deepEqual(water.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     finishedAt: null,
     inProgressAt: "<DATE>"
   })

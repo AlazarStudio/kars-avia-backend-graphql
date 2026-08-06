@@ -121,7 +121,7 @@ test("relocatePassengerRequestHotelPerson: документ, лог, уведо�
   assert.deepEqual(run.written[0].livingService, {
     plan: { enabled: true, peopleCount: 4 },
     status: "IN_PROGRESS",
-    times: { createdAt: "<DATE>" },
+    times: { acceptedAt: "<DATE>" },
     evictions: [],
     hotels: [
       {
@@ -433,7 +433,7 @@ test("переселение НЕ трогает статус услуги: он
   // заселённых по заявке не меняется, меняется только их распределение.
   const request = requestWithLiving({
     status: "COMPLETED",
-    times: { createdAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
+    times: { acceptedAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
     plan: { enabled: true, peopleCount: 4 },
     peopleByHotel: [[makePerson(1)], []]
   })
@@ -453,7 +453,7 @@ test("переселение НЕ трогает статус услуги: он
 
   assert.equal(run.written[0].livingService.status, "COMPLETED")
   assert.deepEqual(run.written[0].livingService.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     finishedAt: "<DATE>"
   })
 })
@@ -461,7 +461,7 @@ test("переселение НЕ трогает статус услуги: он
 test("выселение статус услуги меняет: падение факта ниже плана переоткрывает COMPLETED", async () => {
   const request = requestWithLiving({
     status: "COMPLETED",
-    times: { createdAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
+    times: { acceptedAt: "2026-08-01T10:00:00.000Z", finishedAt: "2026-08-02T10:00:00.000Z" },
     plan: { enabled: true, peopleCount: 3 },
     peopleByHotel: [
       [makePerson(1), makePerson(2), makePerson(3), makePerson(4)],
@@ -484,7 +484,7 @@ test("выселение статус услуги меняет: падение 
   const living = run.written[0].livingService
   assert.equal(living.status, "IN_PROGRESS")
   assert.deepEqual(living.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     inProgressAt: "<DATE>",
     finishedAt: null
   })

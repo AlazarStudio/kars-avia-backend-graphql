@@ -96,7 +96,7 @@ test("addPassengerRequestPerson (WATER): весь документ, лог, от
     // трогает (услуга уже IN_PROGRESS, плана не достигла).
     plan: { enabled: true, peopleCount: 4 },
     status: "IN_PROGRESS",
-    times: { createdAt: "<DATE>" },
+    times: { acceptedAt: "<DATE>" },
     people: [
       {
         fullName: "Иванов Иван",
@@ -244,7 +244,7 @@ test("addPassengerRequestPeople: пачка добавляется одним а
   ])
   // Факт 1 → 4 при плане 4: автозавершение.
   assert.equal(water.status, "COMPLETED")
-  assert.deepEqual(water.times, { createdAt: "<DATE>", finishedAt: "<DATE>" })
+  assert.deepEqual(water.times, { acceptedAt: "<DATE>", finishedAt: "<DATE>" })
 
   assert.equal(run.written[0].savedPassengers.length, 5, "реестр вырос на троих")
 
@@ -373,7 +373,7 @@ test("статус: добавление до плана оставляет IN_P
   assert.equal(below.written[0].waterService.status, "IN_PROGRESS")
   assert.deepEqual(
     below.written[0].waterService.times,
-    { createdAt: "<DATE>" },
+    { acceptedAt: "<DATE>" },
     "времена не тронуты: услуга уже была IN_PROGRESS"
   )
 
@@ -395,7 +395,7 @@ test("статус: превышение плана НЕ переоткрыва�
   const request = requestWithFourWaterPeople()
   request.waterService.status = "COMPLETED"
   request.waterService.times = {
-    createdAt: "2026-08-01T10:00:00.000Z",
+    acceptedAt: "2026-08-01T10:00:00.000Z",
     finishedAt: "2026-08-02T10:00:00.000Z"
   }
 
@@ -412,7 +412,7 @@ test("статус: превышение плана НЕ переоткрыва�
   assert.equal(run.written[0].waterService.people.length, 5, "факт 5 при плане 4")
   assert.equal(run.written[0].waterService.status, "COMPLETED")
   assert.deepEqual(run.written[0].waterService.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     finishedAt: "<DATE>"
   })
 })
@@ -421,7 +421,7 @@ test("статус: падение факта НИЖЕ плана переотк
   const request = requestWithFourWaterPeople()
   request.waterService.status = "COMPLETED"
   request.waterService.times = {
-    createdAt: "2026-08-01T10:00:00.000Z",
+    acceptedAt: "2026-08-01T10:00:00.000Z",
     finishedAt: "2026-08-02T10:00:00.000Z"
   }
 
@@ -434,7 +434,7 @@ test("статус: падение факта НИЖЕ плана переотк
   assert.equal(run.written[0].waterService.people.length, 3)
   assert.equal(run.written[0].waterService.status, "IN_PROGRESS")
   assert.deepEqual(run.written[0].waterService.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     finishedAt: null,
     inProgressAt: "<DATE>"
   })
@@ -573,7 +573,7 @@ test("updatePassengerRequestPerson НЕ пересчитывает статус 
   const request = makeRequest()
   request.waterService.status = "COMPLETED"
   request.waterService.times = {
-    createdAt: "2026-08-01T10:00:00.000Z",
+    acceptedAt: "2026-08-01T10:00:00.000Z",
     finishedAt: "2026-08-02T10:00:00.000Z"
   }
 
@@ -591,7 +591,7 @@ test("updatePassengerRequestPerson НЕ пересчитывает статус 
   assert.equal(run.written[0].waterService.people.length, 1, "факт 1 при плане 4")
   assert.equal(run.written[0].waterService.status, "COMPLETED")
   assert.deepEqual(run.written[0].waterService.times, {
-    createdAt: "<DATE>",
+    acceptedAt: "<DATE>",
     finishedAt: "<DATE>"
   })
 })

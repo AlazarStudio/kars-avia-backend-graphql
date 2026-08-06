@@ -138,7 +138,7 @@ test("applyServiceRecalc отдаёт status и times ровно от recomputeS
   const living = {
     plan: { peopleCount: 4 },
     status: "IN_PROGRESS",
-    times: { createdAt: "2026-08-01T10:00:00.000Z" }
+    times: { acceptedAt: "2026-08-01T10:00:00.000Z" }
   }
   const before = [hotel("Азия", [legacyGuest("A")])]
   const after = [hotel("Азия", [legacyGuest("A"), legacyGuest("B")])]
@@ -156,7 +156,7 @@ test("applyServiceRecalc автозавершает услугу при дост
   const living = {
     plan: { peopleCount: 2 },
     status: "IN_PROGRESS",
-    times: { createdAt: "2026-08-01T10:00:00.000Z" }
+    times: { acceptedAt: "2026-08-01T10:00:00.000Z" }
   }
   const before = [hotel("Азия", [legacyGuest("A")]), hotel("Чаплан", [])]
   const after = [hotel("Азия", [legacyGuest("A")]), hotel("Чаплан", [legacyGuest("B")])]
@@ -169,9 +169,9 @@ test("applyServiceRecalc автозавершает услугу при дост
   // вызова расходятся на границе миллисекунды. Сверяем статус и набор
   // проставленных отметок, а не сами значения времени.
   assert.deepEqual(Object.keys(recalc), ["status", "times"])
-  assert.deepEqual(Object.keys(recalc.times).sort(), ["createdAt", "finishedAt"])
+  assert.deepEqual(Object.keys(recalc.times).sort(), ["acceptedAt", "finishedAt"])
   assert.equal(
-    recalc.times.createdAt,
+    recalc.times.acceptedAt,
     "2026-08-01T10:00:00.000Z",
     "прежние отметки не тронуты"
   )

@@ -103,7 +103,7 @@ test("removePassengerRequestDriver прогоняет выживших чере�
   // выжившему без id id выдаётся.
   const request = withTransfer({
     status: "IN_PROGRESS",
-    times: { createdAt: "2026-08-01T10:00:00.000Z" },
+    times: { acceptedAt: "2026-08-01T10:00:00.000Z" },
     drivers: [
       { id: "driver-0", fullName: "Первый" },
       { id: "driver-1", fullName: "Второй" },

@@ -192,9 +192,9 @@ test("updatePassengerRequest: семь блоков услуг дают одну
 
   const expected = [
     // поле, статус, отметки времени, ключ факта, есть ли drivers
-    ["waterService", "IN_PROGRESS", { createdAt: "<DATE>" }, "people", false],
+    ["waterService", "IN_PROGRESS", { acceptedAt: "<DATE>" }, "people", false],
     ["mealService", "NEW", {}, "people", false],
-    ["livingService", "IN_PROGRESS", { createdAt: "<DATE>" }, "hotels", false],
+    ["livingService", "IN_PROGRESS", { acceptedAt: "<DATE>" }, "hotels", false],
     ["transferService", "NEW", {}, "drivers", true],
     ["departureTransferService", "NEW", {}, "drivers", true],
     ["intercityTransferService", "NEW", {}, "drivers", true],
@@ -548,7 +548,7 @@ test("setPassengerRequestStatus пишет статус и отметку вре
   assert.deepEqual(run.written, [
     {
       status: "ACCEPTED",
-      statusTimes: { acceptedAt: "<DATE>", createdAt: "<DATE>" }
+      statusTimes: { acceptedAt: "<DATE>" }
     }
   ])
   assert.equal(run.logged.length, 1)
@@ -590,7 +590,7 @@ test("cancelPassengerRequest пишет причину, статус, лог с 
     {
       cancelReason: "рейс отменён",
       status: "CANCELLED",
-      statusTimes: { cancelledAt: "<DATE>", createdAt: "<DATE>" }
+      statusTimes: { cancelledAt: "<DATE>" }
     }
   ])
   assert.equal(run.logged.length, 1)
