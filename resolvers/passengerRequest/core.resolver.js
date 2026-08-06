@@ -10,6 +10,7 @@ import { normalizeDriversForWrite } from "../../services/passengerRequest/baggag
 import { normalizeCrewMember } from "../../services/passengerRequest/normalizers.js"
 import { patchIsNoop } from "../../services/passengerRequest/patchIsNoop.js"
 import {
+  assertReason,
   finishPassengerRequestMutation,
   getSubjectName,
   loadRequestOrThrow,
@@ -525,12 +526,20 @@ export default {
         context,
         apply: (existing) => {
           const status = "CANCELLED"
+          // Причина обязательна: отменить заявку может и авиакомпания (кнопка
+          // отмены в поповере статусов не гейтится ролью), а причина —
+          // единственное, из чего диспетчер узнаёт основание. Экран «ФАП v1»
+          // требовал её и раньше, теперь правило одно на все пути.
+          // ⚠️ Аргумент в схеме сознательно оставлен String, а не String!:
+          // non-null сломал бы уже задеплоенный фронт на валидации запроса,
+          // ещё до выката новой версии.
+          const cleanReason = assertReason(cancelReason)
 
           return {
             data: {
               status,
               statusTimes: updateTimes(existing.statusTimes, status),
-              cancelReason
+              cancelReason: cleanReason
             },
             // Слаг лога тот же, что у обычной смены статуса: отмену видно
             // только по description и reason.
@@ -538,8 +547,8 @@ export default {
               action: "update_passenger_request_status",
               description: "Заявка по ФАП отменена",
               fulldescription: `Пользователь ${getSubjectName(context)} отменил ФАП ${passengerRequest.flightNumber}`,
-              reason: cancelReason,
-              cancelReason,
+              reason: cleanReason,
+              cancelReason: cleanReason,
               airlineId: passengerRequest.airlineId,
               passengerRequestId: passengerRequest.id,
               emailAction: "cancel_passenger_request"

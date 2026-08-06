@@ -603,18 +603,20 @@ test("cancelPassengerRequest пишет причину, статус, лог с 
   assert.equal(run.notified[0].description.action, "cancel_passenger_request")
 })
 
-test("cancelPassengerRequest НЕ требует причину: без неё мутация проходит", async () => {
-  // ДЕФЕКТ №23: assertReason здесь не вызывается (в отличие от мутаций
-  // *Early), а в схеме аргумент необязательный — заявка отменяется без
-  // объяснения, в лог уходит reason: null. Вместе с дефектом №6 это два
-  // разных пути отмены заявки без причины. При починке этот тест обязан
-  // измениться.
-  const run = await runFapMutation("cancelPassengerRequest", { id: "req-1" })
-
-  assert.equal(run.written[0].status, "CANCELLED")
-  assert.equal(run.written[0].cancelReason, undefined)
-  assert.equal(run.logged[0].reason, null)
-  assert.equal(run.notified.length, 1)
+test("cancelPassengerRequest требует причину", async () => {
+  // ДЕФЕКТ №23 ПОЧИНЕН. Было: assertReason здесь не вызывался, заявка
+  // отменялась без объяснения, в лог уходил reason: null. Экраны при этом
+  // противоречили друг другу — «ФАП v1» пустую причину блокировал, а v2
+  // объявлял её необязательной. Отменить заявку может и авиакомпания, и
+  // причина — единственное, из чего диспетчер узнаёт основание.
+  //
+  // Аргумент в схеме остаётся String (не String!): non-null сломал бы
+  // задеплоенный фронт на валидации запроса ещё до выката новой версии,
+  // поэтому правило держится на assertReason.
+  await assert.rejects(() => runFapMutation("cancelPassengerRequest", { id: "req-1" }))
+  await assert.rejects(() =>
+    runFapMutation("cancelPassengerRequest", { id: "req-1", cancelReason: "   " })
+  )
 })
 
 // ─────────────────────── updatePassengerRequestCrew ───────────────────────
