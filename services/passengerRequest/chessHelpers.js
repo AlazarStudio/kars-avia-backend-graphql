@@ -19,7 +19,13 @@ import { GraphQLError } from "graphql"
 const closesBeforeStart = (chess, at) => {
   const start = chess?.startAt ? new Date(chess.startAt).getTime() : NaN
   const end = at instanceof Date ? at.getTime() : new Date(at).getTime()
-  return Number.isFinite(start) && Number.isFinite(end) && end < start
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false
+  // Начало в БУДУЩЕМ — признак уже битого легаси-документа: до проверки дат
+  // будущий movedAt принимался. Такому интервалу не позволено запирать гостя:
+  // иначе выселить и переселить его стало бы нельзя до наступления даты, и
+  // старая запись превратилась бы в неисправимую.
+  if (start > Date.now()) return false
+  return end < start
 }
 
 // reason === null — признак переселения: ключ reason в закрываемый интервал не

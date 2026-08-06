@@ -148,3 +148,14 @@ test("нечитаемый startAt легаси-документа операц�
 
   assert.equal(next[0].endAt, AT)
 })
+
+test("интервал с началом в БУДУЩЕМ не запирает гостя", () => {
+  // Легаси: до проверки дат будущий movedAt принимался, и в базе мог осесть
+  // интервал, начинающийся завтра. Если бы гвард сравнивал и с ним, такого
+  // гостя нельзя было бы ни выселить, ни переселить до наступления даты.
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const now = new Date()
+  const next = closeOpenChess([chess({ startAt: tomorrow })], now)
+
+  assert.equal(next[0].endAt, now)
+})
