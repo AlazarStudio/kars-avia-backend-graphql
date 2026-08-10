@@ -1489,8 +1489,6 @@ const hotelResolver = {
       if (!roomToDelete) {
         throw new Error("Комната не найдена")
       }
-      // Обновляем количество комнат отеля после удаления
-      await updateHotelRoomCounts(roomToDelete.hotelId)
       await logAction({
         context,
         action: "delete_room",
@@ -1506,13 +1504,60 @@ const hotelResolver = {
           await deleteImage(imagePath)
         }
       }
-      if (roomToDelete.roomKindId) {
-        updateRoomKindCounts(roomToDelete.roomKindId)
-      }
       await prisma.room.delete({
         where: { id }
       })
+      await updateHotelRoomCounts(roomToDelete.hotelId)
+      if (roomToDelete.roomKindId) {
+        await updateRoomKindCounts(roomToDelete.roomKindId)
+      }
       return roomToDelete
+    },
+
+    deleteManyRooms: async (_, { ids }, context) => {
+      await hotelAdminMiddleware(context)
+      if (!ids || ids.length === 0) {
+        return []
+      }
+      const uniqueIds = [...new Set(ids)]
+      const roomsToDelete = await prisma.room.findMany({
+        where: { id: { in: uniqueIds } }
+      })
+      if (roomsToDelete.length !== uniqueIds.length) {
+        throw new Error("Комната не найдена")
+      }
+      for (const room of roomsToDelete) {
+        await logAction({
+          context,
+          action: "delete_room",
+          description: "Комната удалена",
+          fulldescription: `Пользователь ${context.user.name} удалил комнату ${room.name}`,
+          oldData: room,
+          newData: room,
+          hotelId: room.hotelId
+        })
+        if (room.images && room.images.length > 0) {
+          for (const imagePath of room.images) {
+            await deleteImage(imagePath)
+          }
+        }
+      }
+      await prisma.room.deleteMany({
+        where: { id: { in: uniqueIds } }
+      })
+      const hotelIds = [...new Set(roomsToDelete.map((r) => r.hotelId))]
+      for (const hotelId of hotelIds) {
+        await updateHotelRoomCounts(hotelId)
+      }
+      const roomKindIds = [
+        ...new Set(
+          roomsToDelete.map((r) => r.roomKindId).filter(Boolean)
+        )
+      ]
+      for (const roomKindId of roomKindIds) {
+        await updateRoomKindCounts(roomKindId)
+      }
+      return roomsToDelete
     },
 
     deleteRoomKind: async (_, { id }, context) => {

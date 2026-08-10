@@ -459,6 +459,7 @@ const hotelTypeDef = /* GraphQL */ `
     createManyRooms(input: ManyRoomsInput): [Room]
     deleteHotel(id: ID!): Hotel!
     deleteRoom(id: ID!): Room!
+    deleteManyRooms(ids: [ID!]!): [Room!]!
     deleteRoomKind(id: ID!): RoomKind!
     deleteAdditionalService(id: ID!): AdditionalServices!
     updateAllRoomKindCount: [Hotel]

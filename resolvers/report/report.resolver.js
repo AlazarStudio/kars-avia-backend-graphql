@@ -392,12 +392,12 @@ const reportResolver = {
     },
 
     upsertReportPartialDaySetting: async (_, { input }, context) => {
-      await superAdminMiddleware(context)
+      await adminMiddleware(context)
       return upsertPartialDaySetting(input)
     },
 
     deleteReportPartialDaySetting: async (_, { id }, context) => {
-      await superAdminMiddleware(context)
+      await adminMiddleware(context)
       return deletePartialDaySetting(id)
     },
 
