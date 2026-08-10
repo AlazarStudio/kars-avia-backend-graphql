@@ -32,6 +32,7 @@ import { touchLastSeenForContext } from "./services/user/userPresence.js"
 import { buildAuthContext, isAuthError } from "./middlewares/authContext.js"
 import { logger } from "./services/infra/logger.js"
 import { getCorsOptions } from "./services/infra/corsOptions.js"
+import { JSON_BODY_LIMIT } from "./services/infra/httpLimits.js"
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default"
 import filesRouter from "./services/routes/files.js"
 import authRouter from "./services/routes/auth.js"
@@ -281,7 +282,9 @@ await botService.initialize()
    🌍 EXPRESS
 ========================= */
 app.use(graphqlUploadExpress())
-app.use(express.json())
+// Лимит тела — см. JSON_BODY_LIMIT: дефолтных 100kb не хватало на сохранение
+// черновика отчёта, он уходит целым массивом строк.
+app.use(express.json({ limit: JSON_BODY_LIMIT }))
 app.use("/", botWebhooks)
 
 // Диагностика upload-запросов: помогает быстро понять причину HTTP 400.
@@ -340,7 +343,7 @@ app.use(
 app.use(
   "/",
   cors(getCorsOptions()),
-  express.json(),
+  express.json({ limit: JSON_BODY_LIMIT }),
   expressMiddleware(server, {
     context: async ({ req }) => buildGraphqlContext(req)
   })
