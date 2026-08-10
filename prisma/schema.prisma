@@ -234,6 +234,10 @@ type Price {
   priceLuxe            Float? @default(0)
   priceComfort         Float? @default(0)
   priceImprovedComfort Float? @default(0)
+  priceStandardSingle  Float? @default(0)
+  priceEconomySingle   Float? @default(0)
+  priceStandardDouble  Float? @default(0)
+  priceDeluxe          Float? @default(0)
   priceOneCategory     Float? @default(0)
   priceTwoCategory     Float? @default(0)
   priceThreeCategory   Float? @default(0)
@@ -868,6 +872,10 @@ enum Category {
   luxe
   comfort
   improvedComfort
+  economySingle
+  standardSingle
+  standardDouble
+  deluxe
   onePlace
   twoPlace
   threePlace

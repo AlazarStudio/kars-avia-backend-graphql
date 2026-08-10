@@ -415,3 +415,24 @@ test("contractTypes filter includes all type for both scopes", () => {
     "all"
   )
 })
+
+test("getCategoryPriceFromContract returns new airline price categories", async () => {
+  const { getCategoryPriceFromContract } = await import(
+    "../../services/airline/resolvePriceByHotelLocation.js"
+  )
+
+  const contract = {
+    prices: {
+      priceStandardSingle: 100,
+      priceEconomySingle: 80,
+      priceStandardDouble: 150,
+      priceDeluxe: 200
+    }
+  }
+
+  assert.equal(getCategoryPriceFromContract(contract, "standardSingle"), 100)
+  assert.equal(getCategoryPriceFromContract(contract, "economySingle"), 80)
+  assert.equal(getCategoryPriceFromContract(contract, "standardDouble"), 150)
+  assert.equal(getCategoryPriceFromContract(contract, "deluxe"), 200)
+  assert.equal(getCategoryPriceFromContract(contract, "unknown"), 0)
+})

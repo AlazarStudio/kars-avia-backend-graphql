@@ -176,6 +176,10 @@ const globalTypeDef = /* GraphQL */ `
     priceLuxe: Float
     priceComfort: Float
     priceImprovedComfort: Float
+    priceStandardSingle: Float
+    priceEconomySingle: Float
+    priceStandardDouble: Float
+    priceDeluxe: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float
@@ -194,6 +198,10 @@ const globalTypeDef = /* GraphQL */ `
     priceLuxe: Float
     priceComfort: Float
     priceImprovedComfort: Float
+    priceStandardSingle: Float
+    priceEconomySingle: Float
+    priceStandardDouble: Float
+    priceDeluxe: Float
     priceOneCategory: Float
     priceTwoCategory: Float
     priceThreeCategory: Float

@@ -9,6 +9,10 @@ const hotelTypeDef = /* GraphQL */ `
     luxe
     comfort
     improvedComfort
+    economySingle
+    standardSingle
+    standardDouble
+    deluxe
     onePlace
     twoPlace
     threePlace
