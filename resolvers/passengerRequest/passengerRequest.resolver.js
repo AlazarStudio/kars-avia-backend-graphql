@@ -36,7 +36,8 @@ import subscriptionsResolvers from "./subscriptions.resolver.js"
 // Полноценная авторизация запланирована отдельно. Для гостиниц и водителей
 // данные уже есть (ExternalUser.scope/hotelId/driverId), для изоляции по
 // авиакомпании — нет.
-export default withFapAuthGuard(
+
+const passengerRequestResolver = withFapAuthGuard(
   mergeResolvers([
     fieldsResolvers,
     coreResolvers,
@@ -51,3 +52,5 @@ export default withFapAuthGuard(
     subscriptionsResolvers
   ])
 )
+
+export default passengerRequestResolver
