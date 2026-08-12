@@ -322,16 +322,27 @@ function buildPriceForRequest(
 
 async function fetchRoomClusterRequests(roomId, start, end) {
   if (!roomId || !start || !end) return []
-  const rows = await prisma.request.findMany({
+
+  // Важно: не фильтровать через request.hotelChess.some — на Mongo это
+  // полный scan Request (~десятки секунд). Сначала chess по roomId+датам
+  // (есть @@index([roomId, start, end])), затем request по id.
+  const chess = await prisma.hotelChess.findMany({
     where: {
-      hotelChess: {
-        some: {
-          roomId,
-          start: { lt: new Date(end) },
-          end: { gt: new Date(start) }
-        }
-      }
+      roomId,
+      requestId: { not: null },
+      start: { lt: new Date(end) },
+      end: { gt: new Date(start) }
     },
+    select: { requestId: true }
+  })
+
+  const requestIds = [
+    ...new Set(chess.map((row) => row.requestId).filter(Boolean))
+  ]
+  if (!requestIds.length) return []
+
+  const rows = await prisma.request.findMany({
+    where: { id: { in: requestIds } },
     include: REQUEST_INCLUDE_FOR_PRICING
   })
   return hydrateAirlinePrices(rows)
