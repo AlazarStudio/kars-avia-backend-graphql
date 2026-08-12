@@ -43,7 +43,6 @@ import {
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
-import { createPerfTimer } from "../../services/infra/perfTimer.js"
 import { travellineService } from "../../services/travelline/travellineService.js"
 import {
   recalculateRequestPricing,
@@ -497,10 +496,9 @@ const requestResolver = {
 
     updateRequest: async (_, { id, input }, context) => {
       const { user } = context
-      const perf = createPerfTimer(`updateRequest:${id}`)
       // await airlineModerMiddleware(context)
       await moderatorMiddleware(context)
-      perf.step("moderatorMiddleware")
+
 
       try {
         const currentTime = new Date()
@@ -534,11 +532,7 @@ const requestResolver = {
           }
         })
         if (!request) throw new Error("Request not found")
-        perf.step("load request", {
-          chessCount: request.hotelChess?.length || 0,
-          hotelId: request.hotelId,
-          roomId: request.hotelChess?.[0]?.roomId || null
-        })
+
 
         const oldHotelChess = request.hotelChess?.[0]
         const oldRoomId = oldHotelChess?.roomId
@@ -592,7 +586,7 @@ const requestResolver = {
               data: { client: { disconnect: true } }
             })
           }
-          perf.step("airline change")
+
         }
 
         if (input.personId) {
@@ -613,7 +607,7 @@ const requestResolver = {
               data: { client: { connect: { id: input.personId } } }
             })
           }
-          perf.step("person change")
+
         }
 
         if (user.airlineId && request.status != "created") {
@@ -626,7 +620,7 @@ const requestResolver = {
           const chat = await prisma.chat.findFirst({
             where: { requestId: requestId, separator: "airline" }
           })
-          perf.step("airline-extend: find chat")
+
 
           const message = await prisma.message.create({
             data: {
@@ -724,8 +718,8 @@ const requestResolver = {
             })
           }
           pubsub.publish(MESSAGE_SENT, { messageSent: message })
-          perf.step("airline-extend: notify+email+message")
-          perf.done({ path: "airline-extend-request" })
+
+
 
           return request
         }
@@ -862,9 +856,7 @@ const requestResolver = {
               dailyMeals: calculatedMealPlan.dailyMeals
             }
           }
-          perf.step("recalc mealPlan", {
-            dailyMeals: mealPlanData?.dailyMeals?.length || 0
-          })
+
         }
 
         if (
@@ -881,7 +873,7 @@ const requestResolver = {
               updatedEnd,
               request.hotelChess[0].id
             )
-            perf.step("ensureNoOverlap")
+
           }
           const updatedHotelChess = await prisma.hotelChess.update({
             where: { id: request.hotelChess[0].id },
@@ -892,7 +884,7 @@ const requestResolver = {
             }
           })
           pubsub.publish(HOTEL_UPDATED, { hotelUpdated: updatedHotelChess })
-          perf.step("update hotelChess + publish")
+
         }
 
         if (wantsPlacement) {
@@ -903,7 +895,7 @@ const requestResolver = {
             updatedEnd,
             request.hotelChess?.[0]?.id
           )
-          perf.step("placement ensureNoOverlap")
+
 
           const existingHc =
             request.hotelChess?.[0] ||
@@ -938,7 +930,7 @@ const requestResolver = {
             })
             pubsub.publish(HOTEL_UPDATED, { hotelUpdated: newHotelChess })
           }
-          perf.step("placement hotelChess write")
+
         }
 
         if (inputMealPlan && request.mealPlan) {
@@ -994,7 +986,7 @@ const requestResolver = {
             person: true
           }
         })
-        perf.step("prisma.request.update")
+
 
         const updateEmail = buildUpdateRequestEmail({
           requestNumber: updatedRequest.requestNumber,
@@ -1015,7 +1007,7 @@ const requestResolver = {
         }).catch((error) => {
           logger.error("Ошибка при отправке email update_request:", error)
         })
-        perf.step("email queued (async)")
+
 
         try {
           await logAction({
@@ -1030,7 +1022,7 @@ const requestResolver = {
         } catch (error) {
           console.error("Ошибка при логировании изменения заявки:", error)
         }
-        perf.step("logAction")
+
 
         const newHc = updatedRequest.hotelChess?.[0]
         const newRoomId =
@@ -1038,7 +1030,7 @@ const requestResolver = {
 
         if (newRoomId || oldRoomId) {
           await recalculateRequestPricing(requestId)
-          perf.step("recalculateRequestPricing (current)")
+
 
           let overlapPromise = null
           if (wantsPlacement || isHotelChange) {
@@ -1063,38 +1055,18 @@ const requestResolver = {
           }
 
           if (overlapPromise) {
-            const overlapStartedAt = Date.now()
-            void overlapPromise
-              .then(() => {
-                if (perf.enabled) {
-                  console.log(
-                    `[perf:updateRequest:${requestId}] background overlap DONE +${Date.now() - overlapStartedAt}ms`
-                  )
-                }
-              })
-              .catch((error) => {
-                logger.error(
-                  "Фоновый пересчёт пересекающихся заявок после updateRequest:",
-                  error
-                )
-              })
-            perf.step("overlap recalc queued (async)")
+            void overlapPromise.catch((error) => {
+              logger.error(
+                "Фоновый пересчёт пересекающихся заявок после updateRequest:",
+                error
+              )
+            })
           }
         }
 
         await publishRequestUpdated(updatedRequest.id)
-        perf.step("publishRequestUpdated")
-        perf.done({
-          datesChanged,
-          wantsPlacement,
-          isHotelChange,
-          status: updatedRequest.status,
-          roomId: newRoomId || oldRoomId || null
-        })
         return updatedRequest
       } catch (error) {
-        perf.step("ERROR")
-        perf.done({ error: error?.message })
         logger.error("Ошибка при обновлении заявки. ", error)
         rethrowUnlessInternalError(error, "Не удалось обновить заявку")
       }

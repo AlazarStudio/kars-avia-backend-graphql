@@ -9,7 +9,6 @@ import {
   getLivingPricePerDay
 } from "../report/reportUtils.js"
 import { logger } from "../infra/logger.js"
-import { createPerfTimer, isUpdateRequestPerfEnabled } from "../infra/perfTimer.js"
 import {
   getRequestCheckInAt,
   getRequestCheckOutAt
@@ -373,25 +372,16 @@ async function computeRequestPrices(request) {
     return { hotelPrice: null, airlinePrice: null }
   }
 
-  const t0 = Date.now()
   const clusterRequests = await fetchRoomClusterRequests(
     hc.roomId,
     hc.start,
     hc.end
   )
-  const fetchMs = Date.now() - t0
   const withCurrent = clusterRequests.some((row) => row.id === request.id)
     ? clusterRequests.map((row) => (row.id === request.id ? request : row))
     : [...clusterRequests, request]
 
-  const t1 = Date.now()
-  const prices = computeRequestPricesFromCluster(request, withCurrent)
-  if (isUpdateRequestPerfEnabled()) {
-    console.log(
-      `[perf:recalcPricing:${request.id}] cluster fetch +${fetchMs}ms size=${clusterRequests.length}; compute +${Date.now() - t1}ms`
-    )
-  }
-  return prices
+  return computeRequestPricesFromCluster(request, withCurrent)
 }
 
 export async function calculateRequestHotelPrice(requestId) {
@@ -420,29 +410,19 @@ export async function calculateRequestAirlinePrice(requestId) {
  * Один load заявки + один load кластера комнаты → обе цены.
  */
 export async function recalculateRequestPricing(requestId) {
-  const perf = createPerfTimer(`recalcPricing:${requestId}`)
   try {
     const request = await prisma.request.findUnique({
       where: { id: requestId },
       include: REQUEST_INCLUDE_FOR_PRICING
     })
-    perf.step("load request+chess+roomKind")
     if (!request) return null
 
     if (request.hotel?.external) {
-      perf.done({ skipped: "external hotel" })
       return { hotelPrice: null, airlinePrice: null }
     }
 
     await hydrateAirlinePrices([request])
-    perf.step("hydrateAirlinePrices")
-
-    const hc = request.hotelChess?.[0]
     const { hotelPrice, airlinePrice } = await computeRequestPrices(request)
-    perf.step("compute prices", {
-      roomId: hc?.roomId || null,
-      clusterHint: hc ? `${hc.start}..${hc.end}` : null
-    })
 
     await prisma.request.update({
       where: { id: requestId },
@@ -451,12 +431,9 @@ export async function recalculateRequestPricing(requestId) {
         requestAirlinePrice: toStoredRequestPrice(airlinePrice)
       }
     })
-    perf.step("save prices")
-    perf.done()
 
     return { hotelPrice, airlinePrice }
   } catch (error) {
-    perf.done({ error: error?.message })
     logger.error(`Ошибка при пересчете цен заявки ${requestId}:`, error)
     return null
   }
@@ -475,9 +452,6 @@ export async function recalculateOverlappingRequests(
   excludeRequestId,
   extraPeriods = []
 ) {
-  const perf = createPerfTimer(
-    `recalcOverlap:room=${roomId}:exclude=${excludeRequestId || "-"}`
-  )
   if (!roomId) return
 
   const periods = [
@@ -499,7 +473,7 @@ export async function recalculateOverlappingRequests(
       },
       select: { requestId: true, start: true, end: true }
     })
-    perf.step("find overlapping chess", { rows: overlapping.length })
+
 
     const requestIds = [
       ...new Set(
@@ -509,7 +483,6 @@ export async function recalculateOverlappingRequests(
       )
     ]
     if (!requestIds.length) {
-      perf.done({ targets: 0 })
       return
     }
 
@@ -517,7 +490,6 @@ export async function recalculateOverlappingRequests(
       where: { id: { in: requestIds } },
       include: REQUEST_INCLUDE_FOR_PRICING
     })
-    perf.step("load target requests", { targets: targets.length })
 
     let minStart = Infinity
     let maxEnd = -Infinity
@@ -537,7 +509,6 @@ export async function recalculateOverlappingRequests(
     }
 
     if (!Number.isFinite(minStart) || !Number.isFinite(maxEnd)) {
-      perf.done({ skipped: "no date window" })
       return
     }
 
@@ -546,9 +517,7 @@ export async function recalculateOverlappingRequests(
       new Date(minStart),
       new Date(maxEnd)
     )
-    perf.step("load supercluster", { size: supercluster.length })
     await hydrateAirlinePrices(targets)
-    perf.step("hydrate target airline prices")
 
     const targetIdSet = new Set(requestIds)
     const byId = new Map(supercluster.map((row) => [row.id, row]))
@@ -578,10 +547,10 @@ export async function recalculateOverlappingRequests(
       })
       return request.id
     })
-    perf.step("compute+save all targets")
-    perf.done({ targets: targets.length, supercluster: supercluster.length })
+
+
   } catch (error) {
-    perf.done({ error: error?.message })
+
     logger.error("Ошибка при пересчете пересекающихся заявок:", error)
   }
 }
