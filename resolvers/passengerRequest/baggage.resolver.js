@@ -200,8 +200,17 @@ export default {
           if (!prev.plan?.enabled) {
             throw new GraphQLError("Service is not enabled")
           }
-          if (prev.status === "COMPLETED" || prev.status === "CANCELLED") {
-            throw new GraphQLError("Service is completed, no updates allowed")
+          // Патч разрешён и после COMPLETED — дословно как у трансфера (см.
+          // transfer.resolver.js) и по той же причине: суммы, бирки и адреса
+          // доставки вводят ПО ФАКТУ поездки, а статусом управляет пересчёт.
+          // Гвард читал prev, то есть состояние ДО записи, и услуга запиралась
+          // ровно в тот момент, когда число пассажиров догоняло плановое: у
+          // заявок из PWA (только там багажный план несёт peopleCount) каждая
+          // правка цены требовала отдельного переоткрытия с причиной, после
+          // которого услуга тем же патчем снова становилась COMPLETED.
+          // Запрет остаётся только для CANCELLED.
+          if (prev.status === "CANCELLED") {
+            throw new GraphQLError("Service is cancelled, no updates allowed")
           }
 
           const drivers = normalizeDriversForWrite(prev.drivers)

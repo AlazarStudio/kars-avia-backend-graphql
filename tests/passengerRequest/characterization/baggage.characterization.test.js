@@ -682,12 +682,13 @@ test("patch.people пересчитывает сумму поездки и ст�
   assert.ok(service.times.finishedAt instanceof Date)
 })
 
-test("updatePassengerRequestBaggageDriver: четыре гварда состояния услуги", async () => {
+test("updatePassengerRequestBaggageDriver: три гварда состояния услуги", async () => {
+  // COMPLETED из списка убран осознанно: патч после завершения теперь разрешён,
+  // как у трансфера, — см. следующий тест и комментарий в baggage.resolver.js.
   const cases = [
     [null, /BaggageDeliveryService not found/],
     [{ plan: { enabled: false, peopleCount: 2 } }, /Service is not enabled/],
-    [{ status: "COMPLETED" }, /Service is completed, no updates allowed/],
-    [{ status: "CANCELLED" }, /Service is completed, no updates allowed/]
+    [{ status: "CANCELLED" }, /Service is cancelled, no updates allowed/]
   ]
 
   for (const [baggage, message] of cases) {
@@ -706,6 +707,34 @@ test("updatePassengerRequestBaggageDriver: четыре гварда состо�
     assert.equal(run.double.callsTo("passengerRequest", "update").length, 0)
     assert.equal(run.published.length, 0)
   }
+})
+
+test("updatePassengerRequestBaggageDriver: после COMPLETED патч проходит", async () => {
+  // Гвард читал состояние ДО записи, поэтому услуга запиралась ровно тогда, когда
+  // число пассажиров догоняло плановое: суммы, бирки и тип ТС вводят по факту
+  // поездки, то есть уже после того, как люди набраны. Правило совпадает с
+  // трансфером: запрещён только CANCELLED.
+  // ⚠️ Патчим vehicleType, а не reportCost: стоимость поездки ПРОИЗВОДНАЯ —
+  // складывается из сумм пассажиров, и в белый список collectBaggageDriverPatch
+  // не входит. Патч без единого ключа из списка резолвер отсекает до записи,
+  // и тест был бы зелёным по неверной причине.
+  const run = await runFapMutation(
+    "updatePassengerRequestBaggageDriver",
+    { requestId: "req-1", driverIndex: 0, patch: { vehicleType: "Газель" } },
+    {
+      request: withBaggage({
+        status: "COMPLETED",
+        times: { acceptedAt: OLD, finishedAt: OLD },
+        drivers: [makeTrip()]
+      })
+    }
+  )
+
+  assert.equal(run.written.length, 1)
+  assert.equal(
+    run.written[0].baggageDeliveryService.drivers[0].vehicleType,
+    "Газель"
+  )
 })
 
 // ─────────────────── acceptPassengerRequestBaggageOrder ───────────────────
