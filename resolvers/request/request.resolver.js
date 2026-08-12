@@ -1016,8 +1016,9 @@ const requestResolver = {
         if (newRoomId || oldRoomId) {
           await recalculateRequestPricing(requestId)
 
+          let overlapPromise = null
           if (wantsPlacement || isHotelChange) {
-            await recalculateAffectedByRoomChange(
+            overlapPromise = recalculateAffectedByRoomChange(
               oldRoomId,
               oldChessStart,
               oldChessEnd,
@@ -1027,15 +1028,23 @@ const requestResolver = {
               requestId
             )
           } else if (datesChanged && oldRoomId) {
-            // Один проход по объединению старого и нового интервала
-            // (раньше было 2 вызова → одни и те же заявки пересчитывались дважды)
-            await recalculateOverlappingRequests(
+            // Соседей по комнате пересчитываем в фоне — mutation не ждёт весь кластер
+            overlapPromise = recalculateOverlappingRequests(
               oldRoomId,
               oldChessStart,
               oldChessEnd,
               requestId,
               [{ start: updatedStart, end: updatedEnd }]
             )
+          }
+
+          if (overlapPromise) {
+            void overlapPromise.catch((error) => {
+              logger.error(
+                "Фоновый пересчёт пересекающихся заявок после updateRequest:",
+                error
+              )
+            })
           }
         }
 
