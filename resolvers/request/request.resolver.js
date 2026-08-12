@@ -1461,7 +1461,7 @@ const requestResolver = {
           include: { position: true }
         })
       }
-      return null
+      // return null
     },
     // Получение логов по заявке с информацией о пользователе, выполнившем действие.
     logs: async (parent, { pagination }) => {
