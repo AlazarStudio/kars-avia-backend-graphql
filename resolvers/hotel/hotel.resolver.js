@@ -1860,7 +1860,8 @@ const hotelResolver = {
     // },
     // Получение данных пассажира по passengerId
     passenger: async (parent) => {
-      if (parent.passenger !== undefined) return parent.passenger
+      if (parent.passenger?.id) return parent.passenger
+      if (parent.passenger === null) return null
       if (!parent.passengerId) return null
       return await prisma.passenger.findUnique({
         where: { id: parent.passengerId }
@@ -1868,7 +1869,8 @@ const hotelResolver = {
     },
     // Получение данных заявки, связанной с HotelChess
     request: async (parent) => {
-      if (parent.request !== undefined) return parent.request
+      if (parent.request?.id) return parent.request
+      if (parent.request === null) return null
       if (!parent.requestId || typeof parent.requestId !== "string") return null
       return await prisma.request.findUnique({
         where: { id: parent.requestId }
@@ -1876,7 +1878,8 @@ const hotelResolver = {
     },
     // Получение данных брони, связанной с HotelChess
     reserve: async (parent) => {
-      if (parent.reserve !== undefined) return parent.reserve
+      if (parent.reserve?.id) return parent.reserve
+      if (parent.reserve === null) return null
       if (!parent.reserveId || typeof parent.reserveId !== "string") return null
       return await prisma.reserve.findUnique({
         where: { id: parent.reserveId }
@@ -1884,7 +1887,8 @@ const hotelResolver = {
     },
     // Получение данных комнаты, связанной с HotelChess
     room: async (parent) => {
-      if (parent.room !== undefined) return parent.room
+      if (parent.room?.id) return parent.room
+      if (parent.room === null) return null
       if (!parent.roomId) return null
       return await prisma.room.findUnique({
         where: { id: parent.roomId },

@@ -67,9 +67,17 @@ export function buildRequestListWhere({ pagination = {}, user, archive = false }
 }
 
 export const REQUEST_LIST_INCLUDE = {
-  airline: { select: { name: true, images: true } },
-  airport: { select: { name: true, code: true } },
-  hotel: { select: { name: true } },
-  person: { select: { name: true } },
+  airline: { select: { id: true, name: true, images: true } },
+  airport: { select: { id: true, name: true, city: true, code: true, address: true } },
+  hotel: { select: { id: true, name: true } },
+  person: {
+    select: {
+      id: true,
+      name: true,
+      number: true,
+      gender: true,
+      position: { select: { id: true, name: true } }
+    }
+  },
   chat: true
 }
