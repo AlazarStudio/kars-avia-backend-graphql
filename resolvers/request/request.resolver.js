@@ -982,7 +982,7 @@ const requestResolver = {
           newArrival: formatDate(updatedStart),
           newDeparture: formatDate(updatedEnd)
         })
-        await sendRequestPartyEmail({
+        void sendRequestPartyEmail({
           actor: user,
           airlineId: request.airlineId ?? updatedRequest.airlineId,
           action: "update_request",
@@ -991,6 +991,8 @@ const requestResolver = {
           entityType: "request",
           entityId: updatedRequest.id,
           dispatcherFallbackTo: "EMAIL_RECEIVER"
+        }).catch((error) => {
+          logger.error("Ошибка при отправке email update_request:", error)
         })
 
         try {
@@ -1025,17 +1027,14 @@ const requestResolver = {
               requestId
             )
           } else if (datesChanged && oldRoomId) {
+            // Один проход по объединению старого и нового интервала
+            // (раньше было 2 вызова → одни и те же заявки пересчитывались дважды)
             await recalculateOverlappingRequests(
               oldRoomId,
               oldChessStart,
               oldChessEnd,
-              requestId
-            )
-            await recalculateOverlappingRequests(
-              oldRoomId,
-              updatedStart,
-              updatedEnd,
-              requestId
+              requestId,
+              [{ start: updatedStart, end: updatedEnd }]
             )
           }
         }

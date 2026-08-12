@@ -36,7 +36,7 @@ export async function deliverDepartmentEmails({
     return
   }
 
-  for (const recipient of recipients) {
+  const allowedRecipients = recipients.filter((recipient) => {
     const { allowed } = shouldSendNotification({
       channel: "email",
       action,
@@ -47,8 +47,12 @@ export async function deliverDepartmentEmails({
         recipient.departmentId ||
         recipient.email
     })
-    if (allowed) {
-      await sendEmail({ to: recipient.email, subject, html })
-    }
-  }
+    return allowed
+  })
+
+  await Promise.all(
+    allowedRecipients.map((recipient) =>
+      sendEmail({ to: recipient.email, subject, html })
+    )
+  )
 }

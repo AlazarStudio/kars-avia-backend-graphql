@@ -48,6 +48,7 @@ const REQUEST_INCLUDE_FOR_PRICING = {
     select: {
       id: true,
       name: true,
+      external: true,
       mealPrice: true,
       mealPriceForAir: true,
       breakfastIncluded: true,
@@ -265,25 +266,69 @@ async function fetchRoomClusterRequests(roomId, start, end) {
   })
 }
 
+async function mapWithConcurrency(items, concurrency, mapper) {
+  if (!items.length) return []
+  const limit = Math.max(1, concurrency)
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await mapper(items[index], index)
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  )
+  return results
+}
+
+function ensureRequestInCluster(clusterRequests, request) {
+  const hasCurrent = clusterRequests.some((row) => row.id === request.id)
+  if (!hasCurrent) return [...clusterRequests, request]
+  return clusterRequests.map((row) => (row.id === request.id ? request : row))
+}
+
+async function computeRequestPrices(request) {
+  const hc = request.hotelChess?.[0]
+  if (!hc?.roomId || !hc?.start || !hc?.end) {
+    return { hotelPrice: null, airlinePrice: null }
+  }
+
+  const clusterRequests = ensureRequestInCluster(
+    await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end),
+    request
+  )
+
+  const hotelCosts = buildLivingCostsByRequestId(clusterRequests, "hotel")
+  const airlineCosts = buildLivingCostsByRequestId(clusterRequests, "airline")
+
+  return {
+    hotelPrice: buildPriceForRequest(
+      request,
+      "hotel",
+      hotelCosts.livingCostByRequestId,
+      hotelCosts.pricePerDayByRequestId
+    ),
+    airlinePrice: buildPriceForRequest(
+      request,
+      "airline",
+      airlineCosts.livingCostByRequestId,
+      airlineCosts.pricePerDayByRequestId
+    )
+  }
+}
+
 export async function calculateRequestHotelPrice(requestId) {
   const request = await prisma.request.findUnique({
     where: { id: requestId },
     include: REQUEST_INCLUDE_FOR_PRICING
   })
-  if (!request) return null
-
-  const hc = request.hotelChess?.[0]
-  if (!hc?.roomId || !hc?.start || !hc?.end) return null
-
-  const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
-  const { livingCostByRequestId, pricePerDayByRequestId } =
-    buildLivingCostsByRequestId(clusterRequests, "hotel")
-  return buildPriceForRequest(
-    request,
-    "hotel",
-    livingCostByRequestId,
-    pricePerDayByRequestId
-  )
+  if (!request || request.hotel?.external) return null
+  const { hotelPrice } = await computeRequestPrices(request)
+  return hotelPrice
 }
 
 export async function calculateRequestAirlinePrice(requestId) {
@@ -291,38 +336,30 @@ export async function calculateRequestAirlinePrice(requestId) {
     where: { id: requestId },
     include: REQUEST_INCLUDE_FOR_PRICING
   })
-  if (!request) return null
-
-  const hc = request.hotelChess?.[0]
-  if (!hc?.roomId || !hc?.start || !hc?.end) return null
-
-  const clusterRequests = await fetchRoomClusterRequests(hc.roomId, hc.start, hc.end)
-  const { livingCostByRequestId, pricePerDayByRequestId } =
-    buildLivingCostsByRequestId(clusterRequests, "airline")
-  return buildPriceForRequest(
-    request,
-    "airline",
-    livingCostByRequestId,
-    pricePerDayByRequestId
-  )
+  if (!request || request.hotel?.external) return null
+  const { airlinePrice } = await computeRequestPrices(request)
+  return airlinePrice
 }
 
+/**
+ * Один load заявки + один load кластера комнаты → обе цены.
+ * Раньше hotel/airline считались отдельно и каждый раз заново ходили в БД.
+ */
 export async function recalculateRequestPricing(requestId) {
   try {
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: REQUEST_INCLUDE_FOR_PRICING
+    })
+    if (!request) return null
+
     // У TravelLine virtual Hotel нет hotelContract — пропускаем расчёт,
     // чтобы избежать ошибок и нулевых апдейтов.
-    const req = await prisma.request.findUnique({
-      where: { id: requestId },
-      select: { hotel: { select: { external: true } } }
-    })
-    if (req?.hotel?.external) {
+    if (request.hotel?.external) {
       return { hotelPrice: null, airlinePrice: null }
     }
 
-    const [hotelPrice, airlinePrice] = await Promise.all([
-      calculateRequestHotelPrice(requestId),
-      calculateRequestAirlinePrice(requestId)
-    ])
+    const { hotelPrice, airlinePrice } = await computeRequestPrices(request)
 
     await prisma.request.update({
       where: { id: requestId },
@@ -339,45 +376,83 @@ export async function recalculateRequestPricing(requestId) {
   }
 }
 
-export async function recalculateOverlappingRequests(roomId, start, end, excludeRequestId) {
-  if (!roomId || !start || !end) return
+const PRICING_CONCURRENCY = 4
+
+export async function recalculateOverlappingRequests(
+  roomId,
+  start,
+  end,
+  excludeRequestId,
+  extraPeriods = []
+) {
+  if (!roomId) return
+
+  const periods = [
+    start && end ? { start, end } : null,
+    ...(Array.isArray(extraPeriods) ? extraPeriods : [])
+  ].filter((period) => period?.start && period?.end)
+
+  if (!periods.length) return
 
   try {
     const overlapping = await prisma.hotelChess.findMany({
       where: {
         roomId,
-        start: { lt: new Date(end) },
-        end: { gt: new Date(start) },
-        requestId: { not: null }
+        requestId: { not: null },
+        OR: periods.map((period) => ({
+          start: { lt: new Date(period.end) },
+          end: { gt: new Date(period.start) }
+        }))
       },
       select: { requestId: true }
     })
 
-    const requestIds = [...new Set(
-      overlapping
-        .map((hc) => hc.requestId)
-        .filter((id) => id && id !== excludeRequestId)
-    )]
+    const requestIds = [
+      ...new Set(
+        overlapping
+          .map((hc) => hc.requestId)
+          .filter((id) => id && id !== excludeRequestId)
+      )
+    ]
 
-    await Promise.all(requestIds.map((reqId) => recalculateRequestPricing(reqId)))
+    await mapWithConcurrency(requestIds, PRICING_CONCURRENCY, (reqId) =>
+      recalculateRequestPricing(reqId)
+    )
   } catch (error) {
     logger.error("Ошибка при пересчете пересекающихся заявок:", error)
   }
 }
 
 export async function recalculateAffectedByRoomChange(
-  oldRoomId, oldStart, oldEnd,
-  newRoomId, newStart, newEnd,
+  oldRoomId,
+  oldStart,
+  oldEnd,
+  newRoomId,
+  newStart,
+  newEnd,
   requestId
 ) {
   const promises = []
 
   if (oldRoomId && oldStart && oldEnd) {
-    promises.push(recalculateOverlappingRequests(oldRoomId, oldStart, oldEnd, requestId))
+    promises.push(
+      recalculateOverlappingRequests(oldRoomId, oldStart, oldEnd, requestId)
+    )
   }
 
-  if (newRoomId && newStart && newEnd) {
-    promises.push(recalculateOverlappingRequests(newRoomId, newStart, newEnd, requestId))
+  if (
+    newRoomId &&
+    newStart &&
+    newEnd &&
+    !(
+      newRoomId === oldRoomId &&
+      String(newStart) === String(oldStart) &&
+      String(newEnd) === String(oldEnd)
+    )
+  ) {
+    promises.push(
+      recalculateOverlappingRequests(newRoomId, newStart, newEnd, requestId)
+    )
   }
 
   await Promise.all(promises)
@@ -425,8 +500,12 @@ export async function recalculateNonArchivedForRoomKindPeriod(
       select: { requestId: true }
     })
 
-    const requestIds = [...new Set(chess.map((c) => c.requestId).filter(Boolean))]
-    await Promise.all(requestIds.map((id) => recalculateRequestPricing(id)))
+    const requestIds = [
+      ...new Set(chess.map((c) => c.requestId).filter(Boolean))
+    ]
+    await mapWithConcurrency(requestIds, PRICING_CONCURRENCY, (id) =>
+      recalculateRequestPricing(id)
+    )
   } catch (error) {
     logger.error(
       `Ошибка пересчёта заявок для RoomKind ${roomKindId}:`,
