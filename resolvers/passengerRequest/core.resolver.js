@@ -259,11 +259,24 @@ export default {
                 ? { ...(prev.plan || {}), ...service.plan }
                 : prev.plan
             const current = entry.factCount(prev)
-            const recalc = recomputeServiceStatus(
-              { ...prev, plan: mergedPlan },
-              current,
-              current
-            )
+            // Досрочное завершение — решение диспетчера, а не следствие счётчиков:
+            // услуга закрыта ИМЕННО при факте ниже плана. Пересчёт видел ровно эту
+            // картину (`nextCount < planCount`) и возвращал услугу в работу, снимая
+            // finishedAt, — то есть обычное «Сохранить» в сайдбаре услуг молча
+            // откатывало закрытие, писало историю и рассылало письмо. Признаки
+            // досрочного закрытия при этом оставались в документе, и карточка
+            // показывала «в работе» с причиной завершения.
+            // Явный откат есть отдельной мутацией — reopenPassengerRequestService,
+            // она гасит и признаки, и требует причину.
+            const completedEarly =
+              prev.status === "COMPLETED" && prev.earlyCompletedAt != null
+            const recalc = completedEarly
+              ? { status: prev.status, times: prev.times || {} }
+              : recomputeServiceStatus(
+                  { ...prev, plan: mergedPlan },
+                  current,
+                  current
+                )
             data[entry.field] = {
               ...prev,
               ...(service.plan !== undefined && { plan: mergedPlan }),

@@ -397,6 +397,107 @@ test("updatePassengerRequest: патч, ничего не меняющий, не
   ])
 })
 
+// Услуга, закрытая ДОСРОЧНО: факт (1 человек) ниже плана (4) — ровно та картина,
+// на которой пересчёт статуса возвращает услугу в работу.
+function makeEarlyCompletedWater() {
+  return makeRequest({
+    waterService: {
+      plan: { enabled: true, peopleCount: 4 },
+      status: "COMPLETED",
+      times: {
+        acceptedAt: "2026-08-01T10:00:00.000Z",
+        inProgressAt: "2026-08-01T10:05:00.000Z",
+        finishedAt: "2026-08-02T09:00:00.000Z"
+      },
+      earlyCompletionReason: "рейс улетел раньше",
+      earlyCompletedAt: "2026-08-02T09:00:00.000Z",
+      people: [
+        {
+          personId: "aaaaaaaa-0000-4000-8000-000000000001",
+          fullName: "Иванов Иван",
+          personType: "PASSENGER",
+          personCategory: "ADULT"
+        }
+      ]
+    }
+  })
+}
+
+test("сохранение блока услуг НЕ откатывает досрочно завершённую услугу", async () => {
+  // Сайдбар «Услуги» шлёт блок каждой включённой услуги безусловно, поэтому
+  // «Сохранить» без единой правки доходило до пересчёта, а тот видел факт ниже
+  // плана и переоткрывал услугу: статус IN_PROGRESS, finishedAt снят, в истории
+  // «ФАП обновлен», участникам письмо. Признаки досрочного закрытия при этом
+  // оставались в документе.
+  const run = await runFapMutation(
+    "updatePassengerRequest",
+    {
+      id: "req-1",
+      input: { waterService: { plan: { enabled: true, peopleCount: 4 } } }
+    },
+    { request: makeEarlyCompletedWater() }
+  )
+
+  // Патч ничего не меняет — значит записи, истории и рассылки быть не должно.
+  assert.deepEqual(run.written, [])
+  assert.deepEqual(run.logged, [])
+  assert.deepEqual(run.published, [])
+})
+
+test("правка плана досрочно завершённой услуги сохраняет и статус, и дату завершения", async () => {
+  // Здесь запись ОБЯЗАНА случиться (план меняется), поэтому проверяем сам
+  // документ, а не отсутствие записи: статус и finishedAt переживают правку.
+  const run = await runFapMutation(
+    "updatePassengerRequest",
+    {
+      id: "req-1",
+      input: { waterService: { plan: { enabled: true, peopleCount: 6 } } }
+    },
+    { request: makeEarlyCompletedWater() }
+  )
+
+  assert.equal(run.written[0].waterService.plan.peopleCount, 6)
+  assert.equal(run.written[0].waterService.status, "COMPLETED")
+  assert.equal(run.written[0].waterService.times.finishedAt, "<DATE>")
+  assert.equal(run.written[0].waterService.earlyCompletionReason, "рейс улетел раньше")
+})
+
+test("обычное завершение по факту переоткрывается поднятием плана — правило цело", async () => {
+  // Обратная проверка к двум тестам выше: услуга, закрытая ДОСТИЖЕНИЕМ плана
+  // (без признаков досрочного закрытия), обязана вернуться в работу, когда план
+  // подняли. Иначе гвард выключил бы штатное поведение заодно с дефектом.
+  const request = makeRequest({
+    waterService: {
+      plan: { enabled: true, peopleCount: 1 },
+      status: "COMPLETED",
+      times: {
+        acceptedAt: "2026-08-01T10:00:00.000Z",
+        finishedAt: "2026-08-02T09:00:00.000Z"
+      },
+      people: [
+        {
+          personId: "aaaaaaaa-0000-4000-8000-000000000001",
+          fullName: "Иванов Иван",
+          personType: "PASSENGER",
+          personCategory: "ADULT"
+        }
+      ]
+    }
+  })
+
+  const run = await runFapMutation(
+    "updatePassengerRequest",
+    {
+      id: "req-1",
+      input: { waterService: { plan: { enabled: true, peopleCount: 5 } } }
+    },
+    { request }
+  )
+
+  assert.equal(run.written[0].waterService.status, "IN_PROGRESS")
+  assert.equal(run.written[0].waterService.times.finishedAt, null)
+})
+
 test("ДЕФЕКТ №20: в updatePassengerRequest сначала уведомление, потом публикация", async () => {
   // Порядок побочных каналов у двух соседних мутаций противоположный.
   // Реестр дефектов спеки, №20. Вторая половина — в следующем тесте.
