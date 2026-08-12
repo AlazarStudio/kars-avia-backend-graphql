@@ -143,6 +143,48 @@ const reportTypeDef = /* GraphQL */ `
     hotelId: ID
   }
 
+  type ReportShareSegment {
+    start: String!
+    end: String!
+    alone: Boolean!
+    cohabitants: [ReportCohabitant!]!
+  }
+
+  type ReportCohabitant {
+    requestId: ID
+    personName: String!
+  }
+
+  type ReportPresentationColumn {
+    key: String!
+    header: String!
+    width: Int
+  }
+
+  type ReportPresentationCell {
+    key: String!
+    value: String!
+    raw: String
+  }
+
+  type ReportPresentationRow {
+    cells: [ReportPresentationCell!]!
+  }
+
+  type ReportPresentationHeader {
+    companyNameFull: String
+    contractName: String
+    city: String
+    title: String
+  }
+
+  type ReportPresentation {
+    header: ReportPresentationHeader!
+    columns: [ReportPresentationColumn!]!
+    dataRows: [ReportPresentationRow!]!
+    totalsRow: ReportPresentationRow
+  }
+
   type ReportDraftRow {
     index: Int
     requestId: ID
@@ -155,6 +197,9 @@ const reportTypeDef = /* GraphQL */ `
     roomName: String
     roomId: ID
     shareNote: String
+    shareSegments: [ReportShareSegment!]!
+    roomGroupId: String
+    shareClusterId: String
     breakfastCount: Int
     lunchCount: Int
     dinnerCount: Int
@@ -164,6 +209,18 @@ const reportTypeDef = /* GraphQL */ `
     pricePerDay: Float
     totalDebt: Float
     hotelName: String
+  }
+
+  input ReportCohabitantInput {
+    requestId: ID
+    personName: String
+  }
+
+  input ReportShareSegmentInput {
+    start: String
+    end: String
+    alone: Boolean
+    cohabitants: [ReportCohabitantInput!]
   }
 
   input ReportDraftRowInput {
@@ -178,6 +235,9 @@ const reportTypeDef = /* GraphQL */ `
     roomName: String
     roomId: ID
     shareNote: String
+    shareSegments: [ReportShareSegmentInput!]
+    roomGroupId: String
+    shareClusterId: String
     breakfastCount: Int
     lunchCount: Int
     dinnerCount: Int
@@ -221,6 +281,7 @@ const reportTypeDef = /* GraphQL */ `
     endDate: Date!
     filterJson: ReportDraftFilterSnapshot
     rows: [ReportDraftRow!]!
+    presentation: ReportPresentation!
     savedReportId: ID
     savedReport: SavedReport
     createdById: ID

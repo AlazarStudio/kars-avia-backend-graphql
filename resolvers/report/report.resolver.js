@@ -27,6 +27,28 @@ import {
   upsertPartialDaySetting,
   deletePartialDaySetting
 } from "../../services/report/partialDaySettings.js"
+import { buildReportPresentation } from "../../services/report/reportPresentation.js"
+
+const buildDraftPresentation = (draft) => {
+  const snap = draft.filterJson || {}
+  const rows = normalizeReportDraftRows(
+    Array.isArray(draft.rows) ? draft.rows : []
+  )
+  return buildReportPresentation({
+    type: draft.type,
+    rows,
+    companyData: {
+      name: snap.companyName || "",
+      nameFull: snap.companyNameFull || snap.companyName || "",
+      city: snap.companyCity || "",
+      contractName: snap.contractName || ""
+    },
+    createFilterInput: {
+      meal: snap.meal !== false,
+      living: snap.living !== false
+    }
+  })
+}
 
 const draftInclude = {
   airline: true,
@@ -566,7 +588,10 @@ const reportResolver = {
 
   ReportDraft: {
     rows: (parent) =>
-      Array.isArray(parent.rows) ? parent.rows : normalizeReportDraftRows([])
+      Array.isArray(parent.rows)
+        ? normalizeReportDraftRows(parent.rows)
+        : [],
+    presentation: (parent) => buildDraftPresentation(parent)
   },
 
   Subscription: {

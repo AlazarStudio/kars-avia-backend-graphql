@@ -219,9 +219,11 @@ export const buildHotelReportData = async (filter) => {
   }
 }
 
+import { recomputeReportDraftShareMetadata } from "./reportShareMetadata.js"
+
 export const normalizeReportDraftRows = (rows) => {
   if (!Array.isArray(rows)) return []
-  return rows.map((row, i) => ({
+  const normalized = rows.map((row, i) => ({
     index: row.index != null ? row.index : i + 1,
     requestId: row.requestId ?? null,
     arrival: row.arrival ?? "",
@@ -242,6 +244,22 @@ export const normalizeReportDraftRows = (rows) => {
       row.totalLivingCost != null ? Number(row.totalLivingCost) : 0,
     pricePerDay: row.pricePerDay != null ? Number(row.pricePerDay) : null,
     totalDebt: row.totalDebt != null ? Number(row.totalDebt) : 0,
-    hotelName: row.hotelName ?? ""
+    hotelName: row.hotelName ?? "",
+    roomGroupId: row.roomGroupId ?? null,
+    shareClusterId: row.shareClusterId ?? null,
+    shareSegments: Array.isArray(row.shareSegments)
+      ? row.shareSegments.map((seg) => ({
+          start: seg.start ?? "",
+          end: seg.end ?? "",
+          alone: Boolean(seg.alone),
+          cohabitants: Array.isArray(seg.cohabitants)
+            ? seg.cohabitants.map((c) => ({
+                requestId: c.requestId ?? null,
+                personName: c.personName ?? ""
+              }))
+            : []
+        }))
+      : []
   }))
+  return recomputeReportDraftShareMetadata(normalized)
 }

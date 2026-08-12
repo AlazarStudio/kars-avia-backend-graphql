@@ -13,6 +13,7 @@ import {
   resolveWeightedPricePerDay
 } from "../hotel/roomKindSeasonPrice.js"
 import { rulesToCalcConfig } from "./partialDaySettings.js"
+import { enrichRowsWithShareMetadata } from "./reportShareMetadata.js"
 
 const TECH_POS = ["Техник", "Инженер"]
 const NOT_TECH_POS = [
@@ -738,15 +739,10 @@ export const buildAllocation = (data, rules) => {
     return new Date(+yyyy, +MM - 1, +dd, +hh, +mm, +ss)
   }
 
-  const formatLocal = (d) => {
-    const pad = (n) => String(n).padStart(2, "0")
-    return `${pad(d.getDate())}.${pad(
-      d.getMonth() + 1
-    )}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`
-  }
-
-  const bookings = data.map((r) => ({
+  const bookings = data.map((r, sourceIndex) => ({
     ...r,
+    sourceIndex,
+    requestId: r.id || r.requestId || null,
     arrivalTS: parseLocalDT(r.arrival),
     departureTS: parseLocalDT(r.departure)
   }))
@@ -755,15 +751,21 @@ export const buildAllocation = (data, rules) => {
   const rooms = new Map()
   let soloIndex = 0
   for (const b of bookings) {
-    const key = b.roomId ? b.roomId : `__solo_${soloIndex++}`
-    if (!rooms.has(key)) rooms.set(key, [])
-    rooms.get(key).push(b)
+    const roomGroupId = b.roomId ? String(b.roomId) : `__solo_${soloIndex++}`
+    if (!rooms.has(roomGroupId)) rooms.set(roomGroupId, [])
+    rooms.get(roomGroupId).push(b)
   }
+
+  const sortedRoomEntries = [...rooms.entries()].sort(([, aGuests], [, bGuests]) => {
+    const aMin = Math.min(...aGuests.map((g) => g.sourceIndex))
+    const bMin = Math.min(...bGuests.map((g) => g.sourceIndex))
+    return aMin - bMin
+  })
 
   // Карта livingCost для каждого гостя (все номера, все кластеры)
   const allLivingCosts = new Map()
 
-  for (const [, guests] of rooms.entries()) {
+  for (const [, guests] of sortedRoomEntries) {
     const valid = guests.filter(
       (g) => g.arrivalTS && g.departureTS && g.arrivalTS < g.departureTS
     )
@@ -837,44 +839,16 @@ export const buildAllocation = (data, rules) => {
   const out = []
   let index = 1
 
-  for (const [, guests] of rooms.entries()) {
-    const valid = guests.filter(
-      (g) => g.arrivalTS && g.departureTS && g.arrivalTS < g.departureTS
-    )
+  for (const [, guests] of sortedRoomEntries) {
+    const sortedGuests = [...guests].sort((a, b) => a.sourceIndex - b.sourceIndex)
 
-    const buildShareNote = (guest) => {
-      if (!guest.arrivalTS || !guest.departureTS) return ""
-      const others = valid
-        .filter(
-          (g) =>
-            g !== guest &&
-            g.arrivalTS < guest.departureTS &&
-            g.departureTS > guest.arrivalTS
-        )
-        .sort((a, b) => a.arrivalTS - b.arrivalTS)
-
-      const segments = []
-      for (const other of others) {
-        const start = new Date(Math.max(+guest.arrivalTS, +other.arrivalTS))
-        const end = new Date(Math.min(+guest.departureTS, +other.departureTS))
-        if (start < end) {
-          segments.push(
-            `с ${formatLocal(start)} по ${formatLocal(end)} жил с ${other.personName}`
-          )
-        }
-      }
-      return segments.length
-        ? segments.join(", ")
-        : `с ${formatLocal(guest.arrivalTS)} по ${formatLocal(guest.departureTS)} жил один`
-    }
-
-    for (const g of guests) {
+    for (const g of sortedGuests) {
       const livingCost = allLivingCosts.get(g) ?? 0
       if (!livingCost && !g.totalMealCost) continue
 
       out.push({
         index: index++,
-        requestId: g.id || g.requestId || null,
+        requestId: g.requestId,
         arrival: g.arrival,
         departure: g.departure,
         totalDays: g.totalDays,
@@ -882,7 +856,6 @@ export const buildAllocation = (data, rules) => {
         personName: g.personName,
         roomName: g.roomName,
         roomId: g.roomId,
-        shareNote: buildShareNote(g),
         personPosition: g.personPosition,
         breakfastCount: g.breakfastCount,
         lunchCount: g.lunchCount,
@@ -897,5 +870,5 @@ export const buildAllocation = (data, rules) => {
     }
   }
 
-  return out
+  return enrichRowsWithShareMetadata(out)
 }
