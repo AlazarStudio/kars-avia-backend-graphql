@@ -1390,7 +1390,7 @@ const requestResolver = {
     // Получение аэропорта по ID, указанному в заявке.
     airport: async (parent) => {
       if (parent.airport) return parent.airport
-      if (!parent.airportId) return null
+      // if (!parent.airportId) return null
       return await prisma.airport.findUnique({
         where: { id: parent.airportId }
       })
@@ -1398,7 +1398,7 @@ const requestResolver = {
     // Получение авиалинии по ID, указанному в заявке.
     airline: async (parent) => {
       if (parent.airline) return parent.airline
-      if (!parent.airlineId) return null
+      // if (!parent.airlineId) return null
       return await prisma.airline.findUnique({
         where: { id: parent.airlineId },
         include: { prices: true }
@@ -1407,7 +1407,7 @@ const requestResolver = {
     // Получение отеля, связанного с заявкой (если задан).
     hotel: async (parent) => {
       if (parent.hotel) return parent.hotel
-      if (!parent.hotelId) return null
+      // if (!parent.hotelId) return null
       return await prisma.hotel.findUnique({
         where: { id: parent.hotelId }
       })
