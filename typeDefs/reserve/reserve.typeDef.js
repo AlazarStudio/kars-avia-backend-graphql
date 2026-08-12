@@ -132,6 +132,7 @@ const reserveTypeDef = /* GraphQL */ `
     skip: Int
     take: Int
     status: [String]
+    airportId: ID
   }
 
   # input ExtendReserveDatesInput {

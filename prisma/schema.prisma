@@ -1013,6 +1013,10 @@ model HotelChess {
   passengerId    String?          @db.ObjectId
   status         String?
   mealPlan       MealPlan?
+
+  @@index([hotelId])
+  @@index([hotelId, start, end])
+  @@index([roomId, start, end])
 }
 
 model Room {

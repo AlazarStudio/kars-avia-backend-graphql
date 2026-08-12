@@ -1189,6 +1189,7 @@ const airlineResolver = {
       )
     },
     position: async (parent) => {
+      if (parent.position) return parent.position
       if (parent.positionId) {
         return await prisma.position.findUnique({
           where: { id: parent.positionId }
@@ -1197,6 +1198,7 @@ const airlineResolver = {
       return null
     },
     airline: async (parent) => {
+      if (parent.airline) return parent.airline
       if (parent.airlineId) {
         return await prisma.airline.findUnique({
           where: { id: parent.airlineId }

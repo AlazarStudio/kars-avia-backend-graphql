@@ -42,39 +42,32 @@ const reserveResolver = {
     // Включаются связанные данные: airline, airport, пассажиры, hotel, hotelChess, chat, logs.
     reserves: async (_, { pagination }, context) => {
       await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
-      const { skip, take, status } = pagination
+      const { skip, take, status, airportId } = pagination || {}
       // Если статус не указан или содержит "all", фильтр по статусу не применяется.
       const statusFilter =
         !status || status.length === 0 || status.includes("all")
           ? {}
           : { status: { in: status } }
+      const where = {
+        ...statusFilter,
+        ...(airportId ? { airportId } : {})
+        // archive: { not: true }, // (Закомментировано) Исключение архивных записей.
+      }
 
       // Подсчет общего количества резервов с учетом фильтра.
-      const totalCount = await prisma.reserve.count({
-        where: {
-          ...statusFilter
-          // archive: { not: true }, // (Закомментировано) Исключение архивных записей.
-        }
-      })
+      const totalCount = await prisma.reserve.count({ where })
       const totalPages = Math.ceil(totalCount / take)
 
       // Получение списка резервов с пагинацией и сортировкой по дате создания (по убыванию)
       const reserves = await prisma.reserve.findMany({
-        where: {
-          ...statusFilter
-          // archive: { not: true },
-        },
+        where,
         skip: skip * take,
         take: take,
         include: {
           airline: true,
           airport: true,
-          // person: true, // (Закомментировано)
-          passengers: true,
-          hotel: true,
-          hotelChess: true,
+          hotel: { include: { hotel: true } },
           chat: true
-          // logs: true
         },
         orderBy: { createdAt: "desc" }
       })
@@ -1067,18 +1060,21 @@ const reserveResolver = {
   Reserve: {
     // Получение списка резервных отелей (reserveHotel) для данного резерва.
     hotel: async (parent) => {
+      if (Array.isArray(parent.hotel)) return parent.hotel
       return await prisma.reserveHotel.findMany({
         where: { reserveId: parent.id }
       })
     },
     // Получение связанных hotelChess для данного резерва.
     hotelChess: async (parent) => {
+      if (Array.isArray(parent.hotelChess)) return parent.hotelChess
       return await prisma.hotelChess.findMany({
         where: { reserveId: parent.id }
       })
     },
     // Получение списка пассажиров, привязанных к резерву.
     passengers: async (parent) => {
+      if (Array.isArray(parent.passengers)) return parent.passengers
       return await prisma.passenger.findMany({
         where: { reserveId: parent.id }
       })
@@ -1108,24 +1104,28 @@ const reserveResolver = {
   ReserveHotel: {
     // Получение основного резерва, к которому относится данная запись.
     reserve: async (parent) => {
+      if (parent.reserve) return parent.reserve
       return await prisma.reserve.findUnique({
         where: { id: parent.reserveId }
       })
     },
     // Получение отеля, связанного с данной записью.
     hotel: async (parent) => {
+      if (parent.hotel) return parent.hotel
       return await prisma.hotel.findUnique({
         where: { id: parent.hotelId }
       })
     },
     // Получение пассажиров, связанных с данным ReserveHotel.
     passengers: async (parent) => {
+      if (Array.isArray(parent.passengers)) return parent.passengers
       return await prisma.passenger.findMany({
         where: { reserveHotelId: parent.id }
       })
     },
     // Получение записей hotelChess для данного отеля и резерва.
     hotelChess: async (parent) => {
+      if (Array.isArray(parent.hotelChess)) return parent.hotelChess
       return await prisma.hotelChess.findMany({
         where: { hotelId: parent.hotelId, reserveId: parent.reserveId }
       })
