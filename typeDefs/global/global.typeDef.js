@@ -93,6 +93,7 @@ const globalTypeDef = /* GraphQL */ `
     reserveMenu: Boolean
     reserveCreate: Boolean
     reserveUpdate: Boolean
+    reserveUpdateCompleted: Boolean
     analyticsMenu: Boolean
     analyticsUpload: Boolean
     reportMenu: Boolean
@@ -127,6 +128,7 @@ const globalTypeDef = /* GraphQL */ `
     reserveMenu: Boolean
     reserveCreate: Boolean
     reserveUpdate: Boolean
+    reserveUpdateCompleted: Boolean
     analyticsMenu: Boolean
     analyticsUpload: Boolean
     reportMenu: Boolean

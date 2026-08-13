@@ -13,6 +13,7 @@ export const ACCESS_MENU_KEYS = [
   "reserveMenu",
   "reserveCreate",
   "reserveUpdate",
+  "reserveUpdateCompleted",
   "analyticsMenu",
   "analyticsUpload",
   "reportMenu",
