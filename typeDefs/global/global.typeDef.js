@@ -111,6 +111,8 @@ const globalTypeDef = /* GraphQL */ `
     organizationUpdate: Boolean
     organizationAddDrivers: Boolean
     organizationAcceptDrivers: Boolean
+    accessManage: Boolean
+    travellineMenu: Boolean
   }
 
   input AccessMenuInput {
@@ -146,6 +148,8 @@ const globalTypeDef = /* GraphQL */ `
     organizationUpdate: Boolean
     organizationAddDrivers: Boolean
     organizationAcceptDrivers: Boolean
+    accessManage: Boolean
+    travellineMenu: Boolean
   }
 
   # Типы для питания

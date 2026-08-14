@@ -5,6 +5,11 @@ import {
   allMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { logger } from "../../services/infra/logger.js"
+import { assertTravellineAccess } from "../../services/access/assertCanManageAccess.js"
+
+const requireTravellineSection = async (context) => {
+  await assertTravellineAccess(prisma, context)
+}
 
 const travellineResolver = {
   Query: {
@@ -104,12 +109,12 @@ const travellineResolver = {
     },
 
     tlCities: async (_, { countryCode }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getCities(countryCode ?? "RUS")
     },
 
     tlPropertiesByCity: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.searchPropertiesByCity(
         input.cityId,
         input.count ?? 200
@@ -117,72 +122,72 @@ const travellineResolver = {
     },
 
     tlSearchProperties: async (_, { filter }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.searchProperties(filter ?? {})
     },
 
     tlProperty: async (_, { id }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getProperty(id)
     },
 
     tlRoomTypes: async (_, { propertyId }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getRoomTypes(propertyId)
     },
 
     tlRatePlans: async (_, { propertyId }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getRatePlans(propertyId)
     },
 
     tlAvailability: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.searchAvailability(input)
     },
 
     tlPropertyCalendar: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getPropertyCalendar(input)
     },
 
     tlPropertiesAvailability: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.searchPropertiesAvailability(input)
     },
 
     tlReservations: async (_, __, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.listReservations()
     },
 
     tlReservation: async (_, { id }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getReservation(id)
     },
 
     tlCancellationPenalty: async (_, { bookingId }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.calculateCancellationPenalty(bookingId)
     },
 
     tlSyncStatus: async (_, __, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getSyncStatus()
     },
 
     tlCorporate: async (_, { id }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.getCorporate(id)
     },
 
     tlCorporates: async (_, __, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.listCorporates()
     },
 
     tlExtraStays: async (_, { propertyId, input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.searchExtraStays(propertyId, input)
     },
 
@@ -249,12 +254,12 @@ const travellineResolver = {
     },
 
     tlCreateReservation: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.createReservation(input)
     },
 
     tlCancelReservation: async (_, { id }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.cancelReservation(id)
     },
 
@@ -264,17 +269,17 @@ const travellineResolver = {
     },
 
     tlCreateCorporate: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.createCorporate(input)
     },
 
     tlSetCorporateCompany: async (_, { corporateId, companyId }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.setCorporateCompany(corporateId, companyId)
     },
 
     tlAmendReservation: async (_, { input }, context) => {
-      await adminMiddleware(context)
+      await requireTravellineSection(context)
       return travellineService.amendReservation(input)
     }
   }

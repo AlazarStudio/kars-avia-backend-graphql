@@ -105,6 +105,11 @@ type AccessMenu {
   organizationUpdate        Boolean @default(true)
   organizationAddDrivers    Boolean @default(true)
   organizationAcceptDrivers Boolean @default(true)
+  // Выдача доступов и ролей без SUPERADMIN. Default false: иначе Prisma
+  // подставит true во все существующие composite и раздаст право всем.
+  accessManage              Boolean @default(false)
+  // Раздел TravelLine. Default false по той же причине, что и accessManage.
+  travellineMenu            Boolean @default(false)
 }
 
 type DailyMeal {

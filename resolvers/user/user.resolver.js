@@ -7,12 +7,10 @@ import { uploadImage, deleteImage } from "../../services/files/uploadImage.js"
 import logAction from "../../services/infra/logaction.js"
 import { assertAirlinePositionForUser } from "../../services/position/positionAccess.js"
 import {
-  adminHotelAirMiddleware,
   adminMiddleware,
   airlineAdminMiddleware,
   allMiddleware,
   hotelAdminMiddleware,
-  superAdminMiddleware,
   dispatcherOrSuperAdminMiddleware,
   representativeMiddleware
 } from "../../middlewares/authMiddleware.js"
@@ -50,6 +48,15 @@ import {
   sendPasswordChangedNotificationEmail
 } from "../../services/email/sendAuthEmails.js"
 import { loadEffectiveAccessMenuForUser } from "../../services/access/loadEffectiveAccessMenuForUser.js"
+import { compactAccessMenu } from "../../services/access/accessMenuKeys.js"
+import {
+  assertAccessMenuWrite,
+  assertCanAssignRole,
+  assertCanManageUsers,
+  assertCanModifyTargetUser,
+  assertNoSelfPrivilegeChange,
+  toAccessMenuWriteData
+} from "../../services/access/assertCanManageAccess.js"
 
 // Основной объект-резольвер для работы с пользователями (userResolver)
 const userResolver = {
@@ -221,8 +228,7 @@ const userResolver = {
   Mutation: {
     // Регистрация пользователя (используется админами отелей/авиакомпаний)
     registerUser: async (_, { input, images }, context) => {
-      // Проверка прав: доступ разрешен только администраторам отелей/авиакомпаний
-      await adminHotelAirMiddleware(context)
+      const capability = await assertCanManageUsers(prisma, context)
 
       const {
         name,
@@ -237,12 +243,19 @@ const userResolver = {
         dispatcher,
         airlineDepartmentId,
         dispatcherDepartmentId,
-        representativeDepartmentId
+        representativeDepartmentId,
+        accessMenu
       } = input
       const loginNormalized = normalizeUserLogin(login)
       const { finalRole, finalUserType } = resolveRoleAndUserType({
         role,
         userType
+      })
+      assertCanAssignRole(capability.actor, finalRole)
+      assertAccessMenuWrite({
+        actor: capability.actor,
+        incomingMenu: accessMenu,
+        actorEffectiveMenu: capability.effectiveAccessMenu
       })
 
       // Проверка прав доступа для назначения отдела диспетчера
@@ -378,6 +391,10 @@ const userResolver = {
         images: imagePaths,
         emailVerified: true
       }
+      const compactedAccessMenu = compactAccessMenu(accessMenu)
+      if (compactedAccessMenu && Object.keys(compactedAccessMenu).length > 0) {
+        createdData.accessMenu = compactedAccessMenu
+      }
 
       // Создаем пользователя в базе данных
       const newUser = await prisma.user.create({
@@ -458,14 +475,39 @@ const userResolver = {
         airlineId,
         airlineDepartmentId,
         dispatcherDepartmentId,
-        representativeDepartmentId
+        representativeDepartmentId,
+        accessMenu
       } = input
-      // Если обновляет не сам пользователь, разрешено только админам
-      if (context.user.id !== id && (await adminHotelAirMiddleware(context))) {
-        throw new Error("Access forbidden: Admins only or self-update allowed.")
+      const isSelf = context.user.id === id
+      let capability = null
+      if (!isSelf) {
+        capability = await assertCanManageUsers(prisma, context)
       }
       // Получаем текущие данные пользователя из базы
       const currentUser = await prisma.user.findUnique({ where: { id } })
+      if (!currentUser) {
+        throw new Error("Пользователь не найден")
+      }
+
+      assertNoSelfPrivilegeChange({
+        actorId: context.user.id,
+        targetId: id,
+        input,
+        currentRole: currentUser.role
+      })
+      if (!isSelf) {
+        assertCanModifyTargetUser(capability.actor, currentUser)
+      }
+      if (role !== undefined && role !== currentUser.role) {
+        assertCanAssignRole(isSelf ? context.user : capability.actor, role)
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "accessMenu")) {
+        assertAccessMenuWrite({
+          actor: isSelf ? context.user : capability.actor,
+          incomingMenu: accessMenu,
+          actorEffectiveMenu: capability?.effectiveAccessMenu
+        })
+      }
 
       // Проверка прав доступа для изменения отдела диспетчера
       if (dispatcherDepartmentId !== undefined) {
@@ -530,17 +572,16 @@ const userResolver = {
         }
         updatedData.login = loginNormalized
       }
-      if (role !== undefined) {
-        // Разрешаем изменение роли только администраторам
-        if (role !== currentUser.role) {
-          await adminHotelAirMiddleware(context)
-          updatedData.role = role
-        }
+      if (role !== undefined && role !== currentUser.role) {
+        updatedData.role = role
       }
-      if (userType !== undefined) {
-        if (userType !== currentUser.userType) {
-          await adminHotelAirMiddleware(context)
-          updatedData.userType = userType
+      if (userType !== undefined && userType !== currentUser.userType) {
+        updatedData.userType = userType
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "accessMenu")) {
+        const accessMenuWrite = toAccessMenuWriteData(accessMenu)
+        if (accessMenuWrite) {
+          updatedData.accessMenu = accessMenuWrite
         }
       }
       if (positionId !== undefined) {
@@ -1070,10 +1111,6 @@ const userResolver = {
         parent.dispatcherDepartmentId ||
         parent.representativeDepartmentId
 
-      if (!hasDepartment && !parent.positionId) {
-        return null
-      }
-
       let accessMenu = parent.accessMenu
       if (accessMenu === undefined && parent.id) {
         const row = await prisma.user.findUnique({
@@ -1081,6 +1118,10 @@ const userResolver = {
           select: { accessMenu: true }
         })
         accessMenu = row?.accessMenu
+      }
+
+      if (!hasDepartment && !parent.positionId && accessMenu == null) {
+        return null
       }
 
       return loadEffectiveAccessMenuForUser(prisma, {

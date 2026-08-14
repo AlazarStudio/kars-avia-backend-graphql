@@ -32,3 +32,8 @@ test("ACCESS_MENU_KEYS совпадает с полями type AccessMenu в sch
 test("новое право на правку завершённой заявки объявлено", () => {
   assert.ok(ACCESS_MENU_KEYS.includes("reserveUpdateCompleted"))
 })
+
+test("права accessManage и travellineMenu объявлены", () => {
+  assert.ok(ACCESS_MENU_KEYS.includes("accessManage"))
+  assert.ok(ACCESS_MENU_KEYS.includes("travellineMenu"))
+})

@@ -50,3 +50,13 @@ test("user layer wins over position and department", () => {
 test("empty layers returns null", () => {
   assert.equal(mergeAccessMenus(null, null), null)
 })
+
+test("user layer accessManage и travellineMenu перекрывают отдел", () => {
+  const result = mergeAccessMenus(
+    { accessManage: false, travellineMenu: false, requestMenu: true },
+    { accessManage: true, travellineMenu: true }
+  )
+  assert.equal(result.accessManage, true)
+  assert.equal(result.travellineMenu, true)
+  assert.equal(result.requestMenu, true)
+})

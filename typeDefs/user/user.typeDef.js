@@ -179,6 +179,7 @@ const userTypeDef = /* GraphQL */ `
     airlineDepartmentId: ID
     dispatcherDepartmentId: ID
     representativeDepartmentId: ID
+    accessMenu: AccessMenuInput
   }
 
   input UpdateUserInput {
@@ -198,6 +199,7 @@ const userTypeDef = /* GraphQL */ `
     airlineDepartmentId: ID
     dispatcherDepartmentId: ID
     representativeDepartmentId: ID
+    accessMenu: AccessMenuInput
   }
 
   input TwoFAMethodInput {
