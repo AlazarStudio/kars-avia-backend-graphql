@@ -379,12 +379,15 @@ const travellineTypeDef = /* GraphQL */ `
     legalName: String!
     inn: String
     kpp: String
+    companyId: String
+    companyName: String
     raw: String!
   }
 
   input TlCreateCorporateInput {
     inn: String!
     kpp: String!
+    companyId: String
   }
 
   # ─── Raw proxy ───────────────────────────────────────────────────────────────
@@ -439,6 +442,7 @@ const travellineTypeDef = /* GraphQL */ `
     tlCancelReservation(id: ID!): Boolean!
     tlRawRequest(input: TlRawRequestInput!): TlRawResponse!
     tlCreateCorporate(input: TlCreateCorporateInput!): TlCorporate!
+    tlSetCorporateCompany(corporateId: ID!, companyId: ID): TlCorporate!
     tlAmendReservation(input: TlAmendReservationInput!): TlAmendResult!
   }
 `
