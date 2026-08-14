@@ -268,6 +268,11 @@ const travellineResolver = {
       return travellineService.createCorporate(input)
     },
 
+    tlSetCorporateCompany: async (_, { corporateId, companyId }, context) => {
+      await adminMiddleware(context)
+      return travellineService.setCorporateCompany(corporateId, companyId)
+    },
+
     tlAmendReservation: async (_, { input }, context) => {
       await adminMiddleware(context)
       return travellineService.amendReservation(input)

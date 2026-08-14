@@ -1865,15 +1865,34 @@ class TravellineService {
     const mapped = this._mapCorporate(res?.corporate ?? res)
     // Сохраняем в локальную БД — TravelLine не предоставляет endpoint для списка
     try {
+      const companyId = data.companyId || null
       await prisma.tlCorporateRecord.upsert({
         where: { id: mapped.id },
-        create: { id: mapped.id, legalName: mapped.legalName || null, inn: mapped.inn || null, kpp: mapped.kpp || null },
-        update: { legalName: mapped.legalName || null }
+        create: {
+          id: mapped.id,
+          legalName: mapped.legalName || null,
+          inn: mapped.inn || null,
+          kpp: mapped.kpp || null,
+          companyId
+        },
+        update: { legalName: mapped.legalName || null, companyId }
       })
+      mapped.companyId = companyId
     } catch (err) {
       logger.warn(`createCorporate: failed to save locally: ${err?.message}`)
     }
     return mapped
+  }
+
+  // Привязка корпоративного клиента к юрлицу (Company). companyId = null — отвязать.
+  // По какому юрлицу бронируем, тот corporateId и уходит в TravelLine.
+  async setCorporateCompany(corporateId, companyId) {
+    const record = await prisma.tlCorporateRecord.update({
+      where: { id: String(corporateId) },
+      data: { companyId: companyId || null },
+      include: { company: { select: { name: true } } }
+    })
+    return this._mapCorporateRecord(record)
   }
 
   async getCorporate(corporateId) {
@@ -1887,8 +1906,23 @@ class TravellineService {
   async listCorporates() {
     // TravelLine не предоставляет endpoint для получения списка корп. клиентов,
     // поэтому возвращаем из локальной БД (туда записываются при создании)
-    const records = await prisma.tlCorporateRecord.findMany({ orderBy: { createdAt: "asc" } })
-    return records.map((r) => ({ id: r.id, legalName: r.legalName ?? "", inn: r.inn ?? null, kpp: r.kpp ?? null, raw: "{}" }))
+    const records = await prisma.tlCorporateRecord.findMany({
+      orderBy: { createdAt: "asc" },
+      include: { company: { select: { name: true } } }
+    })
+    return records.map((r) => this._mapCorporateRecord(r))
+  }
+
+  _mapCorporateRecord(r) {
+    return {
+      id: r.id,
+      legalName: r.legalName ?? "",
+      inn: r.inn ?? null,
+      kpp: r.kpp ?? null,
+      companyId: r.companyId ?? null,
+      companyName: r.company?.name ?? null,
+      raw: "{}"
+    }
   }
 
   _mapCorporate(c) {

@@ -690,6 +690,7 @@ model Company {
   airlineContract       airlineContract[]
   hotelContract         hotelContract[]
   organizationContracts organizationContract[]
+  tlCorporate           TlCorporateRecord?
 }
 
 model hotelContract {
@@ -2258,6 +2259,8 @@ model TlCorporateRecord {
   legalName String?
   inn       String?
   kpp       String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?  @unique @db.ObjectId
   createdAt DateTime @default(now())
 
   @@index([createdAt])
