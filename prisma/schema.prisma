@@ -83,12 +83,11 @@ type AccessMenu {
   reserveMenu               Boolean @default(true)
   reserveCreate             Boolean @default(true)
   reserveUpdate             Boolean @default(true)
-  // Правка ЗАВЕРШЁННОЙ заявки ФАП. Дефолт true как у соседей — решение
-  // владельца: правка выкатывается как opt-out, право снимают точечно там, где
-  // оно не нужно. Prisma подставляет @default для поля composite, которого в
-  // документе нет, поэтому у всех существующих отделов и должностей право
-  // окажется включённым и в день выката не изменится ничего.
-  reserveUpdateCompleted    Boolean @default(true)
+  // Правка ЗАВЕРШЁННОЙ заявки ФАП. Дефолт false намеренно, в отличие от соседей:
+  // Prisma подставляет @default для поля composite, которого в документе нет,
+  // поэтому @default(true) раздал бы это право всем существующим отделам и
+  // должностям одним деплоем. Право выдаётся осознанно.
+  reserveUpdateCompleted    Boolean @default(false)
   analyticsMenu             Boolean @default(true)
   analyticsUpload           Boolean @default(true)
   reportMenu                Boolean @default(true)
