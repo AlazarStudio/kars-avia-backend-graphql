@@ -4,7 +4,8 @@ import {
   resolveScope,
   buildScopeFilter,
   canAccessRequest,
-  isHotelSubjectScope
+  isHotelSubjectScope,
+  hotelIndexesForScope
 } from "../../services/passengerRequest/fapScope.js"
 
 const userCtx = (role, extra = {}) => ({
@@ -175,4 +176,58 @@ test("isHotelSubjectScope: гостиничные скоупы и их отка�
     isHotelSubjectScope({ kind: "denied", reason: "driver-external-without-request" }),
     false
   )
+})
+
+test("hotelIndexesForScope: гостинице — её индексы, остальным — null", () => {
+  const request = {
+    livingService: {
+      hotels: [{ hotelId: "h1" }, { hotelId: "h2" }, { hotelId: "h1" }]
+    }
+  }
+
+  // Одна организация может стоять в заявке дважды (две площадки), поэтому
+  // ответ — список индексов, а не один индекс.
+  assert.deepEqual(
+    hotelIndexesForScope({ kind: "hotel", hotelId: "h1" }, request),
+    [0, 2]
+  )
+  assert.deepEqual(
+    hotelIndexesForScope({ kind: "hotel", hotelId: "h2" }, request),
+    [1]
+  )
+  // Гостиница вне заявки — пустой список, а не полный: «своих нет» значит
+  // «ничего», иначе правило открывалось бы ровно на том, кого обязано резать.
+  assert.deepEqual(
+    hotelIndexesForScope({ kind: "hotel", hotelId: "h9" }, request),
+    []
+  )
+
+  // null — «ограничения нет»: его обязаны получить все негостиничные скоупы.
+  for (const scope of [
+    { kind: "all" },
+    { kind: "airline", airlineId: "a1" },
+    { kind: "request", requestId: "r1" },
+    { kind: "airlineAirport", airlineId: "a1", airportId: "ap1" },
+    { kind: "denied", reason: "hotel-role-without-hotel" }
+  ]) {
+    assert.equal(hotelIndexesForScope(scope, request), null, scope.kind)
+  }
+})
+
+test("hotelIndexesForScope: заявка без услуги проживания даёт пустой список", () => {
+  const scope = { kind: "hotel", hotelId: "h1" }
+  assert.deepEqual(hotelIndexesForScope(scope, {}), [])
+  assert.deepEqual(hotelIndexesForScope(scope, null), [])
+  assert.deepEqual(hotelIndexesForScope(scope, { livingService: {} }), [])
+})
+
+test("HOTELUSER — гостиничная роль: скоуп гостиницы с hotelId, отказ без него", () => {
+  assert.deepEqual(resolveScope(userCtx("HOTELUSER", { hotelId: "h1" })), {
+    kind: "hotel",
+    hotelId: "h1"
+  })
+  const deniedScope = resolveScope(userCtx("HOTELUSER"))
+  assert.equal(deniedScope.kind, "denied")
+  assert.equal(deniedScope.reason, "hotel-role-without-hotel")
+  assert.equal(isHotelSubjectScope(deniedScope), true, "жёсткий режим и для отказа")
 })

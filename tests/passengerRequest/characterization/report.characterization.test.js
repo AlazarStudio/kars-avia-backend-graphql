@@ -17,7 +17,11 @@ import {
 } from "../../helpers/fapHarness.js"
 import { resolveEmailActionForLog } from "../../../services/notification/passengerRequestEmailActions.js"
 import { hydratePassengerRequest } from "../../../services/passengerRequest/hydratePassengerRequest.js"
-import { makeRequest, makeContext } from "../fixtures/passengerRequest.js"
+import {
+  makeRequest,
+  makeContext,
+  makeHotelContext
+} from "../fixtures/passengerRequest.js"
 
 // Обязательно в каждом файле, импортирующем резолвер: иначе при заданном
 // REDIS_URL клиенты Redis удержат процесс и раннер не завершится.
@@ -621,6 +625,72 @@ test("reportRowsEqual сравнивает сериализации: тот же
   assert.equal("submittedAt" in empty.upserted[0].update, false)
   // А непустая таблица поверх «ничего» — считается, хотя применится ветка create.
   assert.equal(first.upserted[0].update.submittedAt, null)
+})
+
+// ───────────────────── гейт по scope гостиницы ─────────────────────
+
+// Аргументы всех трёх мутаций для одного индекса гостиницы.
+const reportCases = (hotelIndex) => [
+  ["savePassengerRequestHotelReport", saveArgs([{ fullName: "Иванов Иван" }], hotelIndex)],
+  ["submitPassengerRequestHotelReport", { requestId: "req-1", hotelIndex }],
+  ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex }]
+]
+
+test("гейт по scope: отчёт соседней гостиницы недоступен ни на запись, ни на отправку", async () => {
+  // Отчёт — деньги конкретной гостиницы, а заявка общая: hotel-2 её участник и
+  // проверку уровня заявки проходит. Режет именно проверка по индексу.
+  const context = makeHotelContext("hotel-2")
+
+  for (const [name, args] of reportCases(0)) {
+    const run = await runReport(name, args, {
+      report: makeSavedReport({ submittedAt: new Date() }),
+      context
+    })
+    assert.equal(run.error?.extensions?.code, "FORBIDDEN", `${name}: код отказа`)
+    assert.equal(run.error.extensions.http.status, 403, `${name}: статус 403`)
+    assert.equal(
+      run.double.callsTo("passengerRequestHotelReport").length,
+      0,
+      `${name}: до записи отчёта дело не дошло`
+    )
+    assert.equal(run.published.length, 0, `${name}: публикации не было`)
+  }
+})
+
+test("гейт по scope: свой отчёт гостиница пишет, отправляет и скрывает", async () => {
+  // hotel-2 стоит вторым в фикстуре, значит свой для него индекс — 1.
+  const context = makeHotelContext("hotel-2")
+
+  for (const [name, args] of reportCases(1)) {
+    const run = await runReport(name, args, {
+      report: makeSavedReport({ hotelIndex: 1, submittedAt: new Date() }),
+      context
+    })
+    assert.equal(run.error, null, `${name}: отказа нет`)
+    assert.ok(
+      run.double.callsTo("passengerRequestHotelReport").length > 0,
+      `${name}: запись отчёта тронута`
+    )
+  }
+})
+
+test("гейт по scope: у отправки и скрытия он же заменяет отсутствующий assertIndex", async () => {
+  // У submit/hide проверки индекса нет вовсе: несуществующий индекс упирается
+  // в «Отчёт ещё не сохранён». Для гостиничного субъекта тот же индекс теперь
+  // даёт FORBIDDEN — своей гостиницы под ним нет. Диспетчер прежнюю ошибку
+  // видит как видел.
+  const hotel = await runReport(
+    "submitPassengerRequestHotelReport",
+    { requestId: "req-1", hotelIndex: 99 },
+    { context: makeHotelContext("hotel-1") }
+  )
+  assert.equal(hotel.error?.extensions?.code, "FORBIDDEN")
+
+  const dispatcher = await runReport("submitPassengerRequestHotelReport", {
+    requestId: "req-1",
+    hotelIndex: 99
+  })
+  assert.match(dispatcher.error.message, /Отчёт ещё не сохранён/)
 })
 
 // ───────────────────── аутентификация ─────────────────────

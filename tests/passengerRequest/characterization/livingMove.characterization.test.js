@@ -13,7 +13,11 @@ import { installPrismaDouble } from "../../helpers/prismaDouble.js"
 import { installPubsubSpy, releasePubsubAfterTests } from "../../helpers/fapHarness.js"
 import { runFapMutation } from "../../helpers/runFapMutation.js"
 import { resolveEmailActionForLog } from "../../../services/notification/passengerRequestEmailActions.js"
-import { makeRequest, makeContext } from "../fixtures/passengerRequest.js"
+import {
+  makeRequest,
+  makeContext,
+  makeHotelContext
+} from "../fixtures/passengerRequest.js"
 
 // Обязательно в каждом файле, импортирующем резолвер: иначе при заданном
 // REDIS_URL клиенты Redis удержат процесс и раннер не завершится.
@@ -848,6 +852,110 @@ test("пачка применяется целиком либо никак: од
   assert.equal(run.double.callsTo("log", "create").length, 0)
   assert.equal(run.double.callsTo("notification", "create").length, 0)
   assert.equal(run.published.length, 0)
+})
+
+// ─────────────────────────── гейт по scope гостиницы ───────────────────────────
+
+// Обе гостиницы фикстуры населены: у переселения должен быть и источник, и
+// приёмник, а у выселения — жильцы в каждой из проверяемых гостиниц.
+const bothHotelsPopulated = () =>
+  requestWithLiving({ peopleByHotel: [[makePerson(1)], [makePerson(2)]] })
+
+test("гейт по scope: у переселения оба конца обязаны быть своими", async () => {
+  // Гейт на ОДНОМ конце оставил бы гостинице две дыры: с чужим источником она
+  // вытянула бы к себе гостя соседа, с чужим приёмником — сдала бы своего в
+  // чужую гостиницу. Поэтому проверяются оба индекса, и здесь различаются
+  // именно эти два случая.
+  const context = makeHotelContext("hotel-1")
+  const request = bothHotelsPopulated()
+
+  const cases = [
+    ["relocatePassengerRequestHotelPerson", { personIndex: 0 }],
+    ["relocatePassengerRequestHotelPeople", { personIndexes: [0] }]
+  ]
+
+  for (const [name, extra] of cases) {
+    // приёмник чужой: свой гость уехал бы к соседу
+    const toForeign = await runRaw(
+      name,
+      { requestId: "req-1", fromHotelIndex: 0, toHotelIndex: 1, reason: "переезд", ...extra },
+      { request, context }
+    )
+    assert.equal(
+      toForeign.error?.extensions?.code,
+      "FORBIDDEN",
+      `${name}: чужой приёмник`
+    )
+    assert.equal(toForeign.double.callsTo("passengerRequest", "update").length, 0)
+
+    // источник чужой: гость соседа переехал бы к себе
+    const fromForeign = await runRaw(
+      name,
+      { requestId: "req-1", fromHotelIndex: 1, toHotelIndex: 0, reason: "переезд", ...extra },
+      { request, context }
+    )
+    assert.equal(
+      fromForeign.error?.extensions?.code,
+      "FORBIDDEN",
+      `${name}: чужой источник`
+    )
+    assert.equal(fromForeign.double.callsTo("passengerRequest", "update").length, 0)
+  }
+})
+
+test("гейт по scope: выселение из чужой гостиницы отбивается, из своей идёт", async () => {
+  const context = makeHotelContext("hotel-1")
+  const request = bothHotelsPopulated()
+
+  const cases = [
+    ["evictPassengerRequestHotelPerson", { personIndex: 0 }],
+    ["evictPassengerRequestHotelPeople", { personIndexes: [0] }]
+  ]
+
+  for (const [name, extra] of cases) {
+    const foreign = await runRaw(
+      name,
+      { requestId: "req-1", hotelIndex: 1, reason: "выселение", ...extra },
+      { request, context }
+    )
+    assert.equal(foreign.error?.extensions?.code, "FORBIDDEN", `${name}: чужая гостиница`)
+    assert.equal(foreign.error.extensions.http.status, 403, `${name}: статус 403`)
+    assert.equal(foreign.double.callsTo("passengerRequest", "update").length, 0)
+    assert.equal(foreign.published.length, 0)
+
+    const own = await runFapMutation(
+      name,
+      { requestId: "req-1", hotelIndex: 0, reason: "выселение", ...extra },
+      { request, context }
+    )
+    assert.equal(own.written.length, 1, `${name}: своя гостиница выселяет`)
+    assert.equal(own.written[0].livingService.hotels[0].people.length, 0)
+  }
+})
+
+test("гейт по scope: диспетчер переселяет и выселяет между любыми гостиницами", async () => {
+  // Обратная проверка: гейт молчит для негостиничных субъектов.
+  const request = bothHotelsPopulated()
+
+  const relocate = await runFapMutation(
+    "relocatePassengerRequestHotelPerson",
+    {
+      requestId: "req-1",
+      fromHotelIndex: 0,
+      toHotelIndex: 1,
+      personIndex: 0,
+      reason: "переезд"
+    },
+    { request }
+  )
+  assert.equal(relocate.written[0].livingService.hotels[1].people.length, 2)
+
+  const evict = await runFapMutation(
+    "evictPassengerRequestHotelPerson",
+    { requestId: "req-1", hotelIndex: 1, personIndex: 0, reason: "выселение" },
+    { request }
+  )
+  assert.equal(evict.written[0].livingService.hotels[1].people.length, 0)
 })
 
 test("аутентификация: без субъекта мутация не выполняется", async () => {

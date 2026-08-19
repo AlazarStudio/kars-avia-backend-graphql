@@ -12,7 +12,11 @@ import assert from "node:assert/strict"
 import resolvers from "../../../resolvers/passengerRequest/passengerRequest.resolver.js"
 import { installPrismaDouble } from "../../helpers/prismaDouble.js"
 import { releasePubsubAfterTests } from "../../helpers/fapHarness.js"
-import { makeContext } from "../fixtures/passengerRequest.js"
+import {
+  makeContext,
+  makeHotelContext,
+  makeRequest
+} from "../fixtures/passengerRequest.js"
 
 // Обязательно в каждом файле, импортирующем резолвер: иначе при заданном
 // REDIS_URL клиенты Redis удержат процесс и раннер не завершится.
@@ -401,6 +405,40 @@ test("Query скоупится по субъекту: в наблюдении н
       "чужая заявка отдаётся как null, а не как FORBIDDEN: код отказа подтвердил бы её существование"
     )
   })
+})
+
+test("ПРИНЯТЫЙ РАЗРЫВ: hotels[] отдаётся гостинице целиком, вместе со строками соседей", async () => {
+  // Гейты по индексу закрывают ЗАПИСЬ в чужую гостиницу и ЧТЕНИЕ чужого отчёта,
+  // но сам документ заявки участник получает целиком: в livingService.hotels
+  // лежат гостиницы других организаций с их гостями.
+  //
+  // Скрывать их здесь сознательно не стали, и причины две:
+  //  1. Адресация гостиниц позиционная — фильтрация массива сдвинула бы
+  //     hotelIndex, и гостиница правила бы соседа, думая, что правит себя.
+  //  2. Обнуление на месте индексы сохраняет, но было бы полумерой: в том же
+  //     документе рядом лежат evictions (выселенные соседа с ФИО),
+  //     savedPassengers, passengerGroups и водители трансфера — они не
+  //     разложены по гостиницам вовсе.
+  // Закрытие разрыва — решение о форме документа заявки; когда оно случится,
+  // этот тест обязан измениться.
+  const request = makeRequest()
+  request.livingService.hotels[1].people = [
+    { personId: "aaaaaaaa-0000-4000-8000-000000000009", fullName: "Гость Соседа" }
+  ]
+
+  const one = await runOne(
+    { id: "req-1" },
+    { context: makeHotelContext("hotel-1"), documents: { passengerRequest: request } }
+  )
+
+  const hotels = one.result.livingService.hotels
+  assert.equal(hotels.length, 2, "массив гостиниц не сужается")
+  assert.equal(hotels[1].hotelId, "hotel-2", "чужая гостиница на своём индексе")
+  assert.deepEqual(
+    hotels[1].people.map((p) => p.fullName),
+    ["Гость Соседа"],
+    "гости чужой гостиницы видны"
+  )
 })
 
 test("аутентификация: обе Query без субъекта отбиваются", async () => {

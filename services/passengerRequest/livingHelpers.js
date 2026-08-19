@@ -10,6 +10,7 @@ import { GraphQLError } from "graphql"
 import { ensureHotelPerson } from "./normalizers.js"
 import { notifyPassengerRequestSite } from "./notify.js"
 import { recomputeServiceStatus } from "./serviceStatus.js"
+import { resolveScope } from "./fapScope.js"
 
 // Факт услуги проживания — люди ВСЕХ гостиниц сразу: движок статусов знает
 // только общий счёт по услуге, вместимость отдельной гостиницы ему не видна.
@@ -53,25 +54,42 @@ export const applyServiceRecalc = (living, hotelsBefore, hotelsAfter) =>
     countLivingPeople(hotelsAfter)
   )
 
-// Гейт «внешний пользователь гостиницы заселяет только к себе».
+// Гейт «гостиница трогает внутри заявки только свою строку».
 //
-// ⚠️ Стоит ровно у двух add-мутаций. У остальных шести мутаций проживания его
-// нет, и это закреплено тестом «гейт по scope ОТСУТСТВУЕТ у пяти мутаций»:
-// раздать гейт всем — работа по авторизации, а не рефактор.
+// Заявка ФАП общая: в одной услуге проживания стоят гостиницы разных
+// организаций. Проверка уровня заявки (assertCanAccessRequest) пропускает
+// гостиницу в ЛЮБУЮ заявку, где она участвует, а внутри заявки её слайс ровно
+// один — поэтому проверка по индексу обязана стоять у КАЖДОЙ мутации,
+// адресующей гостиницу номером в массиве. Стоит у всех четырнадцати: семь
+// мутаций проживания, четыре переселения/выселения и три отчёта.
+//
+// Восьмая мутация проживания — addPassengerRequestHotel — сюда не входит и
+// входить не может: она ДОБАВЛЯЕТ гостиницу в конец массива, целевого индекса
+// у неё нет. Изоляция состава заявки на уровне «кто вправе дописать гостиницу»
+// — отдельный вопрос, гейтом по индексу он не решается.
+//
+// Скоуп берём из resolveScope, а не сверяем subjectType/scope руками: под
+// kind "hotel" подпадают и учётки CRM (HOTELADMIN/HOTELMODERATOR), и внешние
+// магик-линки (EXTERNAL_USER scope HOTEL). Второе определение «гостиничного
+// субъекта» рядом с fapScope.js неизбежно разъехалось бы с первым — ручная
+// проверка как раз и не видела ролевые учётки CRM.
+//
+// Гостиничный субъект без hotelId сюда не доходит: resolveScope отдаёт ему
+// отказной скоуп, а assertCanAccessRequest режет такой скоуп безусловно
+// (isHotelSubjectScope) — ещё до того, как мутация доберётся до индекса.
 export function assertHotelScopeAccess(context, hotels, hotelIndex) {
-  if (
-    context.subjectType === "EXTERNAL_USER" &&
-    context.subject?.scope === "HOTEL" &&
-    context.subject?.hotelId
-  ) {
-    const targetHotel = hotels[hotelIndex]
-    if (!targetHotel || targetHotel.hotelId !== context.subject.hotelId) {
-      throw new GraphQLError(
-        "Access forbidden: you can only add bookings to your hotel.",
-        { extensions: { code: "FORBIDDEN" } }
-      )
-    }
-  }
+  const scope = resolveScope(context)
+  if (scope.kind !== "hotel") return
+
+  const targetHotel = (hotels || [])[hotelIndex]
+  if (targetHotel && targetHotel.hotelId === scope.hotelId) return
+
+  // Код и статус — те же, что у assertCanAccessRequest: без явного http.status
+  // Apollo отдаёт 200, и фронтовый authErrorLink разбирает отказ иначе.
+  throw new GraphQLError(
+    "Access forbidden: you can only manage your own hotel in this request.",
+    { extensions: { code: "FORBIDDEN", http: { status: 403 } } }
+  )
 }
 
 // Сайтовое уведомление о переселении сверх заказанных мест.

@@ -12,6 +12,8 @@ import { evaluateRequestAccess } from "../../services/passengerRequest/fapScopeG
 // одноразовая, и уже открытый поток иначе продолжал бы получать чужие заявки
 // после того, как право на них исчезло. До этой проверки фильтры возвращали
 // true безусловно, и любой подписчик получал все заявки системы целиком.
+// Пейлоад события — заявка целиком, включая hotels[] соседних гостиниц: тот же
+// ПРИНЯТЫЙ РАЗРЫВ, что у Query.passengerRequest (fields.resolver.js), см. там.
 const allow = (payload, context, field, operation) => {
   const request = payload?.[field]
   if (!request) return false

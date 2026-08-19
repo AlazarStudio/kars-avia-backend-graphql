@@ -1,16 +1,24 @@
-// Видимость отчёта по гостинице для авиакомпании.
+// Видимость отчёта по гостинице: два независимых правила.
 //
-// Правило: авиакомпания видит только ОТПРАВЛЕННЫЙ на проверку отчёт
-// (submittedAt заполнен). До правки оно жило серверно только в аналитике, а
-// для самого отчёта было клиентским — строки уезжали в браузер авиакомпании
-// целиком. Здесь закрепляется серверная сторона.
+// 1. Авиакомпания видит только ОТПРАВЛЕННЫЙ на проверку отчёт (submittedAt
+//    заполнен). До правки оно жило серверно только в аналитике, а для самого
+//    отчёта было клиентским — строки уезжали в браузер авиакомпании целиком.
+// 2. Гостиница видит только СВОЙ отчёт: заявка общая, рядом в ней стоят
+//    гостиницы других организаций, и их отчёт — чужие деньги. Зеркало
+//    фронтового visibleHotelIndexes (kars-avia, FapV2/fapReportAccess.js).
+//
+// Здесь закрепляется серверная сторона обоих.
 
 import test from "node:test"
 import assert from "node:assert/strict"
 import resolvers from "../../resolvers/passengerRequest/passengerRequest.resolver.js"
 import { installPrismaDouble } from "../helpers/prismaDouble.js"
 import { releasePubsubAfterTests } from "../helpers/fapHarness.js"
-import { makeContext } from "./fixtures/passengerRequest.js"
+import {
+  makeContext,
+  makeHotelContext,
+  makeHotelRoleContext
+} from "./fixtures/passengerRequest.js"
 
 releasePubsubAfterTests()
 
@@ -78,4 +86,108 @@ test("одиночный hotelReport закрыт тем же правилом",
 test("отсутствующий отчёт остаётся null, а не падает", async () => {
   const missing = await oneReport(airlineContext(), {}, 0)
   assert.equal(missing, null)
+})
+
+// ─────────────────────── гостиница видит только свой отчёт ───────────────────────
+
+// Заявка с двумя гостиницами: индекс 0 принадлежит hotel-1, индекс 1 —
+// hotel-2. Именно по этому массиву считается «своя строка»: у самой записи
+// отчёта организации нет, есть только номер гостиницы в заявке.
+const sharedParent = {
+  id: "req-1",
+  livingService: {
+    hotels: [
+      { hotelId: "hotel-1", name: "Азия" },
+      { hotelId: "hotel-2", name: "Чаплан" }
+    ]
+  }
+}
+
+async function scopedReports(context, documents, parent = sharedParent) {
+  const double = installPrismaDouble({ documents })
+  try {
+    return await resolvers.PassengerRequest.hotelReports(parent, {}, context)
+  } finally {
+    double.restore()
+  }
+}
+
+async function scopedReport(context, documents, hotelIndex, parent = sharedParent) {
+  const double = installPrismaDouble({ documents })
+  let result = null
+  try {
+    result = await resolvers.PassengerRequest.hotelReport(
+      parent,
+      { hotelIndex },
+      context
+    )
+  } finally {
+    double.restore()
+  }
+  return { result, double }
+}
+
+test("список отчётов гостинице сужается до её собственного", async () => {
+  const documents = { passengerRequestHotelReportMany: [DRAFT, SENT] }
+
+  const first = await scopedReports(makeHotelContext("hotel-1"), documents)
+  assert.deepEqual(first.map((r) => r.id), ["rep-0"], "чужой отчёт не отдаётся")
+
+  const second = await scopedReports(makeHotelContext("hotel-2"), documents)
+  assert.deepEqual(second.map((r) => r.id), ["rep-1"])
+
+  // Правило про submittedAt тут ни при чём: свой отчёт гостиница видит и
+  // черновиком (rep-0 не отправлен) — она его и заполняет.
+  assert.equal(first[0].submittedAt, null)
+})
+
+test("ролевая учётка гостиницы в CRM сужается так же, как магик-линк", async () => {
+  const documents = { passengerRequestHotelReportMany: [DRAFT, SENT] }
+  const list = await scopedReports(makeHotelRoleContext("hotel-2"), documents)
+  assert.deepEqual(list.map((r) => r.id), ["rep-1"])
+})
+
+test("одиночный hotelReport по чужому индексу не ходит в базу вовсе", async () => {
+  // Отказ ДО запроса: иначе разница между «null, потому что нет» и «null,
+  // потому что чужой» подтверждала бы существование чужого отчёта, да и
+  // лишний запрос на каждое поле не нужен.
+  const foreign = await scopedReport(
+    makeHotelContext("hotel-2"),
+    { passengerRequestHotelReport: DRAFT },
+    0
+  )
+  assert.equal(foreign.result, null)
+  assert.equal(
+    foreign.double.callsTo("passengerRequestHotelReport").length,
+    0,
+    "чужой индекс до базы не доходит"
+  )
+
+  const own = await scopedReport(
+    makeHotelContext("hotel-1"),
+    { passengerRequestHotelReport: DRAFT },
+    0
+  )
+  assert.equal(own.result?.id, "rep-0")
+})
+
+test("гостиница без своей строки в заявке не видит ни одного отчёта", async () => {
+  // Такой субъект до полей заявки в бою не доходит (assertCanAccessRequest
+  // режет гостиницу вне заявки), но правило обязано быть замкнутым и здесь:
+  // «нет своих индексов» значит пустой список, а не полный.
+  const list = await scopedReports(makeHotelContext("hotel-999"), {
+    passengerRequestHotelReportMany: [DRAFT, SENT]
+  })
+  assert.deepEqual(list, [])
+})
+
+test("негостиничным зрителям сужение по гостинице не применяется", async () => {
+  const documents = { passengerRequestHotelReportMany: [DRAFT, SENT] }
+
+  const dispatcher = await scopedReports(makeContext(), documents)
+  assert.deepEqual(dispatcher.map((r) => r.id), ["rep-0", "rep-1"])
+
+  // Авиакомпании по-прежнему режет ТОЛЬКО правило submittedAt.
+  const airline = await scopedReports(airlineContext(), documents)
+  assert.deepEqual(airline.map((r) => r.id), ["rep-1"])
 })

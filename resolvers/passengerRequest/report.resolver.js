@@ -12,6 +12,7 @@ import {
 } from "../../services/passengerRequest/envelope.js"
 import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
+import { assertHotelScopeAccess } from "../../services/passengerRequest/livingHelpers.js"
 
 export default {
   Mutation: {
@@ -28,6 +29,14 @@ export default {
       // вырождалась в «без названия». Соседние мутации проживания проверяют
       // индекс именно так.
       assertIndex(hotelIndex, existing.livingService?.hotels?.length ?? 0, "hotelIndex")
+      // Отчёт — деньги конкретной гостиницы. Проверка уровня заявки пускает
+      // сюда любую гостиницу-участницу, поэтому строку отчёта соседа
+      // закрываем отдельно, по индексу.
+      assertHotelScopeAccess(
+        context,
+        existing.livingService?.hotels || [],
+        hotelIndex
+      )
 
       const rows = reportRows.map((row) => ({
         fullName: row.fullName ?? "",
@@ -109,6 +118,14 @@ export default {
     ) => {
       const existing = await loadRequestOrThrow(requestId)
       assertCanAccessRequest(context, existing)
+      // Своя строка отчёта — как у save. Отдельного assertIndex у отправки нет
+      // (несуществующий индекс упирается в «Отчёт ещё не сохранён»), но для
+      // гостиничного субъекта проверка индекса сама по себе даёт отказ.
+      assertHotelScopeAccess(
+        context,
+        existing.livingService?.hotels || [],
+        hotelIndex
+      )
       const hotel = existing.livingService?.hotels?.[hotelIndex]
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
@@ -159,6 +176,12 @@ export default {
     ) => {
       const existing = await loadRequestOrThrow(requestId)
       assertCanAccessRequest(context, existing)
+      // Своя строка отчёта — как у save и submit.
+      assertHotelScopeAccess(
+        context,
+        existing.livingService?.hotels || [],
+        hotelIndex
+      )
 
       const report = await prisma.passengerRequestHotelReport.findUnique({
         where: reportWhere(requestId, hotelIndex)

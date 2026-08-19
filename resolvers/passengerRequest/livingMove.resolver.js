@@ -7,6 +7,7 @@ import {
 } from "../../services/passengerRequest/bulkHotelPeople.js"
 import { ensureHotelPerson } from "../../services/passengerRequest/normalizers.js"
 import { closeOpenChess } from "../../services/passengerRequest/chessHelpers.js"
+import { assertHotelScopeAccess } from "../../services/passengerRequest/livingHelpers.js"
 import {
   assertIndex,
   assertMoment,
@@ -34,6 +35,13 @@ export default {
           const hotels = living.hotels || []
           assertIndex(fromHotelIndex, hotels.length, "fromHotelIndex")
           assertIndex(toHotelIndex, hotels.length, "toHotelIndex")
+          // Гостиница обязана владеть ОБОИМИ концами: гейт на одном конце
+          // оставил бы ей возможность вытянуть гостя из соседней гостиницы
+          // (свой только приёмник) или сдать своего гостя в чужую (свой только
+          // источник). Переселение между разными организациями — работа
+          // диспетчера.
+          assertHotelScopeAccess(context, hotels, fromHotelIndex)
+          assertHotelScopeAccess(context, hotels, toHotelIndex)
           if (fromHotelIndex === toHotelIndex) {
             throw new GraphQLError(
               "fromHotelIndex and toHotelIndex must be different"
@@ -137,6 +145,9 @@ export default {
           const hotels = living.hotels || []
           assertIndex(fromHotelIndex, hotels.length, "fromHotelIndex")
           assertIndex(toHotelIndex, hotels.length, "toHotelIndex")
+          // Оба конца — свои: см. комментарий у одиночного переселения.
+          assertHotelScopeAccess(context, hotels, fromHotelIndex)
+          assertHotelScopeAccess(context, hotels, toHotelIndex)
           if (fromHotelIndex === toHotelIndex) {
             throw new GraphQLError(
               "fromHotelIndex and toHotelIndex must be different"
@@ -251,6 +262,7 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
           const people = hotels[hotelIndex].people || []
           assertIndex(personIndex, people.length, "personIndex")
 
@@ -368,6 +380,7 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
           const hotel = hotels[hotelIndex]
           const people = hotel.people || []
 

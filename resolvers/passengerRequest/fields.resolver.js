@@ -8,13 +8,22 @@ import {
   scopeFilterForQuery,
   evaluateRequestAccess
 } from "../../services/passengerRequest/fapScopeGuard.js"
-import { resolveScope } from "../../services/passengerRequest/fapScope.js"
+import {
+  resolveScope,
+  hotelIndexesForScope
+} from "../../services/passengerRequest/fapScope.js"
 import { visibleHotelReports } from "../../services/analytics/passengerAnalyticsUtils.js"
 
 // Зритель-авиакомпания. Берём канонический предикат модуля, а не
 // `context.user?.airlineId`: resolveScope знает все типы субъекта ФАП, включая
 // персонал авиакомпании, у которого своего `user` в контексте нет.
 const viewerIsAirline = (context) => resolveScope(context).kind === "airline"
+
+// Индексы гостиниц, отчёты которых зритель вправе читать; null — все.
+// Для гостиничного зрителя это ровно его строка заявки: в общей заявке рядом
+// стоят гостиницы других организаций, и их отчёт — чужие деньги.
+const viewerHotelIndexes = (context, request) =>
+  hotelIndexesForScope(resolveScope(context), request)
 
 export default {
   // --------- поля связей ---------
@@ -48,6 +57,11 @@ export default {
     // Флаг FAP_SCOPE_ENFORCE тут ни при чём: это не межорганизационная
     // изоляция, а видимость черновика, и в аналитике она тоже безусловна.
     hotelReport: async (parent, { hotelIndex }, context) => {
+      // Чужой индекс отсекаем ДО обращения в базу: и запроса меньше, и
+      // существование чужого отчёта не подтверждается разницей в ответах.
+      const ownIndexes = viewerHotelIndexes(context, parent)
+      if (ownIndexes && !ownIndexes.includes(hotelIndex)) return null
+
       const report = await prisma.passengerRequestHotelReport.findUnique({
         where: reportWhere(parent.id, hotelIndex)
       })
@@ -60,7 +74,11 @@ export default {
         where: { passengerRequestId: parent.id },
         orderBy: { hotelIndex: "asc" }
       })
-      return visibleHotelReports(reports, viewerIsAirline(context))
+      const ownIndexes = viewerHotelIndexes(context, parent)
+      const scoped = ownIndexes
+        ? reports.filter((rep) => ownIndexes.includes(rep?.hotelIndex))
+        : reports
+      return visibleHotelReports(scoped, viewerIsAirline(context))
     },
 
     logs: async (parent, { pagination }) => {
@@ -117,6 +135,9 @@ export default {
 
   // --------- запросы ---------
   Query: {
+    // Каждая строка списка несёт заявку целиком, включая hotels[] соседних
+    // гостиниц — это тот же ПРИНЯТЫЙ РАЗРЫВ, что описан у Query.passengerRequest
+    // ниже (позиционная адресация по hotelIndex), см. комментарий там.
     passengerRequests: async (_, args, context) => {
       const { filter, skip, take } = args || {}
       const where = {}
@@ -178,6 +199,24 @@ export default {
       return list.map(hydratePassengerRequest)
     },
 
+    // ⚠️ ПРИНЯТЫЙ РАЗРЫВ: заявка отдаётся участнику ЦЕЛИКОМ, включая
+    // livingService.hotels[] соседних гостиниц с их гостями. Скрывать чужие
+    // строки здесь мы сознательно НЕ стали:
+    //
+    // 1. Адресация гостиниц позиционная. Все мутации и маршруты отчёта ходят по
+    //    hotelIndex, и фильтрация массива сдвинула бы индексы — гостиница
+    //    правила бы соседа, думая, что правит себя. Обнуление элементов на
+    //    месте индексы сохраняет, но даёт полумеру: рядом в том же документе
+    //    лежат livingService.evictions (выселенные соседа с ФИО), savedPassengers
+    //    (ростер всей заявки), passengerGroups и водители трансфера — они
+    //    гостиничные не по строке, и одна замаскированная ветка создала бы
+    //    видимость изоляции там, где её нет.
+    // 2. Гейты этой работы закрывают ЗАПИСЬ по чужому индексу и ЧТЕНИЕ отчёта
+    //    (деньги гостиницы, отдельная модель). Полная изоляция состава заявки —
+    //    отдельное решение о форме документа, а не довесок к гейтам.
+    //
+    // Разрыв закреплён тестом «hotels[] отдаётся гостинице целиком» в
+    // query.characterization.test.js: при закрытии он обязан измениться.
     passengerRequest: async (_, { id }, context) => {
       const req = await prisma.passengerRequest.findUnique({ where: { id } })
       if (!req) return null

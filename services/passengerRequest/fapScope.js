@@ -14,7 +14,10 @@ const DISPATCHER_ROLES = new Set([
   "DISPATCHERMODERATOR"
 ])
 const AIRLINE_ROLES = new Set(["AIRLINEADMIN", "AIRLINEMODERATOR"])
-const HOTEL_ROLES = new Set(["HOTELADMIN", "HOTELMODERATOR"])
+// HOTELUSER — третья гостиничная роль из энума Prisma (hotelMiddleware её
+// пускает). Без неё в списке такой пользователь падал бы в unknown-role и до
+// включения общего флага получал бы в наблюдении ВСЕ заявки (ревью 2026-08-19).
+const HOTEL_ROLES = new Set(["HOTELADMIN", "HOTELMODERATOR", "HOTELUSER"])
 
 const denied = (reason) => ({ kind: "denied", reason })
 
@@ -92,6 +95,25 @@ export function isHotelSubjectScope(scope) {
     scope.reason === "hotel-role-without-hotel" ||
     scope.reason === "hotel-external-without-hotel"
   )
+}
+
+// Индексы гостиниц ВНУТРИ заявки, доступные субъекту. null означает
+// «ограничения нет» — так отвечают все негостиничные скоупы.
+//
+// Заявка общая: гостиницы разных организаций стоят в одном массиве, и
+// принадлежность выражена только полем hotelId элемента. Зеркало фронтового
+// правила visibleHotelIndexes (kars-avia, FapV2/fapReportAccess.js): гостиница
+// видит свои индексы, остальные — все. Ветку авиакомпании (только отправленные
+// отчёты) сюда не переносим: она про статус отчёта, а не про принадлежность
+// гостиницы, и живёт в visibleHotelReports.
+export function hotelIndexesForScope(scope, request) {
+  if (scope?.kind !== "hotel") return null
+  const hotels = request?.livingService?.hotels ?? []
+  const indexes = []
+  hotels.forEach((hotel, index) => {
+    if (hotel?.hotelId === scope.hotelId) indexes.push(index)
+  })
+  return indexes
 }
 
 // Фрагмент Prisma where. null означает «ограничения нет».

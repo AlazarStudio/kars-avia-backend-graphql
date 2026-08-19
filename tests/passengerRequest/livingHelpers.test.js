@@ -1,7 +1,9 @@
 import test from "node:test"
 import assert from "node:assert/strict"
+import { GraphQLError } from "graphql"
 import {
   applyServiceRecalc,
+  assertHotelScopeAccess,
   countLivingPeople,
   withHotelPeople
 } from "../../services/passengerRequest/livingHelpers.js"
@@ -206,4 +208,137 @@ test("applyServiceRecalc не трогает отменённую услугу",
 
   assert.equal(recalc.status, "CANCELLED")
   assert.deepEqual(recalc.times, { cancelledAt: "2026-08-02T10:00:00.000Z" })
+})
+
+// ─────────────────────────── assertHotelScopeAccess ───────────────────────────
+
+const hotels = [
+  { hotelId: "hotel-1", name: "Азия" },
+  { hotelId: "hotel-2", name: "Чаплан" }
+]
+
+const externalHotel = (hotelId) => ({
+  subjectType: "EXTERNAL_USER",
+  subject: { id: "ext-1", scope: "HOTEL", hotelId }
+})
+
+const crmHotel = (hotelId, role = "HOTELADMIN") => ({
+  subjectType: "USER",
+  subject: { id: "u-1", role, hotelId }
+})
+
+test("assertHotelScopeAccess пропускает гостиницу к её собственному индексу", () => {
+  assert.doesNotThrow(() =>
+    assertHotelScopeAccess(externalHotel("hotel-1"), hotels, 0)
+  )
+  assert.doesNotThrow(() =>
+    assertHotelScopeAccess(externalHotel("hotel-2"), hotels, 1)
+  )
+})
+
+test("assertHotelScopeAccess отбивает чужой индекс с FORBIDDEN и статусом 403", () => {
+  try {
+    assertHotelScopeAccess(externalHotel("hotel-2"), hotels, 0)
+    assert.fail("должно было бросить")
+  } catch (error) {
+    // Тип важен: обычный Error с тем же extensions Apollo превратит в
+    // INTERNAL_SERVER_ERROR со статусом 500.
+    assert.ok(error instanceof GraphQLError)
+    assert.equal(error.extensions.code, "FORBIDDEN")
+    assert.equal(error.extensions.http.status, 403)
+  }
+})
+
+test("assertHotelScopeAccess видит ролевые учётки CRM, а не только магик-линк", () => {
+  // Прежняя редакция сверяла subjectType === "EXTERNAL_USER" руками и
+  // HOTELADMIN/HOTELMODERATOR не гейтила вовсе, хотя hotelId у них заполнен
+  // так же. Скоуп теперь берётся из resolveScope — определение «гостиничного
+  // субъекта» в модуле одно.
+  for (const role of ["HOTELADMIN", "HOTELMODERATOR"]) {
+    assert.doesNotThrow(() =>
+      assertHotelScopeAccess(crmHotel("hotel-1", role), hotels, 0)
+    )
+    assert.throws(
+      () => assertHotelScopeAccess(crmHotel("hotel-2", role), hotels, 0),
+      /you can only manage your own hotel/
+    )
+  }
+})
+
+test("assertHotelScopeAccess молчит для негостиничных субъектов", () => {
+  const others = [
+    { subjectType: "USER", subject: { id: "u-1", role: "SUPERADMIN" } },
+    { subjectType: "USER", subject: { id: "u-2", role: "DISPATCHERADMIN" } },
+    {
+      subjectType: "USER",
+      subject: { id: "u-3", role: "AIRLINEADMIN", airlineId: "airline-1" }
+    },
+    {
+      subjectType: "AIRLINE_PERSONAL",
+      subject: { id: "p-1", airlineId: "airline-1" }
+    },
+    {
+      subjectType: "EXTERNAL_USER",
+      subject: { id: "d-1", scope: "DRIVER", passengerRequestId: "req-1" }
+    },
+    {
+      subjectType: "EXTERNAL_USER",
+      subject: {
+        id: "r-1",
+        scope: "REPRESENTATIVE",
+        airlineId: "airline-1",
+        airportId: "airport-1"
+      }
+    }
+  ]
+  for (const context of others) {
+    assert.doesNotThrow(
+      () => assertHotelScopeAccess(context, hotels, 0),
+      JSON.stringify(context.subject)
+    )
+    assert.doesNotThrow(
+      () => assertHotelScopeAccess(context, hotels, 99),
+      "негостиничный субъект не получает отказа даже на битом индексе"
+    )
+  }
+})
+
+test("assertHotelScopeAccess отбивает гостиницу на несуществующем индексе", () => {
+  // Индекс вне диапазона у части мутаций не проверяется вовсе (submit/hide
+  // отчёта). Своей гостиницы под ним нет — значит отказ, а не проход.
+  assert.throws(
+    () => assertHotelScopeAccess(externalHotel("hotel-1"), hotels, 99),
+    /you can only manage your own hotel/
+  )
+  assert.throws(
+    () => assertHotelScopeAccess(externalHotel("hotel-1"), [], 0),
+    /you can only manage your own hotel/
+  )
+  assert.throws(
+    () => assertHotelScopeAccess(externalHotel("hotel-1"), undefined, 0),
+    /you can only manage your own hotel/
+  )
+})
+
+test("гостиничная учётка БЕЗ hotelId сюда не доходит: её режет проверка уровня заявки", () => {
+  // resolveScope отдаёт такой учётке отказной скоуп (kind "denied"), а не
+  // "hotel", поэтому здесь она проходит насквозь. Замкнуто это раньше:
+  // isHotelSubjectScope относит отказ hotel-role-without-hotel к гостиничным, и
+  // assertCanAccessRequest режет его безусловно, не дожидаясь FAP_SCOPE_ENFORCE.
+  // Тест фиксирует границу ответственности, а не дыру.
+  assert.doesNotThrow(() =>
+    assertHotelScopeAccess(crmHotel(null), hotels, 0)
+  )
+  assert.doesNotThrow(() =>
+    assertHotelScopeAccess(externalHotel(undefined), hotels, 0)
+  )
+})
+
+test("assertHotelScopeAccess не пускает гостиницу к строке без hotelId", () => {
+  // Гостиница, добавленная в заявку текстом (hotelId не проставлен), ничьей
+  // не считается: undefined === undefined склеил бы её с учёткой без привязки.
+  assert.throws(
+    () => assertHotelScopeAccess(externalHotel("hotel-1"), [{ name: "Без id" }], 0),
+    /you can only manage your own hotel/
+  )
 })

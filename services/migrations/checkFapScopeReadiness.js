@@ -15,7 +15,7 @@ import { prisma } from "../../prisma.js"
 
 const DISPATCHER_ROLES = ["SUPERADMIN", "DISPATCHERADMIN", "DISPATCHERMODERATOR"]
 const AIRLINE_ROLES = ["AIRLINEADMIN", "AIRLINEMODERATOR"]
-const HOTEL_ROLES = ["HOTELADMIN", "HOTELMODERATOR"]
+const HOTEL_ROLES = ["HOTELADMIN", "HOTELMODERATOR", "HOTELUSER"]
 const KNOWN_ROLES = [...DISPATCHER_ROLES, ...AIRLINE_ROLES, ...HOTEL_ROLES]
 
 const sample = (items, size = 5) => items.slice(0, size).map((item) => item.email || item.id)

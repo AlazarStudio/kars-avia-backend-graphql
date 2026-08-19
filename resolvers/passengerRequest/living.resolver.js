@@ -26,6 +26,7 @@ import {
   notifyHotelOverbookIfCrossed,
   withHotelPeople
 } from "../../services/passengerRequest/livingHelpers.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
 import {
   assertIndex,
   emptyLivingService,
@@ -114,6 +115,7 @@ export default {
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []
       assertIndex(hotelIndex, hotels.length, "hotelIndex")
+      assertHotelScopeAccess(context, hotels, hotelIndex)
 
       const removedHotel = hotels[hotelIndex]
       const indexMap = new Map()
@@ -283,9 +285,24 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
 
           const prevHotel = hotels[hotelIndex] || {}
           const placedCount = (prevHotel.people || []).length
+
+          // Владеющая гостиница не может переписать hotelId своего слота: иначе
+          // гейт по индексу обходится «переездом» слота на чужую гостиницу.
+          // Смена гостиницы в слоте — операция диспетчера (ревью 2026-08-19).
+          if (
+            resolveScope(context).kind === "hotel" &&
+            hotel.hotelId != null &&
+            hotel.hotelId !== (prevHotel.hotelId ?? null)
+          ) {
+            throw new GraphQLError(
+              "Access forbidden: hotel reassignment is dispatcher-only.",
+              { extensions: { code: "FORBIDDEN", http: { status: 403 } } }
+            )
+          }
 
           // Валидация: новое количество мест не может быть меньше уже размещённых
           if (
@@ -539,6 +556,7 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
           const people = hotels[hotelIndex].people || []
           assertIndex(personIndex, people.length, "personIndex")
 
@@ -608,6 +626,7 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
           const people = hotels[hotelIndex].people || []
 
           // Индексы здесь не съезжают (это update, а не удаление), нормализация нужна
@@ -675,6 +694,7 @@ export default {
           const living = existing.livingService || emptyLivingService()
           const hotels = living.hotels || []
           assertIndex(hotelIndex, hotels.length, "hotelIndex")
+          assertHotelScopeAccess(context, hotels, hotelIndex)
           const people = hotels[hotelIndex].people || []
           assertIndex(personIndex, people.length, "personIndex")
 

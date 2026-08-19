@@ -148,3 +148,17 @@ export function makeHotelContext(hotelId = "hotel-1") {
     externalUser: { id: "ext-1", name: "Гостиница Азия", scope: "HOTEL", hotelId }
   }
 }
+
+// Контекст сотрудника гостиницы в CRM: роль, а не магик-линк. resolveScope
+// сводит его к тому же скоупу kind "hotel", что и внешнего пользователя, —
+// на этом держатся гейты по индексу гостиницы. Ручная проверка
+// subjectType === "EXTERNAL_USER", стоявшая в них раньше, эту учётку не видела.
+export function makeHotelRoleContext(hotelId = "hotel-1") {
+  const subject = {
+    id: "u-hotel",
+    name: "Админ Гостиницы",
+    role: "HOTELADMIN",
+    hotelId
+  }
+  return { subjectType: "USER", subject, user: { ...subject } }
+}

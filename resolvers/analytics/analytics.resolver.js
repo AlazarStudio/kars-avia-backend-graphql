@@ -12,6 +12,11 @@ import { analyticsAirlineServiceComparison } from "../../services/analytics/airl
 import { analyticsDispatchersPerformance } from "../../services/analytics/dispatchersPerformance.js"
 import { computeAirlineAnalytics } from "../../services/analytics/airlineAnalytics.js"
 import { computePassengerAnalytics } from "../../services/analytics/passengerAnalytics.js"
+import { GraphQLError } from "graphql"
+import {
+  resolveScope,
+  isHotelSubjectScope
+} from "../../services/passengerRequest/fapScope.js"
 import { prisma } from "../../prisma.js"
 import {
   allMiddleware,
@@ -132,6 +137,14 @@ const analyticsResolver = {
     },
     passengerAnalytics: async (_, { input }, context) => {
       await allMiddleware(context)
+      // Аналитика «Пассажиры» — диспетчерско-авиакомпанийский экран: агрегат по
+      // ВСЕМ заявкам, гостиничного скоупа у него нет. Гостиничным субъектам —
+      // отказ, иначе гостиница вытянула бы чужие заявки агрегатом (ревью 2026-08-19).
+      if (isHotelSubjectScope(resolveScope(context))) {
+        throw new GraphQLError("Forbidden", {
+          extensions: { code: "FORBIDDEN", http: { status: 403 } }
+        })
+      }
       const { user } = context
       // АК видит только свои заявки; диспетчер/суперадмин — по input.airlineId (или все)
       const scopedAirlineId = user?.airlineId || input.airlineId || null

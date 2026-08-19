@@ -19,7 +19,8 @@ import { resolveEmailActionForLog } from "../../../services/notification/passeng
 import {
   makeRequest,
   makeContext,
-  makeHotelContext
+  makeHotelContext,
+  makeHotelRoleContext
 } from "../fixtures/passengerRequest.js"
 
 // Обязательно в каждом файле, импортирующем резолвер: иначе при заданном
@@ -630,7 +631,7 @@ test("гейт по scope: внешняя гостиница может засе
   assert.equal(foreign.error.extensions.code, "FORBIDDEN")
   assert.match(
     foreign.error.message,
-    /you can only add bookings to your hotel/
+    /you can only manage your own hotel/
   )
   assert.equal(foreign.double.callsTo("passengerRequest", "update").length, 0)
   assert.equal(foreign.published.length, 0)
@@ -962,42 +963,66 @@ test("removePassengerRequestHotelPerson: индекс гостя вне диап
   assert.equal(run.published.length, 0)
 })
 
-// ─────────────────────────── гейт по scope: разрыв ───────────────────────────
+// ───────────────────────── гейт по scope: пять мутаций ─────────────────────────
 
-test("гейт по scope ОТСУТСТВУЕТ у пяти мутаций: внешняя гостиница проходит насквозь", async () => {
-  // Проверка «только своя гостиница» стоит ровно у двух add-мутаций. Остальные
-  // пять её не имеют: makeHotelContext("hotel-2") правит и удаляет содержимое
-  // гостиницы hotel-1. Это будущая работа по авторизации, а не дефект к
-  // починке сейчас, — закрепляем как есть.
+// Аргументы пяти мутаций группы, адресующих гостиницу индексом, кроме двух
+// add-мутаций (у тех гейт стоял и раньше, они закреплены выше по файлу).
+const gatedByHotelIndex = (hotelIndex) => [
+  [
+    "updatePassengerRequestHotel",
+    { requestId: "req-1", hotelIndex, hotel: { name: "Азия Плюс" } }
+  ],
+  [
+    "updatePassengerRequestHotelPerson",
+    {
+      requestId: "req-1",
+      hotelIndex,
+      personIndex: 0,
+      person: { fullName: "Иванов Иван Иванович" }
+    }
+  ],
+  [
+    "assignPassengerRequestHotelRoom",
+    { requestId: "req-1", hotelIndex, personIndexes: [0], roomNumber: "205" }
+  ],
+  [
+    "removePassengerRequestHotelPerson",
+    { requestId: "req-1", hotelIndex, personIndex: 0 }
+  ],
+  ["removePassengerRequestHotel", { requestId: "req-1", hotelIndex }]
+]
+
+test("гейт по scope: чужая гостиница не правит и не удаляет чужую строку заявки", async () => {
+  // Раньше этот тест закреплял ОТСУТСТВИЕ гейта у пяти мутаций и в комментарии
+  // предписывал себя изменить, когда авторизация появится. Она появилась:
+  // assertHotelScopeAccess стоит у всех мутаций, адресующих гостиницу индексом.
+  //
+  // hotel-2 — участник ТОЙ ЖЕ заявки, то есть проверку уровня заявки
+  // (assertCanAccessRequest) он проходит. Отказ даёт именно проверка по
+  // индексу: внутри общей заявки у гостиницы ровно одна своя строка.
   const context = makeHotelContext("hotel-2")
 
-  const cases = [
-    [
-      "updatePassengerRequestHotel",
-      { requestId: "req-1", hotelIndex: 0, hotel: { name: "Азия Плюс" } }
-    ],
-    [
-      "updatePassengerRequestHotelPerson",
-      {
-        requestId: "req-1",
-        hotelIndex: 0,
-        personIndex: 0,
-        person: { fullName: "Иванов Иван Иванович" }
-      }
-    ],
-    [
-      "assignPassengerRequestHotelRoom",
-      { requestId: "req-1", hotelIndex: 0, personIndexes: [0], roomNumber: "205" }
-    ],
-    [
-      "removePassengerRequestHotelPerson",
-      { requestId: "req-1", hotelIndex: 0, personIndex: 0 }
-    ],
-    ["removePassengerRequestHotel", { requestId: "req-1", hotelIndex: 0 }]
-  ]
+  for (const [name, args] of gatedByHotelIndex(0)) {
+    const run = await runRaw(name, args, { context })
+    assert.equal(run.error?.extensions?.code, "FORBIDDEN", `${name}: код отказа`)
+    assert.equal(run.error.extensions.http.status, 403, `${name}: статус 403`)
+    assert.equal(
+      run.double.callsTo("passengerRequest", "update").length,
+      0,
+      `${name}: записи не было`
+    )
+    assert.equal(run.published.length, 0, `${name}: публикации не было`)
+  }
+})
 
-  for (const [name, args] of cases) {
-    const run = await runMutation(name, args, { context })
+test("гейт по scope: своя гостиница те же пять мутаций выполняет", async () => {
+  // Обратная проверка: гейт режет чужой индекс, а не любую гостиничную учётку.
+  // hotel-2 стоит вторым в фикстуре, поэтому свой для него индекс — 1.
+  const context = makeHotelContext("hotel-2")
+  const request = requestWithLegacyInSecondHotel()
+
+  for (const [name, args] of gatedByHotelIndex(1)) {
+    const run = await runMutation(name, args, { context, request })
     assert.equal(run.written.length, 1, `${name}: запись состоялась`)
     assert.deepEqual(
       run.published.slice(0, 1),
@@ -1006,6 +1031,48 @@ test("гейт по scope ОТСУТСТВУЕТ у пяти мутаций: в�
     )
     // ДЕФЕКТ №22: автор записи истории пустой для любого EXTERNAL_USER.
     assert.equal(run.logged[0].userId, null, `${name}: автор лога пустой`)
+  }
+})
+
+test("гейт по scope: ролевая учётка гостиницы в CRM закрыта наравне с магик-линком", async () => {
+  // Гейт раньше сверял subjectType === "EXTERNAL_USER" руками и ролевую учётку
+  // CRM (HOTELADMIN/HOTELMODERATOR) не видел вовсе, хотя hotelId у неё
+  // заполнен так же. Теперь обе учётки сводятся к скоупу kind "hotel"
+  // через resolveScope — тест различает именно это.
+  const foreign = makeHotelRoleContext("hotel-2")
+
+  for (const [name, args] of gatedByHotelIndex(0)) {
+    const run = await runRaw(name, args, { context: foreign })
+    assert.equal(run.error?.extensions?.code, "FORBIDDEN", `${name}: код отказа`)
+    assert.equal(
+      run.double.callsTo("passengerRequest", "update").length,
+      0,
+      `${name}: записи не было`
+    )
+  }
+
+  // Своя гостиница той же ролевой учётке доступна.
+  const own = await runMutation(
+    "updatePassengerRequestHotel",
+    { requestId: "req-1", hotelIndex: 1, hotel: { name: "Чаплан Плюс" } },
+    { context: makeHotelRoleContext("hotel-2") }
+  )
+  assert.equal(own.written[0].livingService.hotels[1].name, "Чаплан Плюс")
+})
+
+test("гейт по scope: диспетчер и авиакомпания правят любую гостиницу заявки", async () => {
+  // Гейт обязан молчать для негостиничных субъектов — иначе он превратился бы
+  // из изоляции гостиниц в общий запрет.
+  const airline = makeContext({
+    subject: { id: "u-air", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-1" },
+    user: { id: "u-air", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-1" }
+  })
+
+  for (const context of [makeContext(), airline]) {
+    for (const [name, args] of gatedByHotelIndex(0)) {
+      const run = await runMutation(name, args, { context })
+      assert.equal(run.written.length, 1, `${name}: запись состоялась`)
+    }
   }
 })
 
