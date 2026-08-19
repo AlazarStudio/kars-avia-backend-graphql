@@ -3,7 +3,8 @@ import assert from "node:assert/strict"
 import {
   resolveScope,
   buildScopeFilter,
-  canAccessRequest
+  canAccessRequest,
+  isHotelSubjectScope
 } from "../../services/passengerRequest/fapScope.js"
 
 const userCtx = (role, extra = {}) => ({
@@ -155,4 +156,23 @@ test("canAccessRequest при отказе не пускает никого", ()
 test("buildScopeFilter на отказном и неизвестном скоупе бросает, а не отдаёт «без ограничения»", () => {
   assert.throws(() => buildScopeFilter({ kind: "denied", reason: "x" }), /не строится/)
   assert.throws(() => buildScopeFilter({ kind: "brand-new" }), /не строится/)
+})
+
+test("isHotelSubjectScope: гостиничные скоупы и их отказы — да, остальные — нет", () => {
+  assert.equal(isHotelSubjectScope({ kind: "hotel", hotelId: "h1" }), true)
+  assert.equal(
+    isHotelSubjectScope({ kind: "denied", reason: "hotel-role-without-hotel" }),
+    true
+  )
+  assert.equal(
+    isHotelSubjectScope({ kind: "denied", reason: "hotel-external-without-hotel" }),
+    true
+  )
+  assert.equal(isHotelSubjectScope({ kind: "all" }), false)
+  assert.equal(isHotelSubjectScope({ kind: "airline", airlineId: "a1" }), false)
+  assert.equal(isHotelSubjectScope({ kind: "request", requestId: "r1" }), false)
+  assert.equal(
+    isHotelSubjectScope({ kind: "denied", reason: "driver-external-without-request" }),
+    false
+  )
 })

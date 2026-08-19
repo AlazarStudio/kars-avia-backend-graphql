@@ -81,6 +81,19 @@ export function resolveScope(context) {
 export const isUnrestricted = (scope) => scope.kind === "all"
 export const isDenied = (scope) => scope.kind === "denied"
 
+// Гостиничные субъекты изолируются безусловно, не дожидаясь FAP_SCOPE_ENFORCE:
+// принадлежность у них заполнена вся (замер checkFapScopeReadiness 2026-08-19 —
+// 0 блокеров), а «гостиница видит только свои заявки» — прямое решение созвона
+// 04.08. Отказные причины входят сюда же: гостиничная учётка без hotelId под
+// частичным режимом обязана получить отказ, а не полный список.
+export function isHotelSubjectScope(scope) {
+  return (
+    scope.kind === "hotel" ||
+    scope.reason === "hotel-role-without-hotel" ||
+    scope.reason === "hotel-external-without-hotel"
+  )
+}
+
 // Фрагмент Prisma where. null означает «ограничения нет».
 // Для kind "denied" не вызывается — вызывающий обязан проверить isDenied раньше.
 export function buildScopeFilter(scope) {

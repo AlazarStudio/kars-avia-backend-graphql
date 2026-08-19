@@ -15,12 +15,17 @@ import {
   buildScopeFilter,
   canAccessRequest,
   isUnrestricted,
-  isDenied
+  isDenied,
+  isHotelSubjectScope
 } from "./fapScope.js"
 
 // Читаем env на каждом вызове, а не на загрузке модуля: иначе флаг нельзя
 // переключить в тестах и нельзя поменять без перезапуска процесса.
 export const isScopeEnforced = () => process.env.FAP_SCOPE_ENFORCE === "true"
+
+// Гостиницы под жёстким режимом всегда, остальные — по флагу (данные гостиниц
+// чисты, см. isHotelSubjectScope). Флаг остаётся общим рубильником для прочих.
+const isEnforcedFor = (scope) => isScopeEnforced() || isHotelSubjectScope(scope)
 
 // В записи только идентификаторы и вердикт. Персональных данных быть не должно:
 // лог собирается на боевом и живёт в файлах.
@@ -37,7 +42,7 @@ const describe = (context, scope) => ({
   scopeKind: scope.kind,
   scopeReason: scope.reason ?? null,
   operation: context?.fapOperation ?? null,
-  enforced: isScopeEnforced()
+  enforced: isEnforcedFor(scope)
 })
 
 // Точечная проверка по загруженному документу.
@@ -53,7 +58,7 @@ export function evaluateRequestAccess(context, request, { sink } = {}) {
     requestAirlineId: request?.airlineId ?? null
   })
 
-  return { allowed: !isScopeEnforced(), wouldDeny: true }
+  return { allowed: !isEnforcedFor(scope), wouldDeny: true }
 }
 
 export function assertCanAccessRequest(context, request, options) {
@@ -81,7 +86,7 @@ export function scopeFilterForQuery(context, { sink } = {}) {
 
   writeDenial(sink, { ...describe(context, scope), requestId: null, requestAirlineId: null })
 
-  if (!isScopeEnforced()) return { filter: null, denyAll: false }
+  if (!isEnforcedFor(scope)) return { filter: null, denyAll: false }
   // isDenied проверяется ДО buildScopeFilter: тот на отказном скоупе бросает,
   // и это правильно — «ограничения нет» здесь было бы открытием всего списка.
   if (isDenied(scope)) return { filter: null, denyAll: true }
