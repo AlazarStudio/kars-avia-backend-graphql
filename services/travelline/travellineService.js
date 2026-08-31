@@ -5,6 +5,11 @@ import { prisma } from "../../prisma.js"
 import { logger } from "../infra/logger.js"
 import { publishRequestUpdated } from "../infra/subscriptionPayloads.js"
 import calculateMeal from "../meal/calculateMeal.js"
+import {
+  DEFAULT_AUTO_SYNC_HOURS,
+  isAutoSyncDue,
+  normalizeAutoSyncHours
+} from "./autoSyncSchedule.js"
 import { buildStayDatesWithExtras, parseVerifyResponse } from "./travellineBooking.js"
 import {
   extractCancellationPolicy,
@@ -190,12 +195,14 @@ class TravellineService {
     return {
       ...this.syncState,
       lastSyncAt: last?.value ?? this.syncState.finishedAt ?? null,
-      autoSyncHours: interval?.value ? Number(interval.value) : 24
+      autoSyncHours: interval?.value
+        ? normalizeAutoSyncHours(interval.value)
+        : DEFAULT_AUTO_SYNC_HOURS
     }
   }
 
   async setAutoSyncHours(hours) {
-    const v = Math.max(1, Math.min(168, Number(hours) || 24))
+    const v = normalizeAutoSyncHours(hours)
     await prisma.systemSetting.upsert({
       where: { key: "travelline.auto_sync_hours" },
       create: {
@@ -210,22 +217,30 @@ class TravellineService {
     return v
   }
 
-  // Проверка тиком: запустить sync если прошло >= autoSyncHours с lastSyncAt
-  async maybeAutoSync() {
-    if (this.syncState.running) return
+  // Проверка тиком: запустить sync если прошло >= autoSyncHours с lastSyncAt.
+  // toleranceMs задаёт планировщик (половина своего шага), чтобы интервал не
+  // округлялся вверх до следующего тика. Возвращает причину решения — её
+  // логирует и проверяет вызывающий код.
+  async maybeAutoSync({ toleranceMs = 0 } = {}) {
+    if (this.syncState.running) return { started: false, reason: "running" }
     try {
       const cfg = await this.getConfig()
-      if (!cfg.isConfigured) return
+      if (!cfg.isConfigured) return { started: false, reason: "not-configured" }
       const st = await this.getSyncStatus()
-      if (!st.lastSyncAt) return // первичная синхронизация — её делает фронт при заходе
-      const last = new Date(st.lastSyncAt).getTime()
-      const dueAfterMs = (st.autoSyncHours || 24) * 60 * 60 * 1000
-      if (Date.now() - last >= dueAfterMs) {
-        logger.info(`TravelLine auto-sync: starting (interval ${st.autoSyncHours}h)`)
-        this.startCatalogSync()
-      }
+      // первичная синхронизация — её делает фронт при заходе
+      if (!st.lastSyncAt) return { started: false, reason: "never-synced" }
+      const due = isAutoSyncDue({
+        lastSyncAt: st.lastSyncAt,
+        autoSyncHours: st.autoSyncHours,
+        toleranceMs
+      })
+      if (!due) return { started: false, reason: "not-due" }
+      logger.info(`TravelLine auto-sync: starting (interval ${st.autoSyncHours}h)`)
+      this.startCatalogSync()
+      return { started: true, reason: "due" }
     } catch (err) {
       logger.warn(`maybeAutoSync error: ${err?.message}`)
+      return { started: false, reason: "error" }
     }
   }
 
