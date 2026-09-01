@@ -10,7 +10,10 @@ import {
   loadRequestOrThrow,
   reportWhere
 } from "../../services/passengerRequest/envelope.js"
-import { reportRowsEqual } from "../../services/passengerRequest/hotelReportRows.js"
+import {
+  reportRowDate,
+  reportRowsEqual
+} from "../../services/passengerRequest/hotelReportRows.js"
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 import { assertHotelScopeAccess } from "../../services/passengerRequest/livingHelpers.js"
 
@@ -44,6 +47,8 @@ export default {
         roomNumber: row.roomNumber ?? "",
         roomCategory: makeRoomCategoryLabel(row.roomCategory, row.roomKind),
         roomKind: row.roomKind ?? "",
+        arrival: reportRowDate(row.arrival, "arrival"),
+        departure: reportRowDate(row.departure, "departure"),
         daysCount: row.daysCount ?? 0,
         breakfast: row.breakfast ?? 0,
         lunch: row.lunch ?? 0,
@@ -82,7 +87,7 @@ export default {
         },
         update: {
           reportRows: rows,
-          ...(rowsChanged && { submittedAt: null })
+          ...(rowsChanged && { submittedAt: null, pricingApprovedAt: null })
         }
       })
 
@@ -190,7 +195,7 @@ export default {
 
       const updated = await prisma.passengerRequestHotelReport.update({
         where: { id: report.id },
-        data: { submittedAt: null }
+        data: { submittedAt: null, pricingApprovedAt: null }
       })
 
       // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
@@ -211,6 +216,71 @@ export default {
           airlineId: existing.airlineId,
           passengerRequestId: requestId
         }
+      })
+
+      return updated
+    },
+
+    setPassengerRequestHotelReportPricingApproved: async (
+      _,
+      { requestId, hotelIndex, approved },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
+      assertHotelScopeAccess(
+        context,
+        existing.livingService?.hotels || [],
+        hotelIndex
+      )
+      const hotel = existing.livingService?.hotels?.[hotelIndex]
+
+      const report = await prisma.passengerRequestHotelReport.findUnique({
+        where: reportWhere(requestId, hotelIndex)
+      })
+      if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
+      if (approved && report.submittedAt == null) {
+        throw new GraphQLError(
+          "Сначала отправьте отчёт на проверку",
+          { extensions: { code: "BAD_USER_INPUT" } }
+        )
+      }
+
+      const updated = await prisma.passengerRequestHotelReport.update({
+        where: { id: report.id },
+        data: { pricingApprovedAt: approved ? new Date() : null }
+      })
+
+      await finishPassengerRequestMutation({
+        context,
+        newData: existing,
+        log: {
+          action: approved
+            ? "approve_passenger_request_hotel_report_pricing"
+            : "revoke_passenger_request_hotel_report_pricing",
+          description: approved
+            ? "Ценообразование отчёта ФАП согласовано"
+            : "Согласование ценообразования отчёта ФАП снято",
+          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "согласовал" : "снял согласование"} ценообразования отчёта по гостинице ${hotel?.name || "без названия"} в ФАП ${existing.flightNumber}`,
+          airlineId: existing.airlineId,
+          passengerRequestId: requestId,
+          skipEmail: !approved,
+          emailAction: approved
+            ? "approve_passenger_request_hotel_report_pricing"
+            : undefined,
+          emailExtras: approved ? { hotelName: hotel?.name || "без названия" } : {},
+          alsoNotifyAirline: approved
+        },
+        notify: approved
+          ? {
+              action: "approve_passenger_request_hotel_report_pricing",
+              passengerRequestId: existing.id,
+              airlineId: existing.airlineId,
+              hotelId: hotel?.hotelId || undefined,
+              descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> расчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> согласован`,
+              __typename: "PassengerRequestUpdatedNotification"
+            }
+          : null
       })
 
       return updated

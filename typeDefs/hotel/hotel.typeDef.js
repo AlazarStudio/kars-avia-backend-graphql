@@ -164,6 +164,7 @@ const hotelTypeDef = /* GraphQL */ `
     price: Float!
     priceForAirline: Float
     priceForAirReq: Boolean
+    priceSingleOccupancy: Float
     images: [String]
     hotel: Hotel
     roomsCount: Float
@@ -177,6 +178,7 @@ const hotelTypeDef = /* GraphQL */ `
     endDate: Date!
     price: Float!
     priceForAirline: Float
+    priceSingleOccupancy: Float
     roomKindId: ID!
     roomKind: RoomKind
     createdAt: Date
@@ -190,6 +192,7 @@ const hotelTypeDef = /* GraphQL */ `
     endDate: Date!
     price: Float!
     priceForAirline: Float
+    priceSingleOccupancy: Float
   }
 
   input RoomKindSeasonUpdateInput {
@@ -198,6 +201,7 @@ const hotelTypeDef = /* GraphQL */ `
     endDate: Date
     price: Float
     priceForAirline: Float
+    priceSingleOccupancy: Float
   }
 
   type AdditionalServices {
@@ -379,6 +383,7 @@ const hotelTypeDef = /* GraphQL */ `
     price: Float
     priceForAirline: Float
     priceForAirReq: Boolean
+    priceSingleOccupancy: Float
     images: [String]
   }
 

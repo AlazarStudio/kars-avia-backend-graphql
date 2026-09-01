@@ -95,6 +95,8 @@ const MAPPED_ROW_FIELDS = [
   "roomNumber",
   "roomCategory",
   "roomKind",
+  "arrival",
+  "departure",
   "daysCount",
   "breakfast",
   "lunch",
@@ -152,6 +154,8 @@ test("savePassengerRequestHotelReport: строка проходит белый 
     roomNumber: "",
     roomCategory: "",
     roomKind: "",
+    arrival: null,
+    departure: null,
     daysCount: 0,
     breakfast: 0,
     lunch: 0,
@@ -177,6 +181,35 @@ test("savePassengerRequestHotelReport: строка проходит белый 
   assert.deepEqual(run.upserted[0].where, {
     passengerRequestId_hotelIndex: { passengerRequestId: "req-1", hotelIndex: 0 }
   })
+})
+
+test("savePassengerRequestHotelReport: сохраняет заезд/выезд и порции питания", async () => {
+  const run = await runReport(
+    "savePassengerRequestHotelReport",
+    saveArgs([
+      {
+        fullName: "Иванов Иван",
+        arrival: "2026-08-04T14:00:00.000Z",
+        departure: new Date("2026-08-06T12:00:00.000Z"),
+        breakfastCount: 2,
+        lunchCount: 1,
+        dinnerCount: 1,
+        breakfast: 2,
+        lunch: 1,
+        dinner: 1
+      }
+    ])
+  )
+
+  const saved = run.upserted[0].create.reportRows[0]
+  assert.equal(saved.arrival, "2026-08-04T14:00:00.000Z")
+  assert.equal(saved.departure, "2026-08-06T12:00:00.000Z")
+  assert.equal(saved.breakfastCount, 2)
+  assert.equal(saved.lunchCount, 1)
+  assert.equal(saved.dinnerCount, 1)
+  assert.equal(saved.breakfast, 2)
+  assert.equal(saved.lunch, 1)
+  assert.equal(saved.dinner, 1)
 })
 
 test("savePassengerRequestHotelReport: поле вне белого списка не попадает в сохранённую строку", async () => {
@@ -483,7 +516,7 @@ test("hidePassengerRequestHotelReport ставит submittedAt = null и НЕ у
   )
 
   assert.deepEqual(run.updated, [
-    { where: { id: "report-1" }, data: { submittedAt: null } }
+    { where: { id: "report-1" }, data: { submittedAt: null, pricingApprovedAt: null } }
   ])
   assert.equal(run.logged.length, 1)
   assert.equal(run.logged[0].action, "hide_passenger_request_hotel_report")
@@ -498,12 +531,67 @@ test("hidePassengerRequestHotelReport ставит submittedAt = null и НЕ у
   assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
 })
 
+test("setPassengerRequestHotelReportPricingApproved: согласование ставит дату, лог и сайт", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    { report: makeSavedReport({ submittedAt: new Date("2026-08-02T09:00:00.000Z") }) }
+  )
+
+  assert.equal(run.error, null)
+  assert.ok(run.updated[0].data.pricingApprovedAt instanceof Date)
+  assert.equal(run.logged.length, 1)
+  assert.equal(run.logged[0].action, "approve_passenger_request_hotel_report_pricing")
+  assert.equal(run.notified.length, 1)
+  assert.equal(
+    run.notified[0].description.action,
+    "approve_passenger_request_hotel_report_pricing"
+  )
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
+})
+
+test("setPassengerRequestHotelReportPricingApproved: без отправки на проверку согласовать нельзя", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    { report: makeSavedReport({ submittedAt: null }) }
+  )
+  assert.match(run.error.message, /Сначала отправьте отчёт на проверку/)
+  assert.equal(run.updated.length, 0)
+  assert.equal(run.logged.length, 0)
+  assert.equal(run.notified.length, 0)
+})
+
+test("setPassengerRequestHotelReportPricingApproved: снятие не уведомляет сайт", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: false },
+    {
+      report: makeSavedReport({
+        submittedAt: new Date("2026-08-02T09:00:00.000Z"),
+        pricingApprovedAt: new Date("2026-08-03T10:00:00.000Z")
+      })
+    }
+  )
+  assert.equal(run.updated[0].data.pricingApprovedAt, null)
+  assert.equal(run.logged[0].action, "revoke_passenger_request_hotel_report_pricing")
+  assert.equal(run.notified.length, 0)
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
+})
+
 test("submit и hide без сохранённого отчёта падают и не оставляют следов", async () => {
   for (const name of [
     "submitPassengerRequestHotelReport",
-    "hidePassengerRequestHotelReport"
+    "hidePassengerRequestHotelReport",
+    "setPassengerRequestHotelReportPricingApproved"
   ]) {
-    const run = await runReport(name, { requestId: "req-1", hotelIndex: 0 })
+    const run = await runReport(name, {
+      requestId: "req-1",
+      hotelIndex: 0,
+      ...(name === "setPassengerRequestHotelReportPricingApproved"
+        ? { approved: true }
+        : {})
+    })
 
     assert.match(run.error.message, /Отчёт ещё не сохранён/, `${name}: текст ошибки`)
     assert.equal(run.updated.length, 0, `${name}: записи нет`)
@@ -595,6 +683,11 @@ test("reportRowsEqual: совпавшие строки не сбрасывают
     { report: makeSavedReport({ reportRows: stored, submittedAt: new Date() }) }
   )
   assert.equal(changed.upserted[0].update.submittedAt, null, "правка снимает с проверки")
+  assert.equal(
+    changed.upserted[0].update.pricingApprovedAt,
+    null,
+    "правка снимает согласование цен"
+  )
 })
 
 test("reportRowsEqual сравнивает сериализации: тот же набор значений в другом порядке ключей считается изменением", async () => {
@@ -633,7 +726,11 @@ test("reportRowsEqual сравнивает сериализации: тот же
 const reportCases = (hotelIndex) => [
   ["savePassengerRequestHotelReport", saveArgs([{ fullName: "Иванов Иван" }], hotelIndex)],
   ["submitPassengerRequestHotelReport", { requestId: "req-1", hotelIndex }],
-  ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex }]
+  ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex }],
+  [
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex, approved: true }
+  ]
 ]
 
 test("гейт по scope: отчёт соседней гостиницы недоступен ни на запись, ни на отправку", async () => {
@@ -699,7 +796,11 @@ test("аутентификация: без субъекта ни одна из �
   for (const [name, args] of [
     ["savePassengerRequestHotelReport", saveArgs([{ fullName: "Иванов Иван" }])],
     ["submitPassengerRequestHotelReport", { requestId: "req-1", hotelIndex: 0 }],
-    ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex: 0 }]
+    ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex: 0 }],
+    [
+      "setPassengerRequestHotelReportPricingApproved",
+      { requestId: "req-1", hotelIndex: 0, approved: true }
+    ]
   ]) {
     const run = await runReport(name, args, {
       report: makeSavedReport(),

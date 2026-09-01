@@ -63,6 +63,7 @@ const dispatcherTypeDef = /* GraphQL */ `
     | ReserveUpdatedNotification
     | PassengerRequestCreatedNotification
     | PassengerRequestUpdatedNotification
+    | ReportSubmittedNotification
     | MessageSentNotification
 
   # type AirlineCreated {  }
@@ -120,6 +121,12 @@ const dispatcherTypeDef = /* GraphQL */ `
 
   type PassengerRequestUpdatedNotification {
     passengerRequestId: ID
+    airline: Airline
+  }
+
+  type ReportSubmittedNotification {
+    draftId: ID
+    airlineId: ID
     airline: Airline
   }
 

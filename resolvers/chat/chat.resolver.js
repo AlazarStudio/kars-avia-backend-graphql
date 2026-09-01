@@ -648,7 +648,8 @@ const chatResolver = {
           textPreview: message.text,
           requestId,
           reserveId,
-          passengerRequestId
+          passengerRequestId,
+          chatId: message.chat.id
         })
 
         await sendRequestPartyEmail({

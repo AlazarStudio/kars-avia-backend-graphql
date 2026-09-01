@@ -23,7 +23,8 @@ const writeStyledWorkbook = async ({
   const font = { name: "Times New Roman", size: 12 }
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet(sheetName)
-  const { columns, header, dataRows, totalsRow } = presentation
+  const { columns, header, totalsRow } = presentation
+  const dataRows = presentation.dataRows || []
   const { dataRows: excelDataRows, totalsRow: excelTotalsRow } =
     presentationToExcelRows(presentation)
 
@@ -103,6 +104,20 @@ const writeStyledWorkbook = async ({
       }
     })
   }
+
+  dataRows.forEach((presRow, i) => {
+    const sheetRow = sheet.getRow(firstDataRow + i)
+    for (const cell of presRow.cells || []) {
+      if (!cell.highlighted) continue
+      const colIdx = columns.findIndex((c) => c.key === cell.key)
+      if (colIdx < 0) continue
+      sheetRow.getCell(colIdx + 1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFE599" }
+      }
+    }
+  })
 
   ;[1, 2, 3, 4].forEach((rn) => {
     const row = sheet.getRow(rn)

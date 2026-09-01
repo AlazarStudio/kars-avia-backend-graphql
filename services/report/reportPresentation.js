@@ -106,13 +106,19 @@ const getCellRawValue = (col, row, { includeMeal, includeLiving }) => {
   }
 }
 
-const buildPresentationRow = (row, columns, options) => ({
-  cells: columns.map((col) => ({
-    key: col.key,
-    value: getCellDisplayValue(col, row, options),
-    raw: formatCellRaw(getCellRawValue(col, row, options))
-  }))
-})
+const buildPresentationRow = (row, columns, options) => {
+  const changed = new Set(
+    Array.isArray(row?.changedKeys) ? row.changedKeys : []
+  )
+  return {
+    cells: columns.map((col) => ({
+      key: col.key,
+      value: getCellDisplayValue(col, row, options),
+      raw: formatCellRaw(getCellRawValue(col, row, options)),
+      highlighted: changed.has(col.key)
+    }))
+  }
+}
 
 export const buildReportPresentation = ({
   type,
@@ -141,7 +147,12 @@ export const buildReportPresentation = ({
 
   const totalsCells = columns.map((col) => {
     if (col.key === totalsLabelKey) {
-      return { key: col.key, value: "ИТОГО:", raw: "ИТОГО:" }
+      return {
+        key: col.key,
+        value: "ИТОГО:",
+        raw: "ИТОГО:",
+        highlighted: false
+      }
     }
 
     if (col.key === "totalMealCost" && includeMeal) {
@@ -149,7 +160,8 @@ export const buildReportPresentation = ({
       return {
         key: col.key,
         value: formatReportCurrency(sum),
-        raw: String(sum)
+        raw: String(sum),
+        highlighted: false
       }
     }
 
@@ -158,7 +170,8 @@ export const buildReportPresentation = ({
       return {
         key: col.key,
         value: formatReportCurrency(sum),
-        raw: String(sum)
+        raw: String(sum),
+        highlighted: false
       }
     }
 
@@ -173,11 +186,12 @@ export const buildReportPresentation = ({
       return {
         key: col.key,
         value: formatReportCurrency(sum),
-        raw: String(sum)
+        raw: String(sum),
+        highlighted: false
       }
     }
 
-    return { key: col.key, value: "", raw: null }
+    return { key: col.key, value: "", raw: null, highlighted: false }
   })
 
   return {

@@ -20,6 +20,7 @@ const reportTypeDef = /* GraphQL */ `
 
   enum ReportDraftStatus {
     DRAFT
+    SUBMITTED
     CONFIRMED
   }
 
@@ -65,7 +66,13 @@ const reportTypeDef = /* GraphQL */ `
       input: CreateReportInput!
       createFilterInput: createFilterInput
     ): ReportDraft!
+    archiveReport(id: ID!): SavedReport!
+    restoreReport(id: ID!): SavedReport!
+
     updateReportDraft(id: ID!, rows: [ReportDraftRowInput!]!): ReportDraft!
+    recreateReportDraft(id: ID!): ReportDraft!
+    submitAirlineReportDraft(id: ID!): ReportDraft!
+    unsubmitAirlineReportDraft(id: ID!): ReportDraft!
     confirmReportDraft(id: ID!, format: ReportFormat): SavedReport!
     deleteReportDraft(id: ID!): Boolean!
   }
@@ -165,6 +172,7 @@ const reportTypeDef = /* GraphQL */ `
     key: String!
     value: String!
     raw: String
+    highlighted: Boolean
   }
 
   type ReportPresentationRow {
@@ -209,6 +217,7 @@ const reportTypeDef = /* GraphQL */ `
     pricePerDay: Float
     totalDebt: Float
     hotelName: String
+    changedKeys: [String!]
   }
 
   input ReportCohabitantInput {
@@ -285,6 +294,7 @@ const reportTypeDef = /* GraphQL */ `
     savedReportId: ID
     savedReport: SavedReport
     createdById: ID
+    submittedAt: Date
     confirmedAt: Date
     createdAt: Date!
     updatedAt: Date!

@@ -6,6 +6,10 @@ import {
   getPresenceCleanupIntervalMs,
   markStaleUsersOffline
 } from "../user/userPresence.js"
+import {
+  archiveSavedReportInternal,
+  buildAutoArchiveWhere
+} from "../report/reportArchive.js"
 
 let intervalId = null
 let presenceIntervalId = null
@@ -53,11 +57,23 @@ const finalizeArchivingRequests = async (now) => {
   }
 }
 
+const archiveOldSavedReports = async (now) => {
+  const reports = await prisma.savedReport.findMany({
+    where: buildAutoArchiveWhere(now),
+    select: { id: true }
+  })
+
+  for (const report of reports) {
+    await archiveSavedReportInternal({ id: report.id })
+  }
+}
+
 const checkAndArchiveRequests = async () => {
   try {
     const now = new Date()
     await moveExpiredToArchiving(now)
     await finalizeArchivingRequests(now)
+    await archiveOldSavedReports(now)
   } catch (e) {
     logger.error("[CRON] checkAndArchiveRequests failed", e)
   }

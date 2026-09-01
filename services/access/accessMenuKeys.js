@@ -18,6 +18,7 @@ export const ACCESS_MENU_KEYS = [
   "analyticsUpload",
   "reportMenu",
   "reportCreate",
+  "reportDelete",
   "userMenu",
   "userCreate",
   "userUpdate",
@@ -31,8 +32,11 @@ export const ACCESS_MENU_KEYS = [
   "organizationUpdate",
   "organizationAddDrivers",
   "organizationAcceptDrivers",
-  "accessManage",
-  "travellineMenu"
+    "accessManage",
+    "travellineMenu",
+    "passengerRequestMenu",
+    "passengerRequestCreate",
+    "passengerRequestUpdate"
 ]
 
 const hasOwn = (obj, key) =>

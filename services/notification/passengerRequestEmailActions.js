@@ -28,6 +28,9 @@ export function resolveEmailActionForLog(logAction) {
   if (logAction === "create_passenger_request") {
     return "create_passenger_request"
   }
+  if (logAction === "approve_passenger_request_hotel_report_pricing") {
+    return "approve_passenger_request_hotel_report_pricing"
+  }
   if (HOTEL_CHESS_LOG_ACTIONS.has(logAction)) {
     return "update_hotel_chess_passenger_request"
   }

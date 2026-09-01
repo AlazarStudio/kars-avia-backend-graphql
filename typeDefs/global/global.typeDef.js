@@ -98,6 +98,7 @@ const globalTypeDef = /* GraphQL */ `
     analyticsUpload: Boolean
     reportMenu: Boolean
     reportCreate: Boolean
+    reportDelete: Boolean
     userMenu: Boolean
     userCreate: Boolean
     userUpdate: Boolean
@@ -113,6 +114,9 @@ const globalTypeDef = /* GraphQL */ `
     organizationAcceptDrivers: Boolean
     accessManage: Boolean
     travellineMenu: Boolean
+    passengerRequestMenu: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestUpdate: Boolean
   }
 
   input AccessMenuInput {
@@ -135,6 +139,7 @@ const globalTypeDef = /* GraphQL */ `
     analyticsUpload: Boolean
     reportMenu: Boolean
     reportCreate: Boolean
+    reportDelete: Boolean
     userMenu: Boolean
     userCreate: Boolean
     userUpdate: Boolean
@@ -150,19 +155,23 @@ const globalTypeDef = /* GraphQL */ `
     organizationAcceptDrivers: Boolean
     accessManage: Boolean
     travellineMenu: Boolean
+    passengerRequestMenu: Boolean
+    passengerRequestCreate: Boolean
+    passengerRequestUpdate: Boolean
   }
 
-  # Типы для питания
   type MealPrice {
     breakfast: Float
     lunch: Float
     dinner: Float
+    lunchbox: Float
   }
 
   input MealPriceInput {
     breakfast: Float
     lunch: Float
     dinner: Float
+    lunchbox: Float
   }
 
   type HotelTransferPrice {
@@ -273,6 +282,8 @@ const globalTypeDef = /* GraphQL */ `
     contractType: AirlinePriceContractType!
     airports: [AirportOnAirlinePrice]
     priceCategory: PriceCategory
+    startDate: Date
+    endDate: Date
   }
 
   # Входной тип для тарифного договора
@@ -285,6 +296,8 @@ const globalTypeDef = /* GraphQL */ `
     individual: Boolean
     contractType: AirlinePriceContractType
     airportIds: [ID!]
+    startDate: Date
+    endDate: Date
   }
 
   # Новый тип для связи аэропортов с тарифом авиакомпании
@@ -296,6 +309,8 @@ const globalTypeDef = /* GraphQL */ `
   type TransferRoutePrices {
     intercity: Float
     city: Float
+    perKm: Float
+    checkIn: Float
   }
 
   type TransferPrices {
@@ -315,13 +330,19 @@ const globalTypeDef = /* GraphQL */ `
     airline: Airline
     organization: Organization
     driver: Driver
+    organizationContractId: ID
+    organizationContract: OrganizationContract
     airports: [Airport]
     cities: [City]
+    startDate: Date
+    endDate: Date
   }
 
   input TransferRoutePricesInput {
     intercity: Float
     city: Float
+    perKm: Float
+    checkIn: Float
   }
 
   input TransferPricesInput {
@@ -338,6 +359,9 @@ const globalTypeDef = /* GraphQL */ `
     prices: TransferPricesInput!
     airportIds: [ID!]
     cityIds: [ID!]
+    organizationContractId: ID
+    startDate: Date
+    endDate: Date
   }
 
   type RequestPrice {

@@ -120,7 +120,7 @@ export const resolvePriceForNight = (
     const seasonal = Number(season[field])
     if (Number.isFinite(seasonal) && seasonal >= 0) return seasonal
     // fallback внутри сезона, если priceForAirline не задан
-    if (field === "priceForAirline") {
+    if (field === "priceForAirline" || field === "priceSingleOccupancy") {
       const baseSeason = Number(season.price)
       if (Number.isFinite(baseSeason)) return baseSeason
     }
@@ -129,11 +129,38 @@ export const resolvePriceForNight = (
   const base = Number(roomKind?.[field])
   if (Number.isFinite(base) && base >= 0) return base
 
-  if (field === "priceForAirline") {
+  if (field === "priceForAirline" || field === "priceSingleOccupancy") {
     const fallback = Number(roomKind?.price)
     return Number.isFinite(fallback) ? fallback : 0
   }
   return 0
+}
+
+export const isValidOnDay = (startDate, endDate, atDate) => {
+  if (atDate == null || atDate === "") return true
+  const day = toDayUtc(atDate)
+  if (!day) return true
+  const start =
+    startDate != null && startDate !== "" ? toDayUtc(startDate) : null
+  const end = endDate != null && endDate !== "" ? toDayUtc(endDate) : null
+  const ts = day.getTime()
+  if (start && ts < start.getTime()) return false
+  if (end && ts > end.getTime()) return false
+  return true
+}
+
+export const hasValidityWindow = (item) =>
+  item?.startDate != null || item?.endDate != null
+
+export const validityDateFields = (input) => {
+  if (!input) return {}
+  const out = {}
+  if (input.startDate !== undefined) out.startDate = input.startDate || null
+  if (input.endDate !== undefined) out.endDate = input.endDate || null
+  const start = out.startDate !== undefined ? out.startDate : input.startDate
+  const end = out.endDate !== undefined ? out.endDate : input.endDate
+  if (start && end) assertValidSeasonRange(start, end)
+  return out
 }
 
 /**

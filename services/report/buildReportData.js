@@ -101,6 +101,7 @@ export const buildAirlineReportData = async (filter) => {
   for (const request of requests) {
     request._reportAirportId = filter.airportId || null
     request._skipCountryLevel = true
+    request._priceAtDate = filter.startDate || null
 
     if (request.hotel || request.airport || reportAirport) {
       request._priceSearchLocation = await buildPriceSearchLocation(
@@ -119,7 +120,8 @@ export const buildAirlineReportData = async (filter) => {
       reportHotel?.airportId ||
       null,
     skipCountryLevel: true,
-    contractTypes: ["request", "all"]
+    contractTypes: ["request", "all"],
+    atDate: filter.startDate || null
   })
 
   if (!contract) {
@@ -247,6 +249,9 @@ export const normalizeReportDraftRows = (rows) => {
     hotelName: row.hotelName ?? "",
     roomGroupId: row.roomGroupId ?? null,
     shareClusterId: row.shareClusterId ?? null,
+    changedKeys: Array.isArray(row.changedKeys)
+      ? row.changedKeys.filter((key) => typeof key === "string")
+      : [],
     shareSegments: Array.isArray(row.shareSegments)
       ? row.shareSegments.map((seg) => ({
           start: seg.start ?? "",

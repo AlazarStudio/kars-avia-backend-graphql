@@ -22,6 +22,7 @@ function makeRequest() {
       {
         hotelIndex: 0,
         submittedAt: new Date("2026-07-01T10:00:00.000Z"),
+        pricingApprovedAt: new Date("2026-07-01T12:00:00.000Z"),
         reportRows: [
           { fullName: "Иванов", accommodationCost: 3500, foodCost: 200, daysCount: 2 }
         ]
@@ -54,7 +55,7 @@ test("visibleHotelReports не падает на undefined", () => {
   assert.deepEqual(visibleHotelReports(null, false), [])
 })
 
-test("АК не видит суммы и ночи неотправленного отчёта", () => {
+test("АК не видит суммы неотправленного отчёта", () => {
   const row = aggregatePassengerRequest(makeRequest(), { viewerIsAirline: true })
   assert.equal(row.living, 3500)
   assert.equal(row.meal, 200)
@@ -85,4 +86,14 @@ test("диспетчер (без опций) видит суммы по обеи
   assert.equal(draft.meal, 100)
   assert.equal(draft.roomNights, 3)
   assert.equal(draft.reportSaved, true)
+})
+
+test("АК не видит суммы отправленного, но не согласованного отчёта", () => {
+  const request = makeRequest()
+  request.hotelReports[0].pricingApprovedAt = null
+  const row = aggregatePassengerRequest(request, { viewerIsAirline: true })
+  assert.equal(row.living, 0)
+  assert.equal(row.meal, 0)
+  assert.equal(row.hotels[0].living, 0)
+  assert.equal(row.hotels[0].reportSaved, false)
 })

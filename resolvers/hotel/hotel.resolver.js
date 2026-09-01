@@ -59,6 +59,11 @@ import {
   recalculateNonArchivedForRoomKindPeriod
 } from "../../services/request/requestPricing.js"
 import {
+  hiddenAirlineFlag,
+  hiddenAirlinePrice,
+  omitAirlinePriceWrites
+} from "../../services/hotel/hideAirlinePrices.js"
+import {
   buildHotelPreviewAuthPayload,
   createHotelPreviewLinkRecord,
   findValidHotelPreviewLink,
@@ -199,7 +204,8 @@ const hotelResolver = {
       const defaultMealPrice = {
         breakfast: 0,
         lunch: 0,
-        dinner: 0
+        dinner: 0,
+        lunchbox: 0
       }
 
       const defaultTransferPrice = {
@@ -332,6 +338,7 @@ const hotelResolver = {
       { id, input, images, roomImages, roomKindImages, serviceImages, gallery },
       context
     ) => {
+      input = omitAirlinePriceWrites(input, context)
       const { user } = context
       // Проверка прав доступа для администратора отеля
       // hotelAdminMiddleware(context)
@@ -1216,6 +1223,7 @@ const hotelResolver = {
                 price: room.price,
                 priceForAirline: room.priceForAirline,
                 priceForAirReq: room.priceForAirReq,
+                priceSingleOccupancy: room.priceSingleOccupancy,
                 category: room.category,
                 ...(roomKindImages && { images: imagePaths })
               }
@@ -1228,7 +1236,11 @@ const hotelResolver = {
                 (room.price !== undefined &&
                   room.price !== previosRoomKindData.price) ||
                 (room.priceForAirline !== undefined &&
-                  room.priceForAirline !== previosRoomKindData.priceForAirline)
+                  room.priceForAirline !==
+                    previosRoomKindData.priceForAirline) ||
+                (room.priceSingleOccupancy !== undefined &&
+                  room.priceSingleOccupancy !==
+                    previosRoomKindData.priceSingleOccupancy)
               if (priceChanged) {
                 await recalculateNonArchivedForRoomKindPeriod(room.id)
               }
@@ -1250,6 +1262,7 @@ const hotelResolver = {
                   price: room.price,
                   priceForAirline: room.priceForAirline,
                   priceForAirReq: room.priceForAirReq,
+                  priceSingleOccupancy: room.priceSingleOccupancy,
                   category: room.category,
                   images: imagePaths
                 }
@@ -1768,6 +1781,14 @@ const hotelResolver = {
         where: { hotelId: parent.id }
       })
     },
+    mealPriceForAir: (parent, _, context) =>
+      hiddenAirlinePrice(parent.mealPriceForAir, context),
+    mealPriceForAirReq: (parent, _, context) =>
+      hiddenAirlineFlag(parent.mealPriceForAirReq, context),
+    transferPriceForAir: (parent, _, context) =>
+      hiddenAirlinePrice(parent.transferPriceForAir, context),
+    transferPriceForAirReq: (parent, _, context) =>
+      hiddenAirlineFlag(parent.transferPriceForAirReq, context),
     // Получение связанных записей hotelChesses с включением данных клиента
     hotelChesses: async (parent, args) => {
       const hcPagination = args?.hcPagination || {}
@@ -1909,7 +1930,15 @@ const hotelResolver = {
       if (parent.roomKind !== undefined) return parent.roomKind
       if (!parent.roomKindId) return null
       return prisma.roomKind.findUnique({ where: { id: parent.roomKindId } })
-    }
+    },
+    priceForAirline: (parent, _, context) =>
+      hiddenAirlinePrice(parent.priceForAirline, context)
+  },
+  AdditionalServices: {
+    priceForAirline: (parent, _, context) =>
+      hiddenAirlinePrice(parent.priceForAirline, context),
+    priceForAirReq: (parent, _, context) =>
+      hiddenAirlineFlag(parent.priceForAirReq, context)
   }
 }
 

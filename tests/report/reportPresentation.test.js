@@ -61,8 +61,44 @@ test("buildReportPresentation formats breakfast as вкл", () => {
   const row = presentation.dataRows[0]
   const breakfastCell = row.cells.find((c) => c.key === "breakfastCount")
   assert.equal(breakfastCell.value, "вкл")
+  assert.equal(breakfastCell.highlighted, false)
   assert.equal(presentation.header.title.includes("авиакомпании"), true)
   assert.equal(presentation.totalsRow.cells.find((c) => c.key === "personPosition").value, "ИТОГО:")
+})
+
+test("изменённые поля в presentation подсвечиваются", () => {
+  const presentation = buildReportPresentation({
+    type: "AIRLINE",
+    rows: [
+      {
+        index: 1,
+        arrival: "01.07.2026 10:00:00",
+        departure: "02.07.2026 12:00:00",
+        totalDays: 3,
+        category: "Одноместный",
+        personName: "Иванов",
+        roomName: "101",
+        shareNote: "жил один",
+        personPosition: "КВС",
+        breakfastIncludedInPrice: false,
+        breakfastCount: 1,
+        lunchCount: 1,
+        dinnerCount: 1,
+        totalMealCost: 500,
+        totalLivingCost: 1000,
+        totalDebt: 1500,
+        hotelName: "Hotel",
+        changedKeys: ["totalDays", "totalLivingCost"]
+      }
+    ],
+    companyData: { name: "SU", nameFull: "Аэрофлот", city: "Москва" },
+    createFilterInput: { meal: true, living: true }
+  })
+
+  const row = presentation.dataRows[0]
+  assert.equal(row.cells.find((c) => c.key === "totalDays").highlighted, true)
+  assert.equal(row.cells.find((c) => c.key === "totalLivingCost").highlighted, true)
+  assert.equal(row.cells.find((c) => c.key === "personName").highlighted, false)
 })
 
 test("enrichRowsWithShareMetadata links cohabitants in same room", () => {

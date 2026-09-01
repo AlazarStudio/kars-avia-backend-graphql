@@ -191,3 +191,61 @@ test("негостиничным зрителям сужение по гости
   const airline = await scopedReports(airlineContext(), documents)
   assert.deepEqual(airline.map((r) => r.id), ["rep-1"])
 })
+
+const pricedRow = {
+  fullName: "Иванов",
+  roomNumber: "101",
+  accommodationCost: 3500,
+  foodCost: 200,
+  pricePerDay: 3500,
+  tariffName: "стандарт"
+}
+
+test("АК видит состав без цен, пока ценообразование не согласовано", () => {
+  const rows = resolvers.PassengerRequestHotelReport.reportRows(
+    { submittedAt: new Date(), pricingApprovedAt: null, reportRows: [pricedRow] },
+    {},
+    airlineContext()
+  )
+  assert.equal(rows[0].fullName, "Иванов")
+  assert.equal(rows[0].roomNumber, "101")
+  assert.equal(rows[0].accommodationCost, null)
+  assert.equal(rows[0].foodCost, null)
+  assert.equal(rows[0].pricePerDay, null)
+  assert.equal(rows[0].tariffName, null)
+})
+
+test("после согласования АК видит цены; диспетчер — всегда", () => {
+  const approved = resolvers.PassengerRequestHotelReport.reportRows(
+    {
+      submittedAt: new Date(),
+      pricingApprovedAt: new Date(),
+      reportRows: [pricedRow]
+    },
+    {},
+    airlineContext()
+  )
+  assert.equal(approved[0].accommodationCost, 3500)
+
+  const dispatcher = resolvers.PassengerRequestHotelReport.reportRows(
+    { submittedAt: null, pricingApprovedAt: null, reportRows: [pricedRow] },
+    {},
+    makeContext()
+  )
+  assert.equal(dispatcher[0].accommodationCost, 3500)
+})
+
+test("pricingApproved считается по pricingApprovedAt", () => {
+  assert.equal(
+    resolvers.PassengerRequestHotelReport.pricingApproved({
+      pricingApprovedAt: null
+    }),
+    false
+  )
+  assert.equal(
+    resolvers.PassengerRequestHotelReport.pricingApproved({
+      pricingApprovedAt: new Date()
+    }),
+    true
+  )
+})

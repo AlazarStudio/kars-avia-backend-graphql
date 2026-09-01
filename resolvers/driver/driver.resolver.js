@@ -13,6 +13,8 @@ import { withFilter } from "graphql-subscriptions"
 import { dateFormatter } from "../../services/format/dateTimeFormatterVersion2.js"
 import { uploadFiles } from "../../services/files/uploadFiles.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
+import { organizationContractData } from "../../services/transfer/transferPriceContract.js"
+import { validityDateFields } from "../../services/hotel/roomKindSeasonPrice.js"
 // import { errorMonitor } from "ws"
 
 const driverResolver = {
@@ -258,6 +260,11 @@ const driverResolver = {
               driverId: newDriver.id,
               name: tp.name ?? "",
               prices: tp.prices,
+              ...(await organizationContractData(
+                tp.organizationContractId,
+                organizationId
+              )),
+              ...validityDateFields(tp),
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
                   airport: { connect: { id: airportId } }
@@ -420,7 +427,12 @@ const driverResolver = {
               where: { id: tp.id },
               data: {
                 prices: tp.prices,
-                ...(tp.name != null && { name: tp.name })
+                ...(tp.name != null && { name: tp.name }),
+                ...(await organizationContractData(
+                  tp.organizationContractId,
+                  currentDriver.organizationId
+                )),
+                ...validityDateFields(tp)
               }
             })
             await prisma.airportOnTransferPrice.deleteMany({
@@ -449,6 +461,11 @@ const driverResolver = {
                 driverId: id,
                 name: tp.name ?? "",
                 prices: tp.prices,
+                ...(await organizationContractData(
+                  tp.organizationContractId,
+                  currentDriver.organizationId
+                )),
+                ...validityDateFields(tp),
                 airportOnTransferPrice: {
                   create: (tp.airportIds || []).map((airportId) => ({
                     airport: { connect: { id: airportId } }

@@ -416,6 +416,12 @@ const globalResolver = {
       parent.driverId
         ? prisma.driver.findUnique({ where: { id: parent.driverId } })
         : null,
+    organizationContract: (parent) =>
+      parent.organizationContractId
+        ? prisma.organizationContract.findUnique({
+            where: { id: parent.organizationContractId }
+          })
+        : null,
     airports: async (parent) => {
       if (parent.airportOnTransferPrice) {
         return parent.airportOnTransferPrice.map((j) => j.airport)

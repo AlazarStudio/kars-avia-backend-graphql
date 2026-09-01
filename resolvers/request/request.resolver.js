@@ -33,6 +33,7 @@ import { uploadFiles, deleteFiles } from "../../services/files/uploadFiles.js"
 import { shouldSendNotification } from "../../services/notification/notificationRateGuard.js"
 import { sendRequestPartyEmail } from "../../services/notification/sendRequestPartyEmail.js"
 import { resolveCreatorDepartmentFromSender } from "../../services/notification/resolveCreatorAirlineDepartment.js"
+import { syncPersonInReportDrafts } from "../../services/report/syncDraftPerson.js"
 import {
   buildCancelRequestDoneEmail,
   buildCancelRequestRequestEmail,
@@ -608,6 +609,22 @@ const requestResolver = {
             })
           }
 
+        }
+
+        if (input.personId || isAirlineChange) {
+          const person = input.personId
+            ? await prisma.airlinePersonal.findUnique({
+                where: { id: input.personId },
+                include: { position: true }
+              })
+            : null
+          await syncPersonInReportDrafts({
+            requestId,
+            personName: person?.name || "Не указано",
+            personPosition: person?.position?.name || "Не указано",
+            airlineId: airlineId || request.airlineId,
+            hotelId: request.hotelId
+          })
         }
 
         if (user.airlineId && request.status != "created") {

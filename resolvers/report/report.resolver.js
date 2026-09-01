@@ -1,6 +1,7 @@
 import { prisma } from "../../prisma.js"
 import path from "path"
 import fs from "fs"
+import { GraphQLError } from "graphql"
 import {
   generateExcelAvia,
   generateExcelHotel
@@ -9,8 +10,7 @@ import {
   allMiddleware,
   adminMiddleware,
   airlineAdminMiddleware,
-  hotelAdminMiddleware,
-  superAdminMiddleware
+  hotelAdminMiddleware
 } from "../../middlewares/authMiddleware.js"
 import { pubsub, REPORT_CREATED } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
@@ -28,6 +28,24 @@ import {
   deletePartialDaySetting
 } from "../../services/report/partialDaySettings.js"
 import { buildReportPresentation } from "../../services/report/reportPresentation.js"
+import {
+  appendSavedReportArchiveFilter,
+  archiveSavedReport,
+  isSavedReportArchived,
+  restoreSavedReport
+} from "../../services/report/reportArchive.js"
+import {
+  assertCanDeleteSavedReport,
+  buildReportDraftsWhere,
+  isAirlineOrgUser
+} from "../../services/report/reportAccess.js"
+import { notifyAirlineReportSubmitted } from "../../services/report/notifyReportSubmit.js"
+import {
+  buildLiveDraftRows,
+  markDraftRowChanges,
+  recreateDraftRows,
+  snapshotComputedRows
+} from "../../services/report/rebuildReportDraft.js"
 
 const buildDraftPresentation = (draft) => {
   const snap = draft.filterJson || {}
@@ -80,6 +98,11 @@ const assertDraftAccess = async (draft, context) => {
     ) {
       throw new Error("Access denied")
     }
+    if (isAirlineOrgUser(user) && draft.status === "DRAFT") {
+      throw new GraphQLError("Access denied", {
+        extensions: { code: "FORBIDDEN" }
+      })
+    }
   } else {
     await hotelAdminMiddleware(context)
     const { user } = context
@@ -92,6 +115,36 @@ const assertDraftAccess = async (draft, context) => {
     ) {
       throw new Error("Access denied")
     }
+  }
+}
+
+const assertSavedReportAccess = async (report, context) => {
+  if (!report) {
+    throw new GraphQLError("Report not found", {
+      extensions: { code: "NOT_FOUND" }
+    })
+  }
+  if (report.separator === "dispatcher") {
+    await adminMiddleware(context)
+  }
+  if (report.separator === "airline") {
+    await airlineAdminMiddleware(context)
+  }
+  if (report.separator === "hotel") {
+    await hotelAdminMiddleware(context)
+  }
+}
+
+const buildSavedReportListWhere = (filter, extra = {}) => {
+  const AND = []
+  const filters = applyFilters(filter)
+  if (filters && Object.keys(filters).length) AND.push(filters)
+  appendSavedReportArchiveFilter(filter, AND)
+  if (extra.AND) AND.push(...(Array.isArray(extra.AND) ? extra.AND : [extra.AND]))
+  const { AND: _ignored, ...rest } = extra
+  return {
+    ...rest,
+    ...(AND.length ? { AND } : {})
   }
 }
 
@@ -191,16 +244,15 @@ const reportResolver = {
       const separator = user.airlineId ? "airline" : "dispatcher"
 
       const reports = await prisma.savedReport.findMany({
-        where: {
+        where: buildSavedReportListWhere(filter, {
           separator,
-          ...applyFilters(filter),
           airlineId: { not: null },
           ...(filter && filter.airlineId
             ? { airlineId: filter.airlineId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? {}
               : { airlineId: user.airlineId })
-        },
+        }),
         include: { airline: true },
         orderBy: { createdAt: "desc" }
       })
@@ -230,7 +282,8 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            airline: report.airline
+            airline: report.airline,
+            isArchived: report.isArchived
           }))
         }
       ]
@@ -243,16 +296,15 @@ const reportResolver = {
       const separator = user.hotelId ? "hotel" : "dispatcher"
 
       const reports = await prisma.savedReport.findMany({
-        where: {
+        where: buildSavedReportListWhere(filter, {
           separator,
-          ...applyFilters(filter),
           hotelId: { not: null },
           ...(filter.hotelId
             ? { hotelId: filter.hotelId }
             : user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? {}
               : { hotelId: user.hotelId })
-        },
+        }),
         include: { hotel: true },
         orderBy: { createdAt: "desc" }
       })
@@ -282,7 +334,8 @@ const reportResolver = {
             createdAt: report.createdAt,
             hotelId: report.hotelId,
             airlineId: report.airlineId,
-            hotel: report.hotel
+            hotel: report.hotel,
+            isArchived: report.isArchived
           }))
         }
       ]
@@ -310,21 +363,8 @@ const reportResolver = {
       const { user } = context
       await allMiddleware(context)
 
-      const where = {}
-      if (filter?.type) where.type = filter.type
-      if (filter?.status) where.status = filter.status
-      if (filter?.airlineId) where.airlineId = filter.airlineId
-      if (filter?.hotelId) where.hotelId = filter.hotelId
-
-      if (user.role !== "SUPERADMIN" && user.role !== "DISPATCHERADMIN") {
-        if (user.airlineId) {
-          where.type = "AIRLINE"
-          where.airlineId = user.airlineId
-        } else if (user.hotelId) {
-          where.type = "HOTEL"
-          where.hotelId = user.hotelId
-        }
-      }
+      const where = buildReportDraftsWhere(user, filter)
+      if (where.__empty) return []
 
       const drafts = await prisma.reportDraft.findMany({
         where,
@@ -393,24 +433,39 @@ const reportResolver = {
         where: { id },
         include: { airline: true, hotel: true }
       })
-      if (!report) {
-        throw new Error("Report not found")
-      }
-      if (report.separator === "dispatcher") {
-        await adminMiddleware(context)
-      }
-      if (report.separator === "airline") {
-        await airlineAdminMiddleware(context)
-      }
-      if (report.separator === "hotel") {
-        await hotelAdminMiddleware(context)
-      }
+      await assertSavedReportAccess(report, context)
+      await assertCanDeleteSavedReport(context)
       if (report.url) {
         await deleteFiles(report.url)
       }
       await prisma.savedReport.delete({ where: { id } })
       pubsub.publish(REPORT_CREATED, { reportCreated: report })
       return report
+    },
+
+    archiveReport: async (_, { id }, context) => {
+      const report = await prisma.savedReport.findUnique({
+        where: { id },
+        include: { airline: true, hotel: true }
+      })
+      await assertSavedReportAccess(report, context)
+      return archiveSavedReport({
+        id,
+        userId: context.user?.id,
+        include: { airline: true, hotel: true }
+      })
+    },
+
+    restoreReport: async (_, { id }, context) => {
+      const report = await prisma.savedReport.findUnique({
+        where: { id },
+        include: { airline: true, hotel: true }
+      })
+      await assertSavedReportAccess(report, context)
+      return restoreSavedReport({
+        id,
+        include: { airline: true, hotel: true }
+      })
     },
 
     upsertReportPartialDaySetting: async (_, { input }, context) => {
@@ -439,6 +494,7 @@ const reportResolver = {
 
       const { rows, filterStart, filterEnd, companyData } =
         await buildAirlineReportData(effectiveFilter)
+      const normalizedRows = normalizeReportDraftRows(rows)
 
       const draft = await prisma.reportDraft.create({
         data: {
@@ -453,7 +509,8 @@ const reportResolver = {
             format,
             companyData
           ),
-          rows: normalizeReportDraftRows(rows),
+          rows: normalizedRows,
+          computedRows: snapshotComputedRows(normalizedRows),
           createdById: user.id
         },
         include: draftInclude
@@ -476,6 +533,7 @@ const reportResolver = {
 
       const { rows, filterStart, filterEnd, companyData } =
         await buildHotelReportData(effectiveFilter)
+      const normalizedRows = normalizeReportDraftRows(rows)
 
       const draft = await prisma.reportDraft.create({
         data: {
@@ -490,7 +548,8 @@ const reportResolver = {
             format,
             companyData
           ),
-          rows: normalizeReportDraftRows(rows),
+          rows: normalizedRows,
+          computedRows: snapshotComputedRows(normalizedRows),
           createdById: user.id
         },
         include: draftInclude
@@ -505,9 +564,94 @@ const reportResolver = {
         throw new Error("Only DRAFT reports can be updated")
       }
 
+      const computedRows =
+        Array.isArray(draft.computedRows) && draft.computedRows.length
+          ? draft.computedRows
+          : snapshotComputedRows(await buildLiveDraftRows(draft))
+      const nextRows = markDraftRowChanges(computedRows, rows)
+
       const updated = await prisma.reportDraft.update({
         where: { id },
-        data: { rows: normalizeReportDraftRows(rows) },
+        data: {
+          rows: nextRows,
+          ...(!draft.computedRows ? { computedRows } : {})
+        },
+        include: draftInclude
+      })
+      return mapDraft(updated)
+    },
+
+    recreateReportDraft: async (_, { id }, context) => {
+      const draft = await prisma.reportDraft.findUnique({
+        where: { id },
+        include: draftInclude
+      })
+      await assertDraftAccess(draft, context)
+      if (draft.status !== "DRAFT") {
+        throw new Error("Only DRAFT reports can be recreated")
+      }
+
+      const liveRows = await buildLiveDraftRows(draft)
+      const merged = recreateDraftRows(liveRows, draft.rows)
+      const updated = await prisma.reportDraft.update({
+        where: { id },
+        data: {
+          rows: merged,
+          computedRows: snapshotComputedRows(liveRows)
+        },
+        include: draftInclude
+      })
+      return mapDraft(updated)
+    },
+
+    submitAirlineReportDraft: async (_, { id }, context) => {
+      await adminMiddleware(context)
+      const draft = await prisma.reportDraft.findUnique({
+        where: { id },
+        include: draftInclude
+      })
+      if (!draft) throw new Error("Report draft not found")
+      if (draft.type !== "AIRLINE") {
+        throw new GraphQLError("Only airline reports can be submitted to AK", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+      if (draft.status !== "DRAFT") {
+        throw new GraphQLError("Only DRAFT reports can be submitted", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const updated = await prisma.reportDraft.update({
+        where: { id },
+        data: { status: "SUBMITTED", submittedAt: new Date() },
+        include: draftInclude
+      })
+      await notifyAirlineReportSubmitted(updated)
+      return mapDraft(updated)
+    },
+
+    unsubmitAirlineReportDraft: async (_, { id }, context) => {
+      await adminMiddleware(context)
+      const draft = await prisma.reportDraft.findUnique({
+        where: { id },
+        include: draftInclude
+      })
+      if (!draft) throw new Error("Report draft not found")
+      if (draft.type !== "AIRLINE") {
+        throw new GraphQLError("Only airline reports can be unsubmitted", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+      if (draft.status !== "SUBMITTED") {
+        throw new GraphQLError("Only SUBMITTED reports can be unsubmitted", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const updated = await prisma.reportDraft.update({
+        where: { id },
+        data: { status: "DRAFT", submittedAt: null },
         include: draftInclude
       })
       return mapDraft(updated)
@@ -519,7 +663,14 @@ const reportResolver = {
         include: draftInclude
       })
       await assertDraftAccess(draft, context)
-      if (draft.status !== "DRAFT") {
+      if (draft.type === "AIRLINE") {
+        if (draft.status !== "SUBMITTED") {
+          throw new GraphQLError(
+            "Airline reports can only be confirmed after submit",
+            { extensions: { code: "BAD_USER_INPUT" } }
+          )
+        }
+      } else if (draft.status !== "DRAFT") {
         throw new Error("Only DRAFT reports can be confirmed")
       }
 
@@ -584,6 +735,10 @@ const reportResolver = {
       await prisma.reportDraft.delete({ where: { id } })
       return true
     }
+  },
+
+  SavedReport: {
+    archived: (parent) => isSavedReportArchived(parent)
   },
 
   ReportDraft: {

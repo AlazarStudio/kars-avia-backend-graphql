@@ -104,7 +104,6 @@ export const applyFilters = (filter) => {
   const {
     startDate,
     endDate,
-    archived,
     personId,
     hotelId,
     airlineId,
@@ -118,7 +117,6 @@ export const applyFilters = (filter) => {
     where.startDate = { gte: new Date(startDate), lte: new Date(endDate) }
   if (endDate)
     where.endDate = { gte: new Date(startDate), lte: new Date(endDate) }
-  if (archived !== undefined) where.archived = archived
   if (personId) where.personId = personId
   if (hotelId) where.hotelId = hotelId
   if (airlineId) where.airlineId = airlineId
@@ -153,7 +151,7 @@ export const getLivingPricePerDay = (request, type, options = {}) => {
   const roomCategory = request.roomCategory
 
   if (type === "airline") {
-    return getAirlinePriceForCategory(request, roomCategory)
+    return getAirlinePriceForCategory(request, roomCategory, options.atDate)
   }
 
   if (type !== "hotel") return 0
@@ -223,7 +221,7 @@ export const calculateLivingCost = (request, type, days, options = {}) => {
   return days > 0 ? days * pricePerDay : 0
 }
 
-const resolveAirlineContractForRequest = (request) => {
+const resolveAirlineContractForRequest = (request, atDate) => {
   const airportId =
     request._reportAirportId ||
     request.airport?.id ||
@@ -241,12 +239,18 @@ const resolveAirlineContractForRequest = (request) => {
       getHotelLocation(request.hotel, request.airport),
     airportId,
     skipCountryLevel: request._skipCountryLevel ?? false,
-    contractTypes
+    contractTypes,
+    atDate:
+      atDate ??
+      request._priceAtDate ??
+      request.arrival ??
+      request.flightDate ??
+      null
   })
 }
 
-export const getAirlinePriceForCategory = (request, category) => {
-  const contract = resolveAirlineContractForRequest(request)
+export const getAirlinePriceForCategory = (request, category, atDate) => {
+  const contract = resolveAirlineContractForRequest(request, atDate)
   if (!contract) return 0
   return getCategoryPriceFromContract(contract, category)
 }

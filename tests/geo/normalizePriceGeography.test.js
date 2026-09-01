@@ -529,3 +529,36 @@ test("loadOccupiedByContractType groups geography by contractType", async () => 
   assert.ok(forRequest.airportIds.has("airport-1"))
   assert.equal(forRequest.regionLevelIds.has("reg-1"), false)
 })
+
+test("loadOccupiedByContractType не занимает географию тарифов со сроком", async () => {
+  priceGeoFindMany.mock.mockImplementation(async () => [
+    {
+      regionId: "reg-1",
+      cityId: null,
+      airlinePrice: {
+        contractType: "request",
+        startDate: new Date("2026-06-01"),
+        endDate: new Date("2026-08-31")
+      }
+    },
+    {
+      regionId: "reg-2",
+      cityId: null,
+      airlinePrice: { contractType: "request", startDate: null, endDate: null }
+    }
+  ])
+  airportOnPriceFindMany.mock.mockImplementation(async () => [
+    {
+      airportId: "airport-1",
+      airlinePrice: {
+        contractType: "request",
+        startDate: new Date("2026-06-01"),
+        endDate: null
+      }
+    }
+  ])
+
+  const byType = await loadOccupiedByContractType("airline-1")
+  assert.deepEqual([...byType.request.regionLevelIds], ["reg-2"])
+  assert.equal(byType.request.airportIds.size, 0)
+})

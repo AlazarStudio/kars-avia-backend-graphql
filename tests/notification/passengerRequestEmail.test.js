@@ -6,6 +6,7 @@ import {
 } from "../../services/notification/passengerRequestEmailActions.js"
 import {
   buildCreatePassengerRequestEmail,
+  buildHotelReportPricingApprovedEmail,
   buildPassengerRequestActionEmail
 } from "../../services/email/passengerRequestEmailTemplates.js"
 
@@ -21,6 +22,10 @@ test("resolveEmailActionForLog maps hotel actions to placement", () => {
   assert.equal(
     resolveEmailActionForLog("create_passenger_request"),
     "create_passenger_request"
+  )
+  assert.equal(
+    resolveEmailActionForLog("approve_passenger_request_hotel_report_pricing"),
+    "approve_passenger_request_hotel_report_pricing"
   )
 })
 
@@ -59,6 +64,8 @@ test("buildCreatePassengerRequestEmail link uses far path", () => {
       requestId: "6a1d29c2810501c3600f2572"
     })
     assert.match(html, /https:\/\/karsavia\.ru\/far\/6a1d29c2810501c3600f2572/)
+    assert.doesNotMatch(html, /chatId/)
+    assert.match(html, /Перейти к ФАП/)
   } finally {
     if (prev === undefined) delete process.env.FRONTEND_URL
     else process.env.FRONTEND_URL = prev
@@ -73,4 +80,24 @@ test("buildPassengerRequestActionEmail uses description in subject", () => {
     requestId: "abc"
   })
   assert.match(subject, /Водитель добавлен/)
+})
+
+test("buildHotelReportPricingApprovedEmail names hotel and FAP", () => {
+  const prev = process.env.FRONTEND_URL
+  process.env.FRONTEND_URL = "https://karsavia.ru"
+  try {
+    const { subject, html } = buildHotelReportPricingApprovedEmail({
+      requestNumber: "0001SVO0526f",
+      flightNumber: "SU100",
+      hotelName: "Азия",
+      requestId: "abc123"
+    })
+    assert.match(subject, /Согласовано ценообразование/)
+    assert.match(subject, /0001SVO0526f/)
+    assert.match(html, /Азия/)
+    assert.match(html, /https:\/\/karsavia\.ru\/far\/abc123/)
+  } finally {
+    if (prev === undefined) delete process.env.FRONTEND_URL
+    else process.env.FRONTEND_URL = prev
+  }
 })

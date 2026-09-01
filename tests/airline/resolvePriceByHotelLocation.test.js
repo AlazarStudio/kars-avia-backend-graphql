@@ -436,3 +436,44 @@ test("getCategoryPriceFromContract returns new airline price categories", async 
   assert.equal(getCategoryPriceFromContract(contract, "deluxe"), 200)
   assert.equal(getCategoryPriceFromContract(contract, "unknown"), 0)
 })
+
+test("atDate отсекает тариф вне окна и предпочитает сезонный внутри окна", () => {
+  const yearRound = {
+    id: "year",
+    createdAt: "2024-01-01",
+    airports: [],
+    geography: [{ city: "Барнаул", region: "Алтайский край", country: "" }]
+  }
+  const summer = {
+    id: "summer",
+    createdAt: "2024-06-01",
+    startDate: "2026-06-01",
+    endDate: "2026-08-31",
+    airports: [],
+    geography: [{ city: "Барнаул", region: "Алтайский край", country: "" }]
+  }
+
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [yearRound, summer],
+      hotelLocation: location,
+      atDate: "2026-07-15"
+    })?.id,
+    "summer"
+  )
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [yearRound, summer],
+      hotelLocation: location,
+      atDate: "2026-01-15"
+    })?.id,
+    "year"
+  )
+  assert.equal(
+    resolvePriceByHotelLocation({
+      airlinePrices: [yearRound, summer],
+      hotelLocation: location
+    })?.id,
+    "year"
+  )
+})

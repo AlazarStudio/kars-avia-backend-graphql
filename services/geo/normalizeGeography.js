@@ -271,7 +271,9 @@ export const loadOccupiedByContractType = async (
       select: {
         cityId: true,
         regionId: true,
-        airlinePrice: { select: { contractType: true } }
+        airlinePrice: {
+          select: { contractType: true, startDate: true, endDate: true }
+        }
       }
     }),
     prisma.airportOnAirlinePrice.findMany({
@@ -281,12 +283,18 @@ export const loadOccupiedByContractType = async (
       },
       select: {
         airportId: true,
-        airlinePrice: { select: { contractType: true } }
+        airlinePrice: {
+          select: { contractType: true, startDate: true, endDate: true }
+        }
       }
     })
   ])
 
+  const occupiesGeography = (price) =>
+    price?.startDate == null && price?.endDate == null
+
   for (const row of geoRows) {
+    if (!occupiesGeography(row.airlinePrice)) continue
     const type = normalizeContractType(row.airlinePrice?.contractType)
     byType[type] = mergeOccupiedLevels(byType[type], [
       { cityId: row.cityId, regionId: row.regionId }
@@ -294,6 +302,7 @@ export const loadOccupiedByContractType = async (
   }
 
   for (const row of airportRows) {
+    if (!occupiesGeography(row.airlinePrice)) continue
     const type = normalizeContractType(row.airlinePrice?.contractType)
     byType[type] = mergeOccupiedLevels(byType[type], [], [row.airportId])
   }

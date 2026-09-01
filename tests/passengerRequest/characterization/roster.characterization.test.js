@@ -27,9 +27,11 @@ releasePubsubAfterTests()
 async function runRaw(
   name,
   args,
-  { request = makeRequest(), context = makeContext() } = {}
+  { request = makeRequest(), context = makeContext(), documents = {} } = {}
 ) {
-  const double = installPrismaDouble({ documents: { passengerRequest: request } })
+  const double = installPrismaDouble({
+    documents: { passengerRequest: request, ...documents }
+  })
   const spy = installPubsubSpy()
   let result = null
   let error = null
@@ -115,12 +117,10 @@ test("addPassengerRequestSavedPerson дописывает нормализова
   assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
 })
 
-test("ДЕФЕКТ №10: addPassengerRequestSavedPerson с существующим ФИО добавляет вторую запись, а не обновляет", async () => {
-  // Инпут PassengerRequestSavedPersonInput не несёт personId, поэтому
-  // normalizeSavedPerson всегда штампует новый uuid, а findIndex по personId в
-  // upsertSavedPassenger никогда не совпадает — «upsert» выродился в append.
-  // Ветка mergeSavedPerson из этой мутации недостижима. Реестр дефектов
-  // спеки, №10. При починке этот тест обязан измениться.
+test("addPassengerRequestSavedPerson с существующим ФИО обновляет запись, а не плодит дубль", async () => {
+  // Раньше инпут без personId штамповал новый uuid, и upsert по id вырождался
+  // в append (дефект №10). Теперь одиночное добавление идёт через
+  // mergeManifestPeopleIntoRoster: матч по нормализованному ФИО, existing-wins.
   const run = await runRaw("addPassengerRequestSavedPerson", {
     requestId: "req-1",
     person: { fullName: "Иванов Иван", phone: "+70000000000" }
@@ -129,18 +129,11 @@ test("ДЕФЕКТ №10: addPassengerRequestSavedPerson с существующ
   const roster = run.double.callsTo("passengerRequest", "update")[0].args.data
     .savedPassengers
 
-  assert.equal(roster.length, 3, "вместо обновления записи появился дубль")
+  assert.equal(roster.length, 2)
   const ivans = roster.filter((p) => p.fullName === "Иванов Иван")
-  assert.equal(ivans.length, 2)
-  assert.notEqual(
-    ivans[0].personId,
-    ivans[1].personId,
-    "у дубля новый personId — связь с услугами не наследуется"
-  )
-  // Исходная запись не получила ни телефона, ни каких-либо правок.
+  assert.equal(ivans.length, 1)
   assert.equal(ivans[0].personId, IVAN)
-  assert.equal(ivans[0].phone, undefined)
-  assert.equal(ivans[1].phone, "+70000000000")
+  assert.equal(ivans[0].phone, "+70000000000")
 })
 
 test("addPassengerRequestSavedPerson: пустое ФИО отбивается до записи, лога и публикации", async () => {
@@ -217,8 +210,8 @@ test("updatePassengerRequestSavedPerson: чужой personId отбиваетс�
 test("страж «дублей идентичности» сравнивает personId, а не ФИО: переименование в тёзку проходит", async () => {
   // updateSavedPersonInRoster ищет конфликт по rosterMatchKey (= personId), а
   // personId в merged принудительно равен правимому — совпасть может только с
-  // уже существующим дублем personId. Проверка ФИО не участвует, поэтому в
-  // реестре штатно оказываются два «Иванов Иван» (см. дефект №10).
+  // уже существующим дублем personId. Проверка ФИО не участвует, поэтому
+  // переименование в тёзку оставляет две записи; схлопывать их — мутация merge.
   const run = await runRaw("updatePassengerRequestSavedPerson", {
     requestId: "req-1",
     personId: PETR,
@@ -471,6 +464,103 @@ test("addPassengerRequestSavedPeople идёт со skipEmail: true — почт�
   )
 })
 
+// ──────────────────── mergePassengerRequestSavedPeople ────────────────────
+
+const DUP = "aaaaaaaa-0000-4000-8000-000000000099"
+
+const requestWithScanManifestDupes = () => {
+  const request = makeRequest()
+  request.savedPassengers = [
+    ...request.savedPassengers,
+    {
+      personId: DUP,
+      fullName: "Иванов Иван",
+      personType: "PASSENGER",
+      personCategory: "CHILD",
+      phone: "+7111"
+    }
+  ]
+  request.livingService.hotels[0].people.push({
+    personId: DUP,
+    fullName: "Иванов Иван",
+    personType: "PASSENGER",
+    personCategory: "CHILD"
+  })
+  request.passengerGroups = [
+    { groupId: "g-1", kind: "FAMILY", memberPersonIds: [DUP, PETR] }
+  ]
+  return request
+}
+
+test("mergePassengerRequestSavedPeople: keep-wins, ребинд услуг, групп и строк отчёта", async () => {
+  const run = await runRaw(
+    "mergePassengerRequestSavedPeople",
+    { requestId: "req-1", keepPersonId: IVAN, mergePersonIds: [DUP] },
+    {
+      request: requestWithScanManifestDupes(),
+      documents: {
+        passengerRequestHotelReportMany: [
+          {
+            id: "rep-0",
+            passengerRequestId: "req-1",
+            hotelIndex: 0,
+            reportRows: [
+              {
+                personId: DUP,
+                fullName: "Иванов Иван",
+                accommodationCost: 100
+              }
+            ]
+          }
+        ]
+      }
+    }
+  )
+
+  assert.equal(run.error, null)
+  const data = run.double.callsTo("passengerRequest", "update")[0].args.data
+  assert.equal(data.savedPassengers.length, 2)
+  const kept = data.savedPassengers.find((p) => p.personId === IVAN)
+  assert.equal(kept.phone, "+7111")
+  assert.equal(kept.personCategory, "CHILD")
+  assert.equal(
+    data.savedPassengers.some((p) => p.personId === DUP),
+    false
+  )
+  assert.deepEqual(
+    data.livingService.hotels[0].people.map((p) => p.personId),
+    [IVAN]
+  )
+  assert.deepEqual(data.passengerGroups[0].memberPersonIds, [IVAN, PETR])
+  assert.deepEqual(
+    run.double.callsTo("passengerRequestHotelReport", "updateMany")[0].args.data,
+    { submittedAt: null, pricingApprovedAt: null }
+  )
+  assert.deepEqual(
+    run.double.callsTo("passengerRequestHotelReport", "update")[0].args.data
+      .reportRows,
+    [{ personId: IVAN, fullName: "Иванов Иван", accommodationCost: 100 }]
+  )
+})
+
+test("mergePassengerRequestSavedPeople: нет дублей или чужой id — отказ до записи", async () => {
+  const empty = await runRaw("mergePassengerRequestSavedPeople", {
+    requestId: "req-1",
+    keepPersonId: IVAN,
+    mergePersonIds: []
+  })
+  assert.match(empty.error.message, /No duplicate passengers to merge/)
+  assert.equal(empty.double.callsTo("passengerRequest", "update").length, 0)
+
+  const missing = await runRaw("mergePassengerRequestSavedPeople", {
+    requestId: "req-1",
+    keepPersonId: IVAN,
+    mergePersonIds: ["нет-такого"]
+  })
+  assert.match(missing.error.message, /Saved passenger to merge not found/)
+  assert.equal(missing.double.callsTo("passengerRequest", "update").length, 0)
+})
+
 // ───────────────────────── setPassengerRequestGroup ─────────────────────────
 
 test("setPassengerRequestGroup создаёт группу с дефолтами и дедуплицирует состав", async () => {
@@ -687,16 +777,14 @@ test("removePassengerRequestGroup с несуществующим groupId: ап�
 // ─────────────────────── чтение реестра: dedupeSavedPassengers ───────────────────────
 
 test("dedupeSavedPassengers на чтении схлопывает дубли по personId и НЕ схлопывает по ФИО", async () => {
-  // Поле-резолвер PassengerRequest.savedPassengers — единственное место, где
-  // реестр чистится при отдаче. Ключ схлопывания — personId, поэтому дубли,
-  // порождённые дефектом №10 (одно ФИО, разные personId), уезжают клиенту
-  // обоими. Пассажир задваивается в интерфейсе, и починка дедупликации этого
-  // не решит — чинить надо №10.
-  const added = await runRaw("addPassengerRequestSavedPerson", {
-    requestId: "req-1",
-    person: { fullName: "Иванов Иван" }
-  })
-  const rosterWithNameDupes = added.double.state.passengerRequest.savedPassengers
+  // Поле-резолвер PassengerRequest.savedPassengers чистит реестр при отдаче.
+  // Ключ — personId: тёзки с разными id уезжают клиенту обоими; схлопывать
+  // их должна мутация merge, а не чтение.
+  const rosterWithNameDupes = [
+    plainPerson(IVAN, "Иванов Иван"),
+    plainPerson("aaaaaaaa-0000-4000-8000-000000000099", "Иванов Иван"),
+    plainPerson(PETR, "Петров Пётр")
+  ]
 
   const read = resolvers.PassengerRequest.savedPassengers({
     savedPassengers: rosterWithNameDupes
@@ -729,7 +817,7 @@ test("dedupeSavedPassengers на чтении схлопывает дубли п
 
 // ─────────────────────── маршрутизация писем и охрана ───────────────────────
 
-test("все шесть слагов группы маршрутизируются в письмо update_passenger_request", async () => {
+test("все семь слагов группы маршрутизируются в письмо update_passenger_request", async () => {
   // Отдельного почтового действия у реестра и групп нет: получатели и шаблон
   // те же, что у любой правки заявки.
   const actions = [
@@ -737,6 +825,7 @@ test("все шесть слагов группы маршрутизируютс
     "update_passenger_request_saved_person",
     "remove_passenger_request_saved_person",
     "add_passenger_request_saved_people",
+    "merge_passenger_request_saved_people",
     "set_passenger_request_group",
     "remove_passenger_request_group"
   ]
@@ -758,6 +847,10 @@ test("аутентификация: без субъекта ни одна мут
     ],
     ["removePassengerRequestSavedPerson", { requestId: "req-1", personId: IVAN }],
     ["addPassengerRequestSavedPeople", { requestId: "req-1", people: [] }],
+    [
+      "mergePassengerRequestSavedPeople",
+      { requestId: "req-1", keepPersonId: IVAN, mergePersonIds: [PETR] }
+    ],
     [
       "setPassengerRequestGroup",
       { requestId: "req-1", group: { memberPersonIds: [] } }

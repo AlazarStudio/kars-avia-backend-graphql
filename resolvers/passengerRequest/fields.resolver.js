@@ -13,6 +13,7 @@ import {
   hotelIndexesForScope
 } from "../../services/passengerRequest/fapScope.js"
 import { visibleHotelReports } from "../../services/analytics/passengerAnalyticsUtils.js"
+import { maskReportRowPrices } from "../../services/passengerRequest/hotelReportRows.js"
 
 // Зритель-авиакомпания. Берём канонический предикат модуля, а не
 // `context.user?.airlineId`: resolveScope знает все типы субъекта ФАП, включая
@@ -104,10 +105,15 @@ export default {
   },
 
   PassengerRequestHotelReport: {
-    reportRows: (parent) => {
+    reportRows: (parent, _args, context) => {
       const raw = parent.reportRows
-      return Array.isArray(raw) ? raw : []
-    }
+      const rows = Array.isArray(raw) ? raw : []
+      if (viewerIsAirline(context) && parent.pricingApprovedAt == null) {
+        return maskReportRowPrices(rows)
+      }
+      return rows
+    },
+    pricingApproved: (parent) => parent.pricingApprovedAt != null
   },
 
   PassengerServiceHotelPerson: {

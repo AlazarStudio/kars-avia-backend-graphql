@@ -1,4 +1,7 @@
-import { getFrontendUrl } from "../auth/appConfig.js"
+import {
+  buildEntityChatUrl,
+  buildRequestCardUrl
+} from "./frontendEntityLinks.js"
 
 function esc(s) {
   return String(s ?? "")
@@ -16,17 +19,28 @@ function spanNo(text) {
   return span(`№${text}`)
 }
 
-function buildRequestRelayUrl(requestId) {
-  const base = getFrontendUrl()
-  if (!base || !requestId) return ""
-  return `${base}/relay?id=${encodeURIComponent(requestId)}`
-}
-
 function requestRelayLinkHtml(requestId) {
-  const url = buildRequestRelayUrl(requestId)
+  const url = buildRequestCardUrl(requestId)
   if (!url) return ""
   const href = esc(url)
   return `<br><br>Перейти к заявке:<br><a href="${href}">${href}</a>`
+}
+
+function entityChatLinkHtml({
+  requestId,
+  reserveId,
+  passengerRequestId,
+  chatId
+}) {
+  const url = buildEntityChatUrl({
+    requestId,
+    reserveId,
+    passengerRequestId,
+    chatId
+  })
+  if (!url) return ""
+  const href = esc(url)
+  return `<br><br>Перейти в чат:<br><a href="${href}">${href}</a>`
 }
 
 function formatMealPlanLine(mealPlan) {
@@ -188,7 +202,8 @@ export function buildNewMessageEmail({
   textPreview,
   requestId,
   reserveId,
-  passengerRequestId
+  passengerRequestId,
+  chatId
 }) {
   const fapLabel =
     passengerRequestNumber || flightNumber
@@ -218,9 +233,12 @@ export function buildNewMessageEmail({
   const preview = span(
     textPreview?.length > 200 ? `${textPreview.slice(0, 200)}…` : textPreview
   )
-  const link = requestRelayLinkHtml(
-    requestId || reserveId || passengerRequestId
-  )
+  const link = entityChatLinkHtml({
+    requestId,
+    reserveId,
+    passengerRequestId,
+    chatId
+  })
   const html = `Новое сообщение от ${span(senderName)} в ${entityLabel}:<br>${preview}<br>${link}`
   return { subject, html }
 }

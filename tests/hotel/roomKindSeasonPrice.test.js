@@ -8,10 +8,12 @@ import {
   assertValidSeasonRange,
   calculateSeasonalLivingForStay,
   findSeasonForNight,
+  isValidOnDay,
   listStayNights,
   resolvePriceForNight,
   resolveWeightedPricePerDay,
-  seasonsOverlap
+  seasonsOverlap,
+  validityDateFields
 } from "../../services/hotel/roomKindSeasonPrice.js"
 
 test("listStayNights returns nights [start, end)", () => {
@@ -92,6 +94,26 @@ test("findSeasonForNight and resolvePriceForNight with fallback", () => {
   )
 })
 
+test("priceSingleOccupancy uses season then falls back to base price", () => {
+  const roomKind = { price: 4000, priceSingleOccupancy: 2500 }
+  const seasons = [
+    {
+      startDate: "2026-06-01",
+      endDate: "2026-06-30",
+      price: 5000,
+      priceSingleOccupancy: 3000
+    }
+  ]
+  assert.equal(
+    resolvePriceForNight(roomKind, seasons, "2026-06-15", "priceSingleOccupancy"),
+    3000
+  )
+  assert.equal(
+    resolvePriceForNight(roomKind, seasons, "2026-05-15", "priceSingleOccupancy"),
+    2500
+  )
+})
+
 test("multi-season stay sums night prices", () => {
   const roomKind = { price: 1000 }
   const seasons = [
@@ -137,4 +159,29 @@ test("resolveWeightedPricePerDay respects filter window", () => {
     "2026-06-30"
   )
   assert.equal(juneOnly, 2000)
+})
+
+test("isValidOnDay: без даты или без окна — всегда валиден", () => {
+  assert.equal(isValidOnDay("2026-06-01", "2026-06-30", null), true)
+  assert.equal(isValidOnDay(null, null, "2026-06-15"), true)
+  assert.equal(isValidOnDay("2026-06-01", null, "2026-06-15"), true)
+  assert.equal(isValidOnDay(null, "2026-06-30", "2026-06-15"), true)
+})
+
+test("isValidOnDay: границы включительно", () => {
+  assert.equal(isValidOnDay("2026-06-01", "2026-06-30", "2026-06-01"), true)
+  assert.equal(isValidOnDay("2026-06-01", "2026-06-30", "2026-06-30"), true)
+  assert.equal(isValidOnDay("2026-06-01", "2026-06-30", "2026-05-31"), false)
+  assert.equal(isValidOnDay("2026-06-01", "2026-06-30", "2026-07-01"), false)
+})
+
+test("validityDateFields отклоняет перевёрнутый интервал", () => {
+  assert.throws(
+    () =>
+      validityDateFields({
+        startDate: "2026-08-01",
+        endDate: "2026-06-01"
+      }),
+    /не позже/
+  )
 })

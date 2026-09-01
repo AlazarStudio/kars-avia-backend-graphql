@@ -33,7 +33,14 @@ test("новое право на правку завершённой заявк�
   assert.ok(ACCESS_MENU_KEYS.includes("reserveUpdateCompleted"))
 })
 
-test("права accessManage и travellineMenu объявлены", () => {
+test("права accessManage, travellineMenu и ФАП объявлены", () => {
   assert.ok(ACCESS_MENU_KEYS.includes("accessManage"))
   assert.ok(ACCESS_MENU_KEYS.includes("travellineMenu"))
+  assert.ok(ACCESS_MENU_KEYS.includes("passengerRequestMenu"))
+  assert.ok(ACCESS_MENU_KEYS.includes("passengerRequestCreate"))
+  assert.ok(ACCESS_MENU_KEYS.includes("passengerRequestUpdate"))
+})
+
+test("право reportDelete объявлено", () => {
+  assert.ok(ACCESS_MENU_KEYS.includes("reportDelete"))
 })

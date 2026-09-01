@@ -60,7 +60,10 @@ test("выселение гасит отметку отправки у отчё�
     { not: null },
     "неотправленные отчёты не переписываем — сброс идемпотентен"
   )
-  assert.deepEqual(calls[0].data, { submittedAt: null })
+  assert.deepEqual(calls[0].data, {
+    submittedAt: null,
+    pricingApprovedAt: null
+  })
 })
 
 test("переселение гасит отметку у ОБЕИХ гостиниц", async () => {

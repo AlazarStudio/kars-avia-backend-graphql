@@ -1,4 +1,8 @@
 import { prisma } from "../../prisma.js"
+import {
+  hasValidityWindow,
+  isValidOnDay
+} from "../hotel/roomKindSeasonPrice.js"
 
 export const normalizeGeoValue = (value) =>
   String(value ?? "")
@@ -99,12 +103,18 @@ const sortByCreatedAtAsc = (contracts) =>
     return aTime - bTime
   })
 
-const pickFirst = (candidates) => {
-  const sorted = sortByCreatedAtAsc(candidates)
-  return sorted[0] ?? null
+const pickFirst = (candidates, atDate) => {
+  const valid = candidates.filter((contract) =>
+    isValidOnDay(contract?.startDate, contract?.endDate, atDate)
+  )
+  if (atDate != null && atDate !== "") {
+    const dated = valid.filter(hasValidityWindow)
+    if (dated.length) return sortByCreatedAtAsc(dated)[0] ?? null
+  }
+  return sortByCreatedAtAsc(valid)[0] ?? null
 }
 
-const resolveByAirportContract = (airlinePrices, airportId) => {
+const resolveByAirportContract = (airlinePrices, airportId, atDate) => {
   if (!airportId || !Array.isArray(airlinePrices)) return null
 
   const candidates = airlinePrices.filter((contract) =>
@@ -112,7 +122,7 @@ const resolveByAirportContract = (airlinePrices, airportId) => {
       (item) => item.airportId && item.airportId === airportId
     )
   )
-  return pickFirst(candidates)
+  return pickFirst(candidates, atDate)
 }
 
 const matchesCityLevel = (geography, location) => {
@@ -149,11 +159,11 @@ const matchesCountryLevel = (geography, location) => {
   return countryOnPrice === normalizeGeoValue(location.country)
 }
 
-const resolveGeographicLevel = (prices, location, matcher) => {
+const resolveGeographicLevel = (prices, location, matcher, atDate) => {
   const candidates = prices.filter((contract) =>
     getPriceGeographies(contract).some((geo) => matcher(geo, location))
   )
-  return pickFirst(candidates)
+  return pickFirst(candidates, atDate)
 }
 
 export const resolvePriceByHotelLocation = ({
@@ -161,7 +171,8 @@ export const resolvePriceByHotelLocation = ({
   hotelLocation,
   airportId,
   skipCountryLevel = false,
-  contractTypes = null
+  contractTypes = null,
+  atDate = null
 }) => {
   let prices = Array.isArray(airlinePrices) ? airlinePrices : []
   if (contractTypes?.length) {
@@ -172,14 +183,15 @@ export const resolvePriceByHotelLocation = ({
   }
   const location = hotelLocation || {}
 
-  const airportContract = resolveByAirportContract(prices, airportId)
+  const airportContract = resolveByAirportContract(prices, airportId, atDate)
   if (airportContract) return airportContract
 
   if (hasGeoValue(location.city) || location.cityId) {
     const cityContract = resolveGeographicLevel(
       prices,
       location,
-      matchesCityLevel
+      matchesCityLevel,
+      atDate
     )
     if (cityContract) return cityContract
   }
@@ -188,7 +200,8 @@ export const resolvePriceByHotelLocation = ({
     const regionContract = resolveGeographicLevel(
       prices,
       location,
-      matchesRegionLevel
+      matchesRegionLevel,
+      atDate
     )
     if (regionContract) return regionContract
   }
@@ -197,7 +210,8 @@ export const resolvePriceByHotelLocation = ({
     const countryContract = resolveGeographicLevel(
       prices,
       location,
-      matchesCountryLevel
+      matchesCountryLevel,
+      atDate
     )
     if (countryContract) return countryContract
   }

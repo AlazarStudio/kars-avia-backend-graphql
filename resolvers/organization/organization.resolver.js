@@ -4,6 +4,8 @@ import { uploadImage } from "../../services/files/uploadImage.js"
 import { ORGANIZATION_CREATED, pubsub } from "../../services/infra/pubsub.js"
 import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAuth.js"
 import { withFilter } from "graphql-subscriptions"
+import { organizationContractData } from "../../services/transfer/transferPriceContract.js"
+import { validityDateFields } from "../../services/hotel/roomKindSeasonPrice.js"
 
 const organizationResolver = {
   Query: {
@@ -104,6 +106,11 @@ const organizationResolver = {
               organizationId: newOrganization.id,
               name: tp.name ?? "",
               prices: tp.prices,
+              ...(await organizationContractData(
+                tp.organizationContractId,
+                newOrganization.id
+              )),
+              ...validityDateFields(tp),
               airportOnTransferPrice: {
                 create: (tp.airportIds || []).map((airportId) => ({
                   airport: { connect: { id: airportId } }
@@ -188,7 +195,12 @@ const organizationResolver = {
               where: { id: tp.id },
               data: {
                 prices: tp.prices,
-                ...(tp.name != null && { name: tp.name })
+                ...(tp.name != null && { name: tp.name }),
+                ...(await organizationContractData(
+                  tp.organizationContractId,
+                  id
+                )),
+                ...validityDateFields(tp)
               }
             })
             await prisma.airportOnTransferPrice.deleteMany({
@@ -217,6 +229,11 @@ const organizationResolver = {
                 organizationId: id,
                 name: tp.name ?? "",
                 prices: tp.prices,
+                ...(await organizationContractData(
+                  tp.organizationContractId,
+                  id
+                )),
+                ...validityDateFields(tp),
                 airportOnTransferPrice: {
                   create: (tp.airportIds || []).map((airportId) => ({
                     airport: { connect: { id: airportId } }

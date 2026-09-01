@@ -9,6 +9,11 @@ import {
   assertValidSeasonRange
 } from "../../services/hotel/roomKindSeasonPrice.js"
 import { recalculateNonArchivedForRoomKindPeriod } from "../../services/request/requestPricing.js"
+import {
+  hiddenAirlineFlag,
+  hiddenAirlinePrice,
+  omitAirlinePriceWrites
+} from "../../services/hotel/hideAirlinePrices.js"
 
 const loadSeasonsForRoomKind = async (roomKindId) =>
   prisma.roomKindSeason.findMany({
@@ -28,33 +33,40 @@ const roomKindSeasonResolver = {
     createRoomKindSeason: async (_, { input }, context) => {
       try {
         await hotelModerMiddleware(context)
+        const seasonInput = omitAirlinePriceWrites(input, context)
 
         const roomKind = await prisma.roomKind.findUnique({
-          where: { id: input.roomKindId }
+          where: { id: seasonInput.roomKindId }
         })
         if (!roomKind) throw new Error("RoomKind не найден")
 
         const { start, end } = assertValidSeasonRange(
-          input.startDate,
-          input.endDate
+          seasonInput.startDate,
+          seasonInput.endDate
         )
-        const existing = await loadSeasonsForRoomKind(input.roomKindId)
+        const existing = await loadSeasonsForRoomKind(seasonInput.roomKindId)
         assertNoSeasonOverlap(existing, start, end)
 
         const created = await prisma.roomKindSeason.create({
           data: {
-            roomKindId: input.roomKindId,
-            name: input.name ?? null,
+            roomKindId: seasonInput.roomKindId,
+            name: seasonInput.name ?? null,
             startDate: start,
             endDate: end,
-            price: input.price,
+            price: seasonInput.price,
             priceForAirline:
-              input.priceForAirline != null ? input.priceForAirline : null
+              seasonInput.priceForAirline != null
+                ? seasonInput.priceForAirline
+                : null,
+            priceSingleOccupancy:
+              seasonInput.priceSingleOccupancy != null
+                ? seasonInput.priceSingleOccupancy
+                : null
           }
         })
 
         await recalculateNonArchivedForRoomKindPeriod(
-          input.roomKindId,
+          seasonInput.roomKindId,
           start,
           end
         )
@@ -68,14 +80,15 @@ const roomKindSeasonResolver = {
     updateRoomKindSeason: async (_, { id, input }, context) => {
       try {
         await hotelModerMiddleware(context)
+        const seasonInput = omitAirlinePriceWrites(input, context)
 
         const existingSeason = await prisma.roomKindSeason.findUnique({
           where: { id }
         })
         if (!existingSeason) throw new Error("Сезон не найден")
 
-        const nextStart = input.startDate ?? existingSeason.startDate
-        const nextEnd = input.endDate ?? existingSeason.endDate
+        const nextStart = seasonInput.startDate ?? existingSeason.startDate
+        const nextEnd = seasonInput.endDate ?? existingSeason.endDate
         const { start, end } = assertValidSeasonRange(nextStart, nextEnd)
 
         const siblings = await loadSeasonsForRoomKind(existingSeason.roomKindId)
@@ -84,12 +97,15 @@ const roomKindSeasonResolver = {
         const updated = await prisma.roomKindSeason.update({
           where: { id },
           data: {
-            ...(input.name !== undefined && { name: input.name }),
+            ...(seasonInput.name !== undefined && { name: seasonInput.name }),
             startDate: start,
             endDate: end,
-            ...(input.price !== undefined && { price: input.price }),
-            ...(input.priceForAirline !== undefined && {
-              priceForAirline: input.priceForAirline
+            ...(seasonInput.price !== undefined && { price: seasonInput.price }),
+            ...(seasonInput.priceForAirline !== undefined && {
+              priceForAirline: seasonInput.priceForAirline
+            }),
+            ...(seasonInput.priceSingleOccupancy !== undefined && {
+              priceSingleOccupancy: seasonInput.priceSingleOccupancy
             })
           }
         })
@@ -140,14 +156,20 @@ const roomKindSeasonResolver = {
     seasons: async (parent) => {
       if (Array.isArray(parent.seasons)) return parent.seasons
       return loadSeasonsForRoomKind(parent.id)
-    }
+    },
+    priceForAirline: (parent, _, context) =>
+      hiddenAirlinePrice(parent.priceForAirline, context),
+    priceForAirReq: (parent, _, context) =>
+      hiddenAirlineFlag(parent.priceForAirReq, context)
   },
 
   RoomKindSeason: {
     roomKind: async (parent) => {
       if (parent.roomKind) return parent.roomKind
       return prisma.roomKind.findUnique({ where: { id: parent.roomKindId } })
-    }
+    },
+    priceForAirline: (parent, _, context) =>
+      hiddenAirlinePrice(parent.priceForAirline, context)
   }
 }
 

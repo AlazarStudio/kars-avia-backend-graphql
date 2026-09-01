@@ -4,9 +4,10 @@ import { GraphQLError } from "graphql"
 import {
   mergeManifestPeopleIntoRoster,
   removeSavedPersonFromRoster,
-  updateSavedPersonInRoster,
-  upsertSavedPassenger
+  updateSavedPersonInRoster
 } from "../../services/passengerRequest/savedPassengers.js"
+import { mergeSavedPeopleInRequest, rebindReportRows } from "../../services/passengerRequest/mergeSavedPeople.js"
+import { prisma } from "../../prisma.js"
 import {
   upsertGroup,
   removeGroup,
@@ -24,12 +25,15 @@ export default {
         requestId,
         context,
         apply: (existing) => {
+          if (!String(person?.fullName ?? "").trim()) {
+            throw new GraphQLError("fullName is required")
+          }
           let savedPassengers
           try {
-            savedPassengers = upsertSavedPassenger(
+            savedPassengers = mergeManifestPeopleIntoRoster(
               existing.savedPassengers,
-              person
-            )
+              [person]
+            ).roster
           } catch (e) {
             throw new GraphQLError(e.message || "Invalid saved passenger")
           }
@@ -190,6 +194,59 @@ export default {
             }
           }
         }
+      }),
+
+    mergePassengerRequestSavedPeople: async (
+      _,
+      { requestId, keepPersonId, mergePersonIds },
+      context
+    ) => {
+      let dropIds = new Set()
+      const result = await withPassengerRequest({
+        requestId,
+        context,
+        apply: (existing) => {
+          const merged = mergeSavedPeopleInRequest(
+            existing,
+            keepPersonId,
+            mergePersonIds
+          )
+          dropIds = merged.dropIds
+          return {
+            data: merged.data,
+            unsubmitReports: merged.unsubmitReports,
+            log: {
+              action: "merge_passenger_request_saved_people",
+              description: "Дубли пассажиров ФАП слиты",
+              fulldescription: `Пользователь ${getSubjectName(context)} слил дубли пассажиров в реестре ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id
+            }
+          }
+        }
       })
+
+      if (dropIds.size) {
+        const reports = await prisma.passengerRequestHotelReport.findMany({
+          where: { passengerRequestId: requestId }
+        })
+        for (const report of reports) {
+          const nextRows = rebindReportRows(
+            report.reportRows,
+            dropIds,
+            keepPersonId
+          )
+          if (JSON.stringify(nextRows) === JSON.stringify(report.reportRows ?? [])) {
+            continue
+          }
+          await prisma.passengerRequestHotelReport.update({
+            where: { id: report.id },
+            data: { reportRows: nextRows }
+          })
+        }
+      }
+
+      return result
+    }
   }
 }

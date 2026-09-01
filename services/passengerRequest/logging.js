@@ -23,7 +23,8 @@ export const logPassengerRequestAction = async ({
   emailAction = null,
   skipEmail = false,
   emailExtras = {},
-  cancelReason = null
+  cancelReason = null,
+  alsoNotifyAirline = false
 }) => {
   try {
     await logAction({
@@ -66,7 +67,8 @@ export const logPassengerRequestAction = async ({
       html,
       entityType: "passenger_request",
       entityId: passengerRequest.id,
-      dispatcherFallbackTo: getDispatcherFallbackForPassengerEmail(menuAction)
+      dispatcherFallbackTo: getDispatcherFallbackForPassengerEmail(menuAction),
+      alsoNotifyAirline
     })
   } catch (error) {
     console.error("Ошибка отправки email по ФАП:", error)

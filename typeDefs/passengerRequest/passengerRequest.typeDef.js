@@ -336,6 +336,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     roomNumber: String
     roomCategory: String
     roomKind: String
+    "Заезд (дата и время) — правка в отчёте, не синхронизируется с гостем услуги"
+    arrival: Date
+    "Выезд (дата и время) — правка в отчёте, не синхронизируется с гостем услуги"
+    departure: Date
     daysCount: Float
     breakfast: Int
     lunch: Int
@@ -377,6 +381,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     reportRows: [PassengerRequestHotelReportRow!]!
     "Когда диспетчер отправил отчёт авиакомпании на проверку. null — отчёт ещё не открыт авиакомпании"
     submittedAt: Date
+    "Когда ценообразование согласовано. До этого авиакомпания видит состав без цен"
+    pricingApprovedAt: Date
+    "true, если pricingApprovedAt заполнен — для тумблера Согласовать/Согласовано"
+    pricingApproved: Boolean!
   }
 
   """
@@ -546,6 +554,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     roomNumber: String
     roomCategory: String
     roomKind: String
+    arrival: Date
+    departure: Date
     daysCount: Float
     breakfast: Int
     lunch: Int
@@ -718,6 +728,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addPassengerRequestSavedPeople(
       requestId: ID!
       people: [PassengerRequestSavedPersonInput!]!
+    ): PassengerRequest!
+
+    """
+    Слить дубли реестра: keepPersonId остаётся, mergePersonIds переносятся
+    на него во всех услугах, группах и строках отчёта.
+    """
+    mergePassengerRequestSavedPeople(
+      requestId: ID!
+      keepPersonId: ID!
+      mergePersonIds: [ID!]!
     ): PassengerRequest!
 
     cancelPassengerRequest(id: ID!, cancelReason: String): PassengerRequest!
@@ -1019,6 +1039,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     hidePassengerRequestHotelReport(
       requestId: ID!
       hotelIndex: Int!
+    ): PassengerRequestHotelReport!
+
+    """
+    Согласовать (true) или снять согласование (false) ценообразования отчёта.
+    Пока не согласовано, авиакомпания видит состав без цен.
+    """
+    setPassengerRequestHotelReportPricingApproved(
+      requestId: ID!
+      hotelIndex: Int!
+      approved: Boolean!
     ): PassengerRequestHotelReport!
   }
 

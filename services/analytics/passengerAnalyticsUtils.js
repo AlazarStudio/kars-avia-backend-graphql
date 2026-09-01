@@ -72,9 +72,15 @@ export function visibleHotelReports(hotelReports, viewerIsAirline) {
   return list.filter((rep) => rep?.submittedAt != null)
 }
 
+export function pricedHotelReports(hotelReports, viewerIsAirline) {
+  const visible = visibleHotelReports(hotelReports, viewerIsAirline)
+  if (!viewerIsAirline) return visible
+  return visible.filter((rep) => rep?.pricingApprovedAt != null)
+}
+
 export function aggregatePassengerRequest(request, options = {}) {
   const { viewerIsAirline = false } = options
-  const reports = visibleHotelReports(request?.hotelReports, viewerIsAirline)
+  const reports = pricedHotelReports(request?.hotelReports, viewerIsAirline)
   const { living, meal, hasGuestRow } = sumHotelReportsCost(reports)
   const transfer = sumTransferCost(request)
   const costMissing = computeCostMissing(request, hasGuestRow)

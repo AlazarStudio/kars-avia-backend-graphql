@@ -22,6 +22,7 @@ import {
   assertNoAirportConflict,
   assertNoCrossPriceLevelConflict,
   emptyOccupiedByContractType,
+  emptyOccupiedLevels,
   getOccupiedForContractType,
   loadOccupiedByContractType,
   normalizeContractType,
@@ -29,6 +30,20 @@ import {
   toPriceGeoCreateData
 } from "../../services/geo/normalizeGeography.js"
 import { buildAirlineWhere } from "../../services/airline/airlineFilters.js"
+import { organizationContractData } from "../../services/transfer/transferPriceContract.js"
+import {
+  hasValidityWindow,
+  validityDateFields
+} from "../../services/hotel/roomKindSeasonPrice.js"
+
+const priceValidity = (input, existing) => ({
+  startDate:
+    input.startDate !== undefined ? input.startDate : existing?.startDate,
+  endDate: input.endDate !== undefined ? input.endDate : existing?.endDate
+})
+
+const isWindowedPrice = (input, existing) =>
+  hasValidityWindow(priceValidity(input, existing))
 
 const syncAirlinePriceGeography = async (airlinePriceId, geographyInput) => {
   await prisma.priceGeoOnAirlinePrice.deleteMany({
@@ -247,20 +262,25 @@ const airlineResolver = {
           : []
         const airportIds = priceInput.airportIds || []
         const occupied = getOccupiedForContractType(occupiedByType, contractType)
-        assertNoCrossPriceLevelConflict(geoList, occupied)
-        assertNoAirportConflict(airportIds, occupied)
-        occupiedByType = addToOccupiedByContractType(
-          occupiedByType,
-          contractType,
-          geoList,
-          airportIds
-        )
+        if (isWindowedPrice(priceInput)) {
+          assertNoAirportConflict(airportIds, emptyOccupiedLevels())
+        } else {
+          assertNoCrossPriceLevelConflict(geoList, occupied)
+          assertNoAirportConflict(airportIds, occupied)
+          occupiedByType = addToOccupiedByContractType(
+            occupiedByType,
+            contractType,
+            geoList,
+            airportIds
+          )
+        }
         priceCreates.push({
           name: priceInput.name ?? "",
           prices: priceInput.prices,
           mealPrice: priceInput.mealPrice,
           individual: priceInput.individual ?? false,
           contractType,
+          ...validityDateFields(priceInput),
           geography: {
             create: geoList.map(toPriceGeoCreateData)
           },
@@ -281,20 +301,24 @@ const airlineResolver = {
             create: priceCreates
           },
           transferPrices: {
-            create: transferPricesData.map((tp) => ({
-              name: tp.name ?? "",
-              prices: tp.prices,
-              airportOnTransferPrice: {
-                create: (tp.airportIds || []).map((airportId) => ({
-                  airport: { connect: { id: airportId } }
-                }))
-              },
-              cityOnTransferPrice: {
-                create: (tp.cityIds || []).map((cityId) => ({
-                  city: { connect: { id: cityId } }
-                }))
-              }
-            }))
+            create: await Promise.all(
+              transferPricesData.map(async (tp) => ({
+                name: tp.name ?? "",
+                prices: tp.prices,
+                ...(await organizationContractData(tp.organizationContractId)),
+                ...validityDateFields(tp),
+                airportOnTransferPrice: {
+                  create: (tp.airportIds || []).map((airportId) => ({
+                    airport: { connect: { id: airportId } }
+                  }))
+                },
+                cityOnTransferPrice: {
+                  create: (tp.cityIds || []).map((cityId) => ({
+                    city: { connect: { id: cityId } }
+                  }))
+                }
+              }))
+            )
           }
         },
         include: {
@@ -404,7 +428,9 @@ const airlineResolver = {
                 p.id &&
                 (p.geography !== undefined ||
                   p.airportIds !== undefined ||
-                  p.contractType !== undefined)
+                  p.contractType !== undefined ||
+                  p.startDate !== undefined ||
+                  p.endDate !== undefined)
             )
             .map((p) => p.id)
 
@@ -435,15 +461,21 @@ const airlineResolver = {
 
               const needsGeoSync = priceInput.geography !== undefined
               const needsAirportSync = priceInput.airportIds !== undefined
+              const datesChanged =
+                priceInput.startDate !== undefined ||
+                priceInput.endDate !== undefined
+              const windowed = isWindowedPrice(priceInput, existing)
               const needsRevalidate =
-                needsGeoSync ||
-                needsAirportSync ||
-                priceInput.contractType !== undefined
+                !windowed &&
+                (needsGeoSync ||
+                  needsAirportSync ||
+                  priceInput.contractType !== undefined ||
+                  datesChanged)
 
               let geoList = null
               let airportIds = null
 
-              if (needsRevalidate) {
+              if (needsRevalidate || (windowed && needsAirportSync)) {
                 geoList = needsGeoSync
                   ? await normalizePriceGeographyList(priceInput.geography ?? [])
                   : (existing?.geography || []).map((row) => ({
@@ -458,12 +490,16 @@ const airlineResolver = {
                   ? priceInput.airportIds || []
                   : (existing?.airports || []).map((a) => a.airportId)
 
-                const occupied = getOccupiedForContractType(
-                  occupiedByType,
-                  contractType
-                )
-                assertNoCrossPriceLevelConflict(geoList, occupied)
-                assertNoAirportConflict(airportIds, occupied)
+                if (windowed) {
+                  assertNoAirportConflict(airportIds, emptyOccupiedLevels())
+                } else {
+                  const occupied = getOccupiedForContractType(
+                    occupiedByType,
+                    contractType
+                  )
+                  assertNoCrossPriceLevelConflict(geoList, occupied)
+                  assertNoAirportConflict(airportIds, occupied)
+                }
               }
 
               await prisma.airlinePrice.update({
@@ -477,7 +513,8 @@ const airlineResolver = {
                   }),
                   ...(priceInput.contractType !== undefined && {
                     contractType
-                  })
+                  }),
+                  ...validityDateFields(priceInput)
                 }
               })
 
@@ -512,18 +549,22 @@ const airlineResolver = {
                   : []
               const airportIds = priceInput.airportIds || []
 
-              const occupied = getOccupiedForContractType(
-                occupiedByType,
-                contractType
-              )
-              assertNoCrossPriceLevelConflict(geoList, occupied)
-              assertNoAirportConflict(airportIds, occupied)
-              occupiedByType = addToOccupiedByContractType(
-                occupiedByType,
-                contractType,
-                geoList,
-                airportIds
-              )
+              if (isWindowedPrice(priceInput)) {
+                assertNoAirportConflict(airportIds, emptyOccupiedLevels())
+              } else {
+                const occupied = getOccupiedForContractType(
+                  occupiedByType,
+                  contractType
+                )
+                assertNoCrossPriceLevelConflict(geoList, occupied)
+                assertNoAirportConflict(airportIds, occupied)
+                occupiedByType = addToOccupiedByContractType(
+                  occupiedByType,
+                  contractType,
+                  geoList,
+                  airportIds
+                )
+              }
 
               const createdPrice = await prisma.airlinePrice.create({
                 data: {
@@ -533,6 +574,7 @@ const airlineResolver = {
                   mealPrice: priceInput.mealPrice,
                   individual: priceInput.individual ?? false,
                   contractType,
+                  ...validityDateFields(priceInput),
                   geography: {
                     create: geoList.map(toPriceGeoCreateData)
                   }
@@ -553,7 +595,9 @@ const airlineResolver = {
                 where: { id: tp.id },
                 data: {
                   prices: tp.prices,
-                  ...(tp.name != null && { name: tp.name })
+                  ...(tp.name != null && { name: tp.name }),
+                  ...(await organizationContractData(tp.organizationContractId)),
+                  ...validityDateFields(tp)
                 }
               })
               await prisma.airportOnTransferPrice.deleteMany({
@@ -588,6 +632,8 @@ const airlineResolver = {
                   airlineId: id,
                   name: tp.name ?? "",
                   prices: tp.prices,
+                  ...(await organizationContractData(tp.organizationContractId)),
+                  ...validityDateFields(tp),
                   airportOnTransferPrice: {
                     create: (tp.airportIds || []).map((airportId) => ({
                       airport: { connect: { id: airportId } }

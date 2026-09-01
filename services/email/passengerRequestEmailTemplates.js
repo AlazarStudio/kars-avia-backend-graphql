@@ -1,4 +1,4 @@
-import { getFrontendUrl } from "../auth/appConfig.js"
+import { buildPassengerRequestCardUrl } from "./frontendEntityLinks.js"
 
 function esc(s) {
   return String(s ?? "")
@@ -22,14 +22,8 @@ function formatPassengerRequestLabel({ requestNumber, flightNumber }) {
   return span("ФАП")
 }
 
-function buildPassengerRequestRelayUrl(passengerRequestId) {
-  const base = getFrontendUrl()
-  if (!base || !passengerRequestId) return ""
-  return `${base}/far/${encodeURIComponent(passengerRequestId)}`
-}
-
 function passengerRequestRelayLinkHtml(passengerRequestId) {
-  const url = buildPassengerRequestRelayUrl(passengerRequestId)
+  const url = buildPassengerRequestCardUrl(passengerRequestId)
   if (!url) return ""
   const href = esc(url)
   return `<br><br>Перейти к ФАП:<br><a href="${href}">${href}</a>`
@@ -151,5 +145,20 @@ export function buildPassengerRequestActionEmail({
   const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
   const link = passengerRequestRelayLinkHtml(requestId)
   const html = `ФАП ${label}: ${esc(body)}<br>${link}`
+  return { subject, html }
+}
+
+export function buildHotelReportPricingApprovedEmail({
+  requestNumber,
+  flightNumber,
+  hotelName,
+  requestId
+}) {
+  const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
+  const noText = requestNumber || flightNumber || "ФАП"
+  const hotel = span(hotelName || "без названия")
+  const link = passengerRequestRelayLinkHtml(requestId)
+  const subject = `Согласовано ценообразование по ФАП ${noText}`
+  const html = `В ФАП ${label} расчёт по гостинице ${hotel} согласован. Авиакомпания видит цены в отчёте.${link}`
   return { subject, html }
 }
