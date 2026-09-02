@@ -273,18 +273,19 @@ const reportResolver = {
             (user.role === "SUPERADMIN" || user.role === "DISPATCHERADMIN"
               ? null
               : user.airlineId),
-          reports: uniqueReports.map((report) => ({
-            id: report.id,
-            name: report.name,
-            url: report.url,
-            startDate: report.startDate,
-            endDate: report.endDate,
-            createdAt: report.createdAt,
-            hotelId: report.hotelId,
-            airlineId: report.airlineId,
-            airline: report.airline,
-            isArchived: report.isArchived
-          }))
+          reports: reports
+          // reports: uniqueReports.map((report) => ({
+          //   id: report.id,
+          //   name: report.name,
+          //   url: report.url,
+          //   startDate: report.startDate,
+          //   endDate: report.endDate,
+          //   createdAt: report.createdAt,
+          //   hotelId: report.hotelId,
+          //   airlineId: report.airlineId,
+          //   airline: report.airline,
+          //   isArchived: report.isArchived
+          // }))
         }
       ]
     },
