@@ -40,10 +40,24 @@ const DRAFT = {
   submittedAt: null,
   pricingApprovedAt: null
 }
+// Реальная форма документа до деплоя: поля pricingApprovedAt в Mongo нет
+// вовсе, Prisma отдаёт его как undefined.
+const LEGACY = {
+  id: "rep-4",
+  passengerRequestId: "req-3",
+  hotelIndex: 0,
+  submittedAt: SUBMITTED_AT
+}
 
 test("отбираются только отправленные без согласования", () => {
-  const selected = selectReportsToApprove([SUBMITTED, APPROVED, DRAFT])
-  assert.deepEqual(selected.map((r) => r.id), ["rep-1"])
+  const selected = selectReportsToApprove([SUBMITTED, APPROVED, DRAFT, LEGACY])
+  assert.deepEqual(selected.map((r) => r.id), ["rep-1", "rep-4"])
+})
+
+test("документ без поля pricingApprovedAt считается несогласованным", () => {
+  // Именно такие документы и есть цель бэкфилла: поле появилось деплоем,
+  // в старых записях его нет. undefined == null, поэтому предикат их берёт.
+  assert.deepEqual(selectReportsToApprove([LEGACY]).map((r) => r.id), ["rep-4"])
 })
 
 test("уже согласованный отчёт пропускается", () => {
@@ -74,13 +88,35 @@ test("патч копирует дату отправки и ничего бол
   )
 })
 
+test("запрос ищет и отсутствующее поле, а не только явный null", async () => {
+  // Регрессия, стоившая пустого прогона на dev: `{ pricingApprovedAt: null }`
+  // в Mongo-коннекторе не видит документы, где поля НЕТ, — а до деплоя e724a77
+  // его не было ни у одного отчёта. Ветку isSet: false убирать нельзя.
+  const double = installPrismaDouble({
+    documents: { passengerRequestHotelReportMany: [] }
+  })
+  try {
+    await run({ dryRun: true, log: () => {} })
+    const calls = double.callsTo("passengerRequestHotelReport", "findMany")
+    assert.equal(calls.length, 1)
+    assert.deepEqual(calls[0].args.where, {
+      submittedAt: { not: null },
+      OR: [{ pricingApprovedAt: null }, { pricingApprovedAt: { isSet: false } }]
+    })
+  } finally {
+    double.restore()
+  }
+})
+
 test("сухой прогон считает, но не пишет", async () => {
   const double = installPrismaDouble({
-    documents: { passengerRequestHotelReportMany: [SUBMITTED, APPROVED, DRAFT] }
+    documents: {
+      passengerRequestHotelReportMany: [SUBMITTED, APPROVED, DRAFT, LEGACY]
+    }
   })
   try {
     const result = await run({ dryRun: true, log: () => {} })
-    assert.deepEqual(result, { found: 1, updated: 0 })
+    assert.deepEqual(result, { found: 2, updated: 0 })
     assert.equal(
       double.callsTo("passengerRequestHotelReport", "update").length,
       0,
@@ -93,20 +129,21 @@ test("сухой прогон считает, но не пишет", async () =>
 
 test("боевой прогон обновляет ровно отобранные записи", async () => {
   const double = installPrismaDouble({
-    documents: { passengerRequestHotelReportMany: [SUBMITTED, APPROVED, DRAFT] }
+    documents: {
+      passengerRequestHotelReportMany: [SUBMITTED, APPROVED, DRAFT, LEGACY]
+    }
   })
   try {
     const result = await run({ log: () => {} })
-    assert.deepEqual(result, { found: 1, updated: 1 })
+    assert.deepEqual(result, { found: 2, updated: 2 })
 
     const updates = double
       .callsTo("passengerRequestHotelReport", "update")
       .map((call) => call.args)
-    assert.equal(updates.length, 1)
-    assert.deepEqual(updates[0], {
-      where: { id: "rep-1" },
-      data: { pricingApprovedAt: SUBMITTED_AT }
-    })
+    assert.deepEqual(updates, [
+      { where: { id: "rep-1" }, data: { pricingApprovedAt: SUBMITTED_AT } },
+      { where: { id: "rep-4" }, data: { pricingApprovedAt: SUBMITTED_AT } }
+    ])
   } finally {
     double.restore()
   }

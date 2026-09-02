@@ -10,6 +10,12 @@
  * отчёт отправлен, а согласования нет, согласование ставится задним числом —
  * датой отправки (new Date() выдал бы «сегодня» отчётам любой давности).
  *
+ * Отбор ловит не только явный null, но и ОТСУТСТВИЕ поля: pricingApprovedAt
+ * появился в схеме тем же деплоем, поэтому у старых документов его в Mongo
+ * просто нет, а Prisma-фильтр `{ pricingApprovedAt: null }` на Mongo матчит
+ * только явный null — отсюда вторая ветка `isSet: false` (тот же приём, что у
+ * flightDate в resolvers/passengerRequest/fields.resolver.js:180).
+ *
  * Трогает РОВНО одно поле — pricingApprovedAt. Строки отчёта, submittedAt и
  * любые другие таблицы остаются как есть.
  *
@@ -25,10 +31,24 @@ import { prisma } from "../../prisma.js"
 
 const DRY_RUN = process.argv.includes("--dry-run")
 
-// Условие отбора для базы. Тот же смысл повторён предикатом ниже намеренно:
-// where уходит в запрос, а selectReportsToApprove перепроверяет правило уже на
-// готовых документах — на нём стоят тесты.
-const WHERE = { submittedAt: { not: null }, pricingApprovedAt: null }
+// Условие отбора для базы. Две ветки по pricingApprovedAt — не перестраховка:
+// поле добавлено деплоем e724a77, и в существующих документах его НЕТ, а не
+// null; `{ pricingApprovedAt: null }` на Mongo такие документы не находит.
+// Так же ловят flightDate (fields.resolver.js:180) и requestNumber
+// (scripts/backfill-passenger-request-numbers.js:11-17).
+//
+// submittedAt, наоборот, нужен ЗАПОЛНЕННЫМ, и здесь хватает `{ not: null }`:
+// он даёт $ne: null, а тот отбрасывает и null, и отсутствие поля — та же пара
+// приёмов, что в backfill-passenger-request-numbers.js, и то же условие по
+// этой модели в services/passengerRequest/envelope.js:224.
+//
+// Тот же смысл повторён предикатом ниже намеренно: where уходит в запрос, а
+// selectReportsToApprove перепроверяет правило уже на готовых документах —
+// на нём стоят тесты, и он же страхует, если коннектор отдаст лишнее.
+const WHERE = {
+  submittedAt: { not: null },
+  OR: [{ pricingApprovedAt: null }, { pricingApprovedAt: { isSet: false } }]
+}
 
 const FIELDS = {
   id: true,
