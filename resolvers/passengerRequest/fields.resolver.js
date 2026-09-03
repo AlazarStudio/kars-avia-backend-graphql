@@ -14,6 +14,7 @@ import {
 } from "../../services/passengerRequest/fapScope.js"
 import { visibleHotelReports } from "../../services/analytics/passengerAnalyticsUtils.js"
 import { maskReportRowPrices } from "../../services/passengerRequest/hotelReportRows.js"
+import { catalogVehicleNumber } from "../../services/passengerRequest/driverVehicle.js"
 
 // Зритель-авиакомпания. Берём канонический предикат модуля, а не
 // `context.user?.airlineId`: resolveScope знает все типы субъекта ФАП, включая
@@ -124,7 +125,11 @@ export default {
   },
 
   PassengerServiceDriver: {
-    people: (parent) => (Array.isArray(parent.people) ? parent.people : [])
+    people: (parent) => (Array.isArray(parent.people) ? parent.people : []),
+    // Хранимое значение — ручное переопределение с карточки; пустое → номер
+    // водителя из справочника транспортной компании (по телефону, затем по имени).
+    vehicleNumber: async (parent) =>
+      parent?.vehicleNumber?.trim?.() || catalogVehicleNumber(parent)
   },
 
   // У пассажиров, заведённых до появления поля, Prisma отдаёт baggageTags как
