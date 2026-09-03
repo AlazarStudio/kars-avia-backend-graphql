@@ -93,6 +93,9 @@ export function buildDriverPatchDescription(before, applied, driverIndex, direct
   if ("vehicleType" in applied) {
     diffs.push(`тип ТС: "${before?.vehicleType ?? ""}" → "${applied.vehicleType ?? ""}"`)
   }
+  if ("vehicleNumber" in applied) {
+    diffs.push(`гос. номер: "${before?.vehicleNumber ?? ""}" → "${applied.vehicleNumber ?? ""}"`)
+  }
   if ("reportCost" in applied) {
     diffs.push(`сумма: ${before?.reportCost ?? 0} → ${applied.reportCost ?? 0}`)
   }

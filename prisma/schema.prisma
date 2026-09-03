@@ -1216,6 +1216,7 @@ type PassengerServiceDriver {
   description         String? // описание заявки (для трансфера багажа)
   deliveryCompletedAt DateTime? // когда отмечена выполненная доставка (для доставки багажа)
   vehicleType         String?
+  vehicleNumber       String? // гос. номер ТС
   reportCost          Float?
   transportedCount    Int? // «перевезено N» — факт числом, когда поимённый список не ведут (только трансфер)
   hotelItemId         String? // привязка поездки к гостинице проживания заявки (livingService.hotels[].itemId)

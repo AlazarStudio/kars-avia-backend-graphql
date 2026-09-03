@@ -166,6 +166,10 @@ export default {
           if (Object.prototype.hasOwnProperty.call(patch, "vehicleType")) {
             applied.vehicleType = patch.vehicleType
           }
+          if (Object.prototype.hasOwnProperty.call(patch, "vehicleNumber")) {
+            const value = typeof patch.vehicleNumber === "string" ? patch.vehicleNumber.trim() : ""
+            applied.vehicleNumber = value || null
+          }
           if (Object.prototype.hasOwnProperty.call(patch, "reportCost")) {
             applied.reportCost = patch.reportCost
           }

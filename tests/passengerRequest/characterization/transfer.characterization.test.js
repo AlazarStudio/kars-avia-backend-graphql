@@ -436,7 +436,7 @@ test("updatePassengerRequestDriver: пустой патч не пишет, не 
   assert.deepEqual(unknownKeys.published, [])
 })
 
-test("updatePassengerRequestDriver: четыре поля патча уходят в документ и в лог", async () => {
+test("updatePassengerRequestDriver: пять полей патча уходят в документ и в лог", async () => {
   const request = withTransfer({
     status: "IN_PROGRESS",
     times: { inProgressAt: "2026-08-01T11:00:00.000Z" },
@@ -460,6 +460,7 @@ test("updatePassengerRequestDriver: четыре поля патча уходя�
       patch: {
         pickupAt: "2026-08-04T10:30:00.000Z",
         vehicleType: "Автобус",
+        vehicleNumber: "А123БВ 05",
         // Деньги здесь НЕ проходят через toMoney (в отличие от пассажира
         // водителя): значение уходит в документ как есть.
         reportCost: 1234.567,
@@ -472,6 +473,7 @@ test("updatePassengerRequestDriver: четыре поля патча уходя�
   const driver = run.written[0].transferService.drivers[0]
   assert.equal(driver.pickupAt, "<DATE>")
   assert.equal(driver.vehicleType, "Автобус")
+  assert.equal(driver.vehicleNumber, "А123БВ 05")
   assert.equal(driver.reportCost, 1234.567)
   assert.equal(driver.transportedCount, 2)
 
@@ -479,10 +481,26 @@ test("updatePassengerRequestDriver: четыре поля патча уходя�
   assert.equal(run.logged[0].action, "update_passenger_request_driver")
   assert.equal(
     run.logged[0].description,
-    'Заявка «Водитель Петров» (прилёт): подача: 04.08.2026 09:00 UTC → 04.08.2026 10:30 UTC, тип ТС: "Седан" → "Автобус", сумма: 1000 → 1234.567, перевезено: — → 2'
+    'Заявка «Водитель Петров» (прилёт): подача: 04.08.2026 09:00 UTC → 04.08.2026 10:30 UTC, тип ТС: "Седан" → "Автобус", гос. номер: "" → "А123БВ 05", сумма: 1000 → 1234.567, перевезено: — → 2'
   )
   assert.equal(run.notified.length, 0)
   assert.deepEqual(run.published, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("updatePassengerRequestDriver: гос. номер из пробелов сбрасывается в null", async () => {
+  const request = withTransfer({
+    drivers: [{ id: "driver-0", fullName: "Водитель Петров", people: [] }]
+  })
+
+  const run = await runFapMutation(
+    "updatePassengerRequestDriver",
+    { requestId: "req-1", driverIndex: 0, patch: { vehicleNumber: "   " } },
+    { request }
+  )
+
+  assert.equal(run.written[0].transferService.drivers[0].vehicleNumber, null)
+  assert.equal(run.logged.length, 1)
+  assert.ok(run.logged[0].description.includes('гос. номер: "" → ""'))
 })
 
 test("updatePassengerRequestDriver: transportedCount — единственное поле с валидацией", async () => {
