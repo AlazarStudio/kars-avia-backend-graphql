@@ -37,6 +37,7 @@ import {
 } from "../../services/passengerRequest/envelope.js"
 import { generateHotelLinks } from "../../services/passengerRequest/externalLinks.js"
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
+import { assertRequestEditable } from "../../services/passengerRequest/fapEditGuard.js"
 
 export default {
   Mutation: {
@@ -111,6 +112,8 @@ export default {
     ) => {
       const existing = await loadRequestOrThrow(requestId)
       assertCanAccessRequest(context, existing)
+      // Идёт мимо конверта ($transaction) — сторож завершённых руками.
+      await assertRequestEditable(context, existing)
 
       const living = existing.livingService || emptyLivingService()
       const hotels = living.hotels || []

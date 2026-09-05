@@ -43,6 +43,7 @@ import {
 } from "../../services/passengerRequest/notify.js"
 import { generateRepresentativeLinksForRequest } from "../../services/passengerRequest/externalLinks.js"
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
+import { assertRequestEditable } from "../../services/passengerRequest/fapEditGuard.js"
 
 export default {
   Mutation: {
@@ -437,6 +438,8 @@ export default {
     deletePassengerRequest: async (_, { id }, context) => {
       const existing = await loadRequestOrThrow(id)
       assertCanAccessRequest(context, existing)
+      // Удаление — та же правка завершённой: мимо конверта, сторож — руками.
+      await assertRequestEditable(context, existing)
 
       await deleteAllPassengerRequestFilesFromDisk(existing.files)
 

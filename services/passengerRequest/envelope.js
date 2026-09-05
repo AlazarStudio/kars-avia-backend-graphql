@@ -8,6 +8,7 @@ import { hydratePassengerRequest } from "./hydratePassengerRequest.js"
 import { logPassengerRequestAction } from "./logging.js"
 import { notifyPassengerRequestSite } from "./notify.js"
 import { assertCanAccessRequest } from "./fapScopeGuard.js"
+import { assertRequestEditable } from "./fapEditGuard.js"
 
 export const getSubjectName = (context) => {
   if (context.user?.name) return context.user.name
@@ -197,6 +198,9 @@ export async function withPassengerRequest({
   // Единственная точка перехвата для 48 мутаций из 55: конверт всё равно грузит
   // заявку, второго обращения в базу проверка не стоит.
   assertCanAccessRequest(context, existing)
+  // Правка завершённой/отменённой — по праву reserveUpdateCompleted; правило
+  // раньше жило только на фронте (см. fapEditGuard.js).
+  await assertRequestEditable(context, existing)
   const applied = await apply(existing)
   if (!applied) return existing
 
