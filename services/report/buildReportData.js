@@ -247,6 +247,7 @@ export const normalizeReportDraftRows = (rows) => {
     pricePerDay: row.pricePerDay != null ? Number(row.pricePerDay) : null,
     totalDebt: row.totalDebt != null ? Number(row.totalDebt) : 0,
     hotelName: row.hotelName ?? "",
+    frozen: Boolean(row.frozen),
     roomGroupId: row.roomGroupId ?? null,
     shareClusterId: row.shareClusterId ?? null,
     changedKeys: Array.isArray(row.changedKeys)

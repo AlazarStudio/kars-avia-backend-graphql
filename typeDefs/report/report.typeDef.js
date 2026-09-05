@@ -217,6 +217,7 @@ const reportTypeDef = /* GraphQL */ `
     pricePerDay: Float
     totalDebt: Float
     hotelName: String
+    frozen: Boolean
     changedKeys: [String!]
   }
 
@@ -256,6 +257,7 @@ const reportTypeDef = /* GraphQL */ `
     pricePerDay: Float
     totalDebt: Float
     hotelName: String
+    frozen: Boolean
   }
 
   type ReportDraftFilterSnapshot {
