@@ -38,6 +38,10 @@ const reportTypeDef = /* GraphQL */ `
 
     reportDraft(id: ID!): ReportDraft
     reportDrafts(filter: ReportDraftFilterInput): [ReportDraft!]!
+
+    # Личная настройка редактора черновика текущего пользователя.
+    # null — настройка не задавалась, действует дефолт (все редактируемые поля).
+    myReportEditableFields: [String!]
   }
 
   type Mutation {
@@ -57,6 +61,12 @@ const reportTypeDef = /* GraphQL */ `
       input: UpsertReportPartialDaySettingInput!
     ): ReportPartialDaySetting!
     deleteReportPartialDaySetting(id: ID!): Boolean!
+
+    # Личная настройка редактора черновика: какие поля строк правятся.
+    # null сбрасывает к дефолту (все редактируемые поля); [] запирает все.
+    # Хранится у пользователя (User.reportEditableFields) — переезжает за ним
+    # на любое устройство, в отличие от localStorage.
+    setMyReportEditableFields(fields: [String!]): [String!]
 
     createAirlineReportDraft(
       input: CreateReportInput!
@@ -219,6 +229,14 @@ const reportTypeDef = /* GraphQL */ `
     hotelName: String
     frozen: Boolean
     changedKeys: [String!]
+    changedFrom: [ReportDraftChangedFrom!]
+  }
+
+  # «Что давал свежий расчёт» для изменённого ключа строки: подсказка
+  # «Расчёт: X» и откат одного поля в редакторе черновика.
+  type ReportDraftChangedFrom {
+    key: String!
+    value: String
   }
 
   input ReportCohabitantInput {

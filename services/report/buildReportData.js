@@ -253,6 +253,17 @@ export const normalizeReportDraftRows = (rows) => {
     changedKeys: Array.isArray(row.changedKeys)
       ? row.changedKeys.filter((key) => typeof key === "string")
       : [],
+    // «Что давал расчёт» для каждого изменённого ключа — подсказка и откат
+    // одного поля на фронте. Значение хранится строкой (для показа, не для
+    // арифметики).
+    changedFrom: Array.isArray(row.changedFrom)
+      ? row.changedFrom
+          .filter((entry) => entry && typeof entry.key === "string")
+          .map((entry) => ({
+            key: entry.key,
+            value: entry.value == null ? null : String(entry.value)
+          }))
+      : [],
     shareSegments: Array.isArray(row.shareSegments)
       ? row.shareSegments.map((seg) => ({
           start: seg.start ?? "",

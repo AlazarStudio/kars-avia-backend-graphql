@@ -99,6 +99,7 @@ const globalTypeDef = /* GraphQL */ `
     reportMenu: Boolean
     reportCreate: Boolean
     reportDelete: Boolean
+    reportFieldSettings: Boolean
     userMenu: Boolean
     userCreate: Boolean
     userUpdate: Boolean
@@ -140,6 +141,7 @@ const globalTypeDef = /* GraphQL */ `
     reportMenu: Boolean
     reportCreate: Boolean
     reportDelete: Boolean
+    reportFieldSettings: Boolean
     userMenu: Boolean
     userCreate: Boolean
     userUpdate: Boolean

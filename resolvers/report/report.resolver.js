@@ -28,6 +28,7 @@ import {
   deletePartialDaySetting
 } from "../../services/report/partialDaySettings.js"
 import { buildReportPresentation } from "../../services/report/reportPresentation.js"
+import { normalizeReportEditableFields } from "../../services/report/reportEditableFields.js"
 import {
   appendSavedReportArchiveFilter,
   archiveSavedReport,
@@ -372,10 +373,39 @@ const reportResolver = {
         orderBy: { updatedAt: "desc" }
       })
       return drafts.map(mapDraft)
+    },
+
+    // Личная настройка редактора черновика: читается своя и только своя —
+    // субъект не-USER (гостиница по ссылке, водитель) настроек не имеет.
+    myReportEditableFields: async (_, __, context) => {
+      await allMiddleware(context)
+      if (context.subjectType !== "USER" || !context.user?.id) return null
+      const dbUser = await prisma.user.findUnique({
+        where: { id: context.user.id },
+        select: { reportEditableFields: true }
+      })
+      return normalizeReportEditableFields(dbUser?.reportEditableFields)
     }
   },
 
   Mutation: {
+    // null — сброс к дефолту, [] — «всё только для чтения». Ключи вне
+    // REPORT_EDITABLE_FIELD_KEYS отбрасываются валидатором (см. сервис).
+    setMyReportEditableFields: async (_, { fields }, context) => {
+      await allMiddleware(context)
+      if (context.subjectType !== "USER" || !context.user?.id) {
+        throw new GraphQLError("Only staff users have editor settings", {
+          extensions: { code: "FORBIDDEN", http: { status: 403 } }
+        })
+      }
+      const normalized = normalizeReportEditableFields(fields)
+      await prisma.user.update({
+        where: { id: context.user.id },
+        data: { reportEditableFields: normalized }
+      })
+      return normalized
+    },
+
     createAirlineReport: async (_, { input, createFilterInput }, context) => {
       const { user } = context
       await airlineAdminMiddleware(context)

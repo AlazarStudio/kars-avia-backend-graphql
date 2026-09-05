@@ -94,6 +94,9 @@ type AccessMenu {
   reportCreate              Boolean @default(true)
   // Удаление сохранённых отчётов. Default false: иначе Prisma раздаст право всем.
   reportDelete              Boolean @default(false)
+  // Шестерёнка редактора черновика: настройка, какие поля строк правятся.
+  // Default false — право выдаётся осознанно (требование заказчика 05.09.2026).
+  reportFieldSettings       Boolean @default(false)
   userMenu                  Boolean @default(true)
   userCreate                Boolean @default(true)
   userUpdate                Boolean @default(true)
@@ -2131,6 +2134,11 @@ model User {
   active                        Boolean                      @default(true)
   authTokens                    UserAuthToken[]
   accessMenu                    AccessMenu?
+  // Личная настройка редактора черновика отчёта: какие поля строк правятся
+  // (массив ключей ReportDraftRow). null — дефолт, все редактируемые поля.
+  // Держится у пользователя, а не в localStorage: настройка едет за ним
+  // на любое устройство (требование заказчика 05.09.2026).
+  reportEditableFields          Json?
   position                      Position?                    @relation(fields: [positionId], references: [id])
   positionId                    String?                      @db.ObjectId
   postedRequests                Request[]                    @relation(name: "posted")

@@ -31,6 +31,8 @@ test("detectChangedKeys отмечает только липкие поля", ()
   const [row] = detectChangedKeys(computed, incoming)
   assert.deepEqual(row.changedKeys, ["totalDays"])
   assert.equal(row.shareNote, "правленый вид проживания — не липкое поле")
+  // Рядом с ключом — расчётное значение строкой: подсказка «что было».
+  assert.deepEqual(row.changedFrom, [{ key: "totalDays", value: "2" }])
 })
 
 test("правка ФИО и должности — липкая (редактируемые поля черновика)", () => {
@@ -74,13 +76,25 @@ test("пересоздание сохраняет липкие правки и �
   assert.equal(row.totalLivingCost, 1500)
   assert.equal(row.totalDebt, 1700)
   assert.deepEqual(row.changedKeys, ["totalDays", "totalLivingCost", "totalDebt"])
+  // changedFrom берётся из СВЕЖЕГО расчёта (до наложения правок).
+  assert.deepEqual(row.changedFrom, [
+    { key: "totalDays", value: "2" },
+    { key: "totalLivingCost", value: "1000" },
+    { key: "totalDebt", value: "1200" }
+  ])
 })
 
 test("stripChangedKeys убирает метки правок для computedRows", () => {
   const stripped = stripChangedKeys([
-    { requestId: "r1", totalDays: 3, changedKeys: ["totalDays"] }
+    {
+      requestId: "r1",
+      totalDays: 3,
+      changedKeys: ["totalDays"],
+      changedFrom: [{ key: "totalDays", value: "2" }]
+    }
   ])
   assert.equal(stripped[0].changedKeys, undefined)
+  assert.equal(stripped[0].changedFrom, undefined)
   assert.equal(stripped[0].totalDays, 3)
 })
 
