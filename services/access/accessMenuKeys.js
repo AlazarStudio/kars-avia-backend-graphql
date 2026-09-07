@@ -19,6 +19,7 @@ export const ACCESS_MENU_KEYS = [
   "reportMenu",
   "reportCreate",
   "reportDelete",
+  "reportFieldSettings",
   "userMenu",
   "userCreate",
   "userUpdate",
