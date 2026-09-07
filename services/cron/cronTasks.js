@@ -14,7 +14,7 @@ import {
 let intervalId = null
 let presenceIntervalId = null
 
-const ARCHIVE_GRACE_MS = 14 * 24 * 60 * 60 * 1000
+const ARCHIVE_GRACE_MS = 69 * 24 * 60 * 60 * 1000 // 69 days
 
 const moveExpiredToArchiving = async (now) => {
   const requests = await prisma.request.findMany({
