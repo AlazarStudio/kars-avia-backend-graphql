@@ -13,6 +13,7 @@ export const ACCESS_MENU_KEYS = [
   "reserveMenu",
   "reserveCreate",
   "reserveUpdate",
+  "requestUpdateCompleted",
   "reserveUpdateCompleted",
   "analyticsMenu",
   "analyticsUpload",
@@ -33,11 +34,11 @@ export const ACCESS_MENU_KEYS = [
   "organizationUpdate",
   "organizationAddDrivers",
   "organizationAcceptDrivers",
-    "accessManage",
-    "travellineMenu",
-    "passengerRequestMenu",
-    "passengerRequestCreate",
-    "passengerRequestUpdate"
+  "accessManage",
+  "travellineMenu",
+  "passengerRequestMenu",
+  "passengerRequestCreate",
+  "passengerRequestUpdate"
 ]
 
 const hasOwn = (obj, key) =>

@@ -87,6 +87,7 @@ type AccessMenu {
   // Prisma подставляет @default для поля composite, которого в документе нет,
   // поэтому @default(true) раздал бы это право всем существующим отделам и
   // должностям одним деплоем. Право выдаётся осознанно.
+  requestUpdateCompleted    Boolean @default(false)
   reserveUpdateCompleted    Boolean @default(false)
   analyticsMenu             Boolean @default(true)
   analyticsUpload           Boolean @default(true)
@@ -1069,32 +1070,32 @@ model Room {
 }
 
 model RoomKind {
-  id              String           @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  name            String?
-  description     String?
-  square          String?
-  category        Category
+  id                   String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  name                 String?
+  description          String?
+  square               String?
+  category             Category
   price                Float
   priceForAirline      Float?
   priceForAirReq       Boolean          @default(false)
   priceSingleOccupancy Float?
   images               String[]
   room                 Room[]
-  roomsCount      Int?
-  hotel           Hotel            @relation(fields: [hotelId], references: [id])
-  hotelId         String           @db.ObjectId
-  seasons         RoomKindSeason[]
+  roomsCount           Int?
+  hotel                Hotel            @relation(fields: [hotelId], references: [id])
+  hotelId              String           @db.ObjectId
+  seasons              RoomKindSeason[]
 }
 
 model RoomKindSeason {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  name            String?
-  startDate       DateTime
-  endDate         DateTime
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  name                 String?
+  startDate            DateTime
+  endDate              DateTime
   price                Float
   priceForAirline      Float?
   priceSingleOccupancy Float?
@@ -1951,27 +1952,27 @@ model device_tokens {
 }
 
 model ExternalUser {
-  id               String                       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt        DateTime                     @default(now()) @map("created_at")
-  updatedAt        DateTime                     @updatedAt @map("updated_at")
-  email            String                       @unique
-  name             String?
-  scope            ExternalScope
-  accessType       ExternalAccessType           @default(CRM)
-  hotel            Hotel?                       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
-  hotelId          String?                      @db.ObjectId
-  driver           Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  driverId         String?                      @db.ObjectId
+  id                 String                       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+  email              String                       @unique
+  name               String?
+  scope              ExternalScope
+  accessType         ExternalAccessType           @default(CRM)
+  hotel              Hotel?                       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  hotelId            String?                      @db.ObjectId
+  driver             Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  driverId           String?                      @db.ObjectId
   // Принадлежность внешнего пользователя. Раньше выводилась разбором
   // автогенерируемого email; вынесена в поля, потому что на неё опирается
   // правило видимости заявок ФАП.
   airlineId          String?                      @db.ObjectId
   airportId          String?                      @db.ObjectId
   passengerRequestId String?                      @db.ObjectId
-  active           Boolean                      @default(true)
-  refreshToken     String?
-  sessionExpiresAt DateTime?
-  magicLinkTokens  ExternalUserMagicLinkToken[]
+  active             Boolean                      @default(true)
+  refreshToken       String?
+  sessionExpiresAt   DateTime?
+  magicLinkTokens    ExternalUserMagicLinkToken[]
 }
 
 model ExternalUserMagicLinkToken {
