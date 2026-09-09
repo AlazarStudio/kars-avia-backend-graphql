@@ -1,15 +1,19 @@
 import nodemailer from "nodemailer"
 import { logger } from "./infra/logger.js"
 
+const MISSING_RECIPIENT = "не задан"
+
+function isMissingRecipient(to) {
+  const trimmed = String(to ?? "").trim()
+  return !trimmed || trimmed === "undefined" || trimmed === "null"
+}
+
 export function resolveEmailDelivery({ to, subject }) {
-  if (process.env.EMAIL_ENABLED !== "true") {
-    return { skip: true, reason: "test_mode", to, subject }
-  }
+  const enabled = process.env.EMAIL_ENABLED === "true"
 
-  let actualTo = to
-  let actualSubject = subject
-
-  if (process.env.NODE_ENV === "dev") {
+  // В dev вся почта уходит на EMAIL_RECEIVER — включая случай, когда получатель
+  // не разрешился (нет отделов и не задана env-переменная фолбэка).
+  if (enabled && process.env.NODE_ENV === "dev") {
     const devReceiver = String(
       process.env.EMAIL_RECEIVER || process.env.EMAIL_RESIEVER || ""
     ).trim()
@@ -18,20 +22,27 @@ export function resolveEmailDelivery({ to, subject }) {
       return { skip: true, reason: "missing_receiver", to, subject }
     }
 
-    actualTo = devReceiver
-    actualSubject = `[DEV → ${to}] ${subject}`
-    return { skip: false, actualTo, actualSubject, redirectedFrom: to }
+    const redirectedFrom = isMissingRecipient(to) ? MISSING_RECIPIENT : to
+    return {
+      skip: false,
+      actualTo: devReceiver,
+      actualSubject: `[DEV → ${redirectedFrom}] ${subject}`,
+      redirectedFrom
+    }
   }
 
-  return { skip: false, actualTo, actualSubject }
+  if (isMissingRecipient(to)) {
+    return { skip: true, reason: "missing_recipient", to, subject }
+  }
+
+  if (!enabled) {
+    return { skip: true, reason: "test_mode", to, subject }
+  }
+
+  return { skip: false, actualTo: to, actualSubject: subject }
 }
 
 export async function sendEmail({ to, subject, html }) {
-  if (!to || to === "undefined" || to === "null") {
-    logger.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
-    return
-  }
-
   const delivery = resolveEmailDelivery({ to, subject })
 
   if (delivery.skip) {
@@ -43,6 +54,8 @@ export async function sendEmail({ to, subject, html }) {
       logger.warn(
         `[EMAIL SKIP] NODE_ENV=dev, EMAIL_ENABLED=true, но EMAIL_RECEIVER не задан. Тема: ${subject}`
       )
+    } else if (delivery.reason === "missing_recipient") {
+      logger.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
     }
     return
   }

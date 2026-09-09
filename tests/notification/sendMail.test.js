@@ -104,3 +104,60 @@ test("production + EMAIL_ENABLED=true sends to original recipient", () => {
     }
   )
 })
+
+test("dev + EMAIL_ENABLED=true redirects even when recipient is unresolved", () => {
+  withEnv(
+    {
+      NODE_ENV: "dev",
+      EMAIL_ENABLED: "true",
+      EMAIL_RECEIVER: "dev@example.com"
+    },
+    () => {
+      for (const to of [undefined, null, "", "  ", "undefined", "null"]) {
+        const result = resolveEmailDelivery({
+          to,
+          subject: "Запрос на отмену заявки №1"
+        })
+
+        assert.equal(result.skip, false)
+        assert.equal(result.actualTo, "dev@example.com")
+        assert.equal(
+          result.actualSubject,
+          "[DEV → не задан] Запрос на отмену заявки №1"
+        )
+        assert.equal(result.redirectedFrom, "не задан")
+      }
+    }
+  )
+})
+
+test("production + unresolved recipient skips instead of sending", () => {
+  withEnv(
+    {
+      NODE_ENV: "production",
+      EMAIL_ENABLED: "true",
+      EMAIL_RECEIVER: "dev@example.com"
+    },
+    () => {
+      const result = resolveEmailDelivery({
+        to: undefined,
+        subject: "Запрос на отмену заявки №1"
+      })
+
+      assert.equal(result.skip, true)
+      assert.equal(result.reason, "missing_recipient")
+    }
+  )
+})
+
+test("EMAIL_ENABLED=false with unresolved recipient reports missing_recipient", () => {
+  withEnv({ NODE_ENV: "dev", EMAIL_ENABLED: "false" }, () => {
+    const result = resolveEmailDelivery({
+      to: undefined,
+      subject: "Запрос на отмену заявки №1"
+    })
+
+    assert.equal(result.skip, true)
+    assert.equal(result.reason, "missing_recipient")
+  })
+})
