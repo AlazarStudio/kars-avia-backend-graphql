@@ -16,5 +16,3 @@ fbk.json
 # gitignore
 /generated/prisma
 service_account.json
-graphify-out/
-.claude/
