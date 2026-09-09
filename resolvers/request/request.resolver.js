@@ -695,7 +695,9 @@ const requestResolver = {
             await prisma.notification.create({
               data: {
                 request: { connect: { id: extendRequest.requestId } },
-                airlineId: extendRequest.airlineId,
+                ...(extendRequest.airlineId
+                  ? { airline: { connect: { id: extendRequest.airlineId } } }
+                  : {}),
                 description: {
                   action: "extend_request",
                   description: `Запрос на изменение дат заявки ${
@@ -1272,7 +1274,9 @@ const requestResolver = {
           await prisma.notification.create({
             data: {
               request: { connect: { id: request.id } },
-              airlineId: request.airlineId,
+              ...(request.airlineId
+                ? { airline: { connect: { id: request.airlineId } } }
+                : {}),
               description: {
                 action: "cancel_request",
                 description: `Пользователь <span style='color:#545873'>${user.name}</span> отправил запрос на отмену заявки № <span style='color:#545873'>${request.requestNumber}</span>`
@@ -1310,7 +1314,11 @@ const requestResolver = {
           })
         }
         pubsub.publish(MESSAGE_SENT, { messageSent: message })
-        perf.step("cancel-request-branch-done")
+
+        // Запрос на отмену не отменяет заявку: статус меняет диспетчер,
+        // подтвердив запрос. Здесь только чат, уведомление и письмо.
+        perf.done({ branch: "cancel-request-requested", status: request.status })
+        return request
       }
 
       // Если заявка размещена через TravelLine — сначала отменяем бронь в TL.
