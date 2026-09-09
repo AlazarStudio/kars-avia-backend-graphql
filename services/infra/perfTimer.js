@@ -1,3 +1,5 @@
+import { logger } from "./logger.js"
+
 /**
  * Простой пошаговый таймер для диагностики медленных mutation.
  * Выключить: PERF_UPDATE_REQUEST=0
@@ -7,6 +9,13 @@ export function isUpdateRequestPerfEnabled() {
   if (process.env.PERF_UPDATE_REQUEST === "0") return false
   if (process.env.PERF_UPDATE_REQUEST === "1") return true
   return process.env.NODE_ENV !== "production"
+}
+
+// Пишем и в stdout (терминал nodemon/pm2), и в logs/info — иначе шаги видно
+// только у того, кто смотрит на консоль в момент запроса.
+function emit(line) {
+  console.log(line)
+  logger.info(line)
 }
 
 export function createPerfTimer(label, { enabled = isUpdateRequestPerfEnabled() } = {}) {
@@ -24,7 +33,7 @@ export function createPerfTimer(label, { enabled = isUpdateRequestPerfEnabled() 
       extra && Object.keys(extra).length
         ? ` ${JSON.stringify(extra)}`
         : ""
-    console.log(
+    emit(
       `[perf:${label}] +${delta}ms (total ${total}ms) — ${name}${suffix}`
     )
     last = now
@@ -34,9 +43,8 @@ export function createPerfTimer(label, { enabled = isUpdateRequestPerfEnabled() 
   const done = (extra) => {
     if (!enabled) return marks
     const total = Date.now() - t0
-    console.log(
-      `[perf:${label}] DONE ${total}ms`,
-      extra ? JSON.stringify(extra) : ""
+    emit(
+      `[perf:${label}] DONE ${total}ms${extra ? ` ${JSON.stringify(extra)}` : ""}`
     )
     return marks
   }

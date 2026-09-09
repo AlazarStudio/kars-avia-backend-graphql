@@ -1,6 +1,7 @@
 import { sendEmail } from "../sendMail.js"
 import { normalizeEmail } from "./notificationMenuCheck.js"
 import { shouldSendNotification } from "./notificationRateGuard.js"
+import { createPerfTimer } from "../infra/perfTimer.js"
 
 export function resolveEnvEmail(fallbackTo) {
   if (fallbackTo === "EMAIL_RECEIVER") {
@@ -19,25 +20,38 @@ export async function deliverDepartmentEmails({
   fallbackTo,
   skipEnvFallback = false
 }) {
+  const perf = createPerfTimer(`deliver:${action}`)
+
   if (!recipients?.length) {
-    if (skipEnvFallback) return
+    if (skipEnvFallback) {
+      perf.done({ attempted: 0, reason: "no_recipients_env_fallback_skipped" })
+      return
+    }
 
     const to = resolveEnvEmail(fallbackTo)
-    const { allowed } = shouldSendNotification({
+    const { allowed, retryAfterMs } = shouldSendNotification({
       channel: "email",
       action,
       entityType,
       entityId,
       recipientId: normalizeEmail(to) || to || fallbackTo
     })
+    perf.step("env-fallback", {
+      fallbackTo,
+      to: to ?? null,
+      allowed,
+      retryAfterMs
+    })
     if (allowed) {
       await sendEmail({ to, subject, html })
     }
+    perf.done({ attempted: allowed ? 1 : 0 })
     return
   }
 
+  const blockedByRateGuard = []
   const allowedRecipients = recipients.filter((recipient) => {
-    const { allowed } = shouldSendNotification({
+    const { allowed, retryAfterMs } = shouldSendNotification({
       channel: "email",
       action,
       entityType,
@@ -47,7 +61,15 @@ export async function deliverDepartmentEmails({
         recipient.departmentId ||
         recipient.email
     })
+    if (!allowed) {
+      blockedByRateGuard.push({ email: recipient.email, retryAfterMs })
+    }
     return allowed
+  })
+  perf.step("rate-guard", {
+    total: recipients.length,
+    allowed: allowedRecipients.length,
+    blocked: blockedByRateGuard
   })
 
   await Promise.all(
@@ -55,4 +77,6 @@ export async function deliverDepartmentEmails({
       sendEmail({ to: recipient.email, subject, html })
     )
   )
+
+  perf.done({ attempted: allowedRecipients.length })
 }

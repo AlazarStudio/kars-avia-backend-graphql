@@ -9,6 +9,7 @@ import {
   normalizeEmail
 } from "./notificationMenuCheck.js"
 import { resolveCreatorAirlineDepartment } from "./resolveCreatorAirlineDepartment.js"
+import { createPerfTimer } from "../infra/perfTimer.js"
 
 function mergeEmailRecipients(lists) {
   const seen = new Set()
@@ -52,6 +53,16 @@ export async function sendRequestPartyEmail({
   dispatcherFallbackTo,
   alsoNotifyAirline = false
 }) {
+  const perf = createPerfTimer(`email:${action}`)
+  perf.step("start", {
+    entityType,
+    entityId,
+    airlineId,
+    actorDispatcher: actor?.dispatcher === true,
+    dispatcherFallbackTo,
+    alsoNotifyAirline
+  })
+
   let airlineDepartmentId = null
   if (
     entityId &&
@@ -64,6 +75,7 @@ export async function sendRequestPartyEmail({
       entityId
     )
   }
+  perf.step("creator-department", { airlineDepartmentId })
 
   if (actor?.dispatcher === true) {
     await deliverAirlineDepartmentEmails({
@@ -76,10 +88,12 @@ export async function sendRequestPartyEmail({
       fallbackTo: "EMAIL_AVIA",
       airlineDepartmentId
     })
+    perf.done({ branch: "airline-departments" })
     return
   }
 
   const lists = [await getUniqueDispatcherEmailRecipients(action)]
+  perf.step("dispatcher-recipients", { count: lists[0].length })
 
   if (alsoNotifyAirline && airlineId) {
     lists.push(
@@ -87,6 +101,7 @@ export async function sendRequestPartyEmail({
         departmentId: airlineDepartmentId ?? undefined
       })
     )
+    perf.step("airline-recipients", { count: lists[1].length })
   }
 
   const seen = new Set()
@@ -100,7 +115,16 @@ export async function sendRequestPartyEmail({
     if (alsoNotifyAirline && airlineId && !airlineDepartmentId) {
       appendEnvFallbackRecipients(recipients, seen, "EMAIL_AVIA")
     }
+    perf.step("env-fallback", {
+      fallbackTo: dispatcherFallbackTo,
+      resolved: recipients.map((r) => r.email)
+    })
   }
+
+  perf.step("recipients", {
+    count: recipients.length,
+    emails: recipients.map((r) => r.email)
+  })
 
   await deliverDepartmentEmails({
     recipients,
@@ -112,4 +136,6 @@ export async function sendRequestPartyEmail({
     fallbackTo: dispatcherFallbackTo,
     skipEnvFallback: recipients.length > 0
   })
+
+  perf.done({ branch: "dispatcher-departments", recipients: recipients.length })
 }

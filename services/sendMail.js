@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import { logger } from "./infra/logger.js"
+import { createPerfTimer } from "./infra/perfTimer.js"
 
 const MISSING_RECIPIENT = "не задан"
 
@@ -43,7 +44,15 @@ export function resolveEmailDelivery({ to, subject }) {
 }
 
 export async function sendEmail({ to, subject, html }) {
+  const perf = createPerfTimer("sendEmail")
   const delivery = resolveEmailDelivery({ to, subject })
+  perf.step("delivery-resolved", {
+    subject,
+    to: to ?? null,
+    skip: delivery.skip,
+    reason: delivery.reason ?? null,
+    actualTo: delivery.actualTo ?? null
+  })
 
   if (delivery.skip) {
     if (delivery.reason === "test_mode") {
@@ -57,6 +66,7 @@ export async function sendEmail({ to, subject, html }) {
     } else if (delivery.reason === "missing_recipient") {
       logger.warn(`[EMAIL SKIP] Получатель не задан, тема: ${subject}`)
     }
+    perf.done({ sent: 0, reason: delivery.reason })
     return
   }
 
@@ -89,11 +99,13 @@ export async function sendEmail({ to, subject, html }) {
     logger.info(
       `[EMAIL SENT] Письмо отправлено. Кому: ${actualTo}, Тема: ${actualSubject}`
     )
+    perf.done({ sent: 1, actualTo })
   } catch (error) {
     logger.error(
       `[EMAIL ERROR] Ошибка при отправке письма. Кому: ${actualTo}, Тема: ${actualSubject}`,
       error
     )
+    perf.done({ sent: 0, reason: "smtp_error" })
     throw error
   }
 }
