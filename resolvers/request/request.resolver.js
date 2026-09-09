@@ -50,6 +50,7 @@ import {
   recalculateOverlappingRequests,
   recalculateAffectedByRoomChange
 } from "../../services/request/requestPricing.js"
+import { assertRequestNotArchived } from "../../services/request/requestArchiveGuard.js"
 import { generateNextRequestNumber } from "../../services/request/generateRequestNumber.js"
 import { importBulkRequestsFromFile } from "../../services/request/bulkImport/createBulkRequests.js"
 import {
@@ -534,6 +535,10 @@ const requestResolver = {
         })
         if (!request) throw new Error("Request not found")
 
+        // Архивную заявку правит только тот, у кого есть requestUpdateCompleted.
+        // Смотрим на СУЩЕСТВУЮЩУЮ заявку из базы, а не на input.status — иначе
+        // клиент снимал бы замок, просто прислав другой статус.
+        await assertRequestNotArchived(context, request)
 
         const oldHotelChess = request.hotelChess?.[0]
         const oldRoomId = oldHotelChess?.roomId
@@ -1097,11 +1102,14 @@ const requestResolver = {
       const { requestId, dailyMeals } = input
       const request = await prisma.request.findUnique({
         where: { id: requestId },
-        select: { id: true, requestNumber: true }
+        // status/archive нужны сторожу архива; requestNumber — логу ниже.
+        select: { id: true, requestNumber: true, status: true, archive: true }
       })
       if (!request) {
         throw new Error("Request not found")
       }
+      // До updateDailyMeals и пересчёта цен — обе операции пишут в базу.
+      await assertRequestNotArchived(context, request)
       const updatedMealPlan = await updateDailyMeals(requestId, dailyMeals)
       await recalculateRequestPricing(requestId)
       try {

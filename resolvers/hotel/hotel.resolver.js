@@ -59,6 +59,10 @@ import {
   recalculateNonArchivedForRoomKindPeriod
 } from "../../services/request/requestPricing.js"
 import {
+  assertRequestNotArchived,
+  assertRequestNotArchivedById
+} from "../../services/request/requestArchiveGuard.js"
+import {
   hiddenAirlineFlag,
   hiddenAirlinePrice,
   omitAirlinePriceWrites
@@ -497,6 +501,17 @@ const hotelResolver = {
                 throw new Error(`HotelChess ${hotelChess.id} не найден`)
               }
 
+              // Замок архива ставим ДО первой записи итерации: hotelChess.update
+              // ниже уже необратим, а updateHotel не в транзакции — бросив
+              // на request.update, мы оставили бы номер переехавшим, а заявку
+              // нетронутой. Условие — копия условия той записи.
+              if (
+                hotelChess.requestId &&
+                hotelChessRoomOrPlaceChanged(previousHotelChessData, hotelChess)
+              ) {
+                await assertRequestNotArchivedById(context, hotelChess.requestId)
+              }
+
               let clientConnectData = undefined
               // Если задан clientId, подготавливаем данные для связи
               if (hotelChess.clientId) {
@@ -691,6 +706,11 @@ const hotelResolver = {
               if (!requestForChess) {
                 throw new Error("Request not found")
               }
+
+              // requestForChess прочитан без select — status/archive на месте.
+              // Проверяем здесь, до $transaction: сторож ходит в базу сам,
+              // внутри tx он пошёл бы мимо транзакционного клиента.
+              await assertRequestNotArchived(context, requestForChess)
 
               const existingByRequest = requestForChess.hotelChess?.[0] ?? null
               const effectivePlace =

@@ -16,3 +16,9 @@ fbk.json
 # gitignore
 /generated/prisma
 service_account.json
+
+# graphify: пути конкретной машины, не переносятся между клонами
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/
+.claude/grilling-context.md
