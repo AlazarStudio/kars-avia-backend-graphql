@@ -44,7 +44,6 @@ import {
 import { ensureNoOverlap } from "../../services/rooms/ensureNoOverlap.js"
 import { resolveAvailablePlace } from "../../services/rooms/roomAvailability.js"
 import { logger } from "../../services/infra/logger.js"
-import { createPerfTimer } from "../../services/infra/perfTimer.js"
 import { travellineService } from "../../services/travelline/travellineService.js"
 import {
   recalculateRequestPricing,
@@ -1170,33 +1169,16 @@ const requestResolver = {
     // Обновляем статус заявки на "canceled", удаляем связанные hotelChess и логируем действие.
     cancelRequest: async (_, input, context) => {
       const { user } = context
-      const perf = createPerfTimer("cancelRequest")
-      perf.step("resolver-entered", { requestId: input?.id, userId: user?.id })
       await airlineModerMiddleware(context)
-      perf.step("access-granted")
       const requestId = input.id
       const request = await prisma.request.findUnique({
         where: { id: requestId },
         include: { hotelChess: true }
       })
-      perf.step("request-loaded", {
-        found: Boolean(request),
-        status: request?.status,
-        requestNumber: request?.requestNumber,
-        requestAirlineId: request?.airlineId,
-        userAirlineId: user?.airlineId,
-        userDispatcher: user?.dispatcher
-      })
 
       // Запрос на отмену (чат, site, email) — только если заявка уже не в статусе created.
       // При created авиакомпания отменяет заявку самостоятельно, без запроса диспетчеру.
-      const cancelRequestBranch =
-        Boolean(user.airlineId) &&
-        !user.dispatcher &&
-        request.status !== "created"
-      perf.step("cancel-request-branch", { entered: cancelRequestBranch })
-
-      if (cancelRequestBranch) {
+      if (user.airlineId && !user.dispatcher && request.status !== "created") {
         const currentTime = new Date()
         const adjustedTime = new Date(
           currentTime.getTime() + 3 * 60 * 60 * 1000
@@ -1257,18 +1239,12 @@ const requestResolver = {
             }
           }
         })
-        perf.step("chat-message-created", {
-          chatId: chat.id,
-          messageId: message.id
-        })
-
         const cancelRequestSiteAllowed = shouldSendNotification({
           channel: "site",
           action: "cancel_request",
           entityType: "request",
           entityId: request.id
         }).allowed
-        perf.step("site-notification", { allowed: cancelRequestSiteAllowed })
 
         if (cancelRequestSiteAllowed) {
           await prisma.notification.create({
@@ -1299,7 +1275,6 @@ const requestResolver = {
           entityId: request.id,
           dispatcherFallbackTo: "EMAIL_KARS"
         })
-        perf.step("email:cancel-request-requested")
 
         if (cancelRequestSiteAllowed) {
           pubsub.publish(NOTIFICATION, {
@@ -1315,9 +1290,17 @@ const requestResolver = {
         }
         pubsub.publish(MESSAGE_SENT, { messageSent: message })
 
+        await logAction({
+          context,
+          action: "cancel_request",
+          description: "Запрос на отмену заявки",
+          fulldescription: `Пользователь ${user.name} отправил запрос на отмену заявки № ${request.requestNumber}`,
+          hotelId: request.hotelId,
+          requestId: request.id
+        })
+
         // Запрос на отмену не отменяет заявку: статус меняет диспетчер,
-        // подтвердив запрос. Здесь только чат, уведомление и письмо.
-        perf.done({ branch: "cancel-request-requested", status: request.status })
+        // подтвердив запрос. Здесь только чат, уведомление, письмо и лог.
         return request
       }
 
@@ -1341,12 +1324,10 @@ const requestResolver = {
         }
       }
 
-      perf.step("before-status-update", { status: request.status })
       const canceledRequest = await prisma.request.update({
         where: { id: requestId },
         data: { status: "canceled" }
       })
-      perf.step("status-updated", { status: canceledRequest.status })
       const canceledHc = request.hotelChess?.[0]
       if (request.hotelChess) {
         await prisma.hotelChess.deleteMany({
@@ -1374,7 +1355,6 @@ const requestResolver = {
         entityId: canceledRequest.id,
         dispatcherFallbackTo: "EMAIL_RECEIVER"
       })
-      perf.step("email:cancel-request-done")
 
       await logAction({
         context,
@@ -1387,7 +1367,6 @@ const requestResolver = {
         requestId: request.id
       })
       await publishRequestUpdated(request.id)
-      perf.done({ status: canceledRequest.status })
       return canceledRequest
     }
   },
