@@ -1,4 +1,5 @@
-// Отчёт гостиницы по проживанию: сохранение, отправка, скрытие.
+// Отчёт гостиницы по проживанию: сохранение, отправка, скрытие, согласование
+// цен диспетчером и утверждение авиакомпанией.
 
 import { prisma } from "../../prisma.js"
 import { GraphQLError } from "graphql"
@@ -16,6 +17,20 @@ import {
 } from "../../services/passengerRequest/hotelReportRows.js"
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 import { assertHotelScopeAccess } from "../../services/passengerRequest/livingHelpers.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
+
+// Утверждение отчёта — подпись авиакомпании под тем, что она увидела. Диспетчер
+// и гостиница сюда не допускаются НЕ из соображений изоляции (заявка им и так
+// видна), а потому что подпись за другую сторону обесценивает саму отметку.
+// Предикат тот же, что у видимости цен в fields.resolver.js: resolveScope знает
+// все типы субъекта ФАП, включая персонал авиакомпании без своего `user`.
+const assertAirlineSubject = (context) => {
+  if (resolveScope(context).kind === "airline") return
+  throw new GraphQLError(
+    "Утвердить отчёт может только авиакомпания",
+    { extensions: { code: "FORBIDDEN", http: { status: 403 } } }
+  )
+}
 
 export default {
   Mutation: {
@@ -70,9 +85,10 @@ export default {
         placementKindOverride: row.placementKindOverride ?? null
       }))
 
-      // Флаг отправки сбрасываем ТОЛЬКО если строки реально изменились: автосейв
-      // дёргается ещё и флашем на размонтировании страницы и перед выгрузкой Excel,
-      // и без этой проверки флаг слетал бы от простого захода в отчёт.
+      // Флаги отправки, согласования цен и утверждения авиакомпанией сбрасываем
+      // ТОЛЬКО если строки реально изменились: автосейв дёргается ещё и флашем на
+      // размонтировании страницы и перед выгрузкой Excel, и без этой проверки
+      // флаги слетали бы от простого захода в отчёт.
       const prev = await prisma.passengerRequestHotelReport.findUnique({
         where: reportWhere(requestId, hotelIndex)
       })
@@ -87,7 +103,11 @@ export default {
         },
         update: {
           reportRows: rows,
-          ...(rowsChanged && { submittedAt: null, pricingApprovedAt: null })
+          ...(rowsChanged && {
+            submittedAt: null,
+            pricingApprovedAt: null,
+            airlineApprovedAt: null
+          })
         }
       })
 
@@ -195,7 +215,9 @@ export default {
 
       const updated = await prisma.passengerRequestHotelReport.update({
         where: { id: report.id },
-        data: { submittedAt: null, pricingApprovedAt: null }
+        // Утверждение авиакомпании гаснет вместе с отправкой: отчёт, которого
+        // она больше не видит, не может оставаться утверждённым.
+        data: { submittedAt: null, pricingApprovedAt: null, airlineApprovedAt: null }
       })
 
       // Публикуем событие по заявке: у авиакомпании открытая страница сделает refetch
@@ -248,7 +270,12 @@ export default {
 
       const updated = await prisma.passengerRequestHotelReport.update({
         where: { id: report.id },
-        data: { pricingApprovedAt: approved ? new Date() : null }
+        // Снятие согласования прячет от авиакомпании суммы — то, под чем она
+        // подписалась. Утверждение вместе с ними и снимаем.
+        data: {
+          pricingApprovedAt: approved ? new Date() : null,
+          ...(approved ? {} : { airlineApprovedAt: null })
+        }
       })
 
       await finishPassengerRequestMutation({
@@ -278,6 +305,80 @@ export default {
               airlineId: existing.airlineId,
               hotelId: hotel?.hotelId || undefined,
               descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> расчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> согласован`,
+              __typename: "PassengerRequestUpdatedNotification"
+            }
+          : null
+      })
+
+      return updated
+    },
+
+    setPassengerRequestHotelReportAirlineApproved: async (
+      _,
+      { requestId, hotelIndex, approved },
+      context
+    ) => {
+      const existing = await loadRequestOrThrow(requestId)
+      assertCanAccessRequest(context, existing)
+      // Гейт по субъекту, а не по индексу гостиницы: assertHotelScopeAccess
+      // авиакомпанию не касается (он молчит для всех, кроме гостиничного
+      // скоупа), а закрыть нужно именно диспетчера и гостиницу.
+      assertAirlineSubject(context)
+      const hotel = existing.livingService?.hotels?.[hotelIndex]
+
+      const report = await prisma.passengerRequestHotelReport.findUnique({
+        where: reportWhere(requestId, hotelIndex)
+      })
+      if (!report) throw new GraphQLError("Отчёт ещё не сохранён")
+      // Утверждают отчёт целиком, вместе с суммами. Пока цены не согласованы,
+      // авиакомпания видит состав со стоимостями null (maskReportRowPrices) —
+      // подписываться там не подо что.
+      if (approved && report.pricingApprovedAt == null) {
+        throw new GraphQLError(
+          "Отчёт можно утвердить только после согласования цен",
+          { extensions: { code: "BAD_USER_INPUT" } }
+        )
+      }
+
+      const updated = await prisma.passengerRequestHotelReport.update({
+        where: { id: report.id },
+        data: { airlineApprovedAt: approved ? new Date() : null }
+      })
+
+      await finishPassengerRequestMutation({
+        context,
+        // В журнал уходит ЗАЯВКА, а не запись отчёта — по той же причине, что у
+        // соседних мутаций отчёта выше.
+        newData: existing,
+        log: {
+          action: approved
+            ? "approve_passenger_request_hotel_report_airline"
+            : "revoke_passenger_request_hotel_report_airline",
+          description: approved
+            ? "Отчёт ФАП утверждён авиакомпанией"
+            : "Утверждение отчёта ФАП отозвано авиакомпанией",
+          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "утвердил" : "отозвал утверждение"} отчёта по гостинице ${hotel?.name || "без названия"} в ФАП ${existing.flightNumber}`,
+          airlineId: existing.airlineId,
+          passengerRequestId: requestId,
+          // Письмо — только на утверждении: отзыв ничего не открывает и не
+          // закрывает, о нём достаточно истории заявки. Так же устроено
+          // согласование цен выше.
+          skipEmail: !approved,
+          emailAction: approved
+            ? "approve_passenger_request_hotel_report_airline"
+            : undefined,
+          emailExtras: approved ? { hotelName: hotel?.name || "без названия" } : {}
+          // alsoNotifyAirline не нужен: действие совершает сама авиакомпания,
+          // а sendRequestPartyEmail для недиспетчерского актора и так шлёт
+          // диспетчерским отделам.
+        },
+        notify: approved
+          ? {
+              action: "approve_passenger_request_hotel_report_airline",
+              passengerRequestId: existing.id,
+              airlineId: existing.airlineId,
+              hotelId: hotel?.hotelId || undefined,
+              descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> утверждён авиакомпанией`,
               __typename: "PassengerRequestUpdatedNotification"
             }
           : null

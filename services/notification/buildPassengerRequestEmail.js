@@ -3,6 +3,7 @@ import {
   buildCancelPassengerRequestEmail,
   buildCreatePassengerRequestEmail,
   buildHotelChessPassengerRequestEmail,
+  buildHotelReportAirlineApprovedEmail,
   buildHotelReportPricingApprovedEmail,
   buildPassengerRequestActionEmail,
   buildPassengerRequestDatesChangeEmail,
@@ -81,6 +82,13 @@ export async function buildPassengerRequestEmail({
 
   if (emailAction === "approve_passenger_request_hotel_report_pricing") {
     return buildHotelReportPricingApprovedEmail({
+      ...base,
+      hotelName: emailExtras.hotelName
+    })
+  }
+
+  if (emailAction === "approve_passenger_request_hotel_report_airline") {
+    return buildHotelReportAirlineApprovedEmail({
       ...base,
       hotelName: emailExtras.hotelName
     })

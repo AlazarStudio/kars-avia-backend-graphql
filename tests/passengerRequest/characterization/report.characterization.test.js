@@ -1,6 +1,8 @@
 // Характеризационные тесты группы «Отчёт по проживанию»:
 // savePassengerRequestHotelReport, submitPassengerRequestHotelReport,
-// hidePassengerRequestHotelReport.
+// hidePassengerRequestHotelReport,
+// setPassengerRequestHotelReportPricingApproved,
+// setPassengerRequestHotelReportAirlineApproved.
 //
 // Фиксируют поведение КАК ЕСТЬ, включая дефекты. Тест, закрепляющий дефект,
 // помечен номером из реестра спеки — при починке дефекта обязан измениться
@@ -124,6 +126,15 @@ const saveArgs = (reportRows, hotelIndex = 0) => ({
   reportRows
 })
 
+// Субъект авиакомпании: у утверждения отчёта гейт именно по нему, и общий
+// makeContext (SUPERADMIN) через этот гейт не проходит. airlineId совпадает с
+// заявкой из makeRequest — иначе отказ пришёл бы раньше, от assertCanAccessRequest.
+const makeAirlineContext = () => ({
+  subjectType: "USER",
+  subject: { id: "u-air", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-1" },
+  user: { id: "u-air", name: "Админ АК", role: "AIRLINEADMIN", airlineId: "airline-1" }
+})
+
 const makeSavedReport = (overrides = {}) => ({
   id: "report-1",
   passengerRequestId: "req-1",
@@ -132,6 +143,14 @@ const makeSavedReport = (overrides = {}) => ({
   submittedAt: null,
   ...overrides
 })
+
+// Отчёт, дошедший до утверждения авиакомпанией: отправлен и цены согласованы.
+const makeApprovedReport = (overrides = {}) =>
+  makeSavedReport({
+    submittedAt: new Date("2026-08-02T09:00:00.000Z"),
+    pricingApprovedAt: new Date("2026-08-03T10:00:00.000Z"),
+    ...overrides
+  })
 
 // ───────────────────── маппер строки: белый список и дефолты ─────────────────
 
@@ -508,7 +527,7 @@ test("submitPassengerRequestHotelReport ставит submittedAt, пишет л�
   )
 })
 
-test("hidePassengerRequestHotelReport ставит submittedAt = null и НЕ уведомляет сайт", async () => {
+test("hidePassengerRequestHotelReport гасит все три отметки и НЕ уведомляет сайт", async () => {
   const run = await runReport(
     "hidePassengerRequestHotelReport",
     { requestId: "req-1", hotelIndex: 0 },
@@ -516,7 +535,14 @@ test("hidePassengerRequestHotelReport ставит submittedAt = null и НЕ у
   )
 
   assert.deepEqual(run.updated, [
-    { where: { id: "report-1" }, data: { submittedAt: null, pricingApprovedAt: null } }
+    {
+      where: { id: "report-1" },
+      data: {
+        submittedAt: null,
+        pricingApprovedAt: null,
+        airlineApprovedAt: null
+      }
+    }
   ])
   assert.equal(run.logged.length, 1)
   assert.equal(run.logged[0].action, "hide_passenger_request_hotel_report")
@@ -577,6 +603,126 @@ test("setPassengerRequestHotelReportPricingApproved: снятие не увед�
   assert.equal(run.logged[0].action, "revoke_passenger_request_hotel_report_pricing")
   assert.equal(run.notified.length, 0)
   assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+// ───────────── утверждение отчёта авиакомпанией ─────────────
+
+test("setPassengerRequestHotelReportAirlineApproved: утверждение ставит дату, лог и сайт", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    { report: makeApprovedReport(), context: makeAirlineContext() }
+  )
+
+  assert.equal(run.error, null)
+  assert.ok(run.updated[0].data.airlineApprovedAt instanceof Date)
+  assert.equal(run.logged.length, 1)
+  assert.equal(
+    run.logged[0].action,
+    "approve_passenger_request_hotel_report_airline"
+  )
+  assert.equal(run.notified.length, 1)
+  assert.equal(
+    run.notified[0].description.action,
+    "approve_passenger_request_hotel_report_airline"
+  )
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: отзыв гасит дату и не уведомляет сайт", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: false },
+    {
+      report: makeApprovedReport({
+        airlineApprovedAt: new Date("2026-08-04T11:00:00.000Z")
+      }),
+      context: makeAirlineContext()
+    }
+  )
+
+  assert.equal(run.updated[0].data.airlineApprovedAt, null)
+  assert.equal(
+    run.logged[0].action,
+    "revoke_passenger_request_hotel_report_airline"
+  )
+  assert.equal(run.notified.length, 0)
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: без согласованных цен утвердить нельзя", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    {
+      report: makeSavedReport({
+        submittedAt: new Date("2026-08-02T09:00:00.000Z")
+      }),
+      context: makeAirlineContext()
+    }
+  )
+
+  assert.match(run.error.message, /только после согласования цен/)
+  assert.equal(run.updated.length, 0)
+  assert.equal(run.logged.length, 0)
+  assert.equal(run.notified.length, 0)
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: диспетчер и гостиница утвердить не могут", async () => {
+  for (const [label, context] of [
+    ["диспетчер", makeContext()],
+    ["гостиница", makeHotelContext()]
+  ]) {
+    const run = await runReport(
+      "setPassengerRequestHotelReportAirlineApproved",
+      { requestId: "req-1", hotelIndex: 0, approved: true },
+      { report: makeApprovedReport(), context }
+    )
+
+    assert.match(run.error.message, /только авиакомпания/, label)
+    assert.equal(run.error.extensions.code, "FORBIDDEN", label)
+    // Гейт стоит до чтения отчёта: запись не искали и не трогали.
+    assert.equal(run.updated.length, 0, `${label}: записи нет`)
+    assert.equal(run.logged.length, 0, `${label}: лога нет`)
+    assert.equal(run.published.length, 0, `${label}: публикации нет`)
+  }
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: без сохранённого отчёта падает", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    { context: makeAirlineContext() }
+  )
+
+  assert.match(run.error.message, /Отчёт ещё не сохранён/)
+  assert.equal(run.updated.length, 0)
+  assert.equal(run.logged.length, 0)
+})
+
+test("снятие согласования цен гасит и утверждение авиакомпании", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: false },
+    {
+      report: makeApprovedReport({
+        airlineApprovedAt: new Date("2026-08-04T11:00:00.000Z")
+      })
+    }
+  )
+
+  assert.equal(run.updated[0].data.pricingApprovedAt, null)
+  assert.equal(run.updated[0].data.airlineApprovedAt, null)
+})
+
+test("согласование цен утверждение авиакомпании не трогает", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    { report: makeSavedReport({ submittedAt: new Date("2026-08-02T09:00:00.000Z") }) }
+  )
+
+  assert.equal("airlineApprovedAt" in run.updated[0].data, false)
 })
 
 test("submit и hide без сохранённого отчёта падают и не оставляют следов", async () => {
@@ -687,6 +833,11 @@ test("reportRowsEqual: совпавшие строки не сбрасывают
     changed.upserted[0].update.pricingApprovedAt,
     null,
     "правка снимает согласование цен"
+  )
+  assert.equal(
+    changed.upserted[0].update.airlineApprovedAt,
+    null,
+    "правка снимает утверждение авиакомпании"
   )
 })
 
@@ -799,6 +950,10 @@ test("аутентификация: без субъекта ни одна из �
     ["hidePassengerRequestHotelReport", { requestId: "req-1", hotelIndex: 0 }],
     [
       "setPassengerRequestHotelReportPricingApproved",
+      { requestId: "req-1", hotelIndex: 0, approved: true }
+    ],
+    [
+      "setPassengerRequestHotelReportAirlineApproved",
       { requestId: "req-1", hotelIndex: 0, approved: true }
     ]
   ]) {

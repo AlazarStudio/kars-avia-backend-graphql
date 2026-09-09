@@ -387,6 +387,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     pricingApprovedAt: Date
     "true, если pricingApprovedAt заполнен — для тумблера Согласовать/Согласовано"
     pricingApproved: Boolean!
+    "Когда авиакомпания утвердила отчёт. Ставит и снимает только она"
+    airlineApprovedAt: Date
+    "true, если airlineApprovedAt заполнен — для тумблера Утвердить/Утверждён"
+    airlineApproved: Boolean!
   }
 
   """
@@ -1049,6 +1053,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
     Пока не согласовано, авиакомпания видит состав без цен.
     """
     setPassengerRequestHotelReportPricingApproved(
+      requestId: ID!
+      hotelIndex: Int!
+      approved: Boolean!
+    ): PassengerRequestHotelReport!
+
+    """
+    Утвердить (true) или отозвать утверждение (false) отчёта авиакомпанией.
+    Доступно только субъекту авиакомпании и только после согласования цен.
+    """
+    setPassengerRequestHotelReportAirlineApproved(
       requestId: ID!
       hotelIndex: Int!
       approved: Boolean!

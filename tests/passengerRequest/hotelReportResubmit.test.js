@@ -62,7 +62,8 @@ test("выселение гасит отметку отправки у отчё�
   )
   assert.deepEqual(calls[0].data, {
     submittedAt: null,
-    pricingApprovedAt: null
+    pricingApprovedAt: null,
+    airlineApprovedAt: null
   })
 })
 

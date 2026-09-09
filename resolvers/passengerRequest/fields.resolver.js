@@ -114,7 +114,8 @@ export default {
       }
       return rows
     },
-    pricingApproved: (parent) => parent.pricingApprovedAt != null
+    pricingApproved: (parent) => parent.pricingApprovedAt != null,
+    airlineApproved: (parent) => parent.airlineApprovedAt != null
   },
 
   PassengerServiceHotelPerson: {

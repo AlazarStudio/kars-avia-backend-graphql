@@ -534,7 +534,7 @@ test("mergePassengerRequestSavedPeople: keep-wins, ребинд услуг, гр
   assert.deepEqual(data.passengerGroups[0].memberPersonIds, [IVAN, PETR])
   assert.deepEqual(
     run.double.callsTo("passengerRequestHotelReport", "updateMany")[0].args.data,
-    { submittedAt: null, pricingApprovedAt: null }
+    { submittedAt: null, pricingApprovedAt: null, airlineApprovedAt: null }
   )
   assert.deepEqual(
     run.double.callsTo("passengerRequestHotelReport", "update")[0].args.data

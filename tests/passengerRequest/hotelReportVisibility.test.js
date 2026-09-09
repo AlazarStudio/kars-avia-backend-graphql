@@ -249,3 +249,18 @@ test("pricingApproved считается по pricingApprovedAt", () => {
     true
   )
 })
+
+test("airlineApproved считается по airlineApprovedAt", () => {
+  assert.equal(
+    resolvers.PassengerRequestHotelReport.airlineApproved({
+      airlineApprovedAt: null
+    }),
+    false
+  )
+  assert.equal(
+    resolvers.PassengerRequestHotelReport.airlineApproved({
+      airlineApprovedAt: new Date()
+    }),
+    true
+  )
+})

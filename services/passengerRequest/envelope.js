@@ -227,7 +227,11 @@ export async function withPassengerRequest({
         hotelIndex: { in: [...new Set(applied.unsubmitReports)] },
         submittedAt: { not: null }
       },
-      data: { submittedAt: null, pricingApprovedAt: null }
+      data: {
+        submittedAt: null,
+        pricingApprovedAt: null,
+        airlineApprovedAt: null
+      }
     })
   }
 

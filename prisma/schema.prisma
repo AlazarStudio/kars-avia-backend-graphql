@@ -1446,6 +1446,7 @@ model PassengerRequestHotelReport {
   reportRows         Json /// массив строк: fullName, roomNumber, arrival, departure, daysCount, breakfast/lunch/dinner(+Count), foodCost, accommodationCost
   submittedAt        DateTime? /// когда диспетчер отправил отчёт авиакомпании на проверку; null — не отправлен
   pricingApprovedAt  DateTime? /// когда ценообразование согласовано; до этого АК видит состав без цен
+  airlineApprovedAt  DateTime? /// когда авиакомпания утвердила отчёт; ставит и снимает только она
 
   @@unique([passengerRequestId, hotelIndex])
 }

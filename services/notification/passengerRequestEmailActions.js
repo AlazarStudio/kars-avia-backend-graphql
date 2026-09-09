@@ -31,6 +31,9 @@ export function resolveEmailActionForLog(logAction) {
   if (logAction === "approve_passenger_request_hotel_report_pricing") {
     return "approve_passenger_request_hotel_report_pricing"
   }
+  if (logAction === "approve_passenger_request_hotel_report_airline") {
+    return "approve_passenger_request_hotel_report_airline"
+  }
   if (HOTEL_CHESS_LOG_ACTIONS.has(logAction)) {
     return "update_hotel_chess_passenger_request"
   }

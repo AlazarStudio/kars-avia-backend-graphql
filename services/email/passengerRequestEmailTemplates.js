@@ -162,3 +162,18 @@ export function buildHotelReportPricingApprovedEmail({
   const html = `В ФАП ${label} расчёт по гостинице ${hotel} согласован. Авиакомпания видит цены в отчёте.${link}`
   return { subject, html }
 }
+
+export function buildHotelReportAirlineApprovedEmail({
+  requestNumber,
+  flightNumber,
+  hotelName,
+  requestId
+}) {
+  const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
+  const noText = requestNumber || flightNumber || "ФАП"
+  const hotel = span(hotelName || "без названия")
+  const link = passengerRequestRelayLinkHtml(requestId)
+  const subject = `Авиакомпания утвердила отчёт по ФАП ${noText}`
+  const html = `В ФАП ${label} отчёт по гостинице ${hotel} утверждён авиакомпанией.${link}`
+  return { subject, html }
+}
