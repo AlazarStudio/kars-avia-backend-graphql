@@ -12,6 +12,7 @@ import { analyticsAirlineServiceComparison } from "../../services/analytics/airl
 import { analyticsDispatchersPerformance } from "../../services/analytics/dispatchersPerformance.js"
 import { computeAirlineAnalytics } from "../../services/analytics/airlineAnalytics.js"
 import { computePassengerAnalytics } from "../../services/analytics/passengerAnalytics.js"
+import { assertPassengerAnalyticsAllowed } from "../../services/analytics/passengerAnalyticsAccess.js"
 import { GraphQLError } from "graphql"
 import {
   resolveScope,
@@ -145,6 +146,9 @@ const analyticsResolver = {
           extensions: { code: "FORBIDDEN", http: { status: 403 } }
         })
       }
+      // Право analyticsPassengerMenu: без него вкладка скрыта на фронте, а
+      // прямой запрос отбивается здесь.
+      await assertPassengerAnalyticsAllowed(context)
       const { user } = context
       // АК видит только свои заявки; диспетчер/суперадмин — по input.airlineId (или все)
       const scopedAirlineId = user?.airlineId || input.airlineId || null

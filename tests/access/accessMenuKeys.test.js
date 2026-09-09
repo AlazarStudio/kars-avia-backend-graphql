@@ -44,3 +44,8 @@ test("права accessManage, travellineMenu и ФАП объявлены", () 
 test("право reportDelete объявлено", () => {
   assert.ok(ACCESS_MENU_KEYS.includes("reportDelete"))
 })
+
+test("право на аналитику по пассажирам объявлено отдельно от аналитики эскадрильи", () => {
+  assert.ok(ACCESS_MENU_KEYS.includes("analyticsMenu"))
+  assert.ok(ACCESS_MENU_KEYS.includes("analyticsPassengerMenu"))
+})
