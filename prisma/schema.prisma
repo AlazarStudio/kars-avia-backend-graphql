@@ -1452,6 +1452,8 @@ model PassengerRequestHotelReport {
   submittedAt        DateTime? /// когда диспетчер отправил отчёт авиакомпании на проверку; null — не отправлен
   pricingApprovedAt  DateTime? /// когда ценообразование согласовано; до этого АК видит состав без цен
   airlineApprovedAt  DateTime? /// когда авиакомпания утвердила отчёт; ставит и снимает только она
+  airlineComment     String? /// последний комментарий авиакомпании к утверждению/отзыву: причина и что исправить
+  airlineCommentAt   DateTime? /// когда авиакомпания оставила комментарий
 
   @@unique([passengerRequestId, hotelIndex])
 }
@@ -1522,26 +1524,29 @@ enum ReportDraftStatus {
 }
 
 model ReportDraft {
-  id            String            @id @default(auto()) @map("_id") @db.ObjectId
-  type          ReportDraftType
-  status        ReportDraftStatus @default(DRAFT)
-  airlineId     String?           @db.ObjectId
-  hotelId       String?           @db.ObjectId
-  airline       Airline?          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
-  hotel         Hotel?            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  startDate     DateTime
-  endDate       DateTime
-  filterJson    Json
-  rows          Json
-  computedRows  Json?
-  savedReportId String?           @db.ObjectId
-  savedReport   SavedReport?      @relation(fields: [savedReportId], references: [id], onDelete: SetNull)
-  createdById   String?           @db.ObjectId
-  createdBy     User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  submittedAt   DateTime?
-  confirmedAt   DateTime?
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  type             ReportDraftType
+  status           ReportDraftStatus @default(DRAFT)
+  airlineId        String?           @db.ObjectId
+  hotelId          String?           @db.ObjectId
+  airline          Airline?          @relation(fields: [airlineId], references: [id], onDelete: Cascade)
+  hotel            Hotel?            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  startDate        DateTime
+  endDate          DateTime
+  filterJson       Json
+  rows             Json
+  computedRows     Json?
+  savedReportId    String?           @db.ObjectId
+  savedReport      SavedReport?      @relation(fields: [savedReportId], references: [id], onDelete: SetNull)
+  createdById      String?           @db.ObjectId
+  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  submittedAt      DateTime?
+  confirmedAt      DateTime?
+  rejectedAt       DateTime? /// когда авиакомпания вернула отправленный отчёт на доработку
+  airlineComment   String? /// последний комментарий авиакомпании: причина отклонения и что исправить
+  airlineCommentAt DateTime? /// когда авиакомпания оставила комментарий
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   @@index([type, status])
   @@index([airlineId])

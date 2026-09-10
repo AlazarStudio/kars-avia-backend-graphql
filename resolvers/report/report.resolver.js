@@ -36,11 +36,16 @@ import {
   restoreSavedReport
 } from "../../services/report/reportArchive.js"
 import {
+  assertAirlineDraftSubject,
   assertCanDeleteSavedReport,
   buildReportDraftsWhere,
   isAirlineOrgUser
 } from "../../services/report/reportAccess.js"
 import { notifyAirlineReportSubmitted } from "../../services/report/notifyReportSubmit.js"
+import {
+  notifyAirlineReportConfirmed,
+  notifyAirlineReportRejected
+} from "../../services/report/notifyReportDecision.js"
 import {
   buildLiveDraftRows,
   markDraftRowChanges,
@@ -654,7 +659,10 @@ const reportResolver = {
 
       const updated = await prisma.reportDraft.update({
         where: { id },
-        data: { status: "SUBMITTED", submittedAt: new Date() },
+        // rejectedAt гасим: отметка описывает состояние «возвращён», а не
+        // историю. Комментарий авиакомпании остаётся — на втором круге
+        // проверки обе стороны видят, что именно просили исправить.
+        data: { status: "SUBMITTED", submittedAt: new Date(), rejectedAt: null },
         include: draftInclude
       })
       await notifyAirlineReportSubmitted(updated)
@@ -684,6 +692,61 @@ const reportResolver = {
         data: { status: "DRAFT", submittedAt: null },
         include: draftInclude
       })
+      return mapDraft(updated)
+    },
+
+    rejectAirlineReportDraft: async (_, { id, comment }, context) => {
+      // airlineAdminMiddleware даёт вход и диспетчеру — субъекта режем
+      // отдельным гейтом ниже, он же закрывает чужую авиакомпанию.
+      await airlineAdminMiddleware(context)
+      const draft = await prisma.reportDraft.findUnique({
+        where: { id },
+        include: draftInclude
+      })
+      if (!draft) throw new Error("Report draft not found")
+      if (draft.type !== "AIRLINE") {
+        throw new GraphQLError("Only airline reports can be rejected", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+      assertAirlineDraftSubject(context.user, draft)
+      // Выпущенный отчёт неотзывен: confirmReportDraft уже сгенерировал файл и
+      // SavedReport, и «вернуть» его значило бы отозвать выданный документ.
+      if (draft.status !== "SUBMITTED") {
+        throw new GraphQLError("Only SUBMITTED reports can be rejected", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+      // Возврат без причины бесполезен: диспетчер узнает, что отчёт вернули, но
+      // не узнает, что в нём править. Тот же инвариант, что у отзыва в ФАП.
+      const airlineComment = comment?.trim()
+      if (!airlineComment) {
+        throw new GraphQLError("Укажите причину возврата отчёта", {
+          extensions: { code: "BAD_USER_INPUT" }
+        })
+      }
+
+      const rejectedAt = new Date()
+      const updated = await prisma.reportDraft.update({
+        where: { id },
+        // Обратно в DRAFT, а не в промежуточный статус: править строки бэк
+        // разрешает только черновику, а исправление — весь смысл возврата.
+        data: {
+          status: "DRAFT",
+          submittedAt: null,
+          rejectedAt,
+          airlineComment,
+          airlineCommentAt: rejectedAt
+        },
+        include: draftInclude
+      })
+
+      await notifyAirlineReportRejected({
+        draft: updated,
+        actor: context.user,
+        comment: airlineComment
+      })
+
       return mapDraft(updated)
     },
 
@@ -747,14 +810,21 @@ const reportResolver = {
         hotelId: draft.hotelId
       })
 
-      await prisma.reportDraft.update({
+      const confirmed = await prisma.reportDraft.update({
         where: { id },
         data: {
           status: "CONFIRMED",
           confirmedAt: new Date(),
           savedReportId: savedReport.id
-        }
+        },
+        include: draftInclude
       })
+
+      // Письмо и сайтовое уведомление — только у отчёта авиакомпании: у
+      // гостиничного черновика нет второй стороны, которая ждёт решения.
+      if (confirmed.type === "AIRLINE") {
+        await notifyAirlineReportConfirmed({ draft: confirmed, actor: user })
+      }
 
       return savedReport
     },

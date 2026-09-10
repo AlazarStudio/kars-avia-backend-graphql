@@ -6,7 +6,10 @@ import {
 } from "../../services/notification/passengerRequestEmailActions.js"
 import {
   buildCreatePassengerRequestEmail,
+  buildHotelReportAirlineApprovedEmail,
+  buildHotelReportAirlineRevokedEmail,
   buildHotelReportPricingApprovedEmail,
+  buildHotelReportPricingRevokedEmail,
   buildPassengerRequestActionEmail
 } from "../../services/email/passengerRequestEmailTemplates.js"
 
@@ -26,6 +29,16 @@ test("resolveEmailActionForLog maps hotel actions to placement", () => {
   assert.equal(
     resolveEmailActionForLog("approve_passenger_request_hotel_report_pricing"),
     "approve_passenger_request_hotel_report_pricing"
+  )
+  // Отзыв утверждения — своё почтовое действие: без него письмо ушло бы общим
+  // шаблоном «заявка обновлена», без причины и без флага меню отзыва.
+  assert.equal(
+    resolveEmailActionForLog("revoke_passenger_request_hotel_report_airline"),
+    "revoke_passenger_request_hotel_report_airline"
+  )
+  assert.equal(
+    resolveEmailActionForLog("revoke_passenger_request_hotel_report_pricing"),
+    "revoke_passenger_request_hotel_report_pricing"
   )
 })
 
@@ -100,4 +113,88 @@ test("buildHotelReportPricingApprovedEmail names hotel and FAP", () => {
     if (prev === undefined) delete process.env.FRONTEND_URL
     else process.env.FRONTEND_URL = prev
   }
+})
+
+test("buildHotelReportAirlineRevokedEmail: причина и ссылка на ФАП в письме", () => {
+  const prev = process.env.FRONTEND_URL
+  process.env.FRONTEND_URL = "https://karsavia.ru"
+  try {
+    const { subject, html } = buildHotelReportAirlineRevokedEmail({
+      requestNumber: "0001SVO0526f",
+      flightNumber: "SU100",
+      hotelName: "Азия",
+      comment: "Завышены сутки у Иванова",
+      requestId: "abc123"
+    })
+    assert.match(subject, /отозвала утверждение/)
+    assert.match(subject, /0001SVO0526f/)
+    assert.match(html, /Азия/)
+    assert.match(html, /Комментарий авиакомпании/)
+    assert.match(html, /Завышены сутки у Иванова/)
+    assert.match(html, /https:\/\/karsavia\.ru\/far\/abc123/)
+  } finally {
+    if (prev === undefined) delete process.env.FRONTEND_URL
+    else process.env.FRONTEND_URL = prev
+  }
+})
+
+test("buildHotelReportAirlineApprovedEmail: комментарий необязателен", () => {
+  const withComment = buildHotelReportAirlineApprovedEmail({
+    requestNumber: "0001",
+    hotelName: "Азия",
+    comment: "Принято",
+    requestId: "abc"
+  })
+  assert.match(withComment.html, /Комментарий авиакомпании/)
+  assert.match(withComment.html, /Принято/)
+
+  const without = buildHotelReportAirlineApprovedEmail({
+    requestNumber: "0001",
+    hotelName: "Азия",
+    requestId: "abc"
+  })
+  assert.doesNotMatch(without.html, /Комментарий авиакомпании/)
+})
+
+test("комментарий авиакомпании экранируется в письме", () => {
+  const { html } = buildHotelReportAirlineRevokedEmail({
+    requestNumber: "0001",
+    hotelName: "Азия",
+    comment: "<script>alert(1)</script>",
+    requestId: "abc"
+  })
+  assert.doesNotMatch(html, /<script>/)
+  assert.match(html, /&lt;script&gt;/)
+})
+
+test("buildHotelReportPricingRevokedEmail: говорит о скрытии цен и ссылается на ФАП", () => {
+  const prev = process.env.FRONTEND_URL
+  process.env.FRONTEND_URL = "https://karsavia.ru"
+  try {
+    const { subject, html } = buildHotelReportPricingRevokedEmail({
+      requestNumber: "0001SVO0526f",
+      hotelName: "Азия",
+      requestId: "abc123"
+    })
+    assert.match(subject, /Снято согласование ценообразования/)
+    assert.match(subject, /0001SVO0526f/)
+    assert.match(html, /Азия/)
+    assert.match(html, /без цен/)
+    assert.match(html, /https:\/\/karsavia\.ru\/far\/abc123/)
+    // Подпись АК не гасилась — приписки о ней быть не должно.
+    assert.doesNotMatch(html, /Утверждение отчёта авиакомпанией снято/)
+  } finally {
+    if (prev === undefined) delete process.env.FRONTEND_URL
+    else process.env.FRONTEND_URL = prev
+  }
+})
+
+test("buildHotelReportPricingRevokedEmail: погашенная подпись АК названа явно", () => {
+  const { html } = buildHotelReportPricingRevokedEmail({
+    requestNumber: "0001",
+    hotelName: "Азия",
+    airlineApprovalDropped: true,
+    requestId: "abc"
+  })
+  assert.match(html, /Утверждение отчёта авиакомпанией снято вместе с ним/)
 })

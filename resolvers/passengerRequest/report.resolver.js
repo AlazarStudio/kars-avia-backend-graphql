@@ -18,6 +18,7 @@ import {
 import { assertCanAccessRequest } from "../../services/passengerRequest/fapScopeGuard.js"
 import { assertHotelScopeAccess } from "../../services/passengerRequest/livingHelpers.js"
 import { resolveScope } from "../../services/passengerRequest/fapScope.js"
+import { escapeHtml } from "../../services/email/escapeHtml.js"
 
 // Утверждение отчёта — подпись авиакомпании под тем, что она увидела. Диспетчер
 // и гостиница сюда не допускаются НЕ из соображений изоляции (заявка им и так
@@ -268,6 +269,10 @@ export default {
         )
       }
 
+      // Успело ли снятие погасить подпись авиакомпании — считаем ДО записи:
+      // после неё поле уже обнулено, а письму нужно именно это различие.
+      const airlineApprovalDropped = !approved && report.airlineApprovedAt != null
+
       const updated = await prisma.passengerRequestHotelReport.update({
         where: { id: report.id },
         // Снятие согласования прячет от авиакомпании суммы — то, под чем она
@@ -278,36 +283,40 @@ export default {
         }
       })
 
+      const hotelName = hotel?.name || "без названия"
+      const emailAction = approved
+        ? "approve_passenger_request_hotel_report_pricing"
+        : "revoke_passenger_request_hotel_report_pricing"
+
       await finishPassengerRequestMutation({
         context,
         newData: existing,
         log: {
-          action: approved
-            ? "approve_passenger_request_hotel_report_pricing"
-            : "revoke_passenger_request_hotel_report_pricing",
+          action: emailAction,
           description: approved
             ? "Ценообразование отчёта ФАП согласовано"
             : "Согласование ценообразования отчёта ФАП снято",
-          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "согласовал" : "снял согласование"} ценообразования отчёта по гостинице ${hotel?.name || "без названия"} в ФАП ${existing.flightNumber}`,
+          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "согласовал" : "снял согласование"} ценообразования отчёта по гостинице ${hotelName} в ФАП ${existing.flightNumber}${airlineApprovalDropped ? ", утверждение авиакомпании снято вместе с ним" : ""}`,
           airlineId: existing.airlineId,
           passengerRequestId: requestId,
-          skipEmail: !approved,
-          emailAction: approved
-            ? "approve_passenger_request_hotel_report_pricing"
-            : undefined,
-          emailExtras: approved ? { hotelName: hotel?.name || "без названия" } : {},
-          alsoNotifyAirline: approved
+          // Письмо уходит на ОБА решения: снятие прячет от авиакомпании суммы и
+          // гасит её подпись, и узнать об этом ей неоткуда, кроме письма.
+          emailAction,
+          emailExtras: { hotelName, airlineApprovalDropped },
+          // Авиакомпанию оповещаем в любом случае — она сторона, которую
+          // касается и открытие цен, и их скрытие.
+          alsoNotifyAirline: true
         },
-        notify: approved
-          ? {
-              action: "approve_passenger_request_hotel_report_pricing",
-              passengerRequestId: existing.id,
-              airlineId: existing.airlineId,
-              hotelId: hotel?.hotelId || undefined,
-              descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> расчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> согласован`,
-              __typename: "PassengerRequestUpdatedNotification"
-            }
-          : null
+        notify: {
+          action: emailAction,
+          passengerRequestId: existing.id,
+          airlineId: existing.airlineId,
+          hotelId: hotel?.hotelId || undefined,
+          descriptionHtml: approved
+            ? `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> расчёт по гостинице <span style='color:#545873'>${hotelName}</span> согласован`
+            : `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> снято согласование расчёта по гостинице <span style='color:#545873'>${hotelName}</span>${airlineApprovalDropped ? " вместе с утверждением авиакомпании" : ""}`,
+          __typename: "PassengerRequestUpdatedNotification"
+        }
       })
 
       return updated
@@ -315,7 +324,7 @@ export default {
 
     setPassengerRequestHotelReportAirlineApproved: async (
       _,
-      { requestId, hotelIndex, approved },
+      { requestId, hotelIndex, approved, comment },
       context
     ) => {
       const existing = await loadRequestOrThrow(requestId)
@@ -339,11 +348,34 @@ export default {
           { extensions: { code: "BAD_USER_INPUT" } }
         )
       }
+      // Отзыв без причины бесполезен: диспетчер и гостиница узнают, что отчёт
+      // вернули, но не узнают, что в нём править. При утверждении комментарий
+      // необязателен — подписи достаточно.
+      const airlineComment = comment?.trim() || null
+      if (!approved && !airlineComment) {
+        throw new GraphQLError(
+          "Укажите причину отзыва утверждения",
+          { extensions: { code: "BAD_USER_INPUT" } }
+        )
+      }
 
+      const commentedAt = new Date()
       const updated = await prisma.passengerRequestHotelReport.update({
         where: { id: report.id },
-        data: { airlineApprovedAt: approved ? new Date() : null }
+        // Комментарий перезаписывается КАЖДЫМ решением, включая утверждение без
+        // текста: он описывает последнее слово авиакомпании, и оставленная от
+        // прошлого отзыва причина после утверждения читалась бы как актуальная.
+        data: {
+          airlineApprovedAt: approved ? commentedAt : null,
+          airlineComment,
+          airlineCommentAt: airlineComment ? commentedAt : null
+        }
       })
+
+      const hotelName = hotel?.name || "без названия"
+      const emailAction = approved
+        ? "approve_passenger_request_hotel_report_airline"
+        : "revoke_passenger_request_hotel_report_airline"
 
       await finishPassengerRequestMutation({
         context,
@@ -351,37 +383,32 @@ export default {
         // соседних мутаций отчёта выше.
         newData: existing,
         log: {
-          action: approved
-            ? "approve_passenger_request_hotel_report_airline"
-            : "revoke_passenger_request_hotel_report_airline",
+          action: emailAction,
           description: approved
             ? "Отчёт ФАП утверждён авиакомпанией"
             : "Утверждение отчёта ФАП отозвано авиакомпанией",
-          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "утвердил" : "отозвал утверждение"} отчёта по гостинице ${hotel?.name || "без названия"} в ФАП ${existing.flightNumber}`,
+          fulldescription: `Пользователь ${getSubjectName(context)} ${approved ? "утвердил" : "отозвал утверждение"} отчёта по гостинице ${hotelName} в ФАП ${existing.flightNumber}${airlineComment ? `. Комментарий: ${airlineComment}` : ""}`,
           airlineId: existing.airlineId,
           passengerRequestId: requestId,
-          // Письмо — только на утверждении: отзыв ничего не открывает и не
-          // закрывает, о нём достаточно истории заявки. Так же устроено
-          // согласование цен выше.
-          skipEmail: !approved,
-          emailAction: approved
-            ? "approve_passenger_request_hotel_report_airline"
-            : undefined,
-          emailExtras: approved ? { hotelName: hotel?.name || "без названия" } : {}
+          // Письмо уходит на ОБА решения: отзыв возвращает отчёт в работу, и
+          // диспетчер с гостиницей узнают о нём только так. Комментарий
+          // авиакомпании едет тем же письмом.
+          emailAction,
+          emailExtras: { hotelName, comment: airlineComment }
           // alsoNotifyAirline не нужен: действие совершает сама авиакомпания,
           // а sendRequestPartyEmail для недиспетчерского актора и так шлёт
           // диспетчерским отделам.
         },
-        notify: approved
-          ? {
-              action: "approve_passenger_request_hotel_report_airline",
-              passengerRequestId: existing.id,
-              airlineId: existing.airlineId,
-              hotelId: hotel?.hotelId || undefined,
-              descriptionHtml: `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotel?.name ?? "без названия"}</span> утверждён авиакомпанией`,
-              __typename: "PassengerRequestUpdatedNotification"
-            }
-          : null
+        notify: {
+          action: emailAction,
+          passengerRequestId: existing.id,
+          airlineId: existing.airlineId,
+          hotelId: hotel?.hotelId || undefined,
+          descriptionHtml: approved
+            ? `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> отчёт по гостинице <span style='color:#545873'>${hotelName}</span> утверждён авиакомпанией`
+            : `В ФАП <span style='color:#545873'>${existing.flightNumber}</span> авиакомпания отозвала утверждение отчёта по гостинице <span style='color:#545873'>${hotelName}</span>: ${escapeHtml(airlineComment)}`,
+          __typename: "PassengerRequestUpdatedNotification"
+        }
       })
 
       return updated

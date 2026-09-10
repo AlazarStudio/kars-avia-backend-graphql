@@ -588,7 +588,7 @@ test("setPassengerRequestHotelReportPricingApproved: без отправки н�
   assert.equal(run.notified.length, 0)
 })
 
-test("setPassengerRequestHotelReportPricingApproved: снятие не уведомляет сайт", async () => {
+test("setPassengerRequestHotelReportPricingApproved: снятие уведомляет сайт", async () => {
   const run = await runReport(
     "setPassengerRequestHotelReportPricingApproved",
     { requestId: "req-1", hotelIndex: 0, approved: false },
@@ -601,8 +601,48 @@ test("setPassengerRequestHotelReportPricingApproved: снятие не увед�
   )
   assert.equal(run.updated[0].data.pricingApprovedAt, null)
   assert.equal(run.logged[0].action, "revoke_passenger_request_hotel_report_pricing")
-  assert.equal(run.notified.length, 0)
-  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
+  // Снятие прячет от авиакомпании суммы — молчать об этом нельзя.
+  assert.equal(run.notified.length, 1)
+  assert.equal(
+    run.notified[0].description.action,
+    "revoke_passenger_request_hotel_report_pricing"
+  )
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
+})
+
+test("снятие согласования цен: погашенное утверждение АК названо в логе и уведомлении", async () => {
+  const withApproval = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: false },
+    {
+      report: makeApprovedReport({
+        airlineApprovedAt: new Date("2026-08-04T11:00:00.000Z")
+      })
+    }
+  )
+  assert.match(
+    withApproval.logged[0].fulldescription,
+    /утверждение авиакомпании снято вместе с ним/
+  )
+  assert.match(
+    withApproval.notified[0].description.description,
+    /вместе с утверждением авиакомпании/
+  )
+
+  // Отчёт, который авиакомпания не подписывала: приписки быть не должно.
+  const withoutApproval = await runReport(
+    "setPassengerRequestHotelReportPricingApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: false },
+    { report: makeApprovedReport() }
+  )
+  assert.doesNotMatch(
+    withoutApproval.logged[0].fulldescription,
+    /утверждение авиакомпании/
+  )
+  assert.doesNotMatch(
+    withoutApproval.notified[0].description.description,
+    /утверждением авиакомпании/
+  )
 })
 
 // ───────────── утверждение отчёта авиакомпанией ─────────────
@@ -629,10 +669,15 @@ test("setPassengerRequestHotelReportAirlineApproved: утверждение ст
   assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
 })
 
-test("setPassengerRequestHotelReportAirlineApproved: отзыв гасит дату и не уведомляет сайт", async () => {
+test("setPassengerRequestHotelReportAirlineApproved: отзыв гасит дату, пишет комментарий и уведомляет сайт", async () => {
   const run = await runReport(
     "setPassengerRequestHotelReportAirlineApproved",
-    { requestId: "req-1", hotelIndex: 0, approved: false },
+    {
+      requestId: "req-1",
+      hotelIndex: 0,
+      approved: false,
+      comment: "Завышены сутки у Иванова"
+    },
     {
       report: makeApprovedReport({
         airlineApprovedAt: new Date("2026-08-04T11:00:00.000Z")
@@ -641,13 +686,82 @@ test("setPassengerRequestHotelReportAirlineApproved: отзыв гасит да�
     }
   )
 
+  assert.equal(run.error, null)
   assert.equal(run.updated[0].data.airlineApprovedAt, null)
+  assert.equal(run.updated[0].data.airlineComment, "Завышены сутки у Иванова")
+  assert.ok(run.updated[0].data.airlineCommentAt instanceof Date)
   assert.equal(
     run.logged[0].action,
     "revoke_passenger_request_hotel_report_airline"
   )
-  assert.equal(run.notified.length, 0)
-  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED"])
+  // Отзыв возвращает отчёт в работу — вторая сторона узнаёт о нём из
+  // уведомления и письма, а не только из истории заявки.
+  assert.equal(run.notified.length, 1)
+  assert.equal(
+    run.notified[0].description.action,
+    "revoke_passenger_request_hotel_report_airline"
+  )
+  assert.match(run.notified[0].description.description, /Завышены сутки/)
+  assert.deepEqual(run.topics, ["PASSENGER_REQUEST_UPDATED", "NOTIFICATION"])
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: отзыв без комментария отбивается", async () => {
+  for (const comment of [undefined, "", "   "]) {
+    const run = await runReport(
+      "setPassengerRequestHotelReportAirlineApproved",
+      { requestId: "req-1", hotelIndex: 0, approved: false, comment },
+      {
+        report: makeApprovedReport({
+          airlineApprovedAt: new Date("2026-08-04T11:00:00.000Z")
+        }),
+        context: makeAirlineContext()
+      }
+    )
+
+    const label = JSON.stringify(comment)
+    assert.match(run.error.message, /Укажите причину отзыва/, label)
+    assert.equal(run.error.extensions.code, "BAD_USER_INPUT", label)
+    assert.equal(run.updated.length, 0, `${label}: записи нет`)
+    assert.equal(run.logged.length, 0, `${label}: лога нет`)
+    assert.equal(run.published.length, 0, `${label}: публикации нет`)
+  }
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: утверждение без комментария гасит прошлый", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    { requestId: "req-1", hotelIndex: 0, approved: true },
+    {
+      report: makeApprovedReport({
+        airlineComment: "Завышены сутки у Иванова",
+        airlineCommentAt: new Date("2026-08-04T11:00:00.000Z")
+      }),
+      context: makeAirlineContext()
+    }
+  )
+
+  assert.equal(run.error, null)
+  // Комментарий описывает ПОСЛЕДНЕЕ слово авиакомпании: причина прошлого
+  // отзыва после утверждения читалась бы как всё ещё актуальная.
+  assert.equal(run.updated[0].data.airlineComment, null)
+  assert.equal(run.updated[0].data.airlineCommentAt, null)
+})
+
+test("setPassengerRequestHotelReportAirlineApproved: комментарий при утверждении сохраняется", async () => {
+  const run = await runReport(
+    "setPassengerRequestHotelReportAirlineApproved",
+    {
+      requestId: "req-1",
+      hotelIndex: 0,
+      approved: true,
+      comment: "  Принято, вопросов нет  "
+    },
+    { report: makeApprovedReport(), context: makeAirlineContext() }
+  )
+
+  assert.equal(run.error, null)
+  assert.equal(run.updated[0].data.airlineComment, "Принято, вопросов нет")
+  assert.ok(run.updated[0].data.airlineCommentAt instanceof Date)
 })
 
 test("setPassengerRequestHotelReportAirlineApproved: без согласованных цен утвердить нельзя", async () => {

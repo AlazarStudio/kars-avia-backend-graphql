@@ -83,6 +83,11 @@ const reportTypeDef = /* GraphQL */ `
     recreateReportDraft(id: ID!): ReportDraft!
     submitAirlineReportDraft(id: ID!): ReportDraft!
     unsubmitAirlineReportDraft(id: ID!): ReportDraft!
+    # Отклонение отправленного отчёта авиакомпанией: SUBMITTED → DRAFT.
+    # comment — причина и что нужно исправить, обязателен: диспетчер узнаёт из
+    # него, ради чего отчёт вернули. Уходит письмом и сайтовым уведомлением,
+    # остаётся в airlineComment черновика.
+    rejectAirlineReportDraft(id: ID!, comment: String!): ReportDraft!
     confirmReportDraft(id: ID!, format: ReportFormat): SavedReport!
     deleteReportDraft(id: ID!): Boolean!
   }
@@ -316,6 +321,12 @@ const reportTypeDef = /* GraphQL */ `
     createdById: ID
     submittedAt: Date
     confirmedAt: Date
+    "Когда авиакомпания вернула отправленный отчёт на доработку"
+    rejectedAt: Date
+    "Последний комментарий авиакомпании: причина отклонения и что исправить"
+    airlineComment: String
+    "Когда авиакомпания оставила комментарий"
+    airlineCommentAt: Date
     createdAt: Date!
     updatedAt: Date!
   }

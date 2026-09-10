@@ -391,6 +391,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     airlineApprovedAt: Date
     "true, если airlineApprovedAt заполнен — для тумблера Утвердить/Утверждён"
     airlineApproved: Boolean!
+    "Комментарий авиакомпании к последнему решению: при отзыве — причина и что исправить"
+    airlineComment: String
+    "Когда авиакомпания оставила комментарий"
+    airlineCommentAt: Date
   }
 
   """
@@ -1061,11 +1065,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     """
     Утвердить (true) или отозвать утверждение (false) отчёта авиакомпанией.
     Доступно только субъекту авиакомпании и только после согласования цен.
+    comment — комментарий авиакомпании: при отзыве обязателен (причина и что
+    исправить), при утверждении необязателен. Перезаписывает предыдущий.
     """
     setPassengerRequestHotelReportAirlineApproved(
       requestId: ID!
       hotelIndex: Int!
       approved: Boolean!
+      comment: String
     ): PassengerRequestHotelReport!
   }
 

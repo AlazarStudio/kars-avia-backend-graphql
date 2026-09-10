@@ -18,6 +18,21 @@ export function buildPassengerRequestCardUrl(passengerRequestId) {
   return `${base}/far/${encodeURIComponent(passengerRequestId)}`
 }
 
+// Отчёт и его черновик открываются одним разделом («reports» — id вкладки в
+// `/:id`, одинаковый у всех ролей) и различаются параметром запроса: выпущенный
+// отчёт по reportid, черновик по reportdraftid.
+export function buildSavedReportUrl(reportId) {
+  const base = getFrontendUrl()
+  if (!base || !reportId) return ""
+  return `${base}/reports?reportid=${encodeURIComponent(reportId)}`
+}
+
+export function buildReportDraftUrl(draftId) {
+  const base = getFrontendUrl()
+  if (!base || !draftId) return ""
+  return `${base}/reports?reportdraftid=${encodeURIComponent(draftId)}`
+}
+
 export function buildEntityChatUrl({
   requestId,
   reserveId,

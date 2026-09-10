@@ -163,10 +163,40 @@ export function buildHotelReportPricingApprovedEmail({
   return { subject, html }
 }
 
+export function buildHotelReportPricingRevokedEmail({
+  requestNumber,
+  flightNumber,
+  hotelName,
+  airlineApprovalDropped,
+  requestId
+}) {
+  const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
+  const noText = requestNumber || flightNumber || "ФАП"
+  const hotel = span(hotelName || "без названия")
+  const link = passengerRequestRelayLinkHtml(requestId)
+  const subject = `Снято согласование ценообразования по ФАП ${noText}`
+  // Снятие гасит и утверждение авиакомпании (см. резолвер): молчать об этом
+  // нельзя — подпись АК исчезает, а узнать о том, что её ждут заново, ей неоткуда.
+  const dropped = airlineApprovalDropped
+    ? " Утверждение отчёта авиакомпанией снято вместе с ним — после исправления цены нужно согласовать и утвердить заново."
+    : ""
+  const html = `В ФАП ${label} снято согласование расчёта по гостинице ${hotel}. Авиакомпания снова видит состав без цен.${dropped}${link}`
+  return { subject, html }
+}
+
+// Блок комментария авиакомпании. Отдельной строкой, а не внутри предложения:
+// в отзыве это единственное, ради чего письмо читают.
+function airlineCommentHtml(comment) {
+  const trimmed = String(comment ?? "").trim()
+  if (!trimmed) return ""
+  return `<br><br>Комментарий авиакомпании:<br>${span(trimmed)}`
+}
+
 export function buildHotelReportAirlineApprovedEmail({
   requestNumber,
   flightNumber,
   hotelName,
+  comment,
   requestId
 }) {
   const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
@@ -174,6 +204,22 @@ export function buildHotelReportAirlineApprovedEmail({
   const hotel = span(hotelName || "без названия")
   const link = passengerRequestRelayLinkHtml(requestId)
   const subject = `Авиакомпания утвердила отчёт по ФАП ${noText}`
-  const html = `В ФАП ${label} отчёт по гостинице ${hotel} утверждён авиакомпанией.${link}`
+  const html = `В ФАП ${label} отчёт по гостинице ${hotel} утверждён авиакомпанией.${airlineCommentHtml(comment)}${link}`
+  return { subject, html }
+}
+
+export function buildHotelReportAirlineRevokedEmail({
+  requestNumber,
+  flightNumber,
+  hotelName,
+  comment,
+  requestId
+}) {
+  const label = formatPassengerRequestLabel({ requestNumber, flightNumber })
+  const noText = requestNumber || flightNumber || "ФАП"
+  const hotel = span(hotelName || "без названия")
+  const link = passengerRequestRelayLinkHtml(requestId)
+  const subject = `Авиакомпания отозвала утверждение отчёта по ФАП ${noText}`
+  const html = `В ФАП ${label} авиакомпания отозвала утверждение отчёта по гостинице ${hotel}. Отчёт нужно исправить и утвердить заново.${airlineCommentHtml(comment)}${link}`
   return { subject, html }
 }

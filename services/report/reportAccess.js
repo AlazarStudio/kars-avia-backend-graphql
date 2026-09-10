@@ -41,6 +41,19 @@ export function buildReportDraftsWhere(user, filter = {}) {
   return where
 }
 
+// Возврат отчёта на доработку — подпись авиакомпании под тем, что цифры её не
+// устроили. Диспетчер сюда не допускается не из соображений изоляции (отчёт он
+// и так видит и вправе отозвать свою отправку через unsubmit), а потому что
+// комментарий «от авиакомпании», написанный не ею, обесценивает саму отметку.
+// Гейт тот же по смыслу, что assertAirlineSubject у отчёта ФАП.
+export function assertAirlineDraftSubject(user, draft) {
+  if (isAirlineOrgUser(user) && user.airlineId === draft?.airlineId) return
+  throw new GraphQLError(
+    "Вернуть отчёт на доработку может только авиакомпания",
+    { extensions: { code: "FORBIDDEN", http: { status: 403 } } }
+  )
+}
+
 export async function assertCanDeleteSavedReport(context) {
   const user = context?.user || context?.subject
   if (!user) {

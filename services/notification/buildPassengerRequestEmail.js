@@ -4,7 +4,9 @@ import {
   buildCreatePassengerRequestEmail,
   buildHotelChessPassengerRequestEmail,
   buildHotelReportAirlineApprovedEmail,
+  buildHotelReportAirlineRevokedEmail,
   buildHotelReportPricingApprovedEmail,
+  buildHotelReportPricingRevokedEmail,
   buildPassengerRequestActionEmail,
   buildPassengerRequestDatesChangeEmail,
   buildUpdatePassengerRequestEmail
@@ -87,10 +89,27 @@ export async function buildPassengerRequestEmail({
     })
   }
 
+  if (emailAction === "revoke_passenger_request_hotel_report_pricing") {
+    return buildHotelReportPricingRevokedEmail({
+      ...base,
+      hotelName: emailExtras.hotelName,
+      airlineApprovalDropped: emailExtras.airlineApprovalDropped
+    })
+  }
+
   if (emailAction === "approve_passenger_request_hotel_report_airline") {
     return buildHotelReportAirlineApprovedEmail({
       ...base,
-      hotelName: emailExtras.hotelName
+      hotelName: emailExtras.hotelName,
+      comment: emailExtras.comment
+    })
+  }
+
+  if (emailAction === "revoke_passenger_request_hotel_report_airline") {
+    return buildHotelReportAirlineRevokedEmail({
+      ...base,
+      hotelName: emailExtras.hotelName,
+      comment: emailExtras.comment
     })
   }
 
