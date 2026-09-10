@@ -35,9 +35,9 @@
     "semantic_hash": "c4c5ac735f65fd964f603d0bb563c917"
   },
   "package.json": {
-    "mtime": 1783347264.4223106,
-    "ast_hash": "1f88d4f4209e0211ffb269e594d23d06",
-    "semantic_hash": "1f88d4f4209e0211ffb269e594d23d06"
+    "mtime": 1788965387.0567656,
+    "ast_hash": "797cb5533fdeeef508c582b25491fec4",
+    "semantic_hash": "797cb5533fdeeef508c582b25491fec4"
   },
   "prisma.js": {
     "mtime": 1769438471.6784406,
@@ -55,9 +55,9 @@
     "semantic_hash": "474923d43d28bb6ad936b90aaa327b87"
   },
   "resolvers/analytics/analytics.resolver.js": {
-    "mtime": 1787156325.150806,
-    "ast_hash": "08266fc115b1cf0b4054ecd130e113cb",
-    "semantic_hash": "08266fc115b1cf0b4054ecd130e113cb"
+    "mtime": 1788962373.371163,
+    "ast_hash": "c7e0d4d46dc9742e7f68d4ba78a51d1e",
+    "semantic_hash": "c7e0d4d46dc9742e7f68d4ba78a51d1e"
   },
   "resolvers/chat/chat.resolver.js": {
     "mtime": 1788337474.4807098,
@@ -150,9 +150,9 @@
     "semantic_hash": "b9ccecca3b0c2be12103de9cfe1c7421"
   },
   "resolvers/request/request.resolver.js": {
-    "mtime": 1788957898.9940305,
-    "ast_hash": "98dc642fc37e24df9447bb486816dca4",
-    "semantic_hash": "98dc642fc37e24df9447bb486816dca4"
+    "mtime": 1788964155.2562478,
+    "ast_hash": "f198fcb0aff8a7f92308048a7ba05a5c",
+    "semantic_hash": "f198fcb0aff8a7f92308048a7ba05a5c"
   },
   "resolvers/reserve/reserve.resolver.js": {
     "mtime": 1786539959.6391673,
@@ -210,9 +210,9 @@
     "semantic_hash": "0603ceefb009ebb9c2fe0c72cd508860"
   },
   "services/access/accessMenuKeys.js": {
-    "mtime": 1788880209.873521,
-    "ast_hash": "db838dd43f2eebb996751cb3cb5693ef",
-    "semantic_hash": "db838dd43f2eebb996751cb3cb5693ef"
+    "mtime": 1788962206.923367,
+    "ast_hash": "fe822e124f2bcb7f312b0e5bff2879ad",
+    "semantic_hash": "fe822e124f2bcb7f312b0e5bff2879ad"
   },
   "services/access/loadEffectiveAccessMenuForUser.js": {
     "mtime": 1780305525.0724683,
@@ -625,9 +625,9 @@
     "semantic_hash": "cc0501a6f141d354af87beafbe3ff0d2"
   },
   "services/notification/departmentEmailDelivery.js": {
-    "mtime": 1786544472.5282319,
-    "ast_hash": "42bc64827fa48b1a3379b986c7f9e46e",
-    "semantic_hash": "42bc64827fa48b1a3379b986c7f9e46e"
+    "mtime": 1788963453.0319848,
+    "ast_hash": "00ac4347dd4d8a3747be0730cf5d63dd",
+    "semantic_hash": "00ac4347dd4d8a3747be0730cf5d63dd"
   },
   "services/notification/notificationMenuCheck.js": {
     "mtime": 1779444536.5295916,
@@ -660,9 +660,9 @@
     "semantic_hash": "5c35cced9d684c3d04452464d71aae5d"
   },
   "services/notification/sendRequestPartyEmail.js": {
-    "mtime": 1780315933.6302469,
-    "ast_hash": "79b86d97d2e000a4583e11c905dd7dc5",
-    "semantic_hash": "79b86d97d2e000a4583e11c905dd7dc5"
+    "mtime": 1788963453.0334916,
+    "ast_hash": "b187bb72fca4a15adf8e7f53196ae3eb",
+    "semantic_hash": "b187bb72fca4a15adf8e7f53196ae3eb"
   },
   "services/notification/sendSupportEmail.js": {
     "mtime": 1781708806.4594328,
@@ -820,9 +820,9 @@
     "semantic_hash": "13ffde360563782d56f28951bbf9b0c9"
   },
   "services/sendMail.js": {
-    "mtime": 1785165389.1394906,
-    "ast_hash": "1d9a33d2f0374d024dd0a56749181ade",
-    "semantic_hash": "1d9a33d2f0374d024dd0a56749181ade"
+    "mtime": 1788963453.0334916,
+    "ast_hash": "c73af75cea945822388becaa75df8e7b",
+    "semantic_hash": "c73af75cea945822388becaa75df8e7b"
   },
   "services/site/maintenanceBanner.js": {
     "mtime": 1779444536.532685,
@@ -1005,9 +1005,9 @@
     "semantic_hash": "6bec82911bb316827eb961eb194497df"
   },
   "tests/notification/sendMail.test.js": {
-    "mtime": 1781700710.9951184,
-    "ast_hash": "a6ea84288ee48da8e2d0802cc7967bd3",
-    "semantic_hash": "a6ea84288ee48da8e2d0802cc7967bd3"
+    "mtime": 1788963453.035178,
+    "ast_hash": "28a98be4d3b0734cc5090c60b9bbbabc",
+    "semantic_hash": "28a98be4d3b0734cc5090c60b9bbbabc"
   },
   "tests/notification/supportEmail.test.js": {
     "mtime": 1781708806.4604337,
@@ -1160,9 +1160,9 @@
     "semantic_hash": "9d7b79b8f56a81a32fa06c21a92ab358"
   },
   "typeDefs/global/global.typeDef.js": {
-    "mtime": 1788880209.874521,
-    "ast_hash": "e2e3bdf3dd42e901fccf63d00b95fc28",
-    "semantic_hash": "e2e3bdf3dd42e901fccf63d00b95fc28"
+    "mtime": 1788962213.2112272,
+    "ast_hash": "5fb2d2eea7044acda8358e4db51aee53",
+    "semantic_hash": "5fb2d2eea7044acda8358e4db51aee53"
   },
   "typeDefs/hotel/hotel.typeDef.js": {
     "mtime": 1788337474.5171473,
@@ -1595,9 +1595,9 @@
     "semantic_hash": "1da589694bec81feb0ddfe67e9409c70"
   },
   "services/infra/perfTimer.js": {
-    "mtime": 1786544472.527225,
-    "ast_hash": "3b63589a8a629a09176dfb9ed9a287f4",
-    "semantic_hash": "3b63589a8a629a09176dfb9ed9a287f4"
+    "mtime": 1788963453.0319848,
+    "ast_hash": "c90dceb3987d52dcff0c3b20715abbce",
+    "semantic_hash": "c90dceb3987d52dcff0c3b20715abbce"
   },
   "services/migrations/backfillPassengerHotelAddressCity.js": {
     "mtime": 1786035204.9587646,
@@ -1630,9 +1630,9 @@
     "semantic_hash": "b114dec4bd0f0e7af5475dc5b91dc3e3"
   },
   "tests/access/accessMenuKeys.test.js": {
-    "mtime": 1788337474.5039525,
-    "ast_hash": "2e744f282166f514c43ecdbb5a015584",
-    "semantic_hash": "2e744f282166f514c43ecdbb5a015584"
+    "mtime": 1788962181.8420005,
+    "ast_hash": "e06d362b72b918d04d73fe48c9d1ef24",
+    "semantic_hash": "e06d362b72b918d04d73fe48c9d1ef24"
   },
   "tests/access/assertCanManageAccess.test.js": {
     "mtime": 1786721173.1203969,
@@ -1838,5 +1838,15 @@
     "mtime": 1788957898.9950316,
     "ast_hash": "e0f33d7d539126ad016c8e1399f7c012",
     "semantic_hash": "e0f33d7d539126ad016c8e1399f7c012"
+  },
+  "services/analytics/passengerAnalyticsAccess.js": {
+    "mtime": 1788962363.1089466,
+    "ast_hash": "58970963a1d9d011a1ee6f4685133f2f",
+    "semantic_hash": "58970963a1d9d011a1ee6f4685133f2f"
+  },
+  "tests/analytics/passengerAnalyticsAccess.test.js": {
+    "mtime": 1788962350.0203211,
+    "ast_hash": "0ae6768e5cd9e1c0845fb5f23d38ae94",
+    "semantic_hash": "0ae6768e5cd9e1c0845fb5f23d38ae94"
   }
 }
