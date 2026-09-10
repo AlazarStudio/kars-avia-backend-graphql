@@ -398,6 +398,21 @@ const passengerRequestTypeDef = /* GraphQL */ `
   }
 
   """
+  Стадия согласования отчёта по гостинице: три шага строго по порядку —
+  диспетчер отправил → согласовал цены → авиакомпания утвердила
+  """
+  enum PassengerReportStage {
+    "Отчёт не отправлен авиакомпании (в том числе ещё не заполнен)"
+    NOT_SUBMITTED
+    "Отправлен, ценообразование не согласовано"
+    SUBMITTED
+    "Цены согласованы, ждёт утверждения авиакомпании"
+    PRICING_APPROVED
+    "Утверждён авиакомпанией"
+    AIRLINE_APPROVED
+  }
+
+  """
   Фильтр + пагинация
   """
   input PassengerRequestFilterInput {
@@ -408,6 +423,14 @@ const passengerRequestTypeDef = /* GraphQL */ `
     "Период: по flightDate; заявки без даты рейса — по createdAt"
     dateFrom: Date
     dateTo: Date
+    "Вид услуг: заявка подходит, если включена ХОТЯ БЫ ОДНА из перечисленных"
+    services: [PassengerServiceKind!]
+    """
+    Согласованность отчёта: стадия самой отстающей гостиницы из тех, что видны
+    зрителю (гостинице — своя, авиакомпании — только отправленные отчёты).
+    Заявки без видимых гостиниц под этот фильтр не попадают ни при какой стадии
+    """
+    reportStage: PassengerReportStage
   }
 
   input PassengerServicePlanInput {

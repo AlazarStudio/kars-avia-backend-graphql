@@ -119,3 +119,13 @@ export const PASSENGER_SERVICE_FIELDS = new Set(
 // а не отказ. Поэтому «не нашли» — обычный результат, а не ошибка.
 export const findPassengerService = (service) =>
   PASSENGER_SERVICE_TABLE.find((entry) => entry.service === service) || null
+
+// Поля документа для набора видов услуг — вход фильтра списка. Валидации, как и
+// в findPassengerService, нет: неизвестное имя молча выпадает из перечня.
+export const passengerServiceFields = (services) => [
+  ...new Set(
+    (services ?? [])
+      .map((service) => findPassengerService(service)?.field)
+      .filter(Boolean)
+  )
+]

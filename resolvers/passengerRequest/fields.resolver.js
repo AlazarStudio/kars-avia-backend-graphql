@@ -12,6 +12,8 @@ import {
   resolveScope,
   hotelIndexesForScope
 } from "../../services/passengerRequest/fapScope.js"
+import { passengerServiceFields } from "../../services/passengerRequest/serviceTable.js"
+import { listByReportStage } from "../../services/passengerRequest/reportStageList.js"
 import { visibleHotelReports } from "../../services/analytics/passengerAnalyticsUtils.js"
 import { maskReportRowPrices } from "../../services/passengerRequest/hotelReportRows.js"
 import { catalogVehicleNumber } from "../../services/passengerRequest/driverVehicle.js"
@@ -193,6 +195,18 @@ export default {
         })
       }
 
+      // Вид услуг: отмеченные виды складываются по ИЛИ — заявка подходит, если
+      // включена хотя бы одна из них. Услуга живёт во встроенном композите,
+      // отсюда двойной `is`.
+      const serviceFields = passengerServiceFields(filter?.services)
+      if (serviceFields.length) {
+        and.push({
+          OR: serviceFields.map((field) => ({
+            [field]: { is: { plan: { is: { enabled: true } } } }
+          }))
+        })
+      }
+
       // Скоуп субъекта кладём в тот же AND, а не в корень where: там уже лежат
       // поиск и период, и запись в корень затёрла бы пользовательский фильтр
       // либо была бы затёрта им.
@@ -201,6 +215,18 @@ export default {
       if (scope.filter) and.push(scope.filter)
 
       if (and.length) where.AND = and
+
+      // Согласованность отчёта в where не выражается и считается по видимым
+      // гостиницам — вместе с пагинацией уходит в отдельную ветку.
+      if (filter?.reportStage) {
+        return listByReportStage({
+          where,
+          stage: filter.reportStage,
+          scope: resolveScope(context),
+          skip,
+          take
+        })
+      }
 
       const list = await prisma.passengerRequest.findMany({
         where,
