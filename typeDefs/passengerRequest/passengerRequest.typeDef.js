@@ -113,6 +113,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
     earlyCompletionReason: String
     earlyCompletedAt: Date
     people: [PassengerServicePerson!]!
+    "Факт поставки (одна на рейс) — строка реестра «вода и питание». Поставщик, свободный текст"
+    supplier: String
+    "Дата и время поставки; пока пусто — в реестр не попадает"
+    suppliedAt: Date
+    "Напитки у waterService, порции у mealService"
+    quantity: Int
+    "Цена за единицу для АК, без НДС"
+    unitPrice: Float
+    "Доставка для АК, без НДС"
+    deliveryCost: Float
+    "Стоимость поставщику. Только диспетчеру: остальным null"
+    supplierCost: Float
   }
 
   type PassengerServiceHotelPerson {
@@ -187,6 +199,10 @@ const passengerRequestTypeDef = /* GraphQL */ `
     "Гос. номер ТС"
     vehicleNumber: String
     reportCost: Float
+    "Стоимость водителю (без НДС). Только диспетчеру: остальным null. В реестр для АК не идёт"
+    driverCost: Float
+    "Межгород, км — только во внутренний лист реестра. Только диспетчеру"
+    distanceKm: Float
     "Перевезено фактически (учёт числом). Факт поездки = max(people.length, transportedCount)."
     transportedCount: Int
     "Гостиница проживания этой заявки (livingService.hotels[].itemId), к которой привязана поездка. Задаётся при создании; смена привязки в V1 — пересоздание водителя."
@@ -445,6 +461,18 @@ const passengerRequestTypeDef = /* GraphQL */ `
     plan: PassengerServicePlanInput
   }
 
+  """
+  Патч факта поставки. Семантика: отсутствие ключа => не трогаем; null => сбрасываем.
+  """
+  input PassengerServiceSupplyPatchInput {
+    supplier: String
+    suppliedAt: Date
+    quantity: Int
+    unitPrice: Float
+    deliveryCost: Float
+    supplierCost: Float
+  }
+
   input PassengerLivingServiceInput {
     plan: PassengerServicePlanInput
   }
@@ -565,6 +593,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     addressFrom: String
     addressTo: String
     description: String
+    driverCost: Float
+    distanceKm: Float
     people: [PassengerServiceDriverPersonInput!]
   }
 
@@ -579,6 +609,8 @@ const passengerRequestTypeDef = /* GraphQL */ `
     peopleCount: Int
     vehicleType: String
     deliveryCompletedAt: Date
+    driverCost: Float
+    distanceKm: Float
     people: [PassengerServiceDriverPersonInput!]
   }
 
@@ -818,6 +850,16 @@ const passengerRequestTypeDef = /* GraphQL */ `
       requestId: ID!
       service: PassengerWaterFoodKind!
       personIndexes: [Int!]!
+    ): PassengerRequest!
+
+    """
+    Сохранить факт поставки воды (WATER) или питания (MEAL) заявки. Только
+    диспетчерским субъектам (замок завершённой заявки — как у остальных мутаций).
+    """
+    updatePassengerRequestSupply(
+      requestId: ID!
+      service: PassengerWaterFoodKind!
+      patch: PassengerServiceSupplyPatchInput!
     ): PassengerRequest!
 
     addPassengerRequestHotel(

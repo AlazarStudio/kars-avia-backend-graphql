@@ -1,4 +1,4 @@
-// Получатели воды и питания.
+// Получатели воды и питания и факт поставки.
 
 import { GraphQLError } from "graphql"
 import {
@@ -19,6 +19,30 @@ import {
   withPassengerRequest
 } from "../../services/passengerRequest/envelope.js"
 import { recomputeServiceStatus } from "../../services/passengerRequest/serviceStatus.js"
+import { collectSupplyPatch } from "../../services/passengerRequest/supplyFact.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
+
+// Факт поставки и стоимость поставщику правит только диспетчер: остальным эти
+// поля замаскированы на чтении, писать их вслепую бессмысленно. Гейт не зависит
+// от FAP_SCOPE_ENFORCE — в режиме наблюдения assertCanAccessRequest никого не отсекает.
+const assertDispatcherSubject = (context) => {
+  if (resolveScope(context).kind === "all") return
+  throw new GraphQLError("Факт поставки правит только диспетчер", {
+    extensions: { code: "FORBIDDEN", http: { status: 403 } }
+  })
+}
+
+// Русские подписи полей факта поставки для истории заявки: логи читают все
+// участники, а английские ключи инпута им ничего не говорят. Значения не
+// печатаем — деньги поставщика внутренние.
+const SUPPLY_FIELD_LABELS = {
+  supplier: "поставщик",
+  suppliedAt: "дата поставки",
+  quantity: "количество",
+  unitPrice: "цена за единицу",
+  deliveryCost: "доставка",
+  supplierCost: "стоимость поставщику"
+}
 
 // Вход service — строка энума; embedded-полей у неё ровно два. Проверка и
 // выбор поля идут вместе: разъехавшись, они дают запись в чужую услугу вместо
@@ -279,6 +303,54 @@ export default {
             }
           }
         }
+      }),
+
+    // Факт поставки — скаляры на самой услуге. Статус услуги не пересчитываем:
+    // факт услуги по-прежнему число получателей (serviceTable.js), поставка —
+    // деньги и время для реестра. Писем нет: правка цен — не событие для сторон.
+    updatePassengerRequestSupply: async (
+      _,
+      { requestId, service, patch },
+      context
+    ) => {
+      assertDispatcherSubject(context)
+
+      return withPassengerRequest({
+        requestId,
+        context,
+        apply: (existing) => {
+          const serviceField = assertWaterMealField(service)
+          const applied = collectSupplyPatch(patch)
+          // Пустой патч здесь — ошибка, тогда как updatePassengerRequestBaggageDriver
+          // на том же входе возвращает заявку нетронутой. Расхождение осознанное:
+          // форма поставки отправляет ровно то, что диспетчер правил, и пустой
+          // патч означает сбой фронта, а не «нечего менять».
+          if (Object.keys(applied).length === 0) {
+            throw new GraphQLError("Пустой патч поставки", {
+              extensions: { code: "BAD_USER_INPUT" }
+            })
+          }
+
+          const prev = existing[serviceField] || emptyPeopleService()
+          const changed = Object.keys(applied)
+            .map((key) => SUPPLY_FIELD_LABELS[key] ?? key)
+            .join(", ")
+
+          return {
+            data: {
+              [serviceField]: { ...prev, ...applied }
+            },
+            log: {
+              action: "update_passenger_request_supply",
+              description: `Поставка обновлена в сервисе: ${service}`,
+              fulldescription: `Пользователь ${getSubjectName(context)} обновил факт поставки (${changed}) в сервисе ${service} ФАП ${existing.flightNumber}`,
+              airlineId: existing.airlineId,
+              passengerRequestId: existing.id,
+              skipEmail: true
+            }
+          }
+        }
       })
+    }
   }
 }

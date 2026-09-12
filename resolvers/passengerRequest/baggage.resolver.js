@@ -8,6 +8,8 @@ import {
   collectBaggageDriverPatch,
   countTripPeople
 } from "../../services/passengerRequest/baggageDelivery.js"
+import { toMoney, toKmOrNull } from "../../services/passengerRequest/coerce.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
 import {
   ensureDriverIds,
   newDriverId
@@ -28,6 +30,14 @@ import {
   generateDriverLink,
   reissueShiftedDriverLinks
 } from "../../services/passengerRequest/externalLinks.js"
+
+// driverCost/distanceKm — внутренние деньги: не-диспетчер их не видит и писать
+// не может; ключи из его входа отбрасываются молча, остальной патч применяется.
+const stripInternalDriverFields = (input, context) => {
+  if (!input || resolveScope(context).kind === "all") return input
+  const { driverCost, distanceKm, ...rest } = input
+  return rest
+}
 
 export default {
   Mutation: {
@@ -52,8 +62,11 @@ export default {
           // people[], чтобы получить personId и гидрацию идентичности из ростера
           // заявки. Ключ people есть в composite-типе — снимать его не нужно,
           // normalizePassengerServiceDriver прогонит каждого через ensureDriverPerson.
-          const normalizedDriver = normalizePassengerServiceDriver(driver)
+          const allowedDriver = stripInternalDriverFields(driver, context)
+          const normalizedDriver = normalizePassengerServiceDriver(allowedDriver)
           normalizedDriver.reportCost = tripReportCost(normalizedDriver.people)
+          normalizedDriver.driverCost = toMoney(allowedDriver?.driverCost)
+          normalizedDriver.distanceKm = toKmOrNull(allowedDriver?.distanceKm)
           normalizedDriver.id = newDriverId()
           const driverIndex = (prev.drivers || []).length
           const adminId =
@@ -217,7 +230,9 @@ export default {
           assertIndex(driverIndex, drivers.length, "driverIndex")
           const before = drivers[driverIndex]
 
-          const applied = collectBaggageDriverPatch(patch)
+          const applied = collectBaggageDriverPatch(
+            stripInternalDriverFields(patch, context)
+          )
           // Ни одного ключа из белого списка — заявка возвращается как есть:
           // ни записи, ни истории, ни публикации.
           if (Object.keys(applied).length === 0) return null

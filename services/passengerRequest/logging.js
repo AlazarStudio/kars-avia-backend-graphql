@@ -146,8 +146,17 @@ export function buildBaggageDriverPatchDescription(before, applied, driverIndex)
       `пассажиры: ${from} → ${to}, сумма поездки: ${fromCost} → ${toCost}`
     )
   }
-  // Ветки «изменений нет» здесь быть не может: collectBaggageDriverPatch отдаёт
-  // только эти ключи, а пустой патч резолвер отсекает раньше.
+  // Стоимость водителю и километраж — внутренние деньги: их видит только
+  // диспетчер (маска в fields.resolver.js), а PassengerRequest.logs читают все
+  // участники заявки. Поэтому отмечаем сам факт правки, без значений.
+  if ("driverCost" in applied) {
+    diffs.push("стоимость водителю: изменена")
+  }
+  if ("distanceKm" in applied) {
+    diffs.push("межгород, км: изменён")
+  }
+  // Ветки «изменений нет» здесь быть не может: ключи диффа выше — зеркало белого
+  // списка collectBaggageDriverPatch, а пустой патч резолвер отсекает раньше.
   return {
     short: `Доставка багажа ${label}: ${diffs.join(", ")}`,
     full: `Доставка багажа ${label}. Изменения: ${diffs.join("; ")}.`

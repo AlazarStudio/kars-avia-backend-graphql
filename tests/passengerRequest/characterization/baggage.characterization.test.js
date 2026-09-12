@@ -87,6 +87,18 @@ const makeTrip = (overrides = {}) => ({
   ...overrides
 })
 
+// Контекст авиакомпании: обе багажные мутации ей открыты, но внутренние деньги
+// поездки (driverCost/distanceKm) она не видит и писать их не может.
+const airlineContext = () => {
+  const subject = {
+    id: "u-air",
+    name: "АК Тестовая",
+    role: "AIRLINEADMIN",
+    airlineId: "airline-1"
+  }
+  return { subjectType: "USER", subject, user: { ...subject } }
+}
+
 // Пассажир поездки в том виде, в каком он лежит в базе.
 const makeTripPerson = (overrides = {}) => ({
   personId: null,
@@ -361,6 +373,42 @@ test("сумма поездки производная: собирается и�
   assert.equal(run.written[0].baggageDeliveryService.drivers[0].reportCost, 300.75)
 })
 
+test("add: внутренние деньги поездки чистятся тем же правилом, что и в патче", async () => {
+  const run = await runFapMutation("addPassengerRequestBaggageDriver", {
+    requestId: "req-1",
+    driver: {
+      fullName: "Водитель Багаж",
+      driverCost: "5300.005",
+      distanceKm: "-3"
+    }
+  })
+
+  const trip = run.written[0].baggageDeliveryService.drivers[0]
+  assert.equal(trip.driverCost, 5300.01, "деньги округляются до копеек")
+  assert.equal(trip.distanceKm, null, "отрицательный километраж — «не задано»")
+})
+
+test("add: не-диспетчеру внутренние деньги поездки не пишутся", async () => {
+  const run = await runFapMutation(
+    "addPassengerRequestBaggageDriver",
+    {
+      requestId: "req-1",
+      driver: {
+        fullName: "Водитель Багаж",
+        vehicleType: "Газель",
+        driverCost: 5300,
+        distanceKm: 126
+      }
+    },
+    { context: airlineContext() }
+  )
+
+  const trip = run.written[0].baggageDeliveryService.drivers[0]
+  assert.equal(trip.vehicleType, "Газель", "остальной вход применяется")
+  assert.equal(trip.driverCost, null)
+  assert.equal(trip.distanceKm, null)
+})
+
 // ────────────────── removePassengerRequestBaggageDriver ──────────────────
 
 test("removePassengerRequestBaggageDriver снимает поездку, пересчитывает статус, пишет лог", async () => {
@@ -595,6 +643,55 @@ test("патч без ключа people не трогает ручную сум�
   )
 
   assert.equal(run.written[0].baggageDeliveryService.drivers[0].reportCost, 777)
+})
+
+test("патч от не-диспетчера теряет внутренние деньги, остальное применяется", async () => {
+  // Ключи driverCost/distanceKm отбрасываются МОЛЧА: мутация открыта АК и
+  // гостинице, отказ сломал бы им правку типа ТС.
+  const trip = makeTrip({ driverCost: 4000, distanceKm: 90 })
+  const run = await runFapMutation(
+    "updatePassengerRequestBaggageDriver",
+    {
+      requestId: "req-1",
+      driverIndex: 0,
+      patch: { vehicleType: "Газель", driverCost: 5300 }
+    },
+    {
+      request: withBaggage({ status: "ACCEPTED", drivers: [trip] }),
+      context: airlineContext()
+    }
+  )
+
+  const written = run.written[0].baggageDeliveryService.drivers[0]
+  assert.equal(written.vehicleType, "Газель")
+  assert.equal(written.driverCost, 4000, "стоимость водителю не изменилась")
+  assert.equal(written.distanceKm, 90)
+  assert.match(run.logged[0].description, /тип ТС/)
+  assert.ok(
+    !/стоимость водителю/.test(run.logged[0].description),
+    "в историю уходит только реально применённое"
+  )
+})
+
+test("патч от диспетчера внутренние деньги пишет", async () => {
+  const run = await runFapMutation(
+    "updatePassengerRequestBaggageDriver",
+    {
+      requestId: "req-1",
+      driverIndex: 0,
+      patch: { driverCost: 5300, distanceKm: 126 }
+    },
+    {
+      request: withBaggage({
+        status: "ACCEPTED",
+        drivers: [makeTrip({ driverCost: 4000, distanceKm: 90 })]
+      })
+    }
+  )
+
+  const written = run.written[0].baggageDeliveryService.drivers[0]
+  assert.equal(written.driverCost, 5300)
+  assert.equal(written.distanceKm, 126)
 })
 
 test("patch.people — единственный путь завести пассажира багажа: без personId и без ростера", async () => {

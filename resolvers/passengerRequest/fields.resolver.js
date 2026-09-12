@@ -23,6 +23,12 @@ import { catalogVehicleNumber } from "../../services/passengerRequest/driverVehi
 // персонал авиакомпании, у которого своего `user` в контексте нет.
 const viewerIsAirline = (context) => resolveScope(context).kind === "airline"
 
+// Внутренние деньги ФАП (стоимость водителю, поставщику, километраж) видит только
+// диспетчерский субъект. Маска стоит на ТИПЕ, а не на запросе — так закрываются и
+// ответы мутаций, которые возвращают drivers[] целиком.
+const viewerIsDispatcher = (context) => resolveScope(context).kind === "all"
+const internalOnly = (value, context) => (viewerIsDispatcher(context) ? value : null)
+
 // Индексы гостиниц, отчёты которых зритель вправе читать; null — все.
 // Для гостиничного зрителя это ровно его строка заявки: в общей заявке рядом
 // стоят гостиницы других организаций, и их отчёт — чужие деньги.
@@ -132,7 +138,9 @@ export default {
     // Хранимое значение — ручное переопределение с карточки; пустое → номер
     // водителя из справочника транспортной компании (по телефону, затем по имени).
     vehicleNumber: async (parent) =>
-      parent?.vehicleNumber?.trim?.() || catalogVehicleNumber(parent)
+      parent?.vehicleNumber?.trim?.() || catalogVehicleNumber(parent),
+    driverCost: (parent, _args, context) => internalOnly(parent.driverCost, context),
+    distanceKm: (parent, _args, context) => internalOnly(parent.distanceKm, context)
   },
 
   // У пассажиров, заведённых до появления поля, Prisma отдаёт baggageTags как
@@ -140,6 +148,10 @@ export default {
   PassengerServiceDriverPerson: {
     baggageTags: (parent) =>
       Array.isArray(parent.baggageTags) ? parent.baggageTags : []
+  },
+
+  PassengerWaterFoodService: {
+    supplierCost: (parent, _args, context) => internalOnly(parent.supplierCost, context)
   },
 
   PassengerLivingService: {

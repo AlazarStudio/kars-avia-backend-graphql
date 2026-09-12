@@ -305,6 +305,7 @@ model Airport {
   representativeDepartmentLinks RepresentativeDepartmentOnAirport[]
   passengerRequests             PassengerRequest[]
   airportOnTransferPrice        AirportOnTransferPrice[]
+  serviceRegistries             PassengerServiceRegistry[]
 }
 
 model Region {
@@ -410,6 +411,7 @@ model Airline {
   passengerRequests             PassengerRequest[]
   transfers                     Transfer[]
   transferPrices                TransferPrice[]
+  serviceRegistries             PassengerServiceRegistry[]
 }
 
 model AirlineDepartment {
@@ -1227,6 +1229,8 @@ type PassengerServiceDriver {
   vehicleType         String?
   vehicleNumber       String? // гос. номер ТС
   reportCost          Float?
+  driverCost          Float? // стоимость водителю (без НДС) — только диспетчеру, в реестр для АК не идёт
+  distanceKm          Float? // межгород, км — только во внутренний лист реестра
   transportedCount    Int? // «перевезено N» — факт числом, когда поимённый список не ведут (только трансфер)
   hotelItemId         String? // привязка поездки к гостинице проживания заявки (livingService.hotels[].itemId)
   people              PassengerServiceDriverPerson[]
@@ -1355,6 +1359,15 @@ type PassengerWaterFoodService {
   earlyCompletionReason String?
   earlyCompletedAt      DateTime?
   people                PassengerServicePerson[] // список ФИО + время выдачи
+
+  // Факт поставки (одна на рейс): строка реестра «вода и питание». Пока suppliedAt пуст,
+  // услуга в реестр не попадает. Сумма для АК не хранится: quantity × unitPrice + deliveryCost.
+  supplier              String? // поставщик, свободный текст
+  suppliedAt            DateTime? // дата и время поставки
+  quantity              Int? // напитки у waterService, порции у mealService
+  unitPrice             Float? // цена за единицу для АК, без НДС
+  deliveryCost          Float? // доставка для АК, без НДС
+  supplierCost          Float? // стоимость поставщику — только диспетчеру
 }
 
 model Passenger {
@@ -1456,6 +1469,38 @@ model PassengerRequestHotelReport {
   airlineCommentAt   DateTime? /// когда авиакомпания оставила комментарий
 
   @@unique([passengerRequestId, hotelIndex])
+}
+
+enum PassengerServiceRegistryKind {
+  BAGGAGE
+  CATERING
+}
+
+/// Реестр услуг ФАП за период — приложение к договору с авиакомпанией.
+/// rows — снимок строк на момент формирования (см. services/passengerRequest/registryRows.js),
+/// стадии — как у PassengerRequestHotelReport, но без «цены согласованы».
+model PassengerServiceRegistry {
+  id                String                       @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+  kind              PassengerServiceRegistryKind
+  airline           Airline                      @relation(fields: [airlineId], references: [id], onDelete: NoAction)
+  airlineId         String                       @db.ObjectId
+  airport           Airport                      @relation(fields: [airportId], references: [id], onDelete: NoAction)
+  airportId         String                       @db.ObjectId
+  periodStart       DateTime
+  periodEnd         DateTime
+  number            String /// номер реестра, руками; серия продолжает бумажную
+  header            Json /// шапка: приложение, договор, подписанты — снимок
+  rows              Json /// снимок строк
+  totals            Json /// { rowsCount, airlineTotal, internalCost }
+  createdById       String?                      @db.ObjectId
+  submittedAt       DateTime? /// когда отправлен авиакомпании; null — черновик, АК не видит
+  airlineApprovedAt DateTime? /// когда утверждён авиакомпанией
+  airlineComment    String? /// последний комментарий авиакомпании
+  airlineCommentAt  DateTime?
+
+  @@index([airlineId, kind, createdAt])
 }
 
 // Passenger ---------------- ↑↑↑↑

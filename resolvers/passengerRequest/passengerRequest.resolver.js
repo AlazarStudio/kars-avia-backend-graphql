@@ -13,6 +13,7 @@ import reportResolvers from "./report.resolver.js"
 import transferResolvers from "./transfer.resolver.js"
 import baggageResolvers from "./baggage.resolver.js"
 import earlyResolvers from "./early.resolver.js"
+import registryResolvers from "./registry.resolver.js"
 import subscriptionsResolvers from "./subscriptions.resolver.js"
 
 // АУТЕНТИФИКАЦИЯ. Query, мутации и подписки этого модуля защищены обёрткой
@@ -49,6 +50,7 @@ const passengerRequestResolver = withFapAuthGuard(
     transferResolvers,
     baggageResolvers,
     earlyResolvers,
+    registryResolvers,
     subscriptionsResolvers
   ])
 )

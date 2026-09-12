@@ -8,6 +8,7 @@ import {
   sumPeopleCost,
   tripReportCost
 } from "../../services/passengerRequest/baggageDelivery.js"
+import { buildBaggageDriverPatchDescription } from "../../services/passengerRequest/logging.js"
 
 test("normalizeBaggageTags: тримит, выкидывает пустые, схлопывает дубли без учёта регистра", () => {
   const out = normalizeBaggageTags([" FV640586 ", "", "fv640586", null, "SU358783", 42])
@@ -333,4 +334,38 @@ test("tripReportCost: ноль участвует в сумме, сумма от
   assert.equal(tripReportCost([{ reportCost: 0 }]), 0)
   assert.equal(tripReportCost([{ reportCost: 0 }, { reportCost: 1200 }]), 1200)
   assert.equal(tripReportCost([{ reportCost: 1500 }, { reportCost: 500 }]), 2000)
+})
+
+test("collectBaggageDriverPatch: driverCost округляется до копеек, отрицательное → null", () => {
+  assert.equal(collectBaggageDriverPatch({ driverCost: 1500.005 }).driverCost, 1500.01)
+  assert.equal(collectBaggageDriverPatch({ driverCost: "2650" }).driverCost, 2650)
+  assert.equal(collectBaggageDriverPatch({ driverCost: -1 }).driverCost, null)
+  assert.equal(collectBaggageDriverPatch({ driverCost: null }).driverCost, null)
+  assert.ok("driverCost" in collectBaggageDriverPatch({ driverCost: null }))
+})
+
+test("collectBaggageDriverPatch: distanceKm — число ≥ 0, дробное допустимо", () => {
+  assert.equal(collectBaggageDriverPatch({ distanceKm: 126 }).distanceKm, 126)
+  assert.equal(collectBaggageDriverPatch({ distanceKm: "94.5" }).distanceKm, 94.5)
+  assert.equal(collectBaggageDriverPatch({ distanceKm: -3 }).distanceKm, null)
+  assert.equal(collectBaggageDriverPatch({ distanceKm: "" }).distanceKm, null)
+})
+
+test("collectBaggageDriverPatch: без ключей driverCost/distanceKm их нет в патче", () => {
+  const applied = collectBaggageDriverPatch({ vehicleType: "Газель" })
+  assert.ok(!("driverCost" in applied))
+  assert.ok(!("distanceKm" in applied))
+})
+
+test("buildBaggageDriverPatchDescription: внутренние деньги отмечаются без значений", () => {
+  // История заявки видна всем её участникам, поэтому сами суммы в неё не идут:
+  // остаётся только отметка о факте правки.
+  const { short, full } = buildBaggageDriverPatchDescription(
+    { fullName: "Водитель Один", driverCost: null, distanceKm: null },
+    { driverCost: 5300, distanceKm: 126 },
+    0
+  )
+  assert.equal(short, "Доставка багажа «Водитель Один»: стоимость водителю: изменена, межгород, км: изменён")
+  assert.match(full, /стоимость водителю: изменена; межгород, км: изменён\./)
+  assert.ok(!/5300|126/.test(`${short} ${full}`), "значений в описании нет")
 })

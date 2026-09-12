@@ -199,8 +199,8 @@ test("реальный резолвер ФАП защищён целиком", a
   // Числа обновляются осознанно: если поле добавлено или снято намеренно,
   // поправь их здесь. Падение «56 !== 55» означает новое корневое поле,
   // которое нужно осмотреть, а не механически подогнать.
-  assert.equal(Object.keys(resolvers.Query).length, 2)
-  assert.equal(Object.keys(resolvers.Mutation).length, 59)
+  assert.equal(Object.keys(resolvers.Query).length, 5)
+  assert.equal(Object.keys(resolvers.Mutation).length, 67)
   assert.equal(Object.keys(resolvers.Subscription).length, 2)
 
   for (const [name, fn] of Object.entries(resolvers.Query)) {

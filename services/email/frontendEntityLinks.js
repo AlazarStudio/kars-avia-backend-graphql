@@ -33,6 +33,14 @@ export function buildReportDraftUrl(draftId) {
   return `${base}/reports?reportdraftid=${encodeURIComponent(draftId)}`
 }
 
+// Реестр услуг ФАП открывается страницей /far/registries по параметру
+// registryid — имя параметра читает фронт (FapRegistriesPage), менять парой.
+export function buildRegistryUrl(registryId) {
+  const base = getFrontendUrl()
+  if (!base || !registryId) return ""
+  return `${base}/far/registries?registryid=${encodeURIComponent(registryId)}`
+}
+
 export function buildEntityChatUrl({
   requestId,
   reserveId,

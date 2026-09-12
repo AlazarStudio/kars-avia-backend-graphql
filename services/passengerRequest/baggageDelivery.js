@@ -5,6 +5,13 @@
 // Бирки, цена и адрес доставки принадлежат пассажиру (drivers[].people[]),
 // а сумма поездки производная — сумма цен её пассажиров.
 
+import {
+  toMoney,
+  toKmOrNull,
+  toWholeCountOrNull,
+  toTrimmedOrNull
+} from "./coerce.js"
+
 // Номера багажных бирок: тримим, выкидываем пустые и нестроки,
 // схлопываем дубли без учёта регистра. Порядок ввода сохраняем.
 export const normalizeBaggageTags = (tags) => {
@@ -24,35 +31,10 @@ export const normalizeBaggageTags = (tags) => {
 
 const has = (obj, key) => obj != null && Object.prototype.hasOwnProperty.call(obj, key)
 
-// Деньги: число либо null. Ноль — валидная цена и null-ом не становится.
-// Округляем до копеек здесь, на уровне ОТДЕЛЬНОГО пассажира: хвост от клиента
-// (1500.005 или результат его собственной арифметики) в базу уходить не должен,
-// округления одного лишь итога поездки для этого мало.
-// Отрицательная стоимость доставки бессмысленна — трактуем как отсутствие цены,
-// иначе минус у одного пассажира молча уменьшил бы сумму всей поездки.
-const toMoney = (value) => {
-  if (value == null) return null
-  if (typeof value === "string" && !value.trim()) return null
-  const num = Number(value)
-  if (!Number.isFinite(num) || num < 0) return null
-  return Math.round(num * 100) / 100
-}
-
-// Ожидаемое количество пассажиров поездки: целое число ≥ 0 либо null.
-// Тот же подход, что у toMoney — нечисловое, отрицательное и дробное
-// трактуем как отсутствие значения, а не бросаем ошибку.
-const toWholeCountOrNull = (value) => {
-  if (value == null) return null
-  if (typeof value === "string" && !value.trim()) return null
-  const num = Number(value)
-  if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) return null
-  return num
-}
-
-const toTrimmedOrNull = (value) => {
-  if (typeof value !== "string") return null
-  return value.trim() || null
-}
+// Деньги пассажира округляем до копеек на уровне ОТДЕЛЬНОГО пассажира: хвост от
+// клиента (1500.005 или результат его собственной арифметики) в базу уходить не
+// должен, округления одного лишь итога поездки для этого мало. Ноль — валидная
+// цена и null-ом не становится. Правила приведения — в coerce.js.
 
 // Приводит одного пассажира поездки к виду, пригодному для записи.
 // Ловушка Prisma: скалярный список внутри composite-типа (drivers[].people[].baggageTags)
@@ -147,6 +129,14 @@ export const collectBaggageDriverPatch = (patch = {}) => {
   }
   if (has(patch, "peopleCount")) {
     applied.peopleCount = toWholeCountOrNull(patch.peopleCount)
+  }
+  // Стоимость водителю и километраж — поля поездки, не пассажира: платят за рейс
+  // машины. В сумму поездки для АК (tripReportCost) не входят.
+  if (has(patch, "driverCost")) {
+    applied.driverCost = toMoney(patch.driverCost)
+  }
+  if (has(patch, "distanceKm")) {
+    applied.distanceKm = toKmOrNull(patch.distanceKm)
   }
   return applied
 }

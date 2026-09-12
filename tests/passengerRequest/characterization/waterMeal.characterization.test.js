@@ -929,3 +929,52 @@ test("аутентификация: без субъекта ни одна мут
     )
   }
 })
+
+test("updatePassengerRequestSupply пишет только факт поставки и письма не шлёт", async () => {
+  const run = await runFapMutation("updatePassengerRequestSupply", {
+    requestId: "req-1",
+    service: "WATER",
+    patch: {
+      supplier: "Моя столовая",
+      suppliedAt: "2026-08-22T08:01:00.000Z",
+      quantity: 94,
+      unitPrice: 60,
+      deliveryCost: 800
+    }
+  })
+
+  // Патч кладётся поверх услуги целиком: план, получатели, статус и времена
+  // остаются теми же, что были в документе.
+  assert.deepEqual(run.written, [
+    {
+      waterService: {
+        deliveryCost: 800,
+        people: [
+          {
+            fullName: "Иванов Иван",
+            personCategory: "ADULT",
+            personId: "<UUID>",
+            personType: "PASSENGER"
+          }
+        ],
+        plan: { enabled: true, peopleCount: 4 },
+        quantity: 94,
+        status: "IN_PROGRESS",
+        suppliedAt: "<DATE>",
+        supplier: "Моя столовая",
+        times: { acceptedAt: "<DATE>" },
+        unitPrice: 60
+      }
+    }
+  ])
+  assert.equal(run.logged[0].action, "update_passenger_request_supply")
+
+  // skipEmail обрывает хвост до сборки получателей: после записи в историю в
+  // базу больше не ходят, дальше только публикация в подписку.
+  assert.deepEqual(run.order, [
+    "passengerRequest.findUnique",
+    "passengerRequest.update",
+    "log.create",
+    "publish:PASSENGER_REQUEST_UPDATED"
+  ])
+})
