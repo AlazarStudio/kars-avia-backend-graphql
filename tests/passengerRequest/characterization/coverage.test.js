@@ -27,9 +27,9 @@ function characterizationSources() {
     .map((file) => fs.readFileSync(path.join(here, file), "utf8"))
 }
 
-test("в резолвере ровно 67 мутаций, 5 Query и 2 подписки", () => {
-  assert.equal(Object.keys(resolvers.Mutation).length, 67)
-  assert.equal(Object.keys(resolvers.Query).length, 5)
+test("в резолвере ровно 60 мутаций, 2 Query и 2 подписки", () => {
+  assert.equal(Object.keys(resolvers.Mutation).length, 60)
+  assert.equal(Object.keys(resolvers.Query).length, 2)
   assert.equal(Object.keys(resolvers.Subscription).length, 2)
 })
 
@@ -42,7 +42,6 @@ test("набор секций резолвера неизменен", () => {
     "PassengerServiceDriver",
     "PassengerServiceDriverPerson",
     "PassengerServiceHotelPerson",
-    "PassengerServiceRegistry",
     "PassengerWaterFoodService",
     "Query",
     "Subscription"

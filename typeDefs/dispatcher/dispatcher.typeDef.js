@@ -64,7 +64,6 @@ const dispatcherTypeDef = /* GraphQL */ `
     | PassengerRequestCreatedNotification
     | PassengerRequestUpdatedNotification
     | ReportSubmittedNotification
-    | PassengerServiceRegistryNotification
     | MessageSentNotification
 
   # type AirlineCreated {  }
@@ -127,13 +126,6 @@ const dispatcherTypeDef = /* GraphQL */ `
 
   type ReportSubmittedNotification {
     draftId: ID
-    airlineId: ID
-    airline: Airline
-  }
-
-  "Реестр услуг ФАП: отправлен АК, утверждён, утверждение отозвано"
-  type PassengerServiceRegistryNotification {
-    registryId: ID
     airlineId: ID
     airline: Airline
   }
