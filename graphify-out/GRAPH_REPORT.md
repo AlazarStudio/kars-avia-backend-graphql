@@ -1,137 +1,141 @@
-# Graph Report - .  (2026-09-11)
+# Graph Report - .  (2026-09-24)
 
 ## Corpus Check
-- 379 files · ~249,747 words
+- 383 files · ~252,104 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2100 nodes · 5859 edges · 98 communities (95 shown, 3 thin omitted)
+- 2118 nodes · 5916 edges · 102 communities (90 shown, 12 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 283 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- Backend Health & Conventions
+- GraphQL typeDefs: typedefs.js & per-domain schema modules
 - FAP Passenger Analytics & Grouping
-- Transfer Push (Firebase) & transfer.resolver
-- User Presence & Stale Sessions
+- Server Entry: server.js, server2.js, jobs & shutdown
+- Report Archive & Decades: reportArchive.js, reportDecade.js
 - Contract File Management
 - Access: assertCanManageAccess.js guards & Travelline role checks
-- Winston File Logger
+- PubSub & Subscriptions: pubsub.js, subscriptionAuth, representative.resolver
 - Bot Service & Webhooks
-- Requests: number generation, bulk create & date formatting
+- Auth Middleware: role decorators (authMiddleware.js)
 - Email Notifications: templates, rate guard, menu check
 - External Auth: Magic Links & Hotel Preview
-- File Access Routes & Backup
+- Action Log: logaction.js sanitization
 - Backend Health & Conventions
-- One-off Migration Scripts
-- System Updates & Maintenance Banner
 - Room Occupancy Overlap
+- Winston File Logger
+- System Updates & Maintenance Banner
 - Merge Saved People (duplicates)
 - Email & Push Notifications
-- Bot Service & Webhooks
-- Transfer Push (Firebase) & transfer.resolver
-- Requests: number generation, bulk create & date formatting
-- Room Occupancy Overlap
-- Bot Service & Webhooks
+- Report Presentation & Excel export: reportPresentation, exporter
 - Auth: user.resolver, sign-in, refresh tokens
-- Data Backfill & Travelline
+- Travelline: travellineService, mappers, booking & autoSyncSchedule
+- File Access Routes & Backup
+- Resolvers index: resolvers.js, city, airport, log
 - Backend Tech Stack
 - Prisma Workflow & Scripts
-- Server Entry & Auth Middleware
 - Server Entry & Auth Middleware
 - GraphQL Auth Context
 - TOTP Two-factor Auth
 - Bot Service & Webhooks
 - Package Config & Nodemon
 - Docker Stack Deployment
-- Auth Middleware: role decorators & report resolver
+- Package Config & Nodemon
 - Bot Service & Webhooks
-- Bot Service & Webhooks
+- File Access Routes & Backup
+- Reports: reportAccess, reportEditableFields & report.resolver
 - Backend Dependencies
-- Documentation Tree & Backfill
+- Email & Push Notifications
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Backend Dependencies
+- Prisma client, documentation.resolver & backfill scripts
 - Airline Resolver & Price Geography
-- Resolvers: representative, global, city, airport, log, airline
 - Contract Resolver & Filters
-- Resolvers: representative, global, city, airport, log, airline
-- Push Notifications: Firebase tokens & transferPushService
+- Resolvers: driver, organization, uploadImage & transferPriceContract
 - Airline Resolver & Price Geography
 - Baggage Delivery Normalization
-- Transfer & Baggage Normalizers
-- FAP Request Envelope: envelope.js & service resolvers
 - FAP Scope & Subscriptions
-- Passenger Request Resolver
-- Roster & Saved Passengers
-- Auth Middleware: role decorators & report resolver
+- FAP Request Envelope: envelope.js & service resolvers
+- FAP Edit Guard: fapEditGuard, serviceTable, patchIsNoop
+- Transfer & Baggage Normalizers
+- FAP Tests: harness, pubsub spy & characterization (transfer, waterMeal)
+- Merge Saved People (duplicates)
+- FAP Scope & Subscriptions
+- FAP Supply Fact: coerce.js, supplyFact.js & waterMeal.resolver
 - Report Drafts: merge, frozen rows, changedFrom
-- Push Notifications: Firebase tokens & transferPushService
-- analytics
+- Roster & Saved Passengers
+- Airline Resolver & Price Geography
+- Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics
+- Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics
+- Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics
 - Contract Archiving
-- Contract File Management
-- User Presence & Stale Sessions
-- Auth: user.resolver, sign-in, refresh tokens
+- Contract Archiving
+- Contract Expiration Sorting
+- Upload File Migration
 - Passenger Document Recognition
 - Passenger Request Resolver
-- Passenger Request Emails
-- Passenger Request Emails
-- Action Log: logaction.js sanitization
-- migrations
-- Documentation Tree & Backfill
-- Email & Push Notifications
-- Documentation Tree & Backfill
-- Data Backfill & Travelline
-- One-off Migration Scripts
+- Request Emails: requestEmailTemplates & frontendEntityLinks
+- Passenger Request Files: uploadFiles, deleteFiles
+- Airline prices hidden from hotel: hideAirlinePrices, roomKindSeason.resolver, mutationError
+- Transfer Push: transferPushService & transfer.resolver
+- Migration: approvePricingForSubmittedReports
 - Data Backfill & Travelline
 - One-off Migration Scripts
 - One-off Migration Scripts
 - Contract File Migration
-- Upload File Migration
 - Passenger Request Resolver
 - Passenger Request Mutations
+- FAP Scope & Subscriptions
+- FAP Scope & Subscriptions
 - FAP Access Guards
-- FAP Edit Guard & Request Envelope
-- Living Resolver & Hotel Chess
-- FAP Edit Guard: fapEditGuard, serviceTable, patchIsNoop
+- FAP Scope & Subscriptions
+- FAP Scope & Subscriptions
 - FAP Edit Guard: fapEditGuard, serviceTable, patchIsNoop
 - Partial-day Settings Rules
-- Report Drafts: merge, frozen rows, changedFrom
-- Report Drafts: merge, frozen rows, changedFrom
-- Request Resolver & Bulk Import
+- Report Drafts: share metadata & syncDraftPerson
+- Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics
 - Room Share Matrix (report nights)
-- Auth: user.resolver, sign-in, refresh tokens
 - Price Search Location Tests
-- Contract Expiration Sorting
 - Price Geography Normalization Tests
+- FAP Tests: harness, pubsub spy & characterization (transfer, waterMeal)
+- FAP Tests: prismaDouble & hotelReportVisibility
+- FAP Tests: living & roster characterization fixtures
 - Passenger Request Resolver
+- FAP Tests: list filters, query & moveDateValidation
 - Passenger Request Resolver
-- Passenger Request Resolver
-- Passenger Request Resolver
-- Passenger Request Resolver
-- Passenger Request Resolver
+- FAP Scope & Subscriptions
 - Passenger Request Resolver
 
 ## God Nodes (most connected - your core abstractions)
 1. `prisma` - 120 edges
-2. `installPrismaDouble()` - 51 edges
+2. `installPrismaDouble()` - 53 edges
 3. `TravellineService` - 50 edges
 4. `pubsub` - 33 edges
 5. `logger` - 32 edges
-6. `makeRequest()` - 29 edges
+6. `makeRequest()` - 30 edges
 7. `installPubsubSpy()` - 27 edges
 8. `allMiddleware()` - 26 edges
 9. `BotService` - 25 edges
-10. `resolveScope()` - 20 edges
+10. `resolveScope()` - 25 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Meal plan calculation (MealPlan / DailyMeal)` --shares_data_with--> `calculateMealCost()`  [INFERRED]
   README.md → services/report/reports.js
-- `Environment variable contract (.env)` --references--> `serviceAccountPath`  [INFERRED]
-  CLAUDE.md → src/lib/firebaseAdmin.js
-- `Real-time GraphQL subscriptions` --references--> `wsServer`  [INFERRED]
-  CLAUDE.md → server2.js
+- `KarsAvia GraphQL Backend (v3.5.0)` --semantically_similar_to--> `Kars Avia GraphQL Backend`  [INFERRED] [semantically similar]
+  CLAUDE.md → README.md
 - `JWT authentication into GraphQL context` --semantically_similar_to--> `Unified auth middleware`  [INFERRED] [semantically similar]
   CLAUDE.md → README.md
 - `File and document generation` --semantically_similar_to--> `File access control and path normalization`  [INFERRED] [semantically similar]
   CLAUDE.md → README.md
+- `File access control and path normalization` --semantically_similar_to--> `Secure File Access System`  [INFERRED] [semantically similar]
+  README.md → services/files/README.md
 
 ## Import Cycles
 - None detected.
@@ -146,385 +150,365 @@
 - **KarsAvia Docker Stack Topology** — docker_compose_karsavia_stack, docker_compose_mongo, docker_compose_mongo_init, docker_compose_backend, docker_compose_frontend [EXTRACTED 1.00]
 - **Telegram Support Message Data Flow Stages** — shema_potoka_dannyh_telegram_message_flow, shema_potoka_dannyh_incoming_message_stage, shema_potoka_dannyh_message_persistence, shema_potoka_dannyh_pubsub_publish, shema_potoka_dannyh_admin_ui_subscription, shema_potoka_dannyh_admin_reply, shema_potoka_dannyh_outbound_delivery [EXTRACTED 1.00]
 
-## Communities (98 total, 3 thin omitted)
+## Communities (102 total, 12 thin omitted)
 
-### Community 70 - "Backend Health & Conventions"
-Cohesion: 0.25
-Nodes (9): Kars Avia GraphQL Backend, Unified auth middleware, House rules for writing code, Visual style discipline, Token economy rule, KarsAvia GraphQL Backend (v3.5.0), Dual entry points (server2.js / server.js), sslOptions (+1 more)
-
-### Community 5 - "FAP Passenger Analytics & Grouping"
-Cohesion: 0.06
-Nodes (56): Analytics module, User presence and last-visit tracking, dispatcherOrSuperAdminMiddleware(), analyticsResolver, buildWhereConditionsRequests(), analyticsUserRequests(), createdByPeriodForEntityRequests(), totalCreatedRequests() (+48 more)
-
-### Community 17 - "Transfer Push (Firebase) & transfer.resolver"
-Cohesion: 0.09
-Nodes (6): Composite Prisma types (Information, Price, MealPrice, MealPlan), Driver / representative / organization entities, Global shared schema and resolver layer, HotelChess to Room relation via nested connect, Reserve module, Per-domain GraphQL module layout
-
-### Community 71 - "User Presence & Stale Sessions"
-Cohesion: 0.44
-Nodes (8): Cron auto-archiving of expired contracts, Request archiving with cron and grace period, Scheduled cron jobs, moveExpiredToArchiving(), finalizeArchivingRequests(), checkAndArchiveRequests(), startArchivingJob(), publishRequestUpdated()
-
-### Community 60 - "Contract File Management"
-Cohesion: 0.35
-Nodes (11): Contracts module, appendUploadedContractFiles(), deriveDisplayNameFromPath(), normalizeContractFiles(), extractFileUrls(), validateContractFileUploadInput(), uploadContractFiles(), findContractFileIndex() (+3 more)
-
-### Community 7 - "Access: assertCanManageAccess.js guards & Travelline role checks"
+### Community 18 - "GraphQL typeDefs: typedefs.js & per-domain schema modules"
 Cohesion: 0.08
-Nodes (40): Department access control (accessMenu), AccessMenu feature-flag permissions, requireTravellineSection(), ACCESS_MENU_KEYS, hasOwn(), compactAccessMenu(), ADMIN_HOTEL_AIR_ROLES, hasOwn() (+32 more)
+Nodes (10): Kars Avia GraphQL Backend, Composite Prisma types (Information, Price, MealPrice, MealPlan), Driver / representative / organization entities, File access control and path normalization, Global shared schema and resolver layer, HotelChess to Room relation via nested connect, Report engine versioning (v5 to v7), Reserve module (+2 more)
 
-### Community 63 - "Winston File Logger"
-Cohesion: 0.32
-Nodes (11): Dependency hygiene and resource reduction, Logs as a first-class model with pagination, Pagination and server payload reduction, Winston plus monthly-rotation file logger, ensuredDirs, getTimeStamp(), getLogFilePath(), ensureLogDir() (+3 more)
-
-### Community 67 - "Bot Service & Webhooks"
-Cohesion: 0.36
-Nodes (7): Documentation tree and hierarchy, supportResolver, buildDocumentationTree(), sanitizeTreeInput(), dedupe(), fetchSubtreeByRoot(), getDescendantIds()
-
-### Community 22 - "Requests: number generation, bulk create & date formatting"
-Cohesion: 0.15
-Nodes (17): Duplicate request detection, Group and bulk requests, transporter, reverseDateTimeFormatter(), formatDate(), updateDailyMeals(), buildRequestListWhere(), REQUEST_LIST_INCLUDE (+9 more)
-
-### Community 1 - "Email Notifications: templates, rate guard, menu check"
-Cohesion: 0.05
-Nodes (76): Transactional email delivery, Firebase push notifications, Notification subsystem, Two-factor authentication (speakeasy + QR), getFrontendUrl(), getSupportEmail(), getServiceName(), esc() (+68 more)
-
-### Community 8 - "External Auth: Magic Links & Hotel Preview"
-Cohesion: 0.10
-Nodes (38): External auth via magic link, SUBJECT_TYPE, EXTERNAL_SCOPES, EXTERNAL_ACCESS_TYPES, throwForbidden(), resolveAdminId(), issueTokenForExternalUser(), buildExternalAuthPayload() (+30 more)
-
-### Community 6 - "File Access Routes & Backup"
+### Community 4 - "FAP Passenger Analytics & Grouping"
 Cohesion: 0.07
-Nodes (50): File access control and path normalization, Hotel preview links, Secure File Access System, Automatic File Path Normalization (/uploads → /files/uploads), File Path Field Resolvers (Request.files, Hotel.images, ReportFile.url, …), JWT Bearer Authorization for File Downloads, File Access Rules by Role, Dual Path Format Backward Compatibility (+42 more)
+Nodes (54): Analytics module, analyticsResolver, buildWhereConditionsRequests(), analyticsUserRequests(), createdByPeriodForEntityRequests(), totalCreatedRequests(), totalCancelledRequests(), countRequestsByStatus() (+46 more)
 
-### Community 53 - "Backend Health & Conventions"
+### Community 10 - "Server Entry: server.js, server2.js, jobs & shutdown"
+Cohesion: 0.09
+Nodes (39): Unified auth middleware, Dual entry points (server2.js / server.js), Central typeDef/resolver mergers, Real-time GraphQL subscriptions, isAuthError(), mergedResolvers, require, sslOptions (+31 more)
+
+### Community 8 - "Report Archive & Decades: reportArchive.js, reportDecade.js"
+Cohesion: 0.08
+Nodes (41): Cron auto-archiving of expired contracts, Legacy schema migration script, Request archiving with cron and grace period, Upload and backfill migrations, Thin resolvers, fat service layer, Scheduled cron jobs, One-off migration scripts, node-cron (+33 more)
+
+### Community 59 - "Contract File Management"
+Cohesion: 0.31
+Nodes (10): Contracts module, deleteContractAndAgreementFiles(), deriveDisplayNameFromPath(), normalizeContractFiles(), extractFileUrls(), validateContractFileUploadInput(), deleteContractFileFromDisk(), deleteAllContractFilesFromDisk() (+2 more)
+
+### Community 5 - "Access: assertCanManageAccess.js guards & Travelline role checks"
+Cohesion: 0.07
+Nodes (45): Department access control (accessMenu), AccessMenu feature-flag permissions, requireTravellineSection(), ACCESS_MENU_KEYS, hasOwn(), compactAccessMenu(), ADMIN_HOTEL_AIR_ROLES, hasOwn() (+37 more)
+
+### Community 24 - "PubSub & Subscriptions: pubsub.js, subscriptionAuth, representative.resolver"
 Cohesion: 0.14
-Nodes (15): GET /health with app version, GET /health liveness endpoint, Post-deploy verification via /health, Backend /health Healthcheck, name, version, main, type (+7 more)
+Nodes (20): Dependency hygiene and resource reduction, Pagination and server payload reduction, PubSub subscriptions and subscription context, PubSub topic naming, transferResolver, DATE_FIELDS, isUserChatParticipant(), canReceiveChatSubscription() (+12 more)
 
-### Community 39 - "One-off Migration Scripts"
-Cohesion: 0.14
-Nodes (17): Legacy schema migration script, Upload and backfill migrations, Thin resolvers, fat service layer, One-off migration scripts, generated/client is not hand-editable, @prisma/client, @prisma/client, prisma (+9 more)
+### Community 35 - "Bot Service & Webhooks"
+Cohesion: 0.19
+Nodes (15): Documentation tree and hierarchy, Support chat separated from main chats, supportResolver, buildDocumentationTree(), sanitizeTreeInput(), dedupe(), fetchSubtreeByRoot(), getDescendantIds() (+7 more)
 
-### Community 10 - "System Updates & Maintenance Banner"
+### Community 19 - "Auth Middleware: role decorators (authMiddleware.js)"
+Cohesion: 0.13
+Nodes (22): Duplicate request detection, Role-based middleware decorators, roleMiddleware(), dispatcherModerMiddleware(), superAdminMiddleware(), adminHotelAirMiddleware(), representativeMiddleware(), moderatorMiddleware() (+14 more)
+
+### Community 0 - "Email Notifications: templates, rate guard, menu check"
+Cohesion: 0.06
+Nodes (65): Transactional email delivery, Firebase push notifications, Notification subsystem, Two-factor authentication (speakeasy + QR), getFrontendUrl(), getSupportEmail(), getServiceName(), esc() (+57 more)
+
+### Community 3 - "External Auth: Magic Links & Hotel Preview"
+Cohesion: 0.07
+Nodes (51): External auth via magic link, SUBJECT_TYPE, EXTERNAL_SCOPES, EXTERNAL_ACCESS_TYPES, throwForbidden(), resolveAdminId(), issueTokenForExternalUser(), buildExternalAuthPayload() (+43 more)
+
+### Community 7 - "Action Log: logaction.js sanitization"
+Cohesion: 0.07
+Nodes (54): Group and bulk requests, Request number generation, LARGE_ARRAY_KEYS, isPlainObject(), shouldCompactArrayByKey(), truncateString(), sanitizeLargeFields(), getByPath() (+46 more)
+
+### Community 62 - "Backend Health & Conventions"
+Cohesion: 0.21
+Nodes (12): GET /health with app version, House rules for writing code, Visual style discipline, Token economy rule, KarsAvia GraphQL Backend (v3.5.0), GET /health liveness endpoint, Post-deploy verification via /health, Backend /health Healthcheck (+4 more)
+
+### Community 14 - "Room Occupancy Overlap"
+Cohesion: 0.11
+Nodes (26): Hotel preview links, Meal plan calculation (MealPlan / DailyMeal), Hotel room counters and recount, Room occupancy overlap rules, hotelPreviewMiddleware(), transporter, hotelResolver, sepVariants() (+18 more)
+
+### Community 68 - "Winston File Logger"
+Cohesion: 0.42
+Nodes (9): Logs as a first-class model with pagination, Winston plus monthly-rotation file logger, ensuredDirs, getTimeStamp(), getLogFilePath(), ensureLogDir(), appendLog(), logToFile() (+1 more)
+
+### Community 12 - "System Updates & Maintenance Banner"
 Cohesion: 0.11
 Nodes (38): Maintenance banner with live subscription, Semver comparison gating for release visibility, System update notifications (SystemUpdate), siteResolver, hasLegacySections(), main(), getMaintenanceBanner(), updateMaintenanceBanner() (+30 more)
 
-### Community 49 - "Room Occupancy Overlap"
-Cohesion: 0.19
-Nodes (11): Meal plan calculation (MealPlan / DailyMeal), Room categories and tariffs, Hotel room counters and recount, transporter, sepVariants(), buildHotelWhere(), categoryToPlaces, calculatePlaces() (+3 more)
+### Community 63 - "Email & Push Notifications"
+Cohesion: 0.30
+Nodes (9): Positions (должности) model consolidation, dispatcherOrSuperAdminMiddleware(), TRANSFER_NOTIFICATION_ACTIONS, dispatcherResolver, AIRLINE_POSITION_SEPARATORS, isAirlinePosition(), resolveAirlineId(), assertAirlinePositionForUser() (+1 more)
 
-### Community 20 - "Merge Saved People (duplicates)"
-Cohesion: 0.15
-Nodes (20): Passenger Request module, ensurePassengerServiceHotelItemId(), DRIVER_FIELDS, normalizeOptionalString(), badInput(), remapId(), rebindPeopleList(), rebindDriverService() (+12 more)
+### Community 39 - "Report Presentation & Excel export: reportPresentation, exporter"
+Cohesion: 0.22
+Nodes (15): Report exporter (XLSX styling, sorting, PDF conversion), writeExcelAndSave(), colLetter(), writeStyledWorkbook(), generateExcelAvia(), generateExcelHotel(), formatReportCurrency(), formatCellRaw() (+7 more)
 
-### Community 66 - "Email & Push Notifications"
-Cohesion: 0.35
-Nodes (8): Positions (должности) model consolidation, TRANSFER_NOTIFICATION_ACTIONS, dispatcherResolver, AIRLINE_POSITION_SEPARATORS, isAirlinePosition(), resolveAirlineId(), assertAirlinePositionForUser(), assertPositionAccess()
+### Community 2 - "Auth: user.resolver, sign-in, refresh tokens"
+Cohesion: 0.07
+Nodes (53): Access/refresh token lifecycle, User presence and last-visit tracking, SUBJECT, resolveAuthSubject(), globalResolver, buildUserAuthPayload(), normalizeUserLogin(), registerSelfUser() (+45 more)
 
-### Community 35 - "Bot Service & Webhooks"
-Cohesion: 0.15
-Nodes (11): PubSub subscriptions and subscription context, Real-time GraphQL subscriptions, PubSub topic naming, representativeResolver, logger, pubSubEngine, pubsub, subscriptionAuthMiddleware() (+3 more)
-
-### Community 54 - "Requests: number generation, bulk create & date formatting"
-Cohesion: 0.23
-Nodes (13): Request number generation, logAction(), resolveCreatorDepartmentFromSender(), assertNoExistingLinkNumbers(), normalizeMealPlan(), createSingleBulkRequest(), importBulkRequestsFromFile(), readUploadToBuffer() (+5 more)
-
-### Community 50 - "Room Occupancy Overlap"
-Cohesion: 0.26
-Nodes (13): Room occupancy overlap rules, formatOverlapPeriod(), formatOverlapErrorMessage(), overlapInclude, findHotelChessOverlap(), ensureNoOverlap(), intervalsOverlap(), normalizePlace() (+5 more)
-
-### Community 31 - "Bot Service & Webhooks"
-Cohesion: 0.19
-Nodes (15): Support chat separated from main chats, buildSenderName(), isUserChatParticipant(), canReceiveChatSubscription(), canReceiveChatReadSubscription(), publishNewUnreadToSupportClients(), newUnreadMessageTopic(), messageReadTopic() (+7 more)
-
-### Community 14 - "Auth: user.resolver, sign-in, refresh tokens"
-Cohesion: 0.18
-Nodes (19): Access/refresh token lifecycle, buildUserAuthPayload(), normalizeUserLogin(), registerSelfUser(), verifyEmailWithToken(), requestPasswordResetByEmail(), resetPasswordWithToken(), USER_TYPE (+11 more)
-
-### Community 2 - "Data Backfill & Travelline"
+### Community 1 - "Travelline: travellineService, mappers, booking & autoSyncSchedule"
 Cohesion: 0.06
 Nodes (19): TravelLine integration, normalizeAutoSyncHours(), isAutoSyncDue(), timePart(), buildStayDatesWithExtras(), parseVerifyResponse(), toUtcMs(), computeTzOffset() (+11 more)
 
-### Community 37 - "Backend Tech Stack"
+### Community 23 - "File Access Routes & Backup"
+Cohesion: 0.13
+Nodes (26): Secure File Access System, Automatic File Path Normalization (/uploads → /files/uploads), JWT Bearer Authorization for File Downloads, File Access Rules by Role, Dual Path Format Backward Compatibility, Protected /files/* Route, Storage Roots (uploads, reports, reserve_files), JWT-protected /files/* route (+18 more)
+
+### Community 27 - "Resolvers index: resolvers.js, city, airport, log"
 Cohesion: 0.11
-Nodes (19): Backend tech stack, @apollo/server, @apollo/server, @graphql-tools/merge, @graphql-tools/merge, argon2, argon2, express (+11 more)
+Nodes (16): File Path Field Resolvers (Request.files, Hotel.images, ReportFile.url, …), allMiddleware(), airlineResolver, airportResolver, chatResolver, cityInclude, cityResolver, documentationResolver (+8 more)
 
-### Community 45 - "Prisma Workflow & Scripts"
+### Community 33 - "Backend Tech Stack"
+Cohesion: 0.11
+Nodes (21): Backend tech stack, Browser → React SPA → GraphQL API → MongoDB flow, @apollo/server, @apollo/server, @graphql-tools/merge, @graphql-tools/merge, @prisma/client, argon2 (+13 more)
+
+### Community 38 - "Prisma Workflow & Scripts"
+Cohesion: 0.19
+Nodes (19): npm script catalogue, Schema-first Prisma workflow, generated/client is not hand-editable, scripts, backup, start, start2, production (+11 more)
+
+### Community 67 - "Server Entry & Auth Middleware"
+Cohesion: 0.24
+Nodes (8): Environment variable contract (.env), .env is committed with dev values, .env.docker and .env.example configuration, wsKeepAliveParsed, wsKeepAliveParsed, __filename, __dirname, serviceAccountPath
+
+### Community 46 - "GraphQL Auth Context"
 Cohesion: 0.21
-Nodes (18): npm script catalogue, Schema-first Prisma workflow, scripts, backup, start, start2, production, dev (+10 more)
+Nodes (12): JWT authentication into GraphQL context, EMPTY_TOKEN_VALUES, AUTH_ERROR_CODES, AuthError, extractToken(), isLikelyJwt(), raiseAuthError(), buildAuthContext() (+4 more)
 
-### Community 79 - "Server Entry & Auth Middleware"
-Cohesion: 0.33
-Nodes (6): Environment variable contract (.env), .env is committed with dev values, .env.docker and .env.example configuration, wsKeepAliveParsed, wsKeepAliveParsed, getCorsOptions()
-
-### Community 11 - "Server Entry & Auth Middleware"
-Cohesion: 0.10
-Nodes (29): Central typeDef/resolver mergers, mergedResolvers, require, httpServer, httpsServer, schema, serverCleanup, server (+21 more)
-
-### Community 44 - "GraphQL Auth Context"
-Cohesion: 0.18
-Nodes (14): JWT authentication into GraphQL context, EMPTY_TOKEN_VALUES, AUTH_ERROR_CODES, AuthError, isAuthError(), extractToken(), isLikelyJwt(), raiseAuthError() (+6 more)
-
-### Community 80 - "TOTP Two-factor Auth"
+### Community 79 - "TOTP Two-factor Auth"
 Cohesion: 0.29
 Nodes (7): TOTP two-factor authentication, @levminer/speakeasy, @levminer/speakeasy, qrcode, qrcode, speakeasy, speakeasy
 
-### Community 64 - "Bot Service & Webhooks"
-Cohesion: 0.17
-Nodes (9): Redis-backed pub/sub for multi-instance, @graphql-yoga/redis-event-target, @graphql-yoga/redis-event-target, ioredis, ioredis, pm2, pm2, RedisEventTargetPubSub (+1 more)
-
-### Community 38 - "Package Config & Nodemon"
-Cohesion: 0.11
-Nodes (19): File and document generation, Nodemon ignores runtime write directories, exceljs, exceljs, graphql-upload, graphql-upload, pdfkit, pdfkit (+11 more)
-
-### Community 16 - "Docker Stack Deployment"
-Cohesion: 0.15
-Nodes (27): MongoDB ReplicaSet requirement, KarsAvia deployment guide (v3.5.0), Host system requirements, Backend and frontend must be sibling directories, docker compose up --build first-run sequence, Empty database on first deployment, Test SUPERADMIN login credentials (admin/admin123), Docker Compose three-container stack (+19 more)
-
-### Community 30 - "Auth Middleware: role decorators & report resolver"
-Cohesion: 0.20
-Nodes (18): Role-based middleware decorators, roleMiddleware(), dispatcherModerMiddleware(), superAdminMiddleware(), adminMiddleware(), adminHotelAirMiddleware(), representativeMiddleware(), moderatorMiddleware() (+10 more)
-
-### Community 65 - "Bot Service & Webhooks"
-Cohesion: 0.29
-Nodes (9): Telegram Support Message Data Flow, Message Persistence Stage (Message record in DB), Real-time Fan-out Stage: pubsub.publish(MESSAGE_SENT), Admin UI Subscription Stage, Admin Reply Stage (sendMessage mutation), Outbound Delivery Stage (bot.sendMessage back to Telegram), chatResolver, wsServer (+1 more)
-
-### Community 19 - "Bot Service & Webhooks"
+### Community 55 - "Bot Service & Webhooks"
 Cohesion: 0.14
-Nodes (8): Incoming Stage: Telegram Bot → Webhook/Polling → handleIncomingMessage, router, BotService, buildTelegramUrl(), buildUserData(), parseTelegramUpdate(), setTelegramWebhook(), deleteTelegramWebhook()
+Nodes (10): Redis-backed pub/sub for multi-instance, @graphql-yoga/redis-event-target, @graphql-yoga/redis-event-target, ioredis, ioredis, pm2, pm2, removeContractFileRecord() (+2 more)
 
-### Community 9 - "Backend Dependencies"
-Cohesion: 0.04
-Nodes (49): dependencies, @graphql-tools/schema, @graphql-tools/schema, @maxhub/max-bot-api, @maxhub/max-bot-api, archetype, archetype, axios (+41 more)
+### Community 70 - "Package Config & Nodemon"
+Cohesion: 0.22
+Nodes (9): File and document generation, exceljs, exceljs, graphql-upload, graphql-upload, pdfkit, pdfkit, sharp (+1 more)
 
-### Community 12 - "Documentation Tree & Backfill"
-Cohesion: 0.09
-Nodes (8): prisma, deleteSectionCascade(), getSectionsHierarchyJSONOptimized(), main(), __dirname, defaultJsonPath, calculateMealCost(), DISPATCHER
-
-### Community 3 - "Airline Resolver & Price Geography"
-Cohesion: 0.07
-Nodes (60): priceValidity(), isWindowedPrice(), syncAirlinePriceGeography(), hasOwn(), syncDepartmentPositionLinks(), airlineResolver, buildAirlineWhere(), normalizeGeoValue() (+52 more)
-
-### Community 55 - "Resolvers: representative, global, city, airport, log, airline"
+### Community 26 - "Docker Stack Deployment"
 Cohesion: 0.15
-Nodes (12): airportResolver, cityInclude, cityResolver, documentationResolver, externalAuthResolver, hotelResolver, logResolver, reportResolver (+4 more)
+Nodes (26): MongoDB ReplicaSet requirement, KarsAvia deployment guide (v3.5.0), Host system requirements, Backend and frontend must be sibling directories, docker compose up --build first-run sequence, Empty database on first deployment, Test SUPERADMIN login credentials (admin/admin123), Docker Compose three-container stack (+18 more)
 
-### Community 23 - "Contract Resolver & Filters"
-Cohesion: 0.16
-Nodes (19): contractExpirationFields, agreementExpirationFields, deleteContractAndAgreementFiles(), removeContractFileRecord(), contractResolver, isArchivedContractFilter(), appendArchiveFilter(), buildAdditionalAgreementWhere() (+11 more)
+### Community 41 - "Package Config & Nodemon"
+Cohesion: 0.11
+Nodes (17): Nodemon ignores runtime write directories, name, main, type, keywords, author, license, description (+9 more)
 
-### Community 57 - "Resolvers: representative, global, city, airport, log, airline"
+### Community 13 - "Bot Service & Webhooks"
+Cohesion: 0.11
+Nodes (16): Telegram Support Message Data Flow, Incoming Stage: Telegram Bot → Webhook/Polling → handleIncomingMessage, Message Persistence Stage (Message record in DB), Real-time Fan-out Stage: pubsub.publish(MESSAGE_SENT), Admin UI Subscription Stage, Admin Reply Stage (sendMessage mutation), Outbound Delivery Stage (bot.sendMessage back to Telegram), router (+8 more)
+
+### Community 69 - "File Access Routes & Backup"
+Cohesion: 0.36
+Nodes (8): rl, showMenu(), handleUserInput(), __filename, __dirname, createBackup(), restoreBackup(), listBackups()
+
+### Community 58 - "Reports: reportAccess, reportEditableFields & report.resolver"
+Cohesion: 0.23
+Nodes (8): adminMiddleware(), hotelAdminMiddleware(), draftInclude, assertDraftAccess(), assertSavedReportAccess(), reportResolver, REPORT_EDITABLE_FIELD_KEYS, normalizeReportEditableFields()
+
+### Community 20 - "Backend Dependencies"
+Cohesion: 0.06
+Nodes (31): dependencies, @graphql-tools/schema, @graphql-tools/schema, @maxhub/max-bot-api, @maxhub/max-bot-api, archetype, archetype, axios (+23 more)
+
+### Community 71 - "Email & Push Notifications"
+Cohesion: 0.31
+Nodes (8): @prisma/client, prisma, ACTION_FIELDS, MENU_OWNERS, isBoolean(), buildNotificationMenuBackfill(), backfillForModel(), main()
+
+### Community 11 - "Prisma client, documentation.resolver & backfill scripts"
+Cohesion: 0.07
+Nodes (18): prisma, deleteSectionCascade(), getSectionsHierarchyJSONOptimized(), isObjectId(), parse(), main(), APPLY, composeHotelAddress() (+10 more)
+
+### Community 15 - "Airline Resolver & Price Geography"
+Cohesion: 0.13
+Nodes (31): priceValidity(), isWindowedPrice(), syncAirlinePriceGeography(), hasOwn(), syncDepartmentPositionLinks(), buildAirlineWhere(), emptyGeo, emptyHotelLocation (+23 more)
+
+### Community 43 - "Contract Resolver & Filters"
+Cohesion: 0.21
+Nodes (14): contractExpirationFields, agreementExpirationFields, appendUploadedContractFiles(), contractResolver, isArchivedContractFilter(), appendArchiveFilter(), buildAdditionalAgreementWhere(), buildAirlineContractWhere() (+6 more)
+
+### Community 54 - "Resolvers: driver, organization, uploadImage & transferPriceContract"
 Cohesion: 0.23
 Nodes (9): driverResolver, organizationResolver, safeSlug(), ensureDir(), buildUploadPath(), uploadImage(), deleteImage(), dateFormatter() (+1 more)
 
-### Community 46 - "Push Notifications: Firebase tokens & transferPushService"
-Cohesion: 0.16
-Nodes (14): SUBJECT, resolveAuthSubject(), globalResolver, SUBJECT, getSubjectTokenWhere(), sendToToken(), sendToTokens(), sendNotificationToUser() (+6 more)
-
 ### Community 47 - "Airline Resolver & Price Geography"
-Cohesion: 0.20
-Nodes (12): roomKindSeasonResolver, AIRLINE_PRICE_KEYS, NESTED_LISTS, shouldHideAirlinePrices(), omitAirlineKeys(), omitAirlinePriceWrites(), hiddenAirlinePrice(), hiddenAirlineFlag() (+4 more)
+Cohesion: 0.35
+Nodes (12): toDayUtc(), addDaysUtc(), listStayNights(), seasonsOverlap(), assertValidSeasonRange(), assertNoSeasonOverlap(), findSeasonForNight(), resolvePriceForNight() (+4 more)
 
-### Community 32 - "Baggage Delivery Normalization"
+### Community 42 - "Baggage Delivery Normalization"
+Cohesion: 0.31
+Nodes (14): normalizeBaggageTags(), has(), normalizeDriverPerson(), normalizePeopleForWrite(), normalizeDriversForWrite(), sumPeopleCost(), tripReportCost(), countTripPeople() (+6 more)
+
+### Community 72 - "FAP Scope & Subscriptions"
+Cohesion: 0.33
+Nodes (8): stripInternalDriverFields(), viewerIsAirline(), viewerIsDispatcher(), internalOnly(), viewerHotelIndexes(), assertAirlineSubject(), assertDispatcherSubject(), resolveScope()
+
+### Community 21 - "FAP Request Envelope: envelope.js & service resolvers"
+Cohesion: 0.16
+Nodes (19): getSubjectName(), loadRequestOrThrow(), assertIndex(), assertReason(), reportWhere(), finishPassengerRequestMutation(), withPassengerRequest(), forbidden() (+11 more)
+
+### Community 48 - "FAP Edit Guard: fapEditGuard, serviceTable, patchIsNoop"
+Cohesion: 0.20
+Nodes (8): emptyPeopleService(), emptyLivingService(), emptyDriversService(), PASSENGER_SERVICE_TABLE, PASSENGER_SERVICE_FIELDS, findPassengerService(), passengerServiceFields(), DRIVER_SERVICES
+
+### Community 17 - "Transfer & Baggage Normalizers"
+Cohesion: 0.14
+Nodes (21): mapDriverAt(), driversServicePatch(), assertMoment(), countLivingPeople(), withHotelPeople(), applyServiceRecalc(), assertHotelScopeAccess(), normalizeOptionalString() (+13 more)
+
+### Community 36 - "FAP Tests: harness, pubsub spy & characterization (transfer, waterMeal)"
+Cohesion: 0.24
+Nodes (8): FAP Supply Fact: coerce.js, supplyFact.js & waterMeal.resolverResolver, normalizeSnapshot(), releasePubsubAfterTests(), runFapMutation(), here, person(), requestWithFourWaterPeople(), runSupply()
+
+### Community 30 - "Merge Saved People (duplicates)"
+Cohesion: 0.19
+Nodes (18): DRIVER_FIELDS, normalizeOptionalString(), badInput(), remapId(), rebindPeopleList(), rebindDriverService(), remapGroupMemberIds(), fillKeepFromDrops() (+10 more)
+
+### Community 31 - "FAP Scope & Subscriptions"
+Cohesion: 0.19
+Nodes (16): allow(), DISPATCHER_ROLES, AIRLINE_ROLES, HOTEL_ROLES, denied(), isUnrestricted(), isDenied(), isHotelSubjectScope() (+8 more)
+
+### Community 44 - "FAP Supply Fact: coerce.js, supplyFact.js & waterMeal.resolver"
 Cohesion: 0.22
-Nodes (17): normalizeBaggageTags(), has(), toMoney(), toWholeCountOrNull(), toTrimmedOrNull(), normalizeDriverPerson(), normalizePeopleForWrite(), normalizeDriversForWrite() (+9 more)
+Nodes (10): SUPPLY_FIELD_LABELS, normalizeBulkIndexes(), spliceAtIndexes(), blank(), toNonNegative2dp(), toWholeCountOrNull(), toTrimmedOrNull(), has() (+2 more)
 
-### Community 28 - "Transfer & Baggage Normalizers"
-Cohesion: 0.26
-Nodes (14): mapDriverAt(), driversServicePatch(), normalizeOptionalString(), normalizeCrewMember(), getTransferField(), getTransferServiceKind(), ensureDriverPerson(), normalizePassengerServiceDriver() (+6 more)
-
-### Community 13 - "FAP Request Envelope: envelope.js & service resolvers"
+### Community 22 - "Report Drafts: merge, frozen rows, changedFrom"
 Cohesion: 0.15
-Nodes (23): normalizeBulkIndexes(), spliceAtIndexes(), getSubjectName(), loadRequestOrThrow(), assertIndex(), assertMoment(), assertReason(), reportWhere() (+15 more)
+Nodes (26): buildDraftPresentation(), REQUEST_STATUSES, requestIncludeAirline, requestIncludeHotel, buildAirlineReportData(), buildHotelReportData(), normalizeReportDraftRows(), STICKY_ROW_KEYS (+18 more)
 
-### Community 4 - "FAP Scope & Subscriptions"
-Cohesion: 0.06
-Nodes (49): viewerIsAirline(), viewerHotelIndexes(), assertAirlineSubject(), allow(), cache, defaultDeps, keyOf(), catalogVehicleNumber() (+41 more)
-
-### Community 74 - "Passenger Request Resolver"
-Cohesion: 0.32
-Nodes (3): passengerRequestResolver, here, runRaw()
-
-### Community 15 - "Roster & Saved Passengers"
-Cohesion: 0.20
+### Community 28 - "Roster & Saved Passengers"
+Cohesion: 0.21
 Nodes (20): DRY_RUN, DRIVER_SERVICES, main(), normalizeOptionalString(), normalizePersonType(), normalizePersonCategory(), normalizeFullNameKey(), rosterMatchKey() (+12 more)
 
-### Community 51 - "Auth Middleware: role decorators & report resolver"
-Cohesion: 0.22
-Nodes (10): draftInclude, buildSavedReportListWhere(), isDispatcherUser(), isAirlineOrgUser(), buildReportDraftsWhere(), assertAirlineDraftSubject(), assertCanDeleteSavedReport(), REPORT_EDITABLE_FIELD_KEYS (+2 more)
+### Community 45 - "Airline Resolver & Price Geography"
+Cohesion: 0.28
+Nodes (15): normalizeGeoValue(), hasGeoValue(), applyCityRecord(), buildPriceSearchLocation(), getPriceGeographies(), sortByCreatedAtAsc(), pickFirst(), resolveByAirportContract() (+7 more)
 
-### Community 48 - "Report Drafts: merge, frozen rows, changedFrom"
-Cohesion: 0.24
-Nodes (15): buildDraftPresentation(), writeExcelAndSave(), colLetter(), writeStyledWorkbook(), generateExcelAvia(), generateExcelHotel(), formatReportCurrency(), formatCellRaw() (+7 more)
+### Community 16 - "Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics"
+Cohesion: 0.14
+Nodes (31): getHotelLocation(), getCategoryPriceFromContract(), computeRequestCosts(), buildRequestRowForAllocation(), isArchivedRequestForPricing(), getBaseHotelPricePerDay(), TECH_POS, NOT_TECH_POS (+23 more)
 
-### Community 40 - "Push Notifications: Firebase tokens & transferPushService"
-Cohesion: 0.22
-Nodes (15): transferResolver, DATE_FIELDS, SUBJECT, STATUS_BROADCAST_SET, recipientKey(), withoutActor(), dedupeRecipients(), sendToRecipients() (+7 more)
+### Community 9 - "Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics"
+Cohesion: 0.11
+Nodes (43): roundMoney(), normalizeServices(), fetchRequests(), fetchTransfers(), getRequestBudget(), getServiceRequestBudget(), buildServiceRequestItems(), buildServiceAirportsFromRequests() (+35 more)
 
-### Community 0 - "analytics"
-Cohesion: 0.05
-Nodes (98): getCategoryPriceFromContract(), roundMoney(), normalizeServices(), fetchRequests(), fetchTransfers(), getRequestBudget(), getServiceRequestBudget(), buildServiceRequestItems() (+90 more)
+### Community 81 - "Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics"
+Cohesion: 0.67
+Nodes (5): toDayStartUtcMs(), toInclusiveEndMs(), mergeIntervals(), countDaysFromIntervals(), getPersonStaySummaries()
 
-### Community 25 - "Contract Archiving"
+### Community 65 - "Contract Archiving"
+Cohesion: 0.33
+Nodes (10): applyArchiveData(), applyRestoreData(), performArchiveContract(), performArchiveAgreement(), restoreContractRecordInternal(), archiveContractRecord(), restoreContractRecord(), restoreAgreementRecordInternal() (+2 more)
+
+### Community 64 - "Contract Archiving"
+Cohesion: 0.33
+Nodes (11): buildExpiredNoProlongationWhere(), archiveContractRecordInternal(), archiveAgreementRecordInternal(), publishContractUpdate(), archiveExpiredContracts(), getAgreementParentTopic(), loadAgreementParentContract(), archiveExpiredAgreements() (+3 more)
+
+### Community 49 - "Contract Expiration Sorting"
 Cohesion: 0.18
-Nodes (21): buildExpiredNoProlongationWhere(), applyArchiveData(), applyRestoreData(), performArchiveContract(), performArchiveAgreement(), archiveContractRecordInternal(), restoreContractRecordInternal(), archiveContractRecord() (+13 more)
+Nodes (13): startOfUtcDay(), addUtcMonths(), getContractExpirationMeta(), compareContractsByExpiration(), sortContractsByExpiration(), assert(), now, contractWhere (+5 more)
 
-### Community 52 - "Contract File Management"
-Cohesion: 0.26
-Nodes (14): deleteContractFileFromDisk(), safeSlug(), ensureDir(), buildUploadPath(), uploadBuffer(), uploadFiles(), resolveAbsoluteFilePath(), deleteFiles() (+6 more)
+### Community 37 - "Upload File Migration"
+Cohesion: 0.18
+Nodes (19): replaceUrlInContractFiles(), UPLOADS_ROOT, REPORTS_ROOT, REPORT_ROOT, ensureDir(), isTopLevelFile(), getFileDateParts(), buildTargetDir() (+11 more)
 
-### Community 33 - "User Presence & Stale Sessions"
-Cohesion: 0.21
-Nodes (17): archiveOldSavedReports(), isArchivedReportFilter(), isSavedReportArchived(), appendSavedReportArchiveFilter(), buildAutoArchiveWhere(), applyArchiveData(), applyRestoreData(), archiveSavedReport() (+9 more)
-
-### Community 29 - "Auth: user.resolver, sign-in, refresh tokens"
-Cohesion: 0.19
-Nodes (18): runPresenceCleanup(), startPresenceCleanupJob(), lastTouchByUserId, OFFLINE_USER_SELECT, TOUCH_USER_SELECT, touchLastSeenAsync(), touchLastSeen(), touchLastSeenForContext() (+10 more)
-
-### Community 18 - "Passenger Document Recognition"
+### Community 25 - "Passenger Document Recognition"
 Cohesion: 0.14
 Nodes (13): EXTRACTION_PROMPT, prepareImage(), collapse(), normalizeFields(), computeConfidence(), EMPTY_RESULT, recognizePassengerDocument(), parseGptJson() (+5 more)
 
-### Community 81 - "Passenger Request Resolver"
-Cohesion: 0.38
-Nodes (4): createRecognitionRateLimiter(), recognitionRateLimiter, runRaw(), makeEarlyCompletedWater()
+### Community 6 - "Request Emails: requestEmailTemplates & frontendEntityLinks"
+Cohesion: 0.10
+Nodes (48): escapeHtml(), withChatId(), buildRequestCardUrl(), buildPassengerRequestCardUrl(), buildSavedReportUrl(), buildReportDraftUrl(), buildEntityChatUrl(), esc() (+40 more)
 
-### Community 26 - "Passenger Request Emails"
-Cohesion: 0.24
-Nodes (19): withChatId(), buildRequestCardUrl(), buildPassengerRequestCardUrl(), buildEntityChatUrl(), esc(), span(), spanNo(), requestRelayLinkHtml() (+11 more)
+### Community 50 - "Passenger Request Files: uploadFiles, deleteFiles"
+Cohesion: 0.28
+Nodes (13): safeSlug(), ensureDir(), buildUploadPath(), uploadBuffer(), uploadFiles(), resolveAbsoluteFilePath(), deleteFiles(), canonicalFilePath() (+5 more)
 
-### Community 34 - "Passenger Request Emails"
-Cohesion: 0.41
-Nodes (18): esc(), span(), spanNo(), formatPassengerRequestLabel(), passengerRequestRelayLinkHtml(), buildCreatePassengerRequestEmail(), buildPassengerRequestDatesChangeEmail(), buildUpdatePassengerRequestEmail() (+10 more)
+### Community 66 - "Airline prices hidden from hotel: hideAirlinePrices, roomKindSeason.resolver, mutationError"
+Cohesion: 0.33
+Nodes (9): AIRLINE_PRICE_KEYS, NESTED_LISTS, shouldHideAirlinePrices(), omitAirlineKeys(), omitAirlinePriceWrites(), hiddenAirlinePrice(), hiddenAirlineFlag(), hotelContext (+1 more)
 
-### Community 36 - "Action Log: logaction.js sanitization"
-Cohesion: 0.22
-Nodes (19): LARGE_ARRAY_KEYS, isPlainObject(), shouldCompactArrayByKey(), truncateString(), sanitizeLargeFields(), getByPath(), setByPath(), pick() (+11 more)
+### Community 32 - "Transfer Push: transferPushService & transfer.resolver"
+Cohesion: 0.19
+Nodes (20): SUBJECT, getSubjectTokenWhere(), sendToToken(), sendToTokens(), sendNotificationToUser(), sendNotificationToSubject(), sendNotificationToUsers(), SUBJECT (+12 more)
 
-### Community 56 - "migrations"
+### Community 51 - "Migration: approvePricingForSubmittedReports"
 Cohesion: 0.18
 Nodes (14): DRY_RUN, WHERE, FIELDS, selectReportsToApprove(), approvalDataFor(), moment(), run(), main() (+6 more)
 
-### Community 95 - "Documentation Tree & Backfill"
-Cohesion: 0.83
-Nodes (3): isObjectId(), parse(), main()
-
-### Community 75 - "Email & Push Notifications"
-Cohesion: 0.36
-Nodes (7): prisma, ACTION_FIELDS, MENU_OWNERS, isBoolean(), buildNotificationMenuBackfill(), backfillForModel(), main()
-
-### Community 89 - "Documentation Tree & Backfill"
-Cohesion: 0.60
-Nodes (4): APPLY, composeHotelAddress(), sameString(), main()
-
-### Community 90 - "Data Backfill & Travelline"
+### Community 86 - "Data Backfill & Travelline"
 Cohesion: 0.80
 Nodes (4): resolveDepartmentFromRecord(), backfillRequests(), backfillReserves(), main()
 
-### Community 76 - "One-off Migration Scripts"
+### Community 75 - "One-off Migration Scripts"
 Cohesion: 0.36
 Nodes (7): DISPATCHER_ROLES, AIRLINE_ROLES, HOTEL_ROLES, KNOWN_ROLES, sample(), countDangling(), main()
 
-### Community 84 - "Data Backfill & Travelline"
-Cohesion: 0.53
-Nodes (5): APPLY, isOpen(), findLastOpenIndex(), requestLabel(), main()
-
-### Community 91 - "One-off Migration Scripts"
+### Community 87 - "One-off Migration Scripts"
 Cohesion: 0.80
 Nodes (4): toObjectIdString(), hasLegacyGeography(), fetchLegacyPriceDocs(), main()
 
-### Community 85 - "One-off Migration Scripts"
-Cohesion: 0.60
-Nodes (5): toObjectIdString(), normalizeRegionName(), fetchCityDocs(), ensureRegionByName(), main()
-
-### Community 72 - "Contract File Migration"
+### Community 73 - "Contract File Migration"
 Cohesion: 0.33
 Nodes (8): DRY_RUN, TARGETS, LEGACY_FILES_FILTER, hasLegacyFiles(), fetchLegacyDocs(), updateLegacyDoc(), migrateModel(), main()
 
-### Community 41 - "Upload File Migration"
-Cohesion: 0.19
-Nodes (18): UPLOADS_ROOT, REPORTS_ROOT, REPORT_ROOT, ensureDir(), isTopLevelFile(), getFileDateParts(), buildTargetDir(), normalizeUploadPath() (+10 more)
+### Community 52 - "Passenger Request Resolver"
+Cohesion: 0.17
+Nodes (8): HOTEL_CHESS_LOG_ACTIONS, KARS_FALLBACK_ACTIONS, resolveEmailActionForLog(), getDispatcherFallbackForPassengerEmail(), runRaw(), withBaggage(), runRaw(), withTransfer()
 
-### Community 68 - "Passenger Request Resolver"
-Cohesion: 0.29
-Nodes (6): HOTEL_CHESS_LOG_ACTIONS, KARS_FALLBACK_ACTIONS, resolveEmailActionForLog(), getDispatcherFallbackForPassengerEmail(), runRaw(), withBaggage()
-
-### Community 86 - "Passenger Request Mutations"
+### Community 82 - "Passenger Request Mutations"
 Cohesion: 0.47
 Nodes (3): closesBeforeStart(), closeOpenChess(), AT
 
-### Community 73 - "FAP Access Guards"
+### Community 76 - "FAP Scope & Subscriptions"
+Cohesion: 0.36
+Nodes (5): cache, defaultDeps, keyOf(), catalogVehicleNumber(), resetCatalogVehicleCache()
+
+### Community 83 - "FAP Scope & Subscriptions"
+Cohesion: 0.60
+Nodes (4): publishPassengerRequestUpdated(), overlayIdentity(), hydrateDriverService(), hydratePassengerRequest()
+
+### Community 74 - "FAP Access Guards"
 Cohesion: 0.44
 Nodes (6): ALLOWED_SUBJECT_TYPES, assertFapSubject(), guardResolver(), guardSection(), guardSubscriptions(), withFapAuthGuard()
 
-### Community 82 - "FAP Edit Guard & Request Envelope"
-Cohesion: 0.48
-Nodes (3): forbidden(), editLockVerdict(), assertRequestEditable()
-
-### Community 77 - "Living Resolver & Hotel Chess"
+### Community 60 - "FAP Scope & Subscriptions"
 Cohesion: 0.29
-Nodes (3): countLivingPeople(), applyServiceRecalc(), hotels
+Nodes (11): hotelIndexesForScope(), PASSENGER_REPORT_STAGES, passengerReportStageIndex(), stageDates(), hotelReportStage(), reportsByHotelIndex(), visibleReportHotelIndexes(), requestReportStage() (+3 more)
 
-### Community 61 - "FAP Edit Guard: fapEditGuard, serviceTable, patchIsNoop"
-Cohesion: 0.22
-Nodes (6): driversFact(), PASSENGER_SERVICE_TABLE, PASSENGER_SERVICE_FIELDS, findPassengerService(), passengerServiceFields(), DRIVER_SERVICES
+### Community 84 - "FAP Scope & Subscriptions"
+Cohesion: 0.53
+Nodes (4): reportRowDate(), reportRowsEqual(), MONEY_KEYS, maskReportRowPrices()
 
-### Community 24 - "Partial-day Settings Rules"
-Cohesion: 0.17
-Nodes (21): REQUEST_STATUSES, requestIncludeAirline, requestIncludeHotel, buildAirlineReportData(), buildHotelReportData(), getDefaultPartialDayRules(), parseHhMmToMinutes(), assertValidHhMm() (+13 more)
+### Community 56 - "Partial-day Settings Rules"
+Cohesion: 0.29
+Nodes (12): getDefaultPartialDayRules(), parseHhMmToMinutes(), assertValidHhMm(), settingToRules(), rulesToCalcConfig(), ensureGlobalPartialDaySetting(), resolvePartialDayRules(), validateLevelEntity() (+4 more)
 
-### Community 42 - "Report Drafts: merge, frozen rows, changedFrom"
-Cohesion: 0.25
-Nodes (16): normalizeReportDraftRows(), STICKY_ROW_KEYS, valuesEqual(), rowKey(), indexByRequestId(), stripChangedKeys(), changedFromEntry(), detectChangedKeys() (+8 more)
-
-### Community 59 - "Report Drafts: merge, frozen rows, changedFrom"
+### Community 57 - "Report Drafts: share metadata & syncDraftPerson"
 Cohesion: 0.26
 Nodes (11): parseLocalDT(), formatLocal(), findOverlapClusters(), buildShareSegmentsForGuest(), buildShareNoteFromSegments(), buildShareClusterId(), enrichRowsWithShareMetadata(), recomputeReportDraftShareMetadata() (+3 more)
 
-### Community 62 - "Request Resolver & Bulk Import"
-Cohesion: 0.28
-Nodes (12): HEADER_MATCHERS, normalizeHeader(), mapHeaders(), parseExcelDate(), parseExcelTime(), combineDateAndTime(), normalizeFlightStatus(), parseIntField() (+4 more)
+### Community 34 - "Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics"
+Cohesion: 0.22
+Nodes (20): roundMoney(), toStoredRequestPrice(), createAllocationKey(), REQUEST_INCLUDE_FOR_PRICING, AIRLINE_PRICES_INCLUDE, hydrateAirlinePrices(), staysOverlap(), clusterForRequest() (+12 more)
 
-### Community 83 - "Room Share Matrix (report nights)"
+### Community 80 - "Room Share Matrix (report nights)"
 Cohesion: 0.57
 Nodes (6): parseDDMMYYYY_HHMMSS(), startOfServiceDay(), addDays(), listServiceNights(), toRu(), computeRoomShareMatrix()
 
-### Community 87 - "Auth: user.resolver, sign-in, refresh tokens"
-Cohesion: 0.60
-Nodes (5): toDayKeyUtc(), dayStartUtcMs(), splitDurationByDay(), mergeDailyStats(), buildClosedSessionStats()
-
-### Community 69 - "Contract Expiration Sorting"
-Cohesion: 0.24
-Nodes (8): assert(), now, contractWhere, agreementWhere, activeFilter, archivedFilter, createContractModelMock(), createAgreementPrismaMock()
-
-### Community 88 - "Price Geography Normalization Tests"
+### Community 85 - "Price Geography Normalization Tests"
 Cohesion: 0.33
 Nodes (5): cityFindUnique, regionFindUnique, regionFindFirst, priceGeoFindMany, airportOnPriceFindMany
 
-### Community 21 - "Passenger Request Resolver"
-Cohesion: 0.16
-Nodes (13): normalizeSnapshot(), installPubsubSpy(), releasePubsubAfterTests(), runFapMutation(), runRaw(), runRaw(), withTransfer(), runRaw() (+5 more)
+### Community 61 - "FAP Tests: harness, pubsub spy & characterization (transfer, waterMeal)"
+Cohesion: 0.18
+Nodes (8): installPubsubSpy(), runRaw(), runRaw(), runRaw(), runRaw(), airlineUser, dispatcherUser, runDraft()
 
-### Community 27 - "Passenger Request Resolver"
-Cohesion: 0.14
-Nodes (19): READ_ONE, READ_MANY, WRITE_ONE, WRITE_MANY, COUNTERS, ALL_METHODS, clone(), modelKeys() (+11 more)
+### Community 29 - "FAP Tests: prismaDouble & hotelReportVisibility"
+Cohesion: 0.12
+Nodes (20): READ_ONE, READ_MANY, WRITE_ONE, WRITE_MANY, COUNTERS, ALL_METHODS, clone(), modelKeys() (+12 more)
 
-### Community 58 - "Passenger Request Resolver"
-Cohesion: 0.20
-Nodes (10): completedWater(), runRaw(), legacyGuest(), requestWithLegacyInSecondHotel(), requestWithThreeHotels(), requestWithPlaced(), requestWithGroups(), requestWithScanManifestDupes() (+2 more)
+### Community 53 - "FAP Tests: living & roster characterization fixtures"
+Cohesion: 0.18
+Nodes (11): makeEarlyCompletedWater(), completedWater(), runRaw(), legacyGuest(), requestWithLegacyInSecondHotel(), requestWithThreeHotels(), requestWithPlaced(), requestWithGroups() (+3 more)
 
-### Community 92 - "Passenger Request Resolver"
+### Community 88 - "Passenger Request Resolver"
 Cohesion: 0.60
 Nodes (4): runRaw(), makePerson(), requestWithLiving(), bothHotelsPopulated()
 
-### Community 43 - "Passenger Request Resolver"
+### Community 40 - "FAP Tests: list filters, query & moveDateValidation"
 Cohesion: 0.15
 Nodes (10): runList(), runOne(), FLIGHT_DATE_MISSING, makeContext(), makeHotelContext(), stageOf(), runList(), runStageList() (+2 more)
 
-### Community 78 - "Passenger Request Resolver"
+### Community 77 - "Passenger Request Resolver"
 Cohesion: 0.32
 Nodes (6): runReport(), MAPPED_ROW_FIELDS, saveArgs(), makeSavedReport(), makeApprovedReport(), reportCases()
 
-### Community 93 - "Passenger Request Resolver"
+### Community 78 - "FAP Scope & Subscriptions"
+Cohesion: 0.25
+Nodes (5): dispatcher, airlinePersonal, hotelExternal, own, foreign
+
+### Community 89 - "Passenger Request Resolver"
 Cohesion: 0.40
 Nodes (3): here, schema, SERVICE_FIELDS
 
@@ -537,9 +521,9 @@ Nodes (3): here, schema, SERVICE_FIELDS
   INSTALL.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **202 isolated node(s):** `Test SUPERADMIN login credentials (admin/admin123)`, `rl`, `AUTH_ERROR_CODES`, `name`, `main` (+197 more)
+- **203 isolated node(s):** `Test SUPERADMIN login credentials (admin/admin123)`, `rl`, `AUTH_ERROR_CODES`, `name`, `main` (+198 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -550,11 +534,11 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **What is the exact relationship between `Published ports 3000 and 4000` and `Host Port 4001 → Container 4000 Mapping`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `prisma` connect `Documentation Tree & Backfill` to `analytics`, `Email Notifications: templates, rate guard, menu check`, `Data Backfill & Travelline`, `Airline Resolver & Price Geography`, `FAP Scope & Subscriptions`, `FAP Passenger Analytics & Grouping`, `File Access Routes & Backup`, `Access: assertCanManageAccess.js guards & Travelline role checks`, `External Auth: Magic Links & Hotel Preview`, `System Updates & Maintenance Banner`, `Server Entry & Auth Middleware`, `FAP Request Envelope: envelope.js & service resolvers`, `Auth: user.resolver, sign-in, refresh tokens`, `Roster & Saved Passengers`, `Docker Stack Deployment`, `Merge Saved People (duplicates)`, `Requests: number generation, bulk create & date formatting`, `Contract Resolver & Filters`, `Partial-day Settings Rules`, `Contract Archiving`, `Passenger Request Resolver`, `Transfer & Baggage Normalizers`, `Auth: user.resolver, sign-in, refresh tokens`, `Auth Middleware: role decorators & report resolver`, `Bot Service & Webhooks`, `User Presence & Stale Sessions`, `Passenger Request Emails`, `Bot Service & Webhooks`, `Action Log: logaction.js sanitization`, `Push Notifications: Firebase tokens & transferPushService`, `Upload File Migration`, `GraphQL Auth Context`, `Push Notifications: Firebase tokens & transferPushService`, `Airline Resolver & Price Geography`, `Room Occupancy Overlap`, `Room Occupancy Overlap`, `Auth Middleware: role decorators & report resolver`, `Requests: number generation, bulk create & date formatting`, `Resolvers: representative, global, city, airport, log, airline`, `migrations`, `Resolvers: representative, global, city, airport, log, airline`, `Report Drafts: merge, frozen rows, changedFrom`, `Bot Service & Webhooks`, `Email & Push Notifications`, `Bot Service & Webhooks`, `User Presence & Stale Sessions`, `Contract File Migration`, `One-off Migration Scripts`, `FAP Edit Guard & Request Envelope`, `Data Backfill & Travelline`, `One-off Migration Scripts`, `Documentation Tree & Backfill`, `Data Backfill & Travelline`, `One-off Migration Scripts`, `Documentation Tree & Backfill`?**
-  _High betweenness centrality (0.274) - this node is a cross-community bridge._
-- **Why does `TravellineService` connect `Data Backfill & Travelline` to `Server Entry & Auth Middleware`, `Requests: number generation, bulk create & date formatting`, `Access: assertCanManageAccess.js guards & Travelline role checks`?**
-  _High betweenness centrality (0.060) - this node is a cross-community bridge._
-- **Why does `dependencies` connect `Backend Dependencies` to `Bot Service & Webhooks`, `Backend Tech Stack`, `Package Config & Nodemon`, `One-off Migration Scripts`, `TOTP Two-factor Auth`, `Backend Health & Conventions`?**
+- **Why does `prisma` connect `Prisma client, documentation.resolver & backfill scripts` to `Email Notifications: templates, rate guard, menu check`, `Travelline: travellineService, mappers, booking & autoSyncSchedule`, `Auth: user.resolver, sign-in, refresh tokens`, `External Auth: Magic Links & Hotel Preview`, `FAP Passenger Analytics & Grouping`, `Access: assertCanManageAccess.js guards & Travelline role checks`, `Request Emails: requestEmailTemplates & frontendEntityLinks`, `Action Log: logaction.js sanitization`, `Report Archive & Decades: reportArchive.js, reportDecade.js`, `Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics`, `Server Entry: server.js, server2.js, jobs & shutdown`, `System Updates & Maintenance Banner`, `Bot Service & Webhooks`, `Room Occupancy Overlap`, `Airline Resolver & Price Geography`, `Auth Middleware: role decorators (authMiddleware.js)`, `FAP Request Envelope: envelope.js & service resolvers`, `Report Drafts: merge, frozen rows, changedFrom`, `File Access Routes & Backup`, `PubSub & Subscriptions: pubsub.js, subscriptionAuth, representative.resolver`, `Docker Stack Deployment`, `Resolvers index: resolvers.js, city, airport, log`, `Roster & Saved Passengers`, `FAP Tests: prismaDouble & hotelReportVisibility`, `Merge Saved People (duplicates)`, `Transfer Push: transferPushService & transfer.resolver`, `Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics`, `Bot Service & Webhooks`, `Upload File Migration`, `Contract Resolver & Filters`, `Airline Resolver & Price Geography`, `GraphQL Auth Context`, `Airline Resolver & Price Geography`, `Migration: approvePricingForSubmittedReports`, `Resolvers: driver, organization, uploadImage & transferPriceContract`, `Partial-day Settings Rules`, `Report Drafts: share metadata & syncDraftPerson`, `Reports: reportAccess, reportEditableFields & report.resolver`, `FAP Scope & Subscriptions`, `Email & Push Notifications`, `Contract Archiving`, `FAP Scope & Subscriptions`, `Contract File Migration`, `One-off Migration Scripts`, `FAP Scope & Subscriptions`, `Analytics & Pricing: requestPricing, reportUtils, airlineAnalytics`, `Data Backfill & Travelline`, `One-off Migration Scripts`?**
+  _High betweenness centrality (0.292) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `Backend Dependencies` to `Backend Dependencies`, `Backend Tech Stack`, `Backend Dependencies`, `Backend Dependencies`, `Backend Dependencies`, `Backend Dependencies`, `Package Config & Nodemon`, `Email & Push Notifications`, `Report Archive & Decades: reportArchive.js, reportDecade.js`, `Package Config & Nodemon`, `Backend Dependencies`, `TOTP Two-factor Auth`, `Bot Service & Webhooks`, `Backend Dependencies`, `Backend Dependencies`?**
   _High betweenness centrality (0.059) - this node is a cross-community bridge._
+- **Why does `TravellineService` connect `Travelline: travellineService, mappers, booking & autoSyncSchedule` to `Resolvers index: resolvers.js, city, airport, log`, `Server Entry: server.js, server2.js, jobs & shutdown`, `Auth Middleware: role decorators (authMiddleware.js)`?**
+  _High betweenness centrality (0.055) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `prisma` (e.g. with `MongoDB ReplicaSet requirement` and `MongoDB Service (single node, replica set rs0)`) actually correct?**
   _`prisma` has 4 INFERRED edges - model-reasoned connections that need verification._

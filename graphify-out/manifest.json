@@ -135,7 +135,7 @@
     "semantic_hash": "c41907c1cce79708e0166c201e52db25"
   },
   "resolvers/passengerRequest/passengerRequest.resolver.js": {
-    "mtime": 1786085894.1580453,
+    "mtime": 1789204690.3307092,
     "ast_hash": "996cf4e8ab1e12841957af2878e86471",
     "semantic_hash": "996cf4e8ab1e12841957af2878e86471"
   },
@@ -675,9 +675,9 @@
     "semantic_hash": "33f53baf7c634be48cba25355e5edd73"
   },
   "services/passengerRequest/baggageDelivery.js": {
-    "mtime": 1785853221.003883,
-    "ast_hash": "06b534a5a1f16a128bb0ddf943f894a2",
-    "semantic_hash": "06b534a5a1f16a128bb0ddf943f894a2"
+    "mtime": 1789134545.8517816,
+    "ast_hash": "924121bb2b5537422a850b989e997c49",
+    "semantic_hash": "924121bb2b5537422a850b989e997c49"
   },
   "services/passengerRequest/files.js": {
     "mtime": 1780556275.8376324,
@@ -1015,9 +1015,9 @@
     "semantic_hash": "7d6093bbee91da94d49fefbaf4b6a17f"
   },
   "tests/passengerRequest/baggageDelivery.test.js": {
-    "mtime": 1785165115.246813,
-    "ast_hash": "bf4b75df55c151791a7b7870b5490221",
-    "semantic_hash": "bf4b75df55c151791a7b7870b5490221"
+    "mtime": 1789134639.3043132,
+    "ast_hash": "b02158ad43ccbe26cd84b6224140038e",
+    "semantic_hash": "b02158ad43ccbe26cd84b6224140038e"
   },
   "tests/passengerRequest/files.test.js": {
     "mtime": 1780556275.8399165,
@@ -1140,7 +1140,7 @@
     "semantic_hash": "dd1ca80eb01567c2a88a277cd24d47ec"
   },
   "typeDefs/dispatcher/dispatcher.typeDef.js": {
-    "mtime": 1788337474.516147,
+    "mtime": 1789204690.2995956,
     "ast_hash": "f94b4c2422370b44f1f128c414561d09",
     "semantic_hash": "f94b4c2422370b44f1f128c414561d09"
   },
@@ -1180,9 +1180,9 @@
     "semantic_hash": "6c39c1efe484697e2727bc77c48305e2"
   },
   "typeDefs/passengerRequest/passengerRequest.typeDef.js": {
-    "mtime": 1789037053.2977204,
-    "ast_hash": "42c3335190aba753c0853ba1b5fd2533",
-    "semantic_hash": "42c3335190aba753c0853ba1b5fd2533"
+    "mtime": 1789132556.0768948,
+    "ast_hash": "dd2fbcaa65b6e6c2eddbd4fe8a1475b1",
+    "semantic_hash": "dd2fbcaa65b6e6c2eddbd4fe8a1475b1"
   },
   "typeDefs/report/report.typeDef.js": {
     "mtime": 1789032367.2576025,
@@ -1225,7 +1225,7 @@
     "semantic_hash": "486adaa9bf75117c4933987aec759b33"
   },
   "typeDefs/typedefs.js": {
-    "mtime": 1779444536.5405066,
+    "mtime": 1789204719.362627,
     "ast_hash": "b795b3ebe238967de1d402b67f46fd0b",
     "semantic_hash": "b795b3ebe238967de1d402b67f46fd0b"
   },
@@ -1310,9 +1310,9 @@
     "semantic_hash": "13e5e81a1939df42d92f5a366305d4f1"
   },
   "resolvers/passengerRequest/baggage.resolver.js": {
-    "mtime": 1786528365.3069932,
-    "ast_hash": "4bc8b0f1a67b7b8b3b13cbd5763586f1",
-    "semantic_hash": "4bc8b0f1a67b7b8b3b13cbd5763586f1"
+    "mtime": 1789134589.1728244,
+    "ast_hash": "b3973e4423533bba400524ffcb5e927c",
+    "semantic_hash": "b3973e4423533bba400524ffcb5e927c"
   },
   "resolvers/passengerRequest/core.resolver.js": {
     "mtime": 1788780133.6638324,
@@ -1325,9 +1325,9 @@
     "semantic_hash": "9abb22cb190764acd78bbd33d89dfcf5"
   },
   "resolvers/passengerRequest/fields.resolver.js": {
-    "mtime": 1789037053.2951367,
-    "ast_hash": "cce4ec3f0d42146579fc942c5dc93d22",
-    "semantic_hash": "cce4ec3f0d42146579fc942c5dc93d22"
+    "mtime": 1789134624.921395,
+    "ast_hash": "f2b38a302c8ded982073c44b81175022",
+    "semantic_hash": "f2b38a302c8ded982073c44b81175022"
   },
   "resolvers/passengerRequest/living.resolver.js": {
     "mtime": 1788780133.6648285,
@@ -1360,9 +1360,9 @@
     "semantic_hash": "2c9685007dd2f5ba9ffc7bb62d7405c7"
   },
   "resolvers/passengerRequest/waterMeal.resolver.js": {
-    "mtime": 1785852085.4060163,
-    "ast_hash": "be1d5233701577381b2ca7bb77b57c6f",
-    "semantic_hash": "be1d5233701577381b2ca7bb77b57c6f"
+    "mtime": 1789134615.6198587,
+    "ast_hash": "ec171bca7637c2642a21b4a4ef44b418",
+    "semantic_hash": "ec171bca7637c2642a21b4a4ef44b418"
   },
   "services/docRecognition/recognitionRateLimit.js": {
     "mtime": 1785841420.2070124,
@@ -1420,9 +1420,9 @@
     "semantic_hash": "266eb162856ab5617385201e2193cda4"
   },
   "services/passengerRequest/logging.js": {
-    "mtime": 1788439280.9526165,
-    "ast_hash": "bc5e4dfb045e1ed8cf9fa93630d4e6a3",
-    "semantic_hash": "bc5e4dfb045e1ed8cf9fa93630d4e6a3"
+    "mtime": 1789134621.7992992,
+    "ast_hash": "1222f825d5ee6ab6025efc58b297ec6d",
+    "semantic_hash": "1222f825d5ee6ab6025efc58b297ec6d"
   },
   "services/passengerRequest/normalizers.js": {
     "mtime": 1785926163.602028,
@@ -1480,9 +1480,9 @@
     "semantic_hash": "34573763437b6f5d55597a03f45d1f56"
   },
   "tests/passengerRequest/characterization/baggage.characterization.test.js": {
-    "mtime": 1786528341.2837598,
-    "ast_hash": "adb10b6c85aaad6c33327bfe704b3cf1",
-    "semantic_hash": "adb10b6c85aaad6c33327bfe704b3cf1"
+    "mtime": 1789134499.557978,
+    "ast_hash": "3447e973fc5915f8e8921e6ac4d40dbd",
+    "semantic_hash": "3447e973fc5915f8e8921e6ac4d40dbd"
   },
   "tests/passengerRequest/characterization/core.characterization.test.js": {
     "mtime": 1786524665.3828049,
@@ -1490,9 +1490,9 @@
     "semantic_hash": "0d01ec1c147bb8ba5a0d31135022ffc2"
   },
   "tests/passengerRequest/characterization/coverage.test.js": {
-    "mtime": 1788953072.394747,
-    "ast_hash": "5bf07c8870f7fe6e9856f14592cc0d00",
-    "semantic_hash": "5bf07c8870f7fe6e9856f14592cc0d00"
+    "mtime": 1789204726.5688407,
+    "ast_hash": "9fb4f93cf216c724ba730c8a7b9e0b03",
+    "semantic_hash": "9fb4f93cf216c724ba730c8a7b9e0b03"
   },
   "tests/passengerRequest/characterization/early.characterization.test.js": {
     "mtime": 1786014475.4855766,
@@ -1530,9 +1530,9 @@
     "semantic_hash": "afa6d512412999dc0d8927b7f62967dd"
   },
   "tests/passengerRequest/characterization/waterMeal.characterization.test.js": {
-    "mtime": 1786014475.4895809,
-    "ast_hash": "cb25d96fecf2324c326a1711186f2491",
-    "semantic_hash": "cb25d96fecf2324c326a1711186f2491"
+    "mtime": 1789134639.304829,
+    "ast_hash": "23564c4d08685a953fca960cba040380",
+    "semantic_hash": "23564c4d08685a953fca960cba040380"
   },
   "tests/passengerRequest/chessHelpers.test.js": {
     "mtime": 1786009060.2272816,
@@ -1550,9 +1550,9 @@
     "semantic_hash": "063bff4059ae66fabe88e104d2d1165b"
   },
   "tests/passengerRequest/fapAccess.test.js": {
-    "mtime": 1788953072.3977451,
-    "ast_hash": "280f191dcbccfa5e88961cbb426e301c",
-    "semantic_hash": "280f191dcbccfa5e88961cbb426e301c"
+    "mtime": 1789204731.9216156,
+    "ast_hash": "6ce4c135e69b4b824b20026485c64b6b",
+    "semantic_hash": "6ce4c135e69b4b824b20026485c64b6b"
   },
   "tests/passengerRequest/fapScope.test.js": {
     "mtime": 1787156403.7247205,
@@ -1680,7 +1680,7 @@
     "semantic_hash": "cbc765c070e4d5a582c41ae16442bae6"
   },
   "services/email/frontendEntityLinks.js": {
-    "mtime": 1789032367.2466018,
+    "mtime": 1789204690.3576472,
     "ast_hash": "71c9a56fa288917a4abc5de9c6850500",
     "semantic_hash": "71c9a56fa288917a4abc5de9c6850500"
   },
@@ -1893,5 +1893,25 @@
     "mtime": 1789032367.256604,
     "ast_hash": "185ed3a14e80342cd8a999a16cf4c52e",
     "semantic_hash": "185ed3a14e80342cd8a999a16cf4c52e"
+  },
+  "services/passengerRequest/coerce.js": {
+    "mtime": 1789134528.922432,
+    "ast_hash": "ea396b8af7279bdf9d1728b62cc2dc83",
+    "semantic_hash": "ea396b8af7279bdf9d1728b62cc2dc83"
+  },
+  "services/passengerRequest/supplyFact.js": {
+    "mtime": 1789204745.1316535,
+    "ast_hash": "420c628f8b4f9746adaf4d046372bd83",
+    "semantic_hash": "420c628f8b4f9746adaf4d046372bd83"
+  },
+  "tests/passengerRequest/supplyFact.test.js": {
+    "mtime": 1789134569.7846003,
+    "ast_hash": "22b55c1b2c8c3dbb7764729b689a8410",
+    "semantic_hash": "22b55c1b2c8c3dbb7764729b689a8410"
+  },
+  "tests/passengerRequest/supplyMutation.test.js": {
+    "mtime": 1789134458.9580183,
+    "ast_hash": "f8519dfd25faa8c628cff2f81e4413b8",
+    "semantic_hash": "f8519dfd25faa8c628cff2f81e4413b8"
   }
 }
