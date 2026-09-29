@@ -1478,6 +1478,8 @@ model SavedReport {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   name         String
+  /// Заголовок реестра — та же строка, что в ячейке A4 файла; показывается в списках
+  title        String?
   url          String
   hotel        Hotel?        @relation(fields: [hotelId], references: [id])
   hotelId      String?       @db.ObjectId

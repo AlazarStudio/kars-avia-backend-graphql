@@ -19,6 +19,15 @@ export const buildReportTitle = ({ type, companyData }) => {
   return `РЕЕСТР № # оказанных услуг по размещению экипажа авиакомпании "${companyData?.name || ""}" в г. ${companyData?.city || ""}`
 }
 
+// companyData отчёта из снимка фильтров черновика (ReportDraft.filterJson).
+// Один источник для предпросмотра, подтверждения черновика и названия в списке.
+export const companyDataFromSnapshot = (snap = {}) => ({
+  name: snap?.companyName || "",
+  nameFull: snap?.companyNameFull || snap?.companyName || "",
+  city: snap?.companyCity || "",
+  contractName: snap?.contractName || ""
+})
+
 export const getReportColumns = ({
   type,
   includeMeal = true,

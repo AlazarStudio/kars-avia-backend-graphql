@@ -316,6 +316,7 @@ const reportTypeDef = /* GraphQL */ `
     filterJson: ReportDraftFilterSnapshot
     rows: [ReportDraftRow!]!
     presentation: ReportPresentation!
+    title: String
     savedReportId: ID
     savedReport: SavedReport
     createdById: ID
@@ -349,6 +350,7 @@ const reportTypeDef = /* GraphQL */ `
   type SavedReport {
     id: ID!
     name: String!
+    title: String # Заголовок реестра (ячейка A4)
     url: String! # Ссылка для загрузки отчёта
     startDate: Date! # Начальная дата
     endDate: Date! # Конечная дата

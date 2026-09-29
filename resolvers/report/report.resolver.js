@@ -27,7 +27,11 @@ import {
   upsertPartialDaySetting,
   deletePartialDaySetting
 } from "../../services/report/partialDaySettings.js"
-import { buildReportPresentation } from "../../services/report/reportPresentation.js"
+import {
+  buildReportPresentation,
+  buildReportTitle,
+  companyDataFromSnapshot
+} from "../../services/report/reportPresentation.js"
 import { normalizeReportEditableFields } from "../../services/report/reportEditableFields.js"
 import {
   appendSavedReportArchiveFilter,
@@ -61,12 +65,7 @@ const buildDraftPresentation = (draft) => {
   return buildReportPresentation({
     type: draft.type,
     rows,
-    companyData: {
-      name: snap.companyName || "",
-      nameFull: snap.companyNameFull || snap.companyName || "",
-      city: snap.companyCity || "",
-      contractName: snap.contractName || ""
-    },
+    companyData: companyDataFromSnapshot(snap),
     createFilterInput: {
       meal: snap.meal !== false,
       living: snap.living !== false
@@ -192,6 +191,7 @@ const writeExcelAndSave = async ({
 
   const reportRecord = {
     name: reportName,
+    title: buildReportTitle({ type, companyData }),
     url: `/files/reports/${reportName}`,
     startDate: filterStart,
     endDate: filterEnd,
@@ -775,12 +775,7 @@ const reportResolver = {
         living: snap.living !== false
       }
 
-      const companyData = {
-        name: snap.companyName || "",
-        nameFull: snap.companyNameFull || snap.companyName || "",
-        city: snap.companyCity || "",
-        contractName: snap.contractName || ""
-      }
+      const companyData = companyDataFromSnapshot(snap)
 
       const separator =
         draft.type === "AIRLINE"
@@ -846,7 +841,16 @@ const reportResolver = {
       Array.isArray(parent.rows)
         ? normalizeReportDraftRows(parent.rows)
         : [],
-    presentation: (parent) => buildDraftPresentation(parent)
+    presentation: (parent) => buildDraftPresentation(parent),
+    // Название реестра для списков — тем же шаблоном, что ячейка A4 файла.
+    // Старый снимок без имени компании названия не даёт: фронт покажет имя АК.
+    title: (parent) =>
+      parent.filterJson?.companyName
+        ? buildReportTitle({
+            type: parent.type,
+            companyData: companyDataFromSnapshot(parent.filterJson)
+          })
+        : null
   },
 
   Subscription: {

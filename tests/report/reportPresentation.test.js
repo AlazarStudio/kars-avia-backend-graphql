@@ -2,6 +2,8 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import {
   buildReportPresentation,
+  buildReportTitle,
+  companyDataFromSnapshot,
   formatReportCurrency,
   getReportColumns
 } from "../../services/report/reportPresentation.js"
@@ -125,4 +127,31 @@ test("enrichRowsWithShareMetadata links cohabitants in same room", () => {
   assert.equal(rows[0].shareClusterId, rows[1].shareClusterId)
   assert.ok(rows[0].shareSegments.some((s) => !s.alone))
   assert.ok(rows[0].shareNote.includes("Петров"))
+})
+
+test("companyDataFromSnapshot: пустой снимок даёт пустые строки", () => {
+  assert.deepEqual(companyDataFromSnapshot(undefined), {
+    name: "",
+    nameFull: "",
+    city: "",
+    contractName: ""
+  })
+})
+
+test("companyDataFromSnapshot: nameFull падает на companyName", () => {
+  const data = companyDataFromSnapshot({ companyName: "Азимут", companyCity: "Псков" })
+  assert.equal(data.nameFull, "Азимут")
+  assert.equal(data.city, "Псков")
+})
+
+test("buildReportTitle из снимка черновика — как в ячейке A4", () => {
+  const companyData = companyDataFromSnapshot({ companyName: "Азимут", companyCity: "Псков" })
+  assert.equal(
+    buildReportTitle({ type: "AIRLINE", companyData }),
+    'РЕЕСТР № # оказанных услуг по размещению экипажа авиакомпании "Азимут" в г. Псков'
+  )
+  assert.equal(
+    buildReportTitle({ type: "HOTEL", companyData }),
+    'РЕЕСТР № # оказанных услуг по размещению экипажа в отеле "Азимут" '
+  )
 })
