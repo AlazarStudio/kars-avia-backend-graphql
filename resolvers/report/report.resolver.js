@@ -282,6 +282,7 @@ const reportResolver = {
           reports: uniqueReports.map((report) => ({
             id: report.id,
             name: report.name,
+            title: report.title,
             url: report.url,
             startDate: report.startDate,
             endDate: report.endDate,
@@ -334,6 +335,7 @@ const reportResolver = {
           reports: uniqueReports.map((report) => ({
             id: report.id,
             name: report.name,
+            title: report.title,
             url: report.url,
             startDate: report.startDate,
             endDate: report.endDate,
