@@ -15,7 +15,8 @@ export const STICKY_ROW_KEYS = [
   "totalLivingCost",
   "pricePerDay",
   "totalDebt",
-  "hotelName"
+  "hotelName",
+  "shareNoteOverride"
 ]
 
 export const valuesEqual = (a, b) => {
@@ -115,10 +116,14 @@ export const mergeStickyRowOverrides = (computedRows, previousRows) => {
       if (prev[key] !== undefined) out[key] = prev[key]
     }
 
+    // В файле итог всегда = питание + проживание, а правка итога в редакторе
+    // переносит разницу в проживание. Поэтому при любой денежной правке итог
+    // пересчитывается от удержанного проживания и (возможно, свежего)
+    // питания — иначе экран и файл разойдутся.
     if (
-      (changedKeys.includes("totalLivingCost") ||
-        changedKeys.includes("totalMealCost")) &&
-      !changedKeys.includes("totalDebt")
+      changedKeys.includes("totalLivingCost") ||
+      changedKeys.includes("totalMealCost") ||
+      changedKeys.includes("totalDebt")
     ) {
       out.totalDebt =
         (Number(out.totalMealCost) || 0) +

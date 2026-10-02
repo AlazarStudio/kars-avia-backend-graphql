@@ -153,3 +153,39 @@ test("новая заявка при пересоздании появляетс
   assert.deepEqual(row.changedKeys, [])
   assert.equal(row.totalDays, 1)
 })
+
+test("ручной «Вид проживания» (shareNoteOverride) — липкий: отмечается и переживает пересоздание", () => {
+  const incoming = [{ ...computed[0], shareNoteOverride: "с Петровым П.П." }]
+  const [marked] = detectChangedKeys(computed, incoming)
+  assert.deepEqual(marked.changedKeys, ["shareNoteOverride"])
+
+  const live = [{ ...computed[0], shareNote: "жил один" }]
+  const [merged] = mergeStickyRowOverrides(live, [marked])
+  assert.equal(merged.shareNoteOverride, "с Петровым П.П.")
+  // Расчётный текст сервер ведёт сам — ручной его не подменяет.
+  assert.equal(merged.shareNote, "жил один")
+})
+
+test("замороженная строка удерживает shareNoteOverride", () => {
+  const previous = [{ ...computed[0], frozen: true, shareNoteOverride: "вручную" }]
+  const [merged] = mergeStickyRowOverrides(computed, previous)
+  assert.equal(merged.shareNoteOverride, "вручную")
+  assert.ok(merged.changedKeys.includes("shareNoteOverride"))
+})
+
+test("пересоздание: правленый итог пересчитывается от удержанного проживания и свежего питания", () => {
+  const previous = [
+    {
+      ...computed[0],
+      totalLivingCost: 3500,
+      totalMealCost: 500,
+      totalDebt: 4000,
+      changedKeys: ["totalLivingCost", "totalDebt"]
+    }
+  ]
+  const live = [{ ...computed[0], totalMealCost: 700, totalLivingCost: 1000, totalDebt: 1700 }]
+  const [merged] = mergeStickyRowOverrides(live, previous)
+  assert.equal(merged.totalLivingCost, 3500)
+  assert.equal(merged.totalMealCost, 700)
+  assert.equal(merged.totalDebt, 4200)
+})

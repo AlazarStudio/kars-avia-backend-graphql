@@ -155,3 +155,35 @@ test("buildReportTitle из снимка черновика — как в яче
     'РЕЕСТР № # оказанных услуг по размещению экипажа в отеле "Азимут" '
   )
 })
+
+test("«Вид проживания»: ручной текст печатается и подсвечивается, без него — расчётный", () => {
+  const base = {
+    index: 1,
+    arrival: "01.07.2026 10:00:00",
+    departure: "02.07.2026 12:00:00",
+    totalDays: 1,
+    category: "Одноместный",
+    personName: "Иванов",
+    roomName: "101",
+    shareNote: "жил один",
+    personPosition: "КВС",
+    breakfastCount: 0,
+    lunchCount: 0,
+    dinnerCount: 0,
+    totalMealCost: 0,
+    totalLivingCost: 1000,
+    totalDebt: 1000,
+    hotelName: "Hotel"
+  }
+  const presentation = buildReportPresentation({
+    type: "AIRLINE",
+    rows: [{ ...base, shareNoteOverride: "с Петровым П.П." }, base],
+    companyData: { name: "SU", nameFull: "Аэрофлот", city: "Москва", contractName: "Договор 1" },
+    createFilterInput: { meal: true, living: true }
+  })
+  const cellOf = (row) => row.cells.find((c) => c.key === "shareNote")
+  assert.equal(cellOf(presentation.dataRows[0]).value, "с Петровым П.П.")
+  assert.equal(cellOf(presentation.dataRows[0]).highlighted, true)
+  assert.equal(cellOf(presentation.dataRows[1]).value, "жил один")
+  assert.equal(cellOf(presentation.dataRows[1]).highlighted, false)
+})

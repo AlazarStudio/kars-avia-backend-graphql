@@ -10,12 +10,16 @@ export const REPORT_EDITABLE_FIELD_KEYS = [
   "totalDays",
   "category",
   "roomName",
+  "shareNote",
   "personPosition",
   "breakfastCount",
   "lunchCount",
   "dinnerCount",
   "totalMealCost",
-  "pricePerDay"
+  "pricePerDay",
+  "hotelName",
+  "totalLivingCost",
+  "totalDebt"
 ]
 
 /**

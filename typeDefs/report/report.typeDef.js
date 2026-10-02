@@ -220,6 +220,7 @@ const reportTypeDef = /* GraphQL */ `
     roomName: String
     roomId: ID
     shareNote: String
+    shareNoteOverride: String
     shareSegments: [ReportShareSegment!]!
     roomGroupId: String
     shareClusterId: String
@@ -268,6 +269,7 @@ const reportTypeDef = /* GraphQL */ `
     roomName: String
     roomId: ID
     shareNote: String
+    shareNoteOverride: String
     shareSegments: [ReportShareSegmentInput!]
     roomGroupId: String
     shareClusterId: String

@@ -118,6 +118,15 @@ const buildShareClusterId = (roomGroupId, cluster) => {
   return `${roomGroupId}::${ids}`
 }
 
+// Ручной «Вид проживания» из редактора черновика. Хранится отдельно от
+// расчётного shareNote: тот сервер пересчитывает при каждом сохранении, а
+// ручной — никогда. Пустая строка значит «вернуть расчёт» (null).
+export const normalizeShareNoteOverride = (value) => {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
 export const enrichRowsWithShareMetadata = (rows) => {
   if (!Array.isArray(rows) || !rows.length) return []
 

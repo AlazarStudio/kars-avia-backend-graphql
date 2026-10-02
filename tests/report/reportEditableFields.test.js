@@ -31,3 +31,24 @@ test("полный список проходит целиком", () => {
     REPORT_EDITABLE_FIELD_KEYS
   )
 })
+
+test("ключи — 16, в порядке колонок таблицы редактора", () => {
+  assert.deepEqual(REPORT_EDITABLE_FIELD_KEYS, [
+    "personName",
+    "arrival",
+    "departure",
+    "totalDays",
+    "category",
+    "roomName",
+    "shareNote",
+    "personPosition",
+    "breakfastCount",
+    "lunchCount",
+    "dinnerCount",
+    "totalMealCost",
+    "pricePerDay",
+    "hotelName",
+    "totalLivingCost",
+    "totalDebt"
+  ])
+})

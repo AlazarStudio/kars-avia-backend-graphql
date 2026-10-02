@@ -221,7 +221,10 @@ export const buildHotelReportData = async (filter) => {
   }
 }
 
-import { recomputeReportDraftShareMetadata } from "./reportShareMetadata.js"
+import {
+  normalizeShareNoteOverride,
+  recomputeReportDraftShareMetadata
+} from "./reportShareMetadata.js"
 
 export const normalizeReportDraftRows = (rows) => {
   if (!Array.isArray(rows)) return []
@@ -237,6 +240,9 @@ export const normalizeReportDraftRows = (rows) => {
     roomName: row.roomName ?? "",
     roomId: row.roomId ?? "",
     shareNote: row.shareNote ?? "",
+    // Ручной «Вид проживания»: печать и экран берут его вместо расчётного
+    // shareNote, который recomputeReportDraftShareMetadata пересчитывает ниже.
+    shareNoteOverride: normalizeShareNoteOverride(row.shareNoteOverride),
     breakfastCount: row.breakfastCount != null ? Number(row.breakfastCount) : 0,
     lunchCount: row.lunchCount != null ? Number(row.lunchCount) : 0,
     dinnerCount: row.dinnerCount != null ? Number(row.dinnerCount) : 0,

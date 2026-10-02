@@ -95,6 +95,12 @@ const getCellDisplayValue = (col, row, { includeMeal, includeLiving }) => {
         (includeMeal ? +row.totalMealCost || 0 : 0) +
           (includeLiving ? +row.totalLivingCost || 0 : 0)
       )
+    case "shareNote": {
+      // Ручной «Вид проживания» из редактора черновика печатается вместо
+      // расчётного (shareNoteOverride ?? shareNote).
+      const note = row.shareNoteOverride ?? row.shareNote
+      return note == null ? "" : String(note)
+    }
     default:
       if (row[col.key] == null) return ""
       return String(row[col.key])
@@ -110,6 +116,8 @@ const getCellRawValue = (col, row, { includeMeal, includeLiving }) => {
       )
     case "breakfastCount":
       return row.breakfastIncludedInPrice ? "вкл" : row.breakfastCount ?? 0
+    case "shareNote":
+      return row.shareNoteOverride ?? row.shareNote
     default:
       return row[col.key]
   }
@@ -124,7 +132,9 @@ const buildPresentationRow = (row, columns, options) => {
       key: col.key,
       value: getCellDisplayValue(col, row, options),
       raw: formatCellRaw(getCellRawValue(col, row, options)),
-      highlighted: changed.has(col.key)
+      highlighted:
+        changed.has(col.key) ||
+        (col.key === "shareNote" && row?.shareNoteOverride != null)
     }))
   }
 }
