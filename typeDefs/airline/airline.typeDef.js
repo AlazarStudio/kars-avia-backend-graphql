@@ -46,6 +46,7 @@ const airlineTypeDef = /* GraphQL */ `
     id: ID!
     name: String
     email: String
+    # Секреты: всегда null (hideSecretFields), оставлены ради старых клиентов
     password: String
     refreshToken: String
     fingerprint: String

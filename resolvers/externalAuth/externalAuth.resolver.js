@@ -25,6 +25,27 @@ const SUBJECT_TYPE = {
 const EXTERNAL_SCOPES = ["HOTEL", "DRIVER", "REPRESENTATIVE"]
 const EXTERNAL_ACCESS_TYPES = ["CRM", "PWA"]
 
+// Сколько после первого входа повтор той же ссылки считается её дублем
+// (двойной клик, префетч почтового клиента), а не новым предъявлением.
+export const ALREADY_USED_GRACE_MS = 60 * 1000
+
+// Можно ли на повтор уже использованной ссылки отдать действующую сессию
+// владельца. Только в окне после usedAt: иначе утёкшая ссылка (письмо, лог,
+// история браузера) входила бы под владельцем, пока жива его сессия.
+export const canReuseSessionForUsedLink = ({ record, now }) => {
+  const usedAtMs = record?.usedAt ? new Date(record.usedAt).getTime() : NaN
+  if (!Number.isFinite(usedAtMs)) return false
+  if (now.getTime() - usedAtMs > ALREADY_USED_GRACE_MS) return false
+
+  const externalUser = record?.externalUser
+  return (
+    Boolean(externalUser?.active) &&
+    Boolean(externalUser?.refreshToken) &&
+    Boolean(externalUser?.sessionExpiresAt) &&
+    new Date(externalUser.sessionExpiresAt).getTime() > now.getTime()
+  )
+}
+
 const throwForbidden = (message = "Access forbidden") => {
   throw new GraphQLError(message, { extensions: { code: "FORBIDDEN" } })
 }
@@ -155,21 +176,15 @@ const signInExternalUserByMagicLink = async ({ token, tokenHash, now }) => {
   })
   // If the link was already consumed by a near-simultaneous request,
   // return the currently active session instead of failing hard.
-  if (validation.reason === "ALREADY_USED") {
-    const existingSessionToken = magicLinkRecord?.externalUser?.refreshToken
-    const sessionExpiresAt = magicLinkRecord?.externalUser?.sessionExpiresAt
-    const hasActiveSession =
-      Boolean(existingSessionToken) &&
-      Boolean(sessionExpiresAt) &&
-      new Date(sessionExpiresAt).getTime() > now.getTime() &&
-      magicLinkRecord?.externalUser?.active
-
-    if (hasActiveSession) {
-      return buildExternalAuthPayload({
-        entity: magicLinkRecord.externalUser,
-        sessionToken: existingSessionToken
-      })
-    }
+  // Only within ALREADY_USED_GRACE_MS of usedAt; later reuse is rejected.
+  if (
+    validation.reason === "ALREADY_USED" &&
+    canReuseSessionForUsedLink({ record: magicLinkRecord, now })
+  ) {
+    return buildExternalAuthPayload({
+      entity: magicLinkRecord.externalUser,
+      sessionToken: magicLinkRecord.externalUser.refreshToken
+    })
   }
 
   if (!validation.valid || !magicLinkRecord?.externalUser?.active) {

@@ -248,6 +248,11 @@ const serverCleanup = useServer(
 /* =========================
    🚀 APOLLO SERVER
 ========================= */
+// Интроспекция и стектрейсы в ответах — только по явному флагу: внешний стенд
+// с NODE_ENV=dev иначе отдаёт схему анонимно и пути на сервере (аудит 152-ФЗ, U3).
+const graphqlIntrospection = process.env.GRAPHQL_INTROSPECTION === "true"
+const graphqlDebug = process.env.GRAPHQL_DEBUG === "true"
+
 const server = new ApolloServer({
   schema,
   csrfPrevention: {
@@ -260,10 +265,13 @@ const server = new ApolloServer({
     ]
   },
   cache: "bounded",
+  introspection: graphqlIntrospection,
+  includeStacktraceInErrorResponses: graphqlDebug,
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer: httpsServer }),
-    ApolloServerPluginLandingPageDisabled(),
-    // ApolloServerPluginLandingPageLocalDefault(),
+    graphqlIntrospection
+      ? ApolloServerPluginLandingPageLocalDefault()
+      : ApolloServerPluginLandingPageDisabled(),
     {
       async serverWillStart() {
         return {

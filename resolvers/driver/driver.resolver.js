@@ -15,6 +15,22 @@ import { uploadFiles } from "../../services/files/uploadFiles.js"
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { organizationContractData } from "../../services/transfer/transferPriceContract.js"
 import { validityDateFields } from "../../services/hotel/roomKindSeasonPrice.js"
+import {
+  assertCanEditDriver,
+  assertOrganizationOpenForDrivers,
+  canReadDriver,
+  canReadDriverActivity,
+  driverForbiddenError,
+  isDriverManager,
+  isDriverSelf,
+  needsOrganizationReconfirm,
+  resolveDriverReadScope,
+  sanitizeDriverInputForSubject
+} from "../../services/driver/driverAccess.js"
+import {
+  SESSION_SECRET_FIELDS,
+  hideSecretFields
+} from "../../services/auth/hiddenSecretFields.js"
 // import { errorMonitor } from "ws"
 
 const driverResolver = {
@@ -22,12 +38,13 @@ const driverResolver = {
 
   Query: {
     drivers: async (_, { pagination }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const { selfId } = await resolveDriverReadScope(context)
+      const where = selfId ? { active: true, id: selfId } : { active: true }
       const { skip, take, all } = pagination || {}
-      const totalCount = await prisma.driver.count({ where: { active: true } })
+      const totalCount = await prisma.driver.count({ where })
       const drivers = all
         ? await prisma.driver.findMany({
-            where: { active: true },
+            where,
             include: {
               organization: true,
               transferPrices: {
@@ -39,7 +56,7 @@ const driverResolver = {
             }
           })
         : await prisma.driver.findMany({
-            where: { active: true },
+            where,
             skip: skip,
             take: take,
             include: {
@@ -71,7 +88,8 @@ const driverResolver = {
       return { drivers, totalCount, totalPages }
     },
     driverById: async (_, { id }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const { selfId } = await resolveDriverReadScope(context)
+      if (selfId && selfId !== String(id)) throw driverForbiddenError()
       try {
         const driver = await prisma.driver.findUnique({
           where: { id: id },
@@ -98,7 +116,7 @@ const driverResolver = {
       }
     },
     driverByEmail: async (_, { email }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      const { selfId } = await resolveDriverReadScope(context)
       try {
         const driver = await prisma.driver.findUnique({
           where: { email: email },
@@ -120,6 +138,9 @@ const driverResolver = {
 
         // Object.assign(driver, moscowDate)
 
+        // Водителю — только своя карточка; чужой email неотличим от
+        // несуществующего, чтобы по нему нельзя было перебирать базу.
+        if (selfId && driver?.id !== selfId) return null
         return driver
       } catch {
         return new Error(
@@ -142,7 +163,8 @@ const driverResolver = {
       },
       context
     ) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      // Без токена — саморегистрация водителя; служебные поля задаёт только
+      // диспетчер (sanitizeDriverInputForSubject).
       const {
         name,
         number,
@@ -157,7 +179,11 @@ const driverResolver = {
         seats,
         transferPrices: transferPricesInput,
         registrationStatus
-      } = input
+      } = sanitizeDriverInputForSubject(input, context)
+
+      if (!isDriverManager(context)) {
+        await assertOrganizationOpenForDrivers(organizationId)
+      }
 
       if (email || number) {
         const existing = await prisma.driver.findFirst({
@@ -312,35 +338,42 @@ const driverResolver = {
       },
       context
     ) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await assertCanEditDriver(context, id)
       const updatedData = {}
 
       const currentDriver = await prisma.driver.findUnique({
         where: { id: id }
       })
+      const driverInput =
+        sanitizeDriverInputForSubject(input, context, currentDriver) ?? {}
 
       // При отправке данных без newPassword выдаёт ошибку, что newPassword не может быть undefined, переписать условия проверки инпутов
 
-      for (let key in input) {
+      for (let key in driverInput) {
         if (
           key !== "newPassword" &&
           key !== "oldPassword" &&
           key !== "transferPrices" &&
-          input[key] !== undefined
+          driverInput[key] !== undefined
         ) {
-          updatedData[key] = input[key]
+          updatedData[key] = driverInput[key]
         }
       }
 
-      if (input.newPassword) {
-        if (!input.oldPassword)
+      if (needsOrganizationReconfirm(driverInput, currentDriver, context)) {
+        await assertOrganizationOpenForDrivers(driverInput.organizationId)
+        updatedData.organizationConfirmed = null
+      }
+
+      if (driverInput.newPassword) {
+        if (!driverInput.oldPassword)
           throw new Error("Для обновления пароля укажи старый.")
         const valid = await argon2.verify(
           currentDriver.password,
-          input.oldPassword
+          driverInput.oldPassword
         )
         if (!valid) throw new Error("Указан неверный пароль.")
-        updatedData.password = await argon2.hash(input.newPassword)
+        updatedData.password = await argon2.hash(driverInput.newPassword)
       }
 
       let driverPhotoPaths = currentDriver.documents?.driverPhoto ?? []
@@ -420,8 +453,8 @@ const driverResolver = {
         data: updatedData
       })
 
-      if (input.transferPrices) {
-        for (const tp of input.transferPrices) {
+      if (driverInput.transferPrices) {
+        for (const tp of driverInput.transferPrices) {
           if (tp.id) {
             await prisma.transferPrice.update({
               where: { id: tp.id },
@@ -530,7 +563,7 @@ const driverResolver = {
     // },
 
     updateDriverDocuments: async (_, { id, documents }, context) => {
-      // await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await assertCanEditDriver(context, id)
       const setDocs = await uploadFiles(documents)
       await prisma.driver.update({
         where: { id },
@@ -555,7 +588,7 @@ const driverResolver = {
       return driverWithUpdatedDocs
     },
     deleteDriver: async (_, { id }, context) => {
-      await allMiddleware(context) // MIDDLEWARE_REVIEW: allMiddleware
+      await assertCanEditDriver(context, id)
       try {
         const deletedDriver = await prisma.driver.delete({
           where: { id: id }
@@ -584,6 +617,12 @@ const driverResolver = {
 
       if (!transferPrice?.driverId) {
         return false
+      }
+      if (
+        !isDriverManager(context) &&
+        !isDriverSelf(context, transferPrice.driverId)
+      ) {
+        throw driverForbiddenError()
       }
 
       await prisma.$transaction([
@@ -671,6 +710,7 @@ const driverResolver = {
     }
   },
   Driver: {
+    ...hideSecretFields(SESSION_SECRET_FIELDS),
     organization: async (parent, _) => {
       if (parent.organizationId) {
         return await prisma.organization.findUnique({
@@ -679,14 +719,18 @@ const driverResolver = {
       }
       return null
     },
-    transfers: async (parent, _) => {
+    // Поездки нужны справочнику (заказ трансфера у АК считает занятость
+    // водителя), переписка — только самому водителю и диспетчерской.
+    transfers: async (parent, _, context) => {
+      if (!canReadDriver(context, parent.id)) return []
       if (parent.id) {
         return await prisma.transfer.findMany({
           where: { driverId: parent.id }
         })
       }
     },
-    transferMessages: async (parent, _) => {
+    transferMessages: async (parent, _, context) => {
+      if (!canReadDriverActivity(context, parent.id)) return []
       if (parent.id) {
         return await prisma.transferMessage.findMany({
           where: { senderDriverId: parent.id }

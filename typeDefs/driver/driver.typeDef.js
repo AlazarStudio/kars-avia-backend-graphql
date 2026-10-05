@@ -38,7 +38,8 @@ const driverTypeDef = /* GraphQL */ `
     name: String!
     number: String
     email: String
-    password: String!
+    # Секреты: всегда null (hideSecretFields), оставлены ради старых клиентов
+    password: String
     refreshToken: String
     fingerprint: String
     car: String

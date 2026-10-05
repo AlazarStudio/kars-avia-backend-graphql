@@ -9,6 +9,7 @@ import { GraphQLError, getOperationAST } from "graphql"
 import { randomUUID } from "crypto"
 import { expressMiddleware } from "@apollo/server/express4"
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer"
+import { ApolloServerPluginLandingPageDisabled } from "@apollo/server/plugin/disabled"
 import { WebSocketServer } from "ws"
 import { useServer } from "graphql-ws/lib/use/ws"
 import { makeExecutableSchema } from "@graphql-tools/schema"
@@ -214,6 +215,11 @@ const serverCleanup = useServer(
 /* =========================
    🚀 APOLLO SERVER
 ========================= */
+// Интроспекция и стектрейсы в ответах — только по явному флагу: внешний стенд
+// с NODE_ENV=dev иначе отдаёт схему анонимно и пути на сервере (аудит 152-ФЗ, U3).
+const graphqlIntrospection = process.env.GRAPHQL_INTROSPECTION === "true"
+const graphqlDebug = process.env.GRAPHQL_DEBUG === "true"
+
 const server = new ApolloServer({
   schema,
   csrfPrevention: {
@@ -222,10 +228,13 @@ const server = new ApolloServer({
     requestHeaders: ["authorization", "x-apollo-operation-name", "apollo-require-preflight"]
   },
   cache: "bounded",
-  introspection: process.env.NODE_ENV !== "production",
+  introspection: graphqlIntrospection,
+  includeStacktraceInErrorResponses: graphqlDebug,
   plugins: [
     ApolloServerPluginDrainHttpServer({ httpServer }),
-    ApolloServerPluginLandingPageLocalDefault(),
+    graphqlIntrospection
+      ? ApolloServerPluginLandingPageLocalDefault()
+      : ApolloServerPluginLandingPageDisabled(),
     {
       async serverWillStart() {
         return {

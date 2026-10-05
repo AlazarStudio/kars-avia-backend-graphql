@@ -35,6 +35,10 @@ import {
   hasValidityWindow,
   validityDateFields
 } from "../../services/hotel/roomKindSeasonPrice.js"
+import {
+  SESSION_SECRET_FIELDS,
+  hideSecretFields
+} from "../../services/auth/hiddenSecretFields.js"
 
 const priceValidity = (input, existing) => ({
   startDate:
@@ -1199,6 +1203,7 @@ const airlineResolver = {
   },
 
   AirlinePersonal: {
+    ...hideSecretFields(SESSION_SECRET_FIELDS),
     // hotelChess: async (parent) => {
     //   const hotelChessEntries = await prisma.hotelChess.findMany({
     //     where: { clientId: parent.id },

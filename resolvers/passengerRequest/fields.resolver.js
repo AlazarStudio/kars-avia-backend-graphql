@@ -29,6 +29,12 @@ const viewerIsAirline = (context) => resolveScope(context).kind === "airline"
 const viewerIsDispatcher = (context) => resolveScope(context).kind === "all"
 const internalOnly = (value, context) => (viewerIsDispatcher(context) ? value : null)
 
+// Ссылки входа (link/linkCRM/linkPWA) несут сырой токен: получивший чужую
+// ссылку входит под чужой гостиницей/водителем. Участникам заявки они не нужны,
+// копирует их только диспетчер (аудит 152-ФЗ, U5).
+const dispatcherOnly = (field) => (parent, _args, context) =>
+  internalOnly(parent?.[field] ?? null, context)
+
 // Индексы гостиниц, отчёты которых зритель вправе читать; null — все.
 // Для гостиничного зрителя это ровно его строка заявки: в общей заявке рядом
 // стоят гостиницы других организаций, и их отчёт — чужие деньги.
@@ -126,6 +132,12 @@ export default {
     airlineApproved: (parent) => parent.airlineApprovedAt != null
   },
 
+  PassengerServiceHotel: {
+    link: dispatcherOnly("link"),
+    linkCRM: dispatcherOnly("linkCRM"),
+    linkPWA: dispatcherOnly("linkPWA")
+  },
+
   PassengerServiceHotelPerson: {
     accommodationChesses: (parent) =>
       Array.isArray(parent.accommodationChesses)
@@ -140,7 +152,14 @@ export default {
     vehicleNumber: async (parent) =>
       parent?.vehicleNumber?.trim?.() || catalogVehicleNumber(parent),
     driverCost: (parent, _args, context) => internalOnly(parent.driverCost, context),
-    distanceKm: (parent, _args, context) => internalOnly(parent.distanceKm, context)
+    distanceKm: (parent, _args, context) => internalOnly(parent.distanceKm, context),
+    link: dispatcherOnly("link"),
+    linkPWA: dispatcherOnly("linkPWA")
+  },
+
+  PassengerRepresentativeLink: {
+    linkCRM: dispatcherOnly("linkCRM"),
+    linkPWA: dispatcherOnly("linkPWA")
   },
 
   // У пассажиров, заведённых до появления поля, Prisma отдаёт baggageTags как

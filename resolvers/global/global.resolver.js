@@ -9,6 +9,7 @@ import path from "path" // Импортируем модуль path
 import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { v4 as uuidv4 } from "uuid"
 import { sendNotificationToSubject } from "../../services/infra/fbsendtoken.js"
+import { canReadDriver } from "../../services/driver/driverAccess.js"
 
 const SUBJECT = {
   USER: "USER",
@@ -412,8 +413,8 @@ const globalResolver = {
             where: { id: parent.organizationId }
           })
         : null,
-    driver: (parent) =>
-      parent.driverId
+    driver: (parent, _, context) =>
+      parent.driverId && canReadDriver(context, parent.driverId)
         ? prisma.driver.findUnique({ where: { id: parent.driverId } })
         : null,
     organizationContract: (parent) =>

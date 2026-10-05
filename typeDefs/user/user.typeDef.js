@@ -45,7 +45,8 @@ const userTypeDef = /* GraphQL */ `
     email: String!
     number: String
     login: String!
-    password: String!
+    # Секрет: всегда null (hideSecretFields), оставлен ради старых клиентов
+    password: String
     role: Role!
     userType: UserType
     # position: String
@@ -56,6 +57,7 @@ const userTypeDef = /* GraphQL */ `
     airlineId: ID
     images: [String]
     dispatcher: Boolean
+    # Секреты twoFASecret, refreshToken, fingerprint — всегда null (hideSecretFields)
     twoFASecret: String
     twoFAMethod: TwoFAMethod
     airlineDepartmentId: ID

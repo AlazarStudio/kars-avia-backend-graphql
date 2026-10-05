@@ -34,6 +34,11 @@ import {
 import { normalizeUserLogin } from "../../services/auth/normalizeUserLogin.js"
 import { signInUser } from "../../services/auth/signInUser.js"
 import {
+  USER_SECRET_FIELDS,
+  hideSecretFields,
+  omitSecretFields
+} from "../../services/auth/hiddenSecretFields.js"
+import {
   registerSelfUser,
   requestPasswordResetByEmail,
   resetPasswordWithToken,
@@ -668,7 +673,9 @@ const userResolver = {
 
       // Публикуем событие создания/обновления пользователя
       pubsub.publish(USER_CREATED, { userCreated: updatedUser })
-      return updatedUser
+      // Ответ — AuthPayload, где refreshToken не скрыт: без этого админ,
+      // правящий чужого пользователя, получил бы его сессию.
+      return omitSecretFields(updatedUser)
     },
 
     // Мутация для запроса восстановления пароля.
@@ -1066,6 +1073,7 @@ const userResolver = {
     }
   },
   User: {
+    ...hideSecretFields(USER_SECRET_FIELDS),
     position: async (parent) => {
       if (parent.positionId) {
         return await prisma.position.findUnique({

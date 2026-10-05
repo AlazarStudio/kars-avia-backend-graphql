@@ -6,6 +6,7 @@ import { subscriptionAuthMiddleware } from "../../services/infra/subscriptionAut
 import { withFilter } from "graphql-subscriptions"
 import { organizationContractData } from "../../services/transfer/transferPriceContract.js"
 import { validityDateFields } from "../../services/hotel/roomKindSeasonPrice.js"
+import { organizationDriversWhere } from "../../services/driver/driverAccess.js"
 
 const organizationResolver = {
   Query: {
@@ -350,10 +351,11 @@ const organizationResolver = {
     }
   },
   Organization: {
-    drivers: async (parent, _) => {
-      return await prisma.driver.findMany({
-        where: { organizationId: parent.id }
-      })
+    // Без корневого гарда: до поля доходят и через анонимный createDriver.
+    drivers: async (parent, _, context) => {
+      const where = organizationDriversWhere(context, parent.id)
+      if (!where) return []
+      return await prisma.driver.findMany({ where })
     }
   }
 }

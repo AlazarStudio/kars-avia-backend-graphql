@@ -37,10 +37,13 @@ test("набор секций резолвера неизменен", () => {
   assert.deepEqual(Object.keys(resolvers).sort(), [
     "Mutation",
     "PassengerLivingService",
+    // Маска ссылок входа (только диспетчеру) — loginLinksVisibility.test.js.
+    "PassengerRepresentativeLink",
     "PassengerRequest",
     "PassengerRequestHotelReport",
     "PassengerServiceDriver",
     "PassengerServiceDriverPerson",
+    "PassengerServiceHotel",
     "PassengerServiceHotelPerson",
     "PassengerWaterFoodService",
     "Query",
