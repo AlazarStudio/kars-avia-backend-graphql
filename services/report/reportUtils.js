@@ -498,7 +498,12 @@ export const aggregateRequestReports = (
         effectiveDeparture
       )
 
-      if (!totalLivingCost && !totalMealCost) return null
+      // Пустую строку не печатаем, только если у неё нет и суток: заявка лишь
+      // задевает край периода. Строку с сутками, но без цены (в договоре пуста
+      // категория, у гостиницы нет тарифа) оставляем с проживанием 0 — раньше
+      // она пропадала молча, теперь в черновике её подсвечивает «нет цены».
+      // Тот же отсев — в buildAllocation.
+      if (!totalLivingCost && !totalMealCost && !(effectiveDays > 0)) return null
 
       return {
         index: index + 1,
@@ -848,7 +853,8 @@ export const buildAllocation = (data, rules) => {
 
     for (const g of sortedGuests) {
       const livingCost = allLivingCosts.get(g) ?? 0
-      if (!livingCost && !g.totalMealCost) continue
+      // Строку с сутками, но без цены не выкидываем — см. aggregateRequestReports.
+      if (!livingCost && !g.totalMealCost && !(Number(g.totalDays) > 0)) continue
 
       out.push({
         index: index++,
