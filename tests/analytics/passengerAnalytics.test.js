@@ -277,16 +277,131 @@ test("детализация: легаси-заявка без сервисов 
   assert.deepEqual(row.hotels, [])
 })
 
-test("итоги: детализация суммируется по counted (без costMissing)", () => {
+test("вода и питание: сумма поставки по правилу книги, входит в total", () => {
+  const req = {
+    id: "w1",
+    status: "IN_PROGRESS",
+    hotelReports: [],
+    transferService: { drivers: [{ reportCost: 1000 }] },
+    waterService: { plan: { enabled: true }, quantity: 94, unitPrice: 60, deliveryCost: 800, people: [] },
+    mealService: { plan: { enabled: true }, quantity: 10, unitPrice: 350.5, deliveryCost: null, people: [] }
+  }
+  const row = aggregatePassengerRequest(req)
+  assert.equal(row.waterMeal, 6440 + 3505)
+  assert.equal(row.total, 1000 + 6440 + 3505)
+})
+
+test("вода и питание: выключенная услуга и факт без цены и доставки не считаются", () => {
+  const req = {
+    id: "w2",
+    status: "IN_PROGRESS",
+    hotelReports: [],
+    waterService: { plan: { enabled: false }, quantity: 94, unitPrice: 60, deliveryCost: 800 },
+    mealService: { plan: { enabled: true }, quantity: 10, unitPrice: null, deliveryCost: null }
+  }
+  assert.equal(aggregatePassengerRequest(req).waterMeal, 0)
+})
+
+test("вода и питание: только доставка — сумма = доставка; статус услуги не важен", () => {
+  const req = {
+    id: "w3",
+    status: "IN_PROGRESS",
+    hotelReports: [],
+    waterService: { plan: { enabled: true }, status: "CANCELLED", quantity: null, unitPrice: null, deliveryCost: 800 }
+  }
+  assert.equal(aggregatePassengerRequest(req).waterMeal, 800)
+})
+
+test("вода и питание: зрителю-авиакомпании поставка не отдаётся и в total не входит", () => {
+  const req = {
+    id: "w4",
+    status: "IN_PROGRESS",
+    hotelReports: [],
+    transferService: { drivers: [{ reportCost: 1000 }] },
+    waterService: { plan: { enabled: true }, quantity: 94, unitPrice: 60, deliveryCost: 800 }
+  }
+  const row = aggregatePassengerRequest(req, { viewerIsAirline: true })
+  assert.equal(row.waterMeal, 0)
+  assert.equal(row.total, 1000)
+})
+
+test("отменённая заявка: деньги строки и гостиниц обнулены, люди и сутки остаются", () => {
+  const req = {
+    id: "c1",
+    status: "CANCELLED",
+    livingService: {
+      hotels: [
+        { name: "Азия", people: [{ fullName: "A" }, { fullName: "B" }] },
+        { name: "Престиж", people: [{ fullName: "C" }] }
+      ]
+    },
+    hotelReports: [
+      { hotelIndex: 0, reportRows: [{ fullName: "A", accommodationCost: 3000, foodCost: 400, daysCount: 2 }] }
+    ],
+    transferService: { drivers: [{ reportCost: 1000 }] },
+    baggageDeliveryService: { drivers: [{ reportCost: 200 }] },
+    waterService: { plan: { enabled: true }, quantity: 94, unitPrice: 60, deliveryCost: 800 }
+  }
+  const row = aggregatePassengerRequest(req)
+  for (const key of [
+    "living", "meal", "transfer", "waterMeal", "total", "avgPricePerNight",
+    "transferArrival", "transferDeparture", "transferBaggage", "transferIntercity"
+  ]) {
+    assert.equal(row[key], 0, key)
+  }
+  assert.deepEqual(row.hotels.map((h) => [h.living, h.meal]), [[0, 0], [0, 0]])
+  assert.equal(row.peopleCount, 3)
+  assert.equal(row.roomNights, 2)
+  assert.equal(row.status, "CANCELLED")
+})
+
+test("отменённая заявка без отчёта гостиницы — не «нет отчёта»", () => {
+  const req = {
+    id: "c2",
+    status: "CANCELLED",
+    livingService: { hotels: [{ name: "Отель", people: [{ fullName: "Сидоров" }] }] },
+    hotelReports: []
+  }
+  assert.equal(aggregatePassengerRequest(req).costMissing, false)
+})
+
+test("итоги (вариант C): трансфер и поставка заявки «нет отчёта» — в деньгах, её люди — нет", () => {
   const rows = [
-    { costMissing: false, peopleCount: 2, adultsCount: 2, childrenCount: 1, infantsCount: 0, roomNights: 3.5, transferArrival: 1000, transferDeparture: 0, transferBaggage: 200, transferIntercity: 0, living: 7000, meal: 400, transfer: 1200, total: 8600 },
-    { costMissing: true, peopleCount: 5, adultsCount: 5, childrenCount: 5, infantsCount: 5, roomNights: 9, transferArrival: 9999, transferDeparture: 9999, transferBaggage: 9999, transferIntercity: 9999, living: 0, meal: 0, transfer: 0, total: 0 }
+    { status: "COMPLETED", costMissing: false, peopleCount: 2, adultsCount: 2, childrenCount: 1, infantsCount: 0, roomNights: 3.5, transferArrival: 1000, transferDeparture: 0, transferBaggage: 200, transferIntercity: 0, living: 7000, meal: 400, transfer: 1200, waterMeal: 0, total: 8600 },
+    { status: "IN_PROGRESS", costMissing: true, peopleCount: 5, adultsCount: 5, childrenCount: 5, infantsCount: 5, roomNights: 0, transferArrival: 500, transferDeparture: 0, transferBaggage: 100, transferIntercity: 0, living: 0, meal: 0, transfer: 600, waterMeal: 6440, total: 7040 }
   ]
   const t = buildPassengerAnalyticsTotals(rows)
+  assert.equal(t.peopleCount, 2)
   assert.equal(t.adultsCount, 2)
   assert.equal(t.childrenCount, 1)
   assert.equal(t.infantsCount, 0)
   assert.equal(t.roomNights, 3.5)
-  assert.equal(t.transferArrival, 1000)
-  assert.equal(t.transferBaggage, 200)
+  assert.equal(t.transferArrival, 1500)
+  assert.equal(t.transferBaggage, 300)
+  assert.equal(t.transfer, 1800)
+  assert.equal(t.waterMeal, 6440)
+  assert.equal(t.total, 15640)
+  assert.equal(t.missingCostCount, 1)
+})
+
+test("итоги: отменённые — только в requestsCount и cancelledCount", () => {
+  const rows = [
+    { status: "COMPLETED", costMissing: false, peopleCount: 2, adultsCount: 2, childrenCount: 0, infantsCount: 0, linkedPeopleCount: 2, roomNights: 2, living: 7000, meal: 400, transfer: 1000, waterMeal: 500, total: 8900 },
+    { status: "CANCELLED", costMissing: false, peopleCount: 5, adultsCount: 5, childrenCount: 1, infantsCount: 1, linkedPeopleCount: 4, roomNights: 3, living: 999, meal: 99, transfer: 900, waterMeal: 999, total: 2997 },
+    { status: "CANCELLED", costMissing: true, peopleCount: 1, adultsCount: 1, childrenCount: 0, infantsCount: 0, linkedPeopleCount: 0, roomNights: 0, living: 0, meal: 0, transfer: 500, waterMeal: 100, total: 600 }
+  ]
+  const t = buildPassengerAnalyticsTotals(rows)
+  assert.equal(t.requestsCount, 3)
+  assert.equal(t.cancelledCount, 2)
+  assert.equal(t.peopleCount, 2)
+  assert.equal(t.adultsCount, 2)
+  assert.equal(t.childrenCount, 0)
+  assert.equal(t.infantsCount, 0)
+  assert.equal(t.linkedPeopleCount, 2)
+  assert.equal(t.roomNights, 2)
+  assert.equal(t.living, 7000)
+  assert.equal(t.transfer, 1000)
+  assert.equal(t.waterMeal, 500)
+  assert.equal(t.total, 8900)
+  assert.equal(t.missingCostCount, 0)
 })

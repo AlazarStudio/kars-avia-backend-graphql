@@ -23,9 +23,9 @@ import { catalogVehicleNumber } from "../../services/passengerRequest/driverVehi
 // персонал авиакомпании, у которого своего `user` в контексте нет.
 const viewerIsAirline = (context) => resolveScope(context).kind === "airline"
 
-// Внутренние деньги ФАП (стоимость водителю, поставщику, километраж) видит только
-// диспетчерский субъект. Маска стоит на ТИПЕ, а не на запросе — так закрываются и
-// ответы мутаций, которые возвращают drivers[] целиком.
+// Внутренние деньги ФАП (стоимость водителю, поставщику, километраж, цену и
+// доставку поставки) видит только диспетчерский субъект. Маска стоит на ТИПЕ, а не
+// на запросе — так закрываются и ответы мутаций, которые возвращают drivers[] целиком.
 const viewerIsDispatcher = (context) => resolveScope(context).kind === "all"
 const internalOnly = (value, context) => (viewerIsDispatcher(context) ? value : null)
 
@@ -170,6 +170,10 @@ export default {
   },
 
   PassengerWaterFoodService: {
+    // Цена и доставка поставки — тоже только диспетчеру: суммы поставки
+    // авиакомпании не показываем нигде (решение владельца 05.10.2026).
+    unitPrice: (parent, _args, context) => internalOnly(parent.unitPrice, context),
+    deliveryCost: (parent, _args, context) => internalOnly(parent.deliveryCost, context),
     supplierCost: (parent, _args, context) => internalOnly(parent.supplierCost, context)
   },
 

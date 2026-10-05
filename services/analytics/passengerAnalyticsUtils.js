@@ -5,7 +5,36 @@ const TRANSFER_FIELDS = [
   "baggageDeliveryService"
 ]
 
+const SUPPLY_FIELDS = ["waterService", "mealService"]
+
 const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100
+
+const isCancelled = (status) => status === "CANCELLED"
+
+// Деньги строки аналитики — гасятся у отменённой заявки целиком.
+// Новое денежное поле строки — добавить сюда, иначе отменённая понесёт деньги.
+const ROW_MONEY_KEYS = [
+  "living",
+  "meal",
+  "transfer",
+  "waterMeal",
+  "total",
+  "avgPricePerNight",
+  "transferArrival",
+  "transferDeparture",
+  "transferBaggage",
+  "transferIntercity"
+]
+
+// Отменённая заявка остаётся в аналитике только строкой списка — без денег
+// (решение владельца 05.10.2026). Люди, сутки и счётчики остаются; «нет отчёта»
+// не ставим: стоимость отменённой не нужна, в «Без стоимости» ей не место.
+function withoutMoney(row) {
+  const out = { ...row, costMissing: false }
+  for (const key of ROW_MONEY_KEYS) out[key] = 0
+  out.hotels = row.hotels.map((h) => ({ ...h, living: 0, meal: 0 }))
+  return out
+}
 
 // Проживание/питание: суммируем ТОЛЬКО гостевые строки (fullName непустой);
 // ghost/тарифные строки (пустой fullName) исключаем — иначе двойной счёт.
@@ -31,6 +60,24 @@ function sumTransferCost(request) {
   for (const field of TRANSFER_FIELDS) {
     const drivers = request?.[field]?.drivers || []
     for (const d of drivers) sum += Number(d?.reportCost) || 0
+  }
+  return roundMoney(sum)
+}
+
+// «Вода и питание»: сумма факта поставки для АК — правило книги заявки на фронте
+// (reports/buildReportSheets.js: supplyCost + visibleSupplies): услуга включена и
+// задана цена за единицу или доставка; сумма = количество × цена + доставка,
+// округление по каждой услуге (как fapSupply.js → supplyTotal). Дату поставки,
+// получателей и статус услуги не смотрим (решение владельца 05.10.2026).
+function sumSupplyCost(request) {
+  let sum = 0
+  for (const field of SUPPLY_FIELDS) {
+    const svc = request?.[field]
+    if (!svc?.plan?.enabled) continue
+    if (svc.unitPrice == null && svc.deliveryCost == null) continue
+    sum += roundMoney(
+      (Number(svc.quantity) || 0) * (Number(svc.unitPrice) || 0) + (Number(svc.deliveryCost) || 0)
+    )
   }
   return roundMoney(sum)
 }
@@ -83,12 +130,14 @@ export function aggregatePassengerRequest(request, options = {}) {
   const reports = pricedHotelReports(request?.hotelReports, viewerIsAirline)
   const { living, meal, hasGuestRow } = sumHotelReportsCost(reports)
   const transfer = sumTransferCost(request)
+  // Деньги поставки авиакомпании не показываем нигде (решение владельца 05.10.2026).
+  const waterMeal = viewerIsAirline ? 0 : sumSupplyCost(request)
   const costMissing = computeCostMissing(request, hasGuestRow)
-  const total = roundMoney(living + meal + transfer)
+  const total = roundMoney(living + meal + transfer + waterMeal)
   const roomNights = sumRoomNights(reports)
   const water = serviceCounts(request?.waterService)
   const mealSvc = serviceCounts(request?.mealService)
-  return {
+  const row = {
     requestId: request.id,
     requestNumber: request.requestNumber || null,
     flightNumber: request.flightNumber || null,
@@ -119,32 +168,42 @@ export function aggregatePassengerRequest(request, options = {}) {
     living,
     meal,
     transfer,
+    waterMeal,
     total,
     status: request.status || null,
     costMissing
   }
+  return isCancelled(request.status) ? withoutMoney(row) : row
 }
 
+// Итоги периода. Отменённые — только в счёте заявок (requestsCount/cancelledCount).
+// Деньги — по всем неотменённым: у заявки «нет отчёта» проживание и питание в
+// гостинице и так 0, а трансфер и поставка реальны (вариант C владельца
+// 05.10.2026). Люди и сутки — по неотменённым с отчётом, как раньше.
 export function buildPassengerAnalyticsTotals(rows) {
-  const counted = rows.filter((r) => !r.costMissing)
-  const sum = (k) => roundMoney(counted.reduce((a, r) => a + (Number(r[k]) || 0), 0))
+  const active = rows.filter((r) => !isCancelled(r.status))
+  const counted = active.filter((r) => !r.costMissing)
+  const countOf = (list, k) => list.reduce((a, r) => a + (Number(r[k]) || 0), 0)
+  const sumOf = (list, k) => roundMoney(countOf(list, k))
   return {
     requestsCount: rows.length,
-    peopleCount: counted.reduce((a, r) => a + (Number(r.peopleCount) || 0), 0),
-    linkedPeopleCount: rows.reduce((a, r) => a + (Number(r.linkedPeopleCount) || 0), 0),
-    adultsCount: counted.reduce((a, r) => a + (Number(r.adultsCount) || 0), 0),
-    childrenCount: counted.reduce((a, r) => a + (Number(r.childrenCount) || 0), 0),
-    infantsCount: counted.reduce((a, r) => a + (Number(r.infantsCount) || 0), 0),
-    roomNights: sum("roomNights"),
-    transferArrival: sum("transferArrival"),
-    transferDeparture: sum("transferDeparture"),
-    transferBaggage: sum("transferBaggage"),
-    transferIntercity: sum("transferIntercity"),
-    living: sum("living"),
-    meal: sum("meal"),
-    transfer: sum("transfer"),
-    total: sum("total"),
-    missingCostCount: rows.filter((r) => r.costMissing).length
+    cancelledCount: rows.length - active.length,
+    peopleCount: countOf(counted, "peopleCount"),
+    linkedPeopleCount: countOf(active, "linkedPeopleCount"),
+    adultsCount: countOf(counted, "adultsCount"),
+    childrenCount: countOf(counted, "childrenCount"),
+    infantsCount: countOf(counted, "infantsCount"),
+    roomNights: sumOf(counted, "roomNights"),
+    transferArrival: sumOf(active, "transferArrival"),
+    transferDeparture: sumOf(active, "transferDeparture"),
+    transferBaggage: sumOf(active, "transferBaggage"),
+    transferIntercity: sumOf(active, "transferIntercity"),
+    living: sumOf(active, "living"),
+    meal: sumOf(active, "meal"),
+    transfer: sumOf(active, "transfer"),
+    waterMeal: sumOf(active, "waterMeal"),
+    total: sumOf(active, "total"),
+    missingCostCount: active.filter((r) => r.costMissing).length
   }
 }
 

@@ -291,8 +291,10 @@ const analyticsTypeDef = /* GraphQL */ `
     living: Float!
     meal: Float!
     transfer: Float!
+    waterMeal: Float!
     total: Float!
     missingCostCount: Int!
+    cancelledCount: Int!
     noFlightDateCount: Int!
   }
 
@@ -341,6 +343,7 @@ const analyticsTypeDef = /* GraphQL */ `
     living: Float!
     meal: Float!
     transfer: Float!
+    waterMeal: Float!
     total: Float!
     status: PassengerRequestStatus
     costMissing: Boolean!

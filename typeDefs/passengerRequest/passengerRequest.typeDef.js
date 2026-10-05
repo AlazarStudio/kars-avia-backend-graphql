@@ -119,9 +119,9 @@ const passengerRequestTypeDef = /* GraphQL */ `
     suppliedAt: Date
     "Напитки у waterService, порции у mealService"
     quantity: Int
-    "Цена за единицу для АК, без НДС"
+    "Цена за единицу для АК, без НДС. Только диспетчеру: остальным null"
     unitPrice: Float
-    "Доставка для АК, без НДС"
+    "Доставка для АК, без НДС. Только диспетчеру: остальным null"
     deliveryCost: Float
     "Стоимость поставщику. Только диспетчеру: остальным null"
     supplierCost: Float

@@ -1,6 +1,6 @@
 // Факт поставки: патч меняет только переданные ключи, остальное на услуге (план,
-// получатели, статус) остаётся; стоимость поставщику маскируется всем, кроме
-// диспетчера.
+// получатели, статус) остаётся; стоимость поставщику, цена и доставка
+// маскируются всем, кроме диспетчера.
 
 import test from "node:test"
 import assert from "node:assert/strict"
@@ -90,6 +90,14 @@ test("PassengerWaterFoodService.supplierCost: авиакомпании null, д�
   const parent = { supplierCost: 5000 }
   assert.equal(resolvers.PassengerWaterFoodService.supplierCost(parent, {}, airlineContext()), null)
   assert.equal(resolvers.PassengerWaterFoodService.supplierCost(parent, {}, makeContext()), 5000)
+})
+
+test("PassengerWaterFoodService.unitPrice/deliveryCost: авиакомпании null, диспетчеру значение", () => {
+  const parent = { unitPrice: 60, deliveryCost: 800 }
+  assert.equal(resolvers.PassengerWaterFoodService.unitPrice(parent, {}, airlineContext()), null)
+  assert.equal(resolvers.PassengerWaterFoodService.deliveryCost(parent, {}, airlineContext()), null)
+  assert.equal(resolvers.PassengerWaterFoodService.unitPrice(parent, {}, makeContext()), 60)
+  assert.equal(resolvers.PassengerWaterFoodService.deliveryCost(parent, {}, makeContext()), 800)
 })
 
 test("PassengerServiceDriver.driverCost/distanceKm: авиакомпании null, диспетчеру значение", () => {
