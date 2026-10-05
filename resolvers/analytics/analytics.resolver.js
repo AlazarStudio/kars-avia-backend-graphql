@@ -14,10 +14,7 @@ import { computeAirlineAnalytics } from "../../services/analytics/airlineAnalyti
 import { computePassengerAnalytics } from "../../services/analytics/passengerAnalytics.js"
 import { assertPassengerAnalyticsAllowed } from "../../services/analytics/passengerAnalyticsAccess.js"
 import { GraphQLError } from "graphql"
-import {
-  resolveScope,
-  isHotelSubjectScope
-} from "../../services/passengerRequest/fapScope.js"
+import { resolveScope } from "../../services/passengerRequest/fapScope.js"
 import { prisma } from "../../prisma.js"
 import {
   allMiddleware,
@@ -138,10 +135,18 @@ const analyticsResolver = {
     },
     passengerAnalytics: async (_, { input }, context) => {
       await allMiddleware(context)
-      // Аналитика «Пассажиры» — диспетчерско-авиакомпанийский экран: агрегат по
-      // ВСЕМ заявкам, гостиничного скоупа у него нет. Гостиничным субъектам —
-      // отказ, иначе гостиница вытянула бы чужие заявки агрегатом (ревью 2026-08-19).
-      if (isHotelSubjectScope(resolveScope(context))) {
+      // Аналитика «Пассажиры» — экран сотрудников диспетчерской и авиакомпаний.
+      // Белый список: USER со скоупом all (диспетчер) или airline (своя АК).
+      // Остальным отказ (решение владельца 2026-10-05): гостинице (иначе вытянула
+      // бы чужие заявки агрегатом, ревью 2026-08-19), персоналу АК из приложения
+      // (право analyticsPassengerMenu на него не действует), водителю и учёткам
+      // с неизвестной ролью — у них нет airlineId, и раньше они получали все АК
+      // с деньгами диспетчера.
+      const scope = resolveScope(context)
+      if (
+        context.subjectType !== "USER" ||
+        (scope.kind !== "all" && scope.kind !== "airline")
+      ) {
         throw new GraphQLError("Forbidden", {
           extensions: { code: "FORBIDDEN", http: { status: 403 } }
         })
@@ -149,12 +154,11 @@ const analyticsResolver = {
       // Право analyticsPassengerMenu: без него вкладка скрыта на фронте, а
       // прямой запрос отбивается здесь.
       await assertPassengerAnalyticsAllowed(context)
-      const { user } = context
-      // АК видит только свои заявки; диспетчер/суперадмин — по input.airlineId (или все)
-      const scopedAirlineId = user?.airlineId || input.airlineId || null
-      // Признак «зритель — авиакомпания» считаем ОТДЕЛЬНО: scopedAirlineId непуст и когда
-      // диспетчер просто отфильтровал аналитику по авиакомпании.
-      const viewerIsAirline = !!user?.airlineId
+      // АК видит только свои заявки и в маске денег; диспетчер — по input.airlineId
+      // (или все). Признак зрителя берём из скоупа, а не из непустого airlineId:
+      // диспетчер тоже может отфильтровать аналитику по авиакомпании.
+      const viewerIsAirline = scope.kind === "airline"
+      const scopedAirlineId = viewerIsAirline ? scope.airlineId : input.airlineId || null
       return await computePassengerAnalytics(input, { scopedAirlineId, viewerIsAirline })
     }
   }
