@@ -13,6 +13,48 @@ export function assertPasswordPolicy(password) {
   }
 }
 
+// Проверки учётки, общие для обоих входов CRM: signInUser и transferSignIn.
+// Тексты ошибок — контракт: REST /api/auth/login переводит «Подтвердите email»
+// в 403 (services/routes/auth.js).
+export function assertUserMaySignIn(user) {
+  if (!user.active) {
+    throw new Error("User is not active")
+  }
+
+  if (user.emailVerified === false) {
+    throw new Error("Подтвердите email перед входом.")
+  }
+}
+
+export function assertUser2FA(user, token2FA) {
+  if (!user.is2FAEnabled) return
+
+  let verified = false
+  try {
+    if (token2FA && user.twoFAMethod === "TOTP") {
+      verified = speakeasy.totp.verify({
+        secret: user.twoFASecret,
+        encoding: "base32",
+        token: token2FA
+      })
+    } else if (token2FA && user.twoFAMethod === "HOTP") {
+      verified = speakeasy.hotp.verify({
+        secret: user.twoFASecret,
+        encoding: "base32",
+        token: token2FA,
+        counter: 0
+      })
+    }
+  } catch {
+    // speakeasy бросает на коде неверной длины — для входа это тот же отказ
+    verified = false
+  }
+
+  if (!verified) {
+    throw new Error("Invalid 2FA token")
+  }
+}
+
 export async function signInUser({ login, password, fingerprint, token2FA }) {
   const identifier = normalizeUserLogin(login)
   if (!identifier) {
@@ -32,38 +74,13 @@ export async function signInUser({ login, password, fingerprint, token2FA }) {
     throw new Error("Invalid credentials")
   }
 
-  if (!user.active) {
-    throw new Error("User is not active")
-  }
-
-  if (user.emailVerified === false) {
-    throw new Error("Подтвердите email перед входом.")
-  }
+  assertUserMaySignIn(user)
 
   if (!(await argon2.verify(user.password, password))) {
     throw new Error("Invalid credentials")
   }
 
-  if (user.is2FAEnabled) {
-    let verified
-    if (user.twoFAMethod === "TOTP") {
-      verified = speakeasy.totp.verify({
-        secret: user.twoFASecret,
-        encoding: "base32",
-        token: token2FA
-      })
-    } else if (user.twoFAMethod === "HOTP") {
-      verified = speakeasy.hotp.verify({
-        secret: user.twoFASecret,
-        encoding: "base32",
-        token: token2FA,
-        counter: 0
-      })
-    }
-    if (!verified) {
-      throw new Error("Invalid 2FA token")
-    }
-  }
+  assertUser2FA(user, token2FA)
 
   const sessionToken = uuidv4()
   const now = new Date()

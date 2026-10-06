@@ -10,6 +10,10 @@ import { allMiddleware } from "../../middlewares/authMiddleware.js"
 import { v4 as uuidv4 } from "uuid"
 import { sendNotificationToSubject } from "../../services/infra/fbsendtoken.js"
 import { canReadDriver } from "../../services/driver/driverAccess.js"
+import {
+  assertUser2FA,
+  assertUserMaySignIn
+} from "../../services/auth/signInUser.js"
 
 const SUBJECT = {
   USER: "USER",
@@ -149,30 +153,12 @@ const globalResolver = {
       // 3. Спец-логика по типам
 
       if (type === SUBJECT.USER) {
-        // 2FA только для User
-
-        // if (entity.is2FAEnabled) {
-        //   let verified = false
-
-        //   if (entity.twoFAMethod === "TOTP") {
-        //     verified = speakeasy.totp.verify({
-        //       secret: entity.twoFASecret,
-        //       encoding: "base32",
-        //       token: token2FA
-        //     })
-        //   } else if (entity.twoFAMethod === "HOTP") {
-        //     verified = speakeasy.hotp.verify({
-        //       secret: entity.twoFASecret,
-        //       encoding: "base32",
-        //       token: token2FA,
-        //       counter: 0
-        //     })
-        //   }
-
-        //   if (!verified) {
-        //     throw new Error("Invalid 2FA token")
-        //   }
-        // }
+        // Те же проверки, что у основного входа (signInUser): без них этот вход
+        // выдавал сессию учётке с неподтверждённой почтой и в обход 2FA (ПДН-Е-09).
+        // Стоят после пароля: без него не раскрываются ни почта, ни 2FA (active
+        // проверяется раньше — общей проверкой для всех типов, как было).
+        assertUserMaySignIn(entity)
+        assertUser2FA(entity, token2FA)
 
         jwtPayload = {
           ...jwtPayload,

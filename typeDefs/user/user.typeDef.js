@@ -122,7 +122,6 @@ const userTypeDef = /* GraphQL */ `
   }
 
   type Mutation {
-    signUp(input: SignUpInput!, images: [Upload!]): AuthPayload
     signIn(input: SignInInput!): AuthPayload
     registerUser(input: RegisterUserInput!, images: [Upload!]): User
     updateUser(input: UpdateUserInput!, images: [Upload!]): AuthPayload
@@ -136,13 +135,6 @@ const userTypeDef = /* GraphQL */ `
     resetPassword(token: String!, newPassword: String!): String!
     markUserOnline: User!
     markUserOffline: User!
-  }
-
-  input SignUpInput {
-    name: String!
-    email: String!
-    login: String!
-    password: String!
   }
 
   input SignInInput {

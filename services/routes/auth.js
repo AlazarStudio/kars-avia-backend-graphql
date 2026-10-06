@@ -3,12 +3,10 @@ import rateLimit from "express-rate-limit"
 import { signInUser } from "../auth/signInUser.js"
 import {
   FORGOT_PASSWORD_MESSAGE,
-  registerSelfUser,
   requestPasswordResetByEmail,
   resetPasswordWithToken,
   verifyEmailWithToken
 } from "../auth/publicAuthService.js"
-import { logger } from "../infra/logger.js"
 
 const router = express.Router()
 
@@ -20,51 +18,9 @@ const forgotPasswordLimiter = rateLimit({
   message: { message: "Слишком много запросов. Попробуйте позже." }
 })
 
-const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Слишком много попыток регистрации. Попробуйте позже." }
-})
-
 function jsonError(res, status, message) {
   return res.status(status).json({ message })
 }
-
-router.post("/register", registerLimiter, async (req, res) => {
-  try {
-    const { name, email, login, password } = req.body || {}
-    if (!name || !email || !login || !password) {
-      return jsonError(res, 400, "Укажите name, email, login и password.")
-    }
-
-    const newUser = await registerSelfUser({
-      name: String(name).trim(),
-      email: String(email).trim(),
-      login: String(login).trim(),
-      password: String(password),
-      role: "USER",
-      userType: undefined,
-      images: undefined
-    })
-
-    const { password: _p, ...safe } = newUser
-    return res.status(201).json({
-      message:
-        "Регистрация создана. Подтвердите email по ссылке из письма, затем войдите в аккаунт.",
-      requiresEmailVerification: true,
-      user: safe
-    })
-  } catch (e) {
-    logger.warn("[api/auth/register]", e?.message)
-    const msg = e?.message || "Ошибка регистрации"
-    if (msg.includes("уже существует")) {
-      return jsonError(res, 409, msg)
-    }
-    return jsonError(res, 400, msg)
-  }
-})
 
 router.post("/verify-email", async (req, res) => {
   try {
@@ -126,5 +82,9 @@ router.post("/login", async (req, res) => {
     return jsonError(res, 401, "Неверный логин или пароль.")
   }
 })
+
+// Неизвестные пути /api/auth/* (в том числе закрытый /register) — 404 здесь,
+// а не проваливаются в GraphQL-обработчик, смонтированный на "/" (ПДН-Е-09).
+router.use((req, res) => jsonError(res, 404, "Not found"))
 
 export default router

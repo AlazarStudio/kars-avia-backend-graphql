@@ -389,7 +389,7 @@ const globalTypeDef = /* GraphQL */ `
     identifier: String!
     password: String!
     fingerprint: String
-    # token2FA: String
+    token2FA: String
   }
 
   type TransferSignInPayload {

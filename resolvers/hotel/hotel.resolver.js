@@ -49,9 +49,10 @@ import {
 import { buildHotelWhere } from "../../services/hotel/hotelFilters.js"
 import { normalizeHotelLocation } from "../../services/geo/normalizeGeography.js"
 import {
-  issueExternalLinksForUser,
-  upsertHotelExternalUser
-} from "../../services/auth/externalAutoLinks.js"
+  HOTEL_LOGIN_LINK_FIELDS,
+  hideSecretFields
+} from "../../services/auth/hiddenSecretFields.js"
+import { hotelChessScopeWhere } from "../../services/hotel/hotelChessAccess.js"
 import {
   recalculateRequestPricing,
   recalculateOverlappingRequests,
@@ -276,41 +277,12 @@ const hotelResolver = {
       }
 
       // Создаем новый отель с включением связанных комнат
-      let createdHotel = await prisma.hotel.create({
+      const createdHotel = await prisma.hotel.create({
         data,
         include: {
           rooms: true
         }
       })
-
-      const adminId =
-        context.subjectType === "USER" ? context.subject?.id : null
-      try {
-        const externalUser = await upsertHotelExternalUser({
-          hotelId: createdHotel.id,
-          name: createdHotel.name
-        })
-        const generatedLinks = await issueExternalLinksForUser({
-          externalUserId: externalUser.id,
-          createdByAdminId: adminId || null
-        })
-        await prisma.hotel.update({
-          where: { id: createdHotel.id },
-          data: {
-            externalLinkCRM: generatedLinks.linkCRM,
-            externalLinkPWA: generatedLinks.linkPWA
-          }
-        })
-        createdHotel = {
-          ...createdHotel,
-          externalLinkCRM: generatedLinks.linkCRM,
-          externalLinkPWA: generatedLinks.linkPWA
-        }
-      } catch (error) {
-        logger.warn(
-          `Не удалось автоматически создать external ссылки отеля ${createdHotel.id}: ${error?.message || "unknown error"}`
-        )
-      }
 
       // Логирование действия создания отеля
       await logAction({
@@ -1766,6 +1738,8 @@ const hotelResolver = {
 
   // Резольверы для полей типа Hotel
   Hotel: {
+    // Ссылки входа гостиницы не отдаются никому (ПДН-Е-07).
+    ...hideSecretFields(HOTEL_LOGIN_LINK_FIELDS),
     // Получение связанных комнат отеля
     rooms: async (parent) => {
       const rows = Array.isArray(parent.rooms)
@@ -1809,17 +1783,16 @@ const hotelResolver = {
       hiddenAirlinePrice(parent.transferPriceForAir, context),
     transferPriceForAirReq: (parent, _, context) =>
       hiddenAirlineFlag(parent.transferPriceForAirReq, context),
-    // Получение связанных записей hotelChesses с включением данных клиента
-    hotelChesses: async (parent, args) => {
+    // Размещённые лица — ПДн: выдача только по принадлежности субъекта
+    // (services/hotel/hotelChessAccess.js, ПДН-Е-07).
+    hotelChesses: async (parent, args, context) => {
+      const scopeWhere = hotelChessScopeWhere(context, parent.id)
+      if (!scopeWhere) return []
+
       const hcPagination = args?.hcPagination || {}
       const { start, end } = hcPagination
 
-      // Без дат не отдаём preload всей истории — только явный date-filtered query
-      // (preload из hotels list больше не делаем)
-
-      const where = {
-        hotelId: parent.id
-      }
+      const where = { ...scopeWhere }
 
       if (start && end) {
         where.AND = [

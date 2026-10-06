@@ -32,13 +32,8 @@ export async function generateHotelLinks({ hotel, requestId, adminId }) {
     createdByAdminId: adminId || null,
     passengerRequestId: requestId
   })
-  await prisma.hotel.update({
-    where: { id: hotel.hotelId },
-    data: {
-      externalLinkCRM: generatedLinks.linkCRM,
-      externalLinkPWA: generatedLinks.linkPWA
-    }
-  })
+  // В карточку гостиницы (Hotel.externalLinkCRM/PWA) ссылки не копируем:
+  // карточку читает любой вошедший (ПДН-Е-07). Диспетчер берёт их из заявки.
   return generatedLinks
 }
 

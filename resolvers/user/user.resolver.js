@@ -39,7 +39,6 @@ import {
   omitSecretFields
 } from "../../services/auth/hiddenSecretFields.js"
 import {
-  registerSelfUser,
   requestPasswordResetByEmail,
   resetPasswordWithToken,
   verifyEmailWithToken
@@ -436,26 +435,6 @@ const userResolver = {
       // Публикация события о создании пользователя для подписок
       pubsub.publish(USER_CREATED, { userCreated: newUser })
       return newUser
-    },
-
-    // Регистрация (signUp) нового пользователя самостоятельно
-    signUp: async (_, { input, images }) => {
-      const { name, email, login, password, role, userType } = input
-      const newUser = await registerSelfUser({
-        name,
-        email,
-        login,
-        password,
-        role,
-        userType,
-        images: images || undefined
-      })
-      const { password: _pw, ...safe } = newUser
-      return {
-        ...safe,
-        token: null,
-        refreshToken: null
-      }
     },
 
     // Аутентификация (signIn) пользователя

@@ -363,8 +363,8 @@ test("Query скоупится по субъекту: в наблюдении н
     }
   }
 
-  // --- режим наблюдения: выдача не сужается ---
-  await withEnforce(undefined, async () => {
+  // --- режим наблюдения (аварийный откат FAP_SCOPE_ENFORCE=false): выдача не сужается ---
+  await withEnforce("false", async () => {
     const list = await runList({}, { context: foreign })
     assert.deepEqual(list.where, {}, "в наблюдении скоуп в where не подмешивается")
 

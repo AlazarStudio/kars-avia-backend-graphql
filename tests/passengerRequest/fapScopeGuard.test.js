@@ -41,11 +41,20 @@ const collect = () => {
 test("флаг читается на каждом вызове, а не на загрузке модуля", () => {
   withEnv("true", () => assert.equal(isScopeEnforced(), true))
   withEnv("false", () => assert.equal(isScopeEnforced(), false))
-  withEnv(undefined, () => assert.equal(isScopeEnforced(), false))
+  withEnv(undefined, () => assert.equal(isScopeEnforced(), true))
 })
 
-test("по умолчанию режим наблюдения: доступ разрешён, но помечен как отказной", () => {
+test("по умолчанию (переменная не задана) изоляция включена", () => {
   withEnv(undefined, () => {
+    const { sink } = collect()
+    assert.equal(evaluateRequestAccess(airlinePersonal, foreign, { sink }).allowed, false)
+    assert.equal(evaluateRequestAccess(airlinePersonal, own, { sink }).allowed, true)
+    assert.deepEqual(scopeFilterForQuery(airlinePersonal, { sink }).filter, { airlineId: "a1" })
+  })
+})
+
+test("при FAP_SCOPE_ENFORCE=false режим наблюдения: доступ разрешён, но помечен как отказной", () => {
+  withEnv("false", () => {
     const { sink, lines } = collect()
     const r = evaluateRequestAccess(airlinePersonal, foreign, { sink })
     assert.equal(r.allowed, true, "в наблюдении не отклоняем")
@@ -55,7 +64,7 @@ test("по умолчанию режим наблюдения: доступ ра
 })
 
 test("в наблюдении разрешённый доступ в лог не пишется", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink, lines } = collect()
     const r = evaluateRequestAccess(airlinePersonal, own, { sink })
     assert.equal(r.allowed, true)
@@ -65,7 +74,7 @@ test("в наблюдении разрешённый доступ в лог не
 })
 
 test("запись лога структурная и без персональных данных", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink, lines } = collect()
     evaluateRequestAccess(airlinePersonal, foreign, { sink })
     const payload = JSON.parse(lines[0].replace(/^FAP_SCOPE /, ""))
@@ -102,7 +111,7 @@ test("при включённом флаге доступ к чужой заяв
 })
 
 test("диспетчер не ограничен ни в одном режиме", () => {
-  for (const v of [undefined, "true"]) {
+  for (const v of [undefined, "false", "true"]) {
     withEnv(v, () => {
       const { sink, lines } = collect()
       assert.equal(evaluateRequestAccess(dispatcher, foreign, { sink }).allowed, true)
@@ -112,7 +121,7 @@ test("диспетчер не ограничен ни в одном режиме
 })
 
 test("assertCanAccessRequest бросает FORBIDDEN только при включённом флаге", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink } = collect()
     assert.doesNotThrow(() => assertCanAccessRequest(airlinePersonal, foreign, { sink }))
   })
@@ -126,7 +135,7 @@ test("assertCanAccessRequest бросает FORBIDDEN только при вкл
 })
 
 test("scopeFilterForQuery в наблюдении не меняет выдачу, но пишет запись", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink, lines } = collect()
     const r = scopeFilterForQuery(airlinePersonal, { sink })
     assert.equal(r.filter, null, "в наблюдении фильтр не подмешиваем")
@@ -138,7 +147,7 @@ test("scopeFilterForQuery в наблюдении не меняет выдачу
 // --- Гостиница: жёсткий режим безусловно, флаг не нужен ---
 
 test("гостиница изолирована и с выключенным флагом: чужая заявка недоступна", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink, lines } = collect()
     assert.equal(evaluateRequestAccess(hotelExternal, foreign, { sink }).allowed, false)
     assert.equal(evaluateRequestAccess(hotelExternal, own, { sink }).allowed, true)
@@ -152,7 +161,7 @@ test("гостиница изолирована и с выключенным ф�
 })
 
 test("гостинице фильтр списка подмешивается и с выключенным флагом", () => {
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink } = collect()
     const r = scopeFilterForQuery(hotelExternal, { sink })
     assert.deepEqual(r.filter, {
@@ -167,7 +176,7 @@ test("гостиничная учётка без hotelId получает отк
     subjectType: "EXTERNAL_USER",
     subject: { id: "e9", scope: "HOTEL" }
   }
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink } = collect()
     assert.equal(scopeFilterForQuery(brokenHotel, { sink }).denyAll, true)
     assert.equal(evaluateRequestAccess(brokenHotel, own, { sink }).allowed, false)
@@ -191,7 +200,7 @@ test("scopeFilterForQuery: отказной скоуп при включённо
     const { sink } = collect()
     assert.equal(scopeFilterForQuery(stranger, { sink }).denyAll, true)
   })
-  withEnv(undefined, () => {
+  withEnv("false", () => {
     const { sink } = collect()
     assert.equal(scopeFilterForQuery(stranger, { sink }).denyAll, false)
   })

@@ -13,6 +13,12 @@ export const USER_SECRET_FIELDS = [
 
 export const SESSION_SECRET_FIELDS = ["password", "refreshToken", "fingerprint"]
 
+// Копия ссылок входа внешней учётки гостиницы (сырой токен) в карточке
+// гостиницы. Не отдаётся никому: ссылки диспетчер берёт из заявки ФАП
+// (resolvers/passengerRequest/fields.resolver.js), а карточку читает любой
+// вошедший (ПДН-Е-07). Поля остаются в схеме, чтобы старые запросы не падали.
+export const HOTEL_LOGIN_LINK_FIELDS = ["externalLinkCRM", "externalLinkPWA"]
+
 export function hideSecretFields(fieldNames) {
   return Object.fromEntries(fieldNames.map((name) => [name, () => null]))
 }
