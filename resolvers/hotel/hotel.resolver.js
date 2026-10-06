@@ -54,6 +54,10 @@ import {
 } from "../../services/auth/hiddenSecretFields.js"
 import { hotelChessScopeWhere } from "../../services/hotel/hotelChessAccess.js"
 import {
+  canReadHotelLogs,
+  emptyLogConnection
+} from "../../services/log/entityLogAccess.js"
+import {
   recalculateRequestPricing,
   recalculateOverlappingRequests,
   recalculateAffectedByRoomChange,
@@ -1835,7 +1839,9 @@ const hotelResolver = {
       }
       return null
     },
-    logs: async (parent, { pagination }) => {
+    // Журнал гостиницы — только диспетчерам (services/log/entityLogAccess.js, ПДН-Е-07).
+    logs: async (parent, { pagination }, context) => {
+      if (!canReadHotelLogs(context)) return emptyLogConnection()
       const { skip, take } = pagination || {}
 
       const totalCount = await prisma.log.count({

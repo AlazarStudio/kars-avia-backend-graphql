@@ -70,3 +70,31 @@ test("hotelChesses: авиакомпания — только свои заяв�
   ])
   assert.equal(where.AND.length, 2, "фильтр по датам сохранился")
 })
+
+test("Hotel.logs: журнал гостиницы видит только диспетчер", async () => {
+  const run = async (context) => {
+    const db = installPrismaDouble({ documents: { logMany: [{ id: "l1" }] } })
+    try {
+      const result = await hotelResolver.Hotel.logs(
+        { id: "h1" },
+        { pagination: { skip: 0, take: 10 } },
+        context
+      )
+      return {
+        result,
+        calls: db.callsTo("log").length,
+        where: db.callsTo("log", "findMany")[0]?.args?.where
+      }
+    } finally {
+      db.restore()
+    }
+  }
+  for (const context of [hotelAdmin("h1"), airlineAdmin, selfRegistered, {}]) {
+    const { result, calls } = await run(context)
+    assert.deepEqual(result, { totalCount: 0, totalPages: 0, logs: [] })
+    assert.equal(calls, 0, "без обращения к базе")
+  }
+  const { result, where } = await run(dispatcher)
+  assert.deepEqual(where, { hotelId: "h1" })
+  assert.deepEqual(result.logs, [{ id: "l1" }])
+})

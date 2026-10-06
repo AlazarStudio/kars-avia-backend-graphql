@@ -39,6 +39,10 @@ import {
   SESSION_SECRET_FIELDS,
   hideSecretFields
 } from "../../services/auth/hiddenSecretFields.js"
+import {
+  canReadAirlineLogs,
+  emptyLogConnection
+} from "../../services/log/entityLogAccess.js"
 
 const priceValidity = (input, existing) => ({
   startDate:
@@ -1131,7 +1135,10 @@ const airlineResolver = {
     //     where: { airlineId: parent.id }
     //   })
     // },
-    logs: async (parent, { pagination }) => {
+    // Журнал авиакомпании — диспетчерам и пользователям CRM этой АК
+    // (services/log/entityLogAccess.js, ПДН-Е-07).
+    logs: async (parent, { pagination }, context) => {
+      if (!canReadAirlineLogs(context, parent.id)) return emptyLogConnection()
       const { skip, take } = pagination || {}
       const totalCount = await prisma.log.count({
         where: { airlineId: parent.id }
