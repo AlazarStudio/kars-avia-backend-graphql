@@ -37,6 +37,23 @@ test("gptExtractFields шлёт промпт и возвращает распа�
   process.env.YANDEX_CLOUD_FOLDER_ID = prev.f
 })
 
+test("gptExtractFields отключает логирование запроса на стороне Yandex", async () => {
+  const prev = { k: process.env.YANDEX_CLOUD_API_KEY, f: process.env.YANDEX_CLOUD_FOLDER_ID }
+  process.env.YANDEX_CLOUD_API_KEY = "test-key"
+  process.env.YANDEX_CLOUD_FOLDER_ID = "test-folder"
+  let seenConfig = null
+  const http = {
+    post: async (url, body, config) => {
+      seenConfig = config
+      return { data: { result: { alternatives: [{ message: { text: "{}" } }] } } }
+    }
+  }
+  await gptExtractFields("текст", { http })
+  assert.equal(seenConfig.headers["x-data-logging-enabled"], "false")
+  process.env.YANDEX_CLOUD_API_KEY = prev.k
+  process.env.YANDEX_CLOUD_FOLDER_ID = prev.f
+})
+
 test("gptExtractFields возвращает {} если модель вернула не-JSON", async () => {
   const prev = { k: process.env.YANDEX_CLOUD_API_KEY, f: process.env.YANDEX_CLOUD_FOLDER_ID }
   process.env.YANDEX_CLOUD_API_KEY = "test-key"

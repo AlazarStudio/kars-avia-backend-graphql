@@ -11,12 +11,20 @@ const okDeps = {
   logError: () => {}
 }
 
-test("успех: нормализует поля, считает confidence, отдаёт rawText", async () => {
-  const r = await recognizePassengerDocument({}, okDeps)
+test("успех: нормализует поля, считает confidence, не отдаёт текст документа", async () => {
+  let gptInput = null
+  const r = await recognizePassengerDocument({}, {
+    ...okDeps,
+    gptExtractFields: async (text) => {
+      gptInput = text
+      return okDeps.gptExtractFields(text)
+    }
+  })
   assert.equal(r.fullName, "Иванов Иван")
   assert.equal(r.flight, "SU1234")
   assert.equal(r.seat, "12A")
-  assert.equal(r.rawText, "ИВАНОВ ИВАН SU 1234")
+  assert.equal(r.rawText, "")
+  assert.equal(gptInput, "ИВАНОВ ИВАН SU 1234")
   assert.ok(r.confidence >= 0.6)
 })
 

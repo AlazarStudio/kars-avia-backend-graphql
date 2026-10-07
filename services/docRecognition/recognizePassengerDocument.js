@@ -34,7 +34,8 @@ export async function recognizePassengerDocument(upload, deps = {}) {
     return {
       ...fields,
       confidence: computeConfidence(fields),
-      rawText
+      // 152-ФЗ: полный текст документа клиенту не отдаём
+      rawText: ""
     }
   } catch (err) {
     logError(err?.message || String(err))

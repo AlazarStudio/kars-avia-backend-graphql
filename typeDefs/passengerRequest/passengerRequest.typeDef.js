@@ -716,7 +716,7 @@ const passengerRequestTypeDef = /* GraphQL */ `
     "Телефон пассажира, только цифры. Есть в квитанциях и билетах, на посадочном талоне отсутствует"
     phone: String
     confidence: Float
-    rawText: String
+    rawText: String @deprecated(reason: "Полный текст документа не возвращается (152-ФЗ). Всегда пустая строка.")
   }
 
   type Mutation {

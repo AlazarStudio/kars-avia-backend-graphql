@@ -42,7 +42,8 @@ export async function gptExtractFields(ocrText, { http = axios } = {}) {
       headers: {
         Authorization: `Api-Key ${apiKey}`,
         "x-folder-id": folderId,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-data-logging-enabled": "false"
       }
     }
   )
